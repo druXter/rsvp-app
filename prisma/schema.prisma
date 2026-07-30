@@ -1,0 +1,42 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Event {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  title       String
+  date        DateTime
+  location    String?
+  description String?
+  formConfig  String?  @default("{\"askEmail\":false,\"askPhone\":false,\"askDiet\":true,\"askAlcohol\":true}")
+  rsvps       Rsvp[]
+  createdAt   DateTime @default(now())
+  duration  Int      @default(4)
+}
+
+model Rsvp {
+  id             String   @id @default(cuid())
+  eventId        String
+  event          Event    @relation(fields: [eventId], references: [id])
+  name           String
+  isAttending    Boolean
+  dietaryOption  String?
+  drinksAlcohol  Boolean?
+  additionalInfo String?
+  declineReason   String?
+  email           String?
+  phone           String?
+  customAnswers   String?  // Hier laden später die Antworten auf deine komplett freien Fragen
+  createdAt      DateTime @default(now())
+  plusOne      Boolean @default(false)
+  plusOneName  String?
+  bringingItem String?
+  allergies    String?
+  editToken String @unique @default(uuid())
+}

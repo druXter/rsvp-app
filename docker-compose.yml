@@ -1,0 +1,19 @@
+services:
+  rsvp-app:
+    build: .
+    container_name: rsvp-app
+    restart: unless-stopped
+    ports:
+      # Hier kannst du den Port anpassen, falls 3000 belegt ist. 
+      # Z.B. "3005:3000" (leitet Port 3005 des Servers an Port 3000 des Containers)
+      - "3005:3000" 
+    volumes:
+      # Dieser Ordner speichert deine SQLite-Datenbank sicher außerhalb des Containers, 
+      # damit die Gästeliste bei Updates nicht verloren geht.
+      - ./data:/app/data
+    env_file:
+      - .env
+    environment:
+      # Teilt der App mit, wo die persistente Datenbank liegt
+      - DATABASE_URL=file:/app/data/prod.db
+      - TZ=Europe/Berlin
