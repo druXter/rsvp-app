@@ -11,8 +11,7 @@ Ein schlankes, anpassbares und leistungsstarkes Event-Management-System, gebaut 
   * Alkohol-Präferenz
   * Mitbringsel (Essen/Trinken)
   * E-Mail und Handynummer
-* **Personalisierte Links:** Gäste erhalten nach der Zusage einen einzigartigen, Token-basierten Link, über den sie ihre Antwort jederzeit nachträglich bearbeiten können.
-* **iCal Integration:** Gäste können sich direkt eine `.ics`-Datei für Apple/Google/Outlook-Kalender herunterladen, in der ihr persönlicher Bearbeitungslink bereits hinterlegt ist.
+* **Automatischer E-Mail-Versand:** Gäste erhalten nach der Zusage eine automatische Bestätigungsmail inkl. iCal-Datei und personalisiertem Link zur nachträglichen Bearbeitung.
 * **Admin Dashboard:** 
   * Volle Übersicht über alle Zu- und Absagen.
   * Nachträgliches, manuelles Bearbeiten von Gästedaten (z.B. bei telefonischer Zusage).
@@ -29,25 +28,43 @@ Ein schlankes, anpassbares und leistungsstarkes Event-Management-System, gebaut 
 
 ## 🚀 Quick Start (Local & Docker)
 
-1. **Repository klonen**
-   \`\`\`bash
-   git clone <deine-repo-url>
-   cd rsvp-app
-   \`\`\`
+### 1. Repository klonen
+   
+```bash
+git clone <deine-repo-url>
+cd rsvp-app
+```
 
-2. **Umgebungsvariablen setzen**
-   Kopiere die Vorlage und öffne sie:
-   \`\`\`bash
-   cp .env.example .env
-   \`\`\`
-   Trage in der `.env` dein gewünschtes sicheres `ADMIN_PASSWORD` ein.
+### 2. Umgebungsvariablen setzen
+   
+Kopiere die Vorlage und öffne sie:
+   
+```bash
+cp .env.example .env
+```
+   
+Trage in der `.env` dein gewünschtes sicheres `ADMIN_PASSWORD` ein und konfiguriere den automatischen E-Mail-Versand:
+   
+```env
+# E-Mail & URL Konfiguration für automatische Bestätigungen
+BASE_URL=[https://rsvp.deine-domain.de](https://rsvp.deine-domain.de)
 
-3. **Mit Docker starten (Empfohlen)**
-   Baue und starte den Container:
-   \`\`\`bash
-   docker compose up -d --build
-   \`\`\`
-   Die App ist nun unter `http://localhost:3000` (bzw. auf deinem konfigurierten Port) erreichbar. Die SQLite-Datenbank wird automatisch migriert.
+SMTP_HOST=smtp.dein-provider.de
+SMTP_PORT=587
+SMTP_USER=deine-email@domain.de
+SMTP_PASS=dein-mail-passwort
+SMTP_FROM="RSVP Team <deine-email@domain.de>"
+```
+
+### 3. Mit Docker starten (Empfohlen)
+   
+Baue und starte den Container:
+   
+```bash
+docker compose up -d --build
+```
+   
+Die App ist nun unter `http://localhost:3000` (bzw. auf deinem konfigurierten Port) erreichbar. Die SQLite-Datenbank wird automatisch migriert.
 
 ## 🔒 Sicherheitshinweise
 
