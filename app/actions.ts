@@ -4,6 +4,7 @@
 import { PrismaClient } from '@prisma/client'
 import { revalidatePath } from 'next/cache'
 import { randomUUID } from 'crypto'
+import { sendConfirmationEmail } from './lib/mail'
 
 const prisma = new PrismaClient()
 
@@ -66,7 +67,27 @@ export async function submitRsvp(formData: FormData) {
         editToken: randomUUID()
       }
     })
+    // E-Mail Versand anstoßen (läuft im Hintergrund ab)
+  if (savedRsvp.email) {
+    try {
+      const event = await prisma.event.findUnique({ where: { id: eventId } })
+      if (event) {
+        // Wir "warten" (await) hier bewusst nicht zwingend auf den Abschluss des Versands,
+        // oder wir fangen Fehler ab, damit der Nutzer auf der Website keinen Error sieht, 
+        // falls der Mailserver kurz hängen sollte.
+        await sendConfirmationEmail(savedRsvp, event)
+      }
+    } catch (error) {
+      console.error("Fehler beim E-Mail-Versand:", error)
+    }
   }
+
+  revalidatePath(`/${eventId}`)
+  revalidatePath('/admin') 
+  
+  return { editToken: savedRsvp.editToken }
+}
+
 
   // Next.js Cache leeren, damit die neuen Daten sofort auf den betroffenen Seiten sichtbar werden
   revalidatePath(`/${eventId}`)
