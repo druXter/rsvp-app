@@ -89,3 +89,68 @@ Dein Event-Team`
     }
   })
 }
+
+/**
+ * Versendet eine Erinnerungs-E-Mail an einen bestimmten Gast.
+ * Akzeptiert eine optionale, benutzerdefinierte Nachricht des Gastgebers.
+ */
+export async function sendReminderEmail(
+  event: any,
+  rsvp: any,
+  customMessage: string
+) {
+  // BASE_URL aus .env auslesen für korrekte Links
+  const baseUrl = process.env.BASE_URL || 'http://localhost:3000'
+  const personalLink = `${baseUrl}/${event.slug}?token=${rsvp.editToken}`
+
+  // Datum in deutsches Format umwandeln
+  const formattedDate = new Date(event.date).toLocaleString('de-DE', {
+    timeZone: 'Europe/Berlin',
+    weekday: 'long',
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+
+  // Wenn ein Zusatztext eingegeben wurde, bauen wir einen hervorgehobenen HTML-Block dafür
+  const customMessageHtml = customMessage 
+    ? `<div style="background-color: #f3f4f6; padding: 15px; border-left: 4px solid #3b82f6; margin: 20px 0;">
+         <p style="margin: 0; white-space: pre-wrap;"><strong>Nachricht des Gastgebers:</strong><br><br>${customMessage}</p>
+       </div>` 
+    : ''
+
+  const mailOptions = {
+    from: process.env.SMTP_FROM,
+    to: rsvp.email,
+    subject: `Erinnerung: ${event.title} steht bald an!`,
+    text: `Hallo ${rsvp.name},\n\nwir freuen uns, dass du bei "${event.title}" dabei bist!\n\nWann: ${formattedDate} Uhr\nWo: ${event.location || 'Wird noch bekannt gegeben'}\n\n${customMessage ? 'Nachricht des Gastgebers:\n' + customMessage + '\n\n' : ''}Deine Antworten bearbeiten: ${personalLink}`,
+    html: `
+      <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
+        <h2>Wir freuen uns auf dich, ${rsvp.name}! 🎉</h2>
+        <p>Das Event <strong>${event.title}</strong> rückt näher. Hier sind noch einmal alle wichtigen Daten für dich zusammengefasst:</p>
+        
+        <ul style="list-style: none; padding: 0;">
+          <li>📅 <strong>Wann:</strong> ${formattedDate} Uhr</li>
+          <li>📍 <strong>Wo:</strong> ${event.location || 'Wird noch bekannt gegeben'}</li>
+        </ul>
+
+        ${customMessageHtml}
+
+        <p>Falls sich an deiner Zusage noch etwas ändert, kannst du deine Daten jederzeit hier anpassen:</p>
+        <p><a href="${personalLink}" style="display: inline-block; padding: 10px 20px; background-color: #2563eb; color: #fff; text-decoration: none; border-radius: 5px;">Antwort bearbeiten</a></p>
+        
+        <p>Bis bald!</p>
+      </div>
+    `
+  }
+
+  try {
+    await transporter.sendMail(mailOptions)
+    return true
+  } catch (error) {
+    console.error(`Fehler beim Senden der Erinnerung an ${rsvp.email}:`, error)
+    return false
+  }
+}

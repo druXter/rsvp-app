@@ -1,5 +1,5 @@
 // app/[slug]/rsvp-form.tsx
-'use client' // Kennzeichnet diese Datei als Client-Komponente für interaktive Hooks (useState)
+'use client' 
 
 import { useState } from 'react'
 import { submitRsvp } from '../actions'
@@ -11,27 +11,22 @@ import { submitRsvp } from '../actions'
 export default function RsvpForm({ 
   eventId, 
   formConfig,
-  existingRsvp
+  existingRsvp,
+  isEmbed = false // NEU: Der Embed-Status wird als Parameter entgegengenommen (Standard: false)
 }: { 
   eventId: string; 
   formConfig: string | null; 
   existingRsvp?: any; 
+  isEmbed?: boolean; // NEU: Typisierung für den neuen Parameter
 }) {
-  // Initialisierung der Zustände. Falls existingRsvp übergeben wurde (Gast bearbeitet seine Antwort),
-  // nutzen wir diese Daten als Standardwerte, andernfalls starten wir leer (null/false).
   const [isAttending, setIsAttending] = useState<boolean | null>(existingRsvp ? existingRsvp.isAttending : null)
   const [hasPlusOne, setHasPlusOne] = useState<boolean>(existingRsvp ? existingRsvp.plusOne : false)
   const [submittedToken, setSubmittedToken] = useState<string | null>(null) 
   
-  // JSON-Konfiguration des Events sicher parsen, andernfalls Fallback-Werte nutzen
   const config = formConfig 
     ? JSON.parse(formConfig) 
     : { askEmail: false, askPhone: false, askDiet: true, askAlcohol: true, askPlusOne: false, askBringingItem: false, askAllergies: false }
 
-  /**
-   * Behandelt das Absenden des Formulars.
-   * Reicht die Formulardaten an die Server-Action weiter und speichert den zurückgegebenen Bearbeitungs-Token.
-   */
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const formData = new FormData(e.currentTarget)
@@ -39,18 +34,16 @@ export default function RsvpForm({
     setSubmittedToken(result.editToken)
   }
 
-  // Erfolgsmeldung anzeigen, sobald das Formular erfolgreich verarbeitet wurde
   if (submittedToken) {
-    // Dynamische Konstruktion der aktuellen URL inklusive des neuen Tokens zur nachträglichen Bearbeitung
     const personalLink = typeof window !== 'undefined' ? `${window.location.origin}${window.location.pathname}?token=${submittedToken}` : ''
 
     return (
-      <div className="p-6 bg-green-50 text-green-800 rounded-lg shadow flex flex-col items-center">
+      // NEU: Dynamische Klassen für die Erfolgsmeldung (kein Hintergrund/Schatten im Embed-Modus)
+      <div className={`flex flex-col items-center ${isEmbed ? 'py-6 text-green-800' : 'p-6 bg-green-50 text-green-800 rounded-lg shadow'}`}>
         <h3 className="text-xl font-bold mb-2 text-center">Danke für deine Antwort!</h3>
         <p className="mb-6 text-center">Deine Rückmeldung wurde erfolgreich gespeichert.</p>
         
-        {/* Anzeige des persönlichen Links zur späteren Bearbeitung */}
-        <div className="bg-white p-4 rounded border border-green-200 w-full mb-6">
+        <div className={`w-full mb-6 ${isEmbed ? 'p-4 border border-green-200 rounded' : 'bg-white p-4 rounded border border-green-200'}`}>
           <p className="text-sm font-bold mb-2 text-green-900">🔗 Dein persönlicher Bearbeitungs-Link:</p>
           <p className="text-xs text-gray-600 mb-2">Speichere diesen Link, falls du deine Antwort später noch einmal ändern möchtest.</p>
           <input 
@@ -58,12 +51,11 @@ export default function RsvpForm({
             readOnly 
             value={personalLink} 
             className="w-full bg-gray-50 border border-gray-200 rounded p-2 text-sm text-gray-700 outline-none cursor-pointer"
-            onClick={(e) => e.currentTarget.select()} // Text bei Klick automatisch markieren
+            onClick={(e) => e.currentTarget.select()} 
             title="Link zum Kopieren anklicken"
           />
         </div>
 
-        {/* iCal-Download-Button nur für Gäste einblenden, die zugesagt haben */}
         {isAttending && (
           <a 
             href={`/api/ical/${eventId}?token=${submittedToken}`} 
@@ -76,10 +68,9 @@ export default function RsvpForm({
     )
   }
 
-  // Das eigentliche Eingabeformular
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 bg-white p-6 rounded-lg shadow text-gray-900">
-      {/* Versteckte Felder für die Datenbank-Zuordnung */}
+    // NEU: Dynamische Klassen für das eigentliche Formular. Im Embed-Modus entfernen wir die Box-Optik komplett.
+    <form onSubmit={handleSubmit} className={`space-y-6 text-gray-900 ${isEmbed ? '' : 'bg-white p-6 rounded-lg shadow'}`}>
       <input type="hidden" name="eventId" value={eventId} />
       {existingRsvp && <input type="hidden" name="editToken" value={existingRsvp.editToken} />}
 
@@ -102,11 +93,9 @@ export default function RsvpForm({
         </div>
       </div>
 
-      {/* Zusatzfelder: Werden nur eingeblendet, wenn der Gast zusagt */}
       {isAttending === true && (
         <div className="space-y-4 pt-4 border-t border-gray-200">
           
-          {/* Optionale Felder, basierend auf der Event-Konfiguration */}
           {config.askEmail && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">E-Mail Adresse</label>
@@ -185,7 +174,6 @@ export default function RsvpForm({
         </div>
       )}
 
-      {/* Abfragegrund: Wird nur eingeblendet, wenn der Gast absagt */}
       {isAttending === false && (
         <div className="space-y-4 pt-4 border-t">
           <div>
@@ -195,7 +183,6 @@ export default function RsvpForm({
         </div>
       )}
 
-      {/* Dynamischer Button-Text, je nachdem ob es sich um eine neue oder bearbeitete Antwort handelt */}
       <button type="submit" className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded hover:bg-blue-700 transition">
         {existingRsvp ? "Änderungen speichern" : "Antwort absenden"}
       </button>

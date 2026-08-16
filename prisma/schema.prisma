@@ -1,3 +1,4 @@
+// prisma/schema.prisma
 generator client {
   provider = "prisma-client-js"
 }
@@ -15,9 +16,12 @@ model Event {
   location    String?
   description String?
   formConfig  String?  @default("{\"askEmail\":false,\"askPhone\":false,\"askDiet\":true,\"askAlcohol\":true}")
+  reminderSent Boolean @default(false)
+  autoReminder Boolean @default(false)
+  reminderDays Int     @default(7)
   rsvps       Rsvp[]
   createdAt   DateTime @default(now())
-  duration  Int      @default(4)
+  duration    Int      @default(4)
 }
 
 model Rsvp {
@@ -29,14 +33,14 @@ model Rsvp {
   dietaryOption  String?
   drinksAlcohol  Boolean?
   additionalInfo String?
-  declineReason   String?
-  email           String?
-  phone           String?
-  customAnswers   String?  // Hier laden später die Antworten auf deine komplett freien Fragen
+  declineReason  String?
+  email          String?
+  phone          String?
+  customAnswers  String?  
   createdAt      DateTime @default(now())
-  plusOne      Boolean @default(false)
-  plusOneName  String?
-  bringingItem String?
-  allergies    String?
-  editToken String @unique @default(uuid())
+  plusOne        Boolean  @default(false)
+  plusOneName    String?
+  bringingItem   String?
+  allergies      String?
+  editToken      String   @unique @default(uuid())
 }

@@ -7,12 +7,7 @@ import { updateEvent } from '../../actions'
 
 const prisma = new PrismaClient()
 
-/**
- * Admin-Seite zum Bearbeiten eines bestehenden Events.
- * Lädt die aktuellen Daten aus der Datenbank und stellt sie als Standardwerte im Formular bereit.
- */
 export default async function EditEventPage({ params }: { params: Promise<{ id: string }> }) {
-  // Sicherheits-Check
   const cookieStore = await cookies()
   const session = cookieStore.get('admin_session')
 
@@ -20,7 +15,6 @@ export default async function EditEventPage({ params }: { params: Promise<{ id: 
     redirect('/admin/login')
   }
 
-  // Event anhand der übergebenen ID suchen
   const { id } = await params
   const event = await prisma.event.findUnique({ where: { id } })
 
@@ -28,14 +22,10 @@ export default async function EditEventPage({ params }: { params: Promise<{ id: 
     return <div className="p-8">Event nicht gefunden.</div>
   }
 
-  // Das HTML-Feld 'datetime-local' erfordert ein sehr spezifisches Format (YYYY-MM-DDThh:mm).
-  // Hier wandeln wir den ISO-String der Datenbank entsprechend um.
   const d = new Date(event.date)
   const pad = (n: number) => n.toString().padStart(2, '0')
   const formattedDate = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 
-  // Die gespeicherte JSON-Konfiguration entschlüsseln. 
-  // Fallback-Werte werden gesetzt, falls das Event erstellt wurde, bevor bestimmte Felder existierten.
   const config = event.formConfig ? JSON.parse(event.formConfig) : { askEmail: false, askPhone: false, askDiet: true, askAlcohol: true }
 
   return (
@@ -50,7 +40,6 @@ export default async function EditEventPage({ params }: { params: Promise<{ id: 
         </div>
 
         <form action={updateEvent} className="space-y-4">
-          {/* Unsichtbares Feld, um die Event-ID sicher an den Server zu übergeben */}
           <input type="hidden" name="eventId" value={event.id} />
 
           <div>
@@ -86,7 +75,6 @@ export default async function EditEventPage({ params }: { params: Promise<{ id: 
           <div className="space-y-3 pt-4 border-t border-gray-200">
             <h3 className="font-bold text-gray-900">Welche Felder sollen im Formular abgefragt werden?</h3>
             
-            {/* Standardwerte der Checkboxen basierend auf der geladenen Konfiguration (config) setzen */}
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" name="askEmail" defaultChecked={config.askEmail} className="w-4 h-4" />
               <span>E-Mail Adresse abfragen</span>
@@ -121,6 +109,22 @@ export default async function EditEventPage({ params }: { params: Promise<{ id: 
               <input type="checkbox" name="askAllergies" defaultChecked={config.askAllergies} className="w-4 h-4" />
               <span>Allergien abfragen</span>
             </label>
+          </div>
+
+          {/* Einstellungen für Uptime Kuma Cronjob */}
+          <div className="space-y-3 pt-4 border-t border-gray-200 bg-blue-50 p-4 rounded-md">
+            <h3 className="font-bold text-blue-900">Automatische E-Mail Erinnerung</h3>
+            <p className="text-xs text-blue-700 mb-2">Erfordert, dass Gäste ihre E-Mail angeben (siehe oben).</p>
+            
+            <label className="flex items-center gap-2 cursor-pointer mb-3">
+              <input type="checkbox" name="autoReminder" defaultChecked={event.autoReminder} className="w-4 h-4 text-blue-600" />
+              <span className="text-sm font-medium text-blue-900">Automatische Erinnerung aktivieren</span>
+            </label>
+            
+            <div>
+              <label className="block text-sm font-medium mb-1 text-blue-900">Wie viele Tage vor dem Event?</label>
+              <input type="number" name="reminderDays" min="1" max="30" defaultValue={event.reminderDays} className="w-full border border-gray-300 p-2 rounded" />
+            </div>
           </div>
 
           <button type="submit" className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded hover:bg-blue-700 transition">

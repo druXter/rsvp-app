@@ -5,6 +5,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { PrismaClient } from '@prisma/client'
+import { sendReminderEmail } from '../lib/mail'
 
 const prisma = new PrismaClient()
 
@@ -58,6 +59,10 @@ export async function createEvent(formData: FormData) {
   const description = formData.get('description') as string
   const duration = parseInt(formData.get('duration') as string) || 4 // Fallback auf 4 Stunden
 
+  // NEU: Cronjob-Einstellungen auslesen
+  const autoReminder = formData.get('autoReminder') === 'on'
+  const reminderDays = parseInt(formData.get('reminderDays') as string) || 7
+
   // Abfrage-Optionen für die Gäste als JSON-String speichern
   const formConfig = JSON.stringify({
     askEmail: formData.get('askEmail') === 'on',
@@ -80,7 +85,9 @@ export async function createEvent(formData: FormData) {
       location,
       description,
       duration,
-      formConfig
+      formConfig,
+      autoReminder, // NEU in DB
+      reminderDays  // NEU in DB
     }
   })
 
@@ -120,6 +127,10 @@ export async function updateEvent(formData: FormData) {
   const description = formData.get('description') as string
   const duration = parseInt(formData.get('duration') as string) || 4 
 
+  // NEU: Cronjob-Einstellungen auslesen
+  const autoReminder = formData.get('autoReminder') === 'on'
+  const reminderDays = parseInt(formData.get('reminderDays') as string) || 7
+
   // Aktualisierte Formular-Optionen serialisieren
   const formConfig = JSON.stringify({
     askEmail: formData.get('askEmail') === 'on',
@@ -142,7 +153,9 @@ export async function updateEvent(formData: FormData) {
       location,
       description,
       duration,
-      formConfig
+      formConfig,
+      autoReminder, // NEU in DB
+      reminderDays  // NEU in DB
     }
   })
 
@@ -207,4 +220,57 @@ export async function updateAdminRsvp(formData: FormData) {
 
   revalidatePath('/admin')
   redirect('/admin')
+}
+
+/**
+ * Server Action: Versendet Erinnerungen an alle zugesagten Gäste eines Events.
+ * Schützt die Route via Cookie-Prüfung und aktualisiert danach das Dashboard.
+ */
+export async function sendReminder(formData: FormData) {
+  // 1. Security First: Prüfen, ob der User wirklich Admin ist
+  const cookieStore = await cookies()
+  const session = cookieStore.get('admin_session')
+  
+  if (!session || session.value !== 'true') {
+    throw new Error('Nicht autorisiert')
+  }
+
+  // 2. Daten aus dem Formular auslesen
+  const eventId = formData.get('eventId') as string
+  const customMessage = formData.get('customMessage') as string
+
+  if (!eventId) return
+
+  // 3. Das Event und alle relevanten RSVPs (Nur Zusagen + hat E-Mail) aus der DB holen
+  const event = await prisma.event.findUnique({
+    where: { id: eventId },
+    include: {
+      rsvps: {
+        where: {
+          isAttending: true, // Nur Leute, die zugesagt haben
+          email: { not: null} // Nur Leute, die eine E-Mail hinterlegt haben
+        }
+      }
+    }
+  })
+
+  if (!event) throw new Error('Event nicht gefunden')
+
+  const validRsvps = event.rsvps.filter(rsvp => rsvp.email && rsvp.email.trim() !== "")
+
+  // 4. Mails asynchron über unsere neue Funktion verschicken
+  const emailPromises = validRsvps.map(rsvp => 
+    sendReminderEmail(event, rsvp, customMessage)
+  )
+
+  await Promise.allSettled(emailPromises)
+
+  // 5. In der Datenbank vermerken, dass eine Erinnerung gesendet wurde
+  await prisma.event.update({
+    where: { id: eventId },
+    data: { reminderSent: true }
+  })
+
+  // 6. Das UI (Admin-Dashboard) neu laden, um das "Erinnerung wurde gesendet"-Label anzuzeigen
+  revalidatePath('/admin')
 }
