@@ -5,6 +5,9 @@ Ein schlankes, anpassbares und leistungsstarkes Event-Management-System, gebaut 
 ## ✨ Features
 
 * **Multi-Event-Support:** Verwalte beliebig viele Events gleichzeitig über dynamische URLs (z.B. `/sommerfest`).
+* **Gruppen- & Vereins-Features:**
+  * **Transparente Gästeliste:** Optional zuschaltbare öffentliche Gästeliste, auf der Teilnehmer sehen können, wer zugesagt hat, wer Begleitungen mitbringt und wer welches Essen/Getränk beisteuert. Sensible Daten (E-Mail, Telefon) werden streng gefiltert.
+  * **Event-PIN:** Schütze private Events mit einem Zugangscode vor unbefugten Aufrufen.
 * **Kapazitätsgrenzen & intelligente Warteliste:**
   * Optionale maximale Teilnehmerzahl pro Event festlegbar.
   * Vollautomatische Warteliste: Sobald das Limit erreicht ist, reihen sich neue Gäste nahtlos in die Warteschlange ein (inkl. Wartelisten-Info per E-Mail).

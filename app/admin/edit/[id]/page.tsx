@@ -143,6 +143,22 @@ export default async function EditEventPage({ params }: { params: Promise<{ id: 
             </label>
           </div>
 
+          {/* NEU: Gruppen- & Vereins-Features */}
+          <div className="space-y-3 pt-4 border-t border-gray-200 bg-purple-50 p-4 rounded-md">
+            <h3 className="font-bold text-purple-900">Gruppen- & Vereins-Features</h3>
+            
+            <label className="flex items-center gap-2 cursor-pointer mb-3">
+              <input type="checkbox" name="isGuestListVisible" defaultChecked={event.isGuestListVisible} className="w-4 h-4 text-purple-600" />
+              <span className="text-sm font-medium text-purple-900">Transparente Gästeliste (Zeigt Wer kommt & Mitbringsel)</span>
+            </label>
+
+            <div>
+              <label className="block text-sm font-medium text-purple-900 mb-1">Event-PIN / Passwort (Optional)</label>
+              <input type="text" name="eventPin" defaultValue={event.eventPin || ''} className="w-full border border-purple-300 p-2 rounded outline-none focus:border-purple-500" placeholder="z.B. Sommer26 (leer lassen für öffentliches Event)" />
+              <p className="text-xs text-purple-700 mt-1">Gäste müssen diesen Code eingeben, bevor sie das Formular oder die Gästeliste sehen können.</p>
+            </div>
+          </div>
+
           <button type="submit" className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded hover:bg-blue-700 transition">
             Änderungen speichern
           </button>

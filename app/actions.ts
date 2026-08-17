@@ -5,6 +5,7 @@ import { PrismaClient } from '@prisma/client'
 import { revalidatePath } from 'next/cache'
 import { randomUUID } from 'crypto'
 import { sendConfirmationEmail, sendVerificationEmail, sendWaitlistPromotedEmail, sendWaitlistEmail } from './lib/mail'
+import { cookies } from 'next/headers'
 
 const prisma = new PrismaClient()
 
@@ -173,4 +174,27 @@ export async function submitRsvp(formData: FormData) {
     needsVerification,
     isOnWaitlist: savedRsvp.isOnWaitlist
   }
+}
+
+/**
+ * Überprüft die Event-PIN und setzt bei Erfolg ein Freischalt-Cookie
+ */
+export async function verifyEventPin(formData: FormData) {
+  const eventId = formData.get('eventId') as string
+  const pin = formData.get('pin') as string
+  const slug = formData.get('slug') as string
+
+  const event = await prisma.event.findUnique({ where: { id: eventId } })
+  
+  if (event && event.eventPin === pin) {
+    const cookieStore = await cookies()
+    // Cookie für 30 Tage setzen.
+    cookieStore.set(`event_pin_${eventId}`, pin, { maxAge: 60 * 60 * 24 * 30, httpOnly: true })
+    
+    // Seite neu laden, damit die Freischaltung greift
+    revalidatePath(`/${slug}`)
+    return { success: true }
+  }
+
+  return { success: false, error: "Falscher Code. Bitte versuche es erneut." }
 }

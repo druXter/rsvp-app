@@ -61,6 +61,9 @@ export async function createEvent(formData: FormData) {
   const duration = parseInt(formData.get('duration') as string) || 4 // Fallback auf 4 Stunden
   const maxCapStr = formData.get('maxCapacity') as string
   const maxCapacity = maxCapStr ? parseInt(maxCapStr) : null
+  const isGuestListVisible = formData.get('isGuestListVisible') === 'on'
+  const eventPinInput = formData.get('eventPin') as string
+  const eventPin = eventPinInput ? eventPinInput.trim() : null
 
   // NEU: Cronjob-Einstellungen auslesen
   const autoReminder = formData.get('autoReminder') === 'on'
@@ -93,7 +96,9 @@ export async function createEvent(formData: FormData) {
       autoReminder,
       reminderDays,
       requireVerification,
-      maxCapacity
+      maxCapacity,
+      isGuestListVisible,
+      eventPin
     }
   })
 
@@ -134,8 +139,11 @@ export async function updateEvent(formData: FormData) {
   const duration = parseInt(formData.get('duration') as string) || 4 
   const maxCapStr = formData.get('maxCapacity') as string
   const maxCapacity = maxCapStr ? parseInt(maxCapStr) : null
+  const isGuestListVisible = formData.get('isGuestListVisible') === 'on'
+  const eventPinInput = formData.get('eventPin') as string
+  const eventPin = eventPinInput ? eventPinInput.trim() : null
 
-  // NEU: Cronjob-Einstellungen auslesen
+  // Cronjob-Einstellungen auslesen
   const autoReminder = formData.get('autoReminder') === 'on'
   const reminderDays = parseInt(formData.get('reminderDays') as string) || 7
   const requireVerification = formData.get('requireVerification') === 'on'
@@ -166,7 +174,9 @@ export async function updateEvent(formData: FormData) {
       autoReminder,
       reminderDays,
       requireVerification,
-      maxCapacity
+      maxCapacity,
+      isGuestListVisible,
+      eventPin
     }
   })
 

@@ -24,6 +24,8 @@ model Event {
   createdAt   DateTime @default(now())
   duration    Int      @default(4)
   maxCapacity        Int?
+  isGuestListVisible Boolean  @default(false)
+  eventPin           String?
 }
 
 model Rsvp {
