@@ -1,26 +1,19 @@
 // app/actions.ts
-'use server' // Deklariert alle exportierten Funktionen in dieser Datei als Server-Actions (laufen sicher im Backend)
+'use server' 
 
 import { PrismaClient } from '@prisma/client'
 import { revalidatePath } from 'next/cache'
 import { randomUUID } from 'crypto'
-import { sendConfirmationEmail } from './lib/mail'
+import { sendConfirmationEmail, sendVerificationEmail } from './lib/mail'
 
 const prisma = new PrismaClient()
 
-/**
- * Verarbeitet die Formulareingaben der Gäste auf der Event-Seite.
- * Legt entweder eine neue Antwort an oder überschreibt eine bestehende (bei mitgeliefertem Edit-Token).
- */
 export async function submitRsvp(formData: FormData) {
-  // Grundlegende Identifikationsdaten auslesen
   const eventId = formData.get('eventId') as string
   const editToken = formData.get('editToken') as string || null 
   const name = formData.get('name') as string
   const isAttending = formData.get('isAttending') === 'true'
   
-  // Optionale Felder auslesen
-  const email = formData.get('email') as string || null
   const phone = formData.get('phone') as string || null
   const dietaryOption = formData.get('dietaryOption') as string || null
   const drinksAlcohol = formData.has('drinksAlcohol') ? formData.get('drinksAlcohol') === 'true' : null
@@ -32,13 +25,27 @@ export async function submitRsvp(formData: FormData) {
   const allergies = formData.get('allergies') as string || null
   const bringingItem = formData.get('bringingItem') as string || null
 
-  // Bereinigung der Daten: Optionale Informationen werden nur bei einer Zusage (isAttending) gespeichert.
-  // Bei einer Absage werden diese Felder auf null gesetzt, um die Datenbank sauber zu halten.
+  const event = await prisma.event.findUnique({ where: { id: eventId } })
+  if (!event) throw new Error('Event nicht gefunden')
+
+  // Wir laden den Altbestand VORHER aus der Datenbank
+  let existingRsvp = null;
+  if (editToken) {
+    existingRsvp = await prisma.rsvp.findUnique({ where: { editToken } })
+  }
+
+  // Wenn die E-Mail bereits in der DB als verifiziert gilt, übernehmen wir stumpf die alte.
+  // Andernfalls lesen wir die neue Eingabe aus dem Formular aus.
+  const emailInput = formData.get('email') as string || null;
+  const finalEmail = (existingRsvp && existingRsvp.isVerified && existingRsvp.email) 
+    ? existingRsvp.email 
+    : (isAttending ? emailInput : null);
+
   const data = {
     eventId,
     name,
     isAttending,
-    email: isAttending ? email : null,
+    email: finalEmail, // <-- Wir nutzen finalEmail
     phone: isAttending ? phone : null,
     dietaryOption: isAttending ? dietaryOption : null,
     drinksAlcohol: isAttending ? drinksAlcohol : null,
@@ -52,29 +59,32 @@ export async function submitRsvp(formData: FormData) {
 
   let savedRsvp;
 
-  // Wenn ein editToken mitgeschickt wurde, handelt es sich um eine Bearbeitung
   if (editToken) {
     savedRsvp = await prisma.rsvp.update({
       where: { editToken },
       data
     })
   } else {
-    // Wenn kein Token vorhanden ist, wird ein neuer Eintrag erzeugt
-    // Der Token (UUID) wird direkt hier serverseitig generiert
+    // FIX: Hier prüfen wir nun auf finalEmail statt auf email
+    const needsVerification = event.requireVerification && isAttending && finalEmail !== null
+    
     savedRsvp = await prisma.rsvp.create({
       data: {
         ...data,
-        editToken: randomUUID()
+        editToken: randomUUID(),
+        isVerified: false, // Jeder startet als "nicht verifiziert"
+        verifyToken: needsVerification ? randomUUID() : null
       }
     })
-    // E-Mail Versand anstoßen (läuft im Hintergrund ab)
-  if (savedRsvp.email) {
+  }
+
+  // E-Mail-Versand Logik
+  if (savedRsvp.email && savedRsvp.isAttending) {
     try {
-      const event = await prisma.event.findUnique({ where: { id: eventId } })
-      if (event) {
-        // Wir "warten" (await) hier bewusst nicht zwingend auf den Abschluss des Versands,
-        // oder wir fangen Fehler ab, damit der Nutzer auf der Website keinen Error sieht, 
-        // falls der Mailserver kurz hängen sollte.
+      if (!savedRsvp.isVerified && savedRsvp.verifyToken && !editToken) {
+        await sendVerificationEmail(savedRsvp, event)
+      } else if (!event.requireVerification && !editToken) {
+        // Wenn keine Verifizierung nötig ist, geht die Bestätigung direkt raus
         await sendConfirmationEmail(savedRsvp, event)
       }
     } catch (error) {
@@ -85,14 +95,11 @@ export async function submitRsvp(formData: FormData) {
   revalidatePath(`/${eventId}`)
   revalidatePath('/admin') 
   
-  return { editToken: savedRsvp.editToken }
-}
+  // Wir geben dem Frontend zurück, ob der "Bitte Mails checken"-Screen gezeigt werden soll
+  const requiresMailCheck = event.requireVerification && savedRsvp.isAttending && !savedRsvp.isVerified;
 
-
-  // Next.js Cache leeren, damit die neuen Daten sofort auf den betroffenen Seiten sichtbar werden
-  revalidatePath(`/${eventId}`)
-  revalidatePath('/admin') 
-  
-  // Den generierten oder genutzten Token zurückgeben, um den personalisierten Link im Formular anzuzeigen
-  return { editToken: savedRsvp.editToken }
+  return { 
+    editToken: savedRsvp.editToken,
+    needsVerification: requiresMailCheck 
+  }
 }

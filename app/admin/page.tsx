@@ -147,7 +147,34 @@ export default async function AdminDashboard() {
                                 : <span className="text-red-600 font-semibold">Abgesagt</span>}
                             </td>
                             
-                            <td className="p-2 text-gray-600">{rsvp.email || '-'}</td>
+                            <td className="p-2 text-gray-600">
+                              <div className="flex flex-col items-start gap-1">
+                                <span>{rsvp.email || '-'}</span>
+                                {rsvp.email && (
+                                  <>
+                                    {/* Ausstehend: Event erfordert Prüfung, Gast ist aber noch false */}
+                                    {event.requireVerification && !rsvp.isVerified && (
+                                      <span className="inline-block px-2 py-0.5 bg-yellow-100 text-yellow-800 text-[10px] font-bold rounded-full" title="Wartet auf Klick in der E-Mail">
+                                        🟡 Ausstehend
+                                      </span>
+                                    )}
+                                    {/* Verifiziert: Gast ist true */}
+                                    {rsvp.isVerified && (
+                                      <span className="inline-block px-2 py-0.5 bg-green-100 text-green-800 text-[10px] font-bold rounded-full" title={rsvp.verifiedAt ? `Bestätigt am ${rsvp.verifiedAt.toLocaleDateString('de-DE')}` : 'Verifiziert'}>
+                                        🟢 Verifiziert
+                                      </span>
+                                    )}
+                                    {/* Ohne Prüfung: Event erfordert keine Prüfung, Gast ist false */}
+                                    {!event.requireVerification && !rsvp.isVerified && (
+                                      <span className="inline-block px-2 py-0.5 bg-gray-100 text-gray-600 text-[10px] font-bold rounded-full" title="Event erfordert keine Verifizierung">
+                                        ⚪ Ohne Prüfung
+                                      </span>
+                                    )}
+                                  </>
+                                )}
+                              </div>
+                            </td>
+                          
                             <td className="p-2 text-gray-600">{rsvp.phone || '-'}</td>
                             
                             <td className="p-2 text-gray-600">

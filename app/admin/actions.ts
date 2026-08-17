@@ -62,6 +62,7 @@ export async function createEvent(formData: FormData) {
   // NEU: Cronjob-Einstellungen auslesen
   const autoReminder = formData.get('autoReminder') === 'on'
   const reminderDays = parseInt(formData.get('reminderDays') as string) || 7
+  const requireVerification = formData.get('requireVerification') === 'on'
 
   // Abfrage-Optionen für die Gäste als JSON-String speichern
   const formConfig = JSON.stringify({
@@ -87,7 +88,8 @@ export async function createEvent(formData: FormData) {
       duration,
       formConfig,
       autoReminder, // NEU in DB
-      reminderDays  // NEU in DB
+      reminderDays,  // NEU in DB
+      requireVerification // NEU in DB
     }
   })
 
@@ -130,6 +132,7 @@ export async function updateEvent(formData: FormData) {
   // NEU: Cronjob-Einstellungen auslesen
   const autoReminder = formData.get('autoReminder') === 'on'
   const reminderDays = parseInt(formData.get('reminderDays') as string) || 7
+  const requireVerification = formData.get('requireVerification') === 'on'
 
   // Aktualisierte Formular-Optionen serialisieren
   const formConfig = JSON.stringify({
@@ -155,7 +158,8 @@ export async function updateEvent(formData: FormData) {
       duration,
       formConfig,
       autoReminder, // NEU in DB
-      reminderDays  // NEU in DB
+      reminderDays,  // NEU in DB
+      requireVerification // NEU in DB
     }
   })
 

@@ -127,6 +127,16 @@ export default async function EditEventPage({ params }: { params: Promise<{ id: 
             </div>
           </div>
 
+          <div className="space-y-3 pt-4 border-t border-gray-200 bg-yellow-50 p-4 rounded-md">
+            <h3 className="font-bold text-yellow-900">E-Mail-Verifizierung (Double-Opt-In)</h3>
+            <p className="text-xs text-yellow-700 mb-2">Gäste müssen ihre Anmeldung per Klick in einer E-Mail bestätigen. (Erfordert E-Mail-Abfrage oben).</p>
+            
+            <label className="flex items-center gap-2 cursor-pointer mb-3">
+              <input type="checkbox" name="requireVerification" defaultChecked={event.requireVerification} className="w-4 h-4 text-yellow-600" />
+              <span className="text-sm font-medium text-yellow-900">Verifizierung zwingend erforderlich</span>
+            </label>
+          </div>
+
           <button type="submit" className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded hover:bg-blue-700 transition">
             Änderungen speichern
           </button>

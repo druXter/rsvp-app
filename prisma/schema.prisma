@@ -19,6 +19,7 @@ model Event {
   reminderSent Boolean @default(false)
   autoReminder Boolean @default(false)
   reminderDays Int     @default(7)
+  requireVerification Boolean @default(false)
   rsvps       Rsvp[]
   createdAt   DateTime @default(now())
   duration    Int      @default(4)
@@ -43,4 +44,7 @@ model Rsvp {
   bringingItem   String?
   allergies      String?
   editToken      String   @unique @default(uuid())
+  isVerified     Boolean   @default(false)
+  verifyToken    String?   @unique
+  verifiedAt     DateTime?
 }

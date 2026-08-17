@@ -154,3 +154,43 @@ export async function sendReminderEmail(
     return false
   }
 }
+
+/**
+ * Versendet eine Verifizierungs-E-Mail (Double-Opt-In), wenn requireVerification aktiv ist.
+ */
+export async function sendVerificationEmail(
+  rsvp: any,
+  event: any
+) {
+  const baseUrl = process.env.BASE_URL || 'http://localhost:3000'
+  // Der Bestätigungs-Link leitet auf eine neue Route, die wir gleich noch bauen
+  const verifyLink = `${baseUrl}/verify?token=${rsvp.verifyToken}`
+
+  const mailOptions = {
+    from: process.env.SMTP_FROM,
+    to: rsvp.email,
+    subject: `Bitte bestätige deine Anmeldung für ${event.title}`,
+    text: `Hallo ${rsvp.name},\n\nbitte klicke auf den folgenden Link, um deine E-Mail-Adresse zu bestätigen und deine Anmeldung für "${event.title}" abzuschließen:\n\n${verifyLink}\n\nErst nach der Bestätigung wird deine Anmeldung gültig.`,
+    html: `
+      <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
+        <h2>Fast geschafft, ${rsvp.name}! ✉️</h2>
+        <p>Du hast dich für das Event <strong>${event.title}</strong> angemeldet.</p>
+        <p>Um Spam zu vermeiden, bitten wir dich, deine E-Mail-Adresse über den folgenden Button zu bestätigen. Erst danach ist deine Anmeldung verbindlich und du erhältst alle weiteren Informationen (inklusive Kalender-Eintrag).</p>
+        
+        <p style="text-align: center; margin: 30px 0;">
+          <a href="${verifyLink}" style="display: inline-block; padding: 12px 24px; background-color: #10b981; color: #fff; text-decoration: none; border-radius: 5px; font-weight: bold;">E-Mail-Adresse bestätigen</a>
+        </p>
+        
+        <p style="font-size: 12px; color: #666;">Falls der Button nicht funktioniert, kopiere diesen Link in deinen Browser:<br>${verifyLink}</p>
+      </div>
+    `
+  }
+
+  try {
+    await transporter.sendMail(mailOptions)
+    return true
+  } catch (error) {
+    console.error(`Fehler beim Senden der Verifizierungs-Mail an ${rsvp.email}:`, error)
+    return false
+  }
+}

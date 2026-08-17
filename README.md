@@ -11,12 +11,14 @@ Ein schlankes, anpassbares und leistungsstarkes Event-Management-System, gebaut 
   * Alkohol-Präferenz
   * Mitbringsel (Essen/Trinken)
   * E-Mail und Handynummer
+* **Double-Opt-In (Verifizierung):** Optional zuschaltbare E-Mail-Bestätigung für Gäste, um Spam-Anmeldungen zu verhindern und korrekte Adressen sicherzustellen.
 * **Automatischer E-Mail-Versand:** Gäste erhalten nach der Zusage eine automatische Bestätigungsmail inkl. iCal-Datei und personalisiertem Link zur nachträglichen Bearbeitung.
 * **Erinnerungs-Mails (Reminders):** 
   * Manueller Versand aus dem Dashboard an alle Zusagen (inkl. optionaler Zusatzinfos für die Gäste).
   * Vollautomatischer Versand X Tage vor dem Event (gesicherter Endpoint für Uptime Kuma oder Cronjobs).
 * **Admin Dashboard:** 
   * Volle Übersicht über alle Zu- und Absagen.
+  * Status-Anzeige ausstehender E-Mail-Verifizierungen.
   * Nachträgliches, manuelles Bearbeiten von Gästedaten (z.B. bei telefonischer Zusage).
   * CSV-Export der kompletten Gästeliste mit einem Klick.
   * Geschützt durch ein Master-Passwort.
@@ -49,12 +51,8 @@ cp .env.example .env
 Trage in der `.env` dein gewünschtes sicheres `ADMIN_PASSWORD` ein und konfiguriere den automatischen E-Mail-Versand:
    
 ```env
-DATABASE_URL="file:./dev.db"
-
-ADMIN_PASSWORD=hier_dein_passwort_eintragen
-
-# E-Mail & URL Konfiguration
-BASE_URL=https://domain.de
+# E-Mail & URL Konfiguration für automatische Bestätigungen
+BASE_URL=[https://rsvp.deine-domain.de](https://rsvp.deine-domain.de)
 
 SMTP_HOST=smtp.dein-provider.de
 SMTP_PORT=587
@@ -62,7 +60,8 @@ SMTP_USER=deine-email@domain.de
 SMTP_PASS=dein-mail-passwort
 SMTP_FROM="RSVP Team <deine-email@domain.de>"
 
-CRON_SECRET=hier_cron_secret_eintragen
+# Sicherheitsschlüssel für den automatischen Cronjob-Versand (z.B. via Uptime Kuma)
+CRON_SECRET=DeinSehrGeheimesPasswort123
 ```
 
 ### 3. Mit Docker starten (Empfohlen)

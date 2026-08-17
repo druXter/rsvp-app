@@ -4,24 +4,23 @@
 import { useState } from 'react'
 import { submitRsvp } from '../actions'
 
-/**
- * Interaktives Formular zur Erfassung der Gäste-Antworten.
- * Passt sich dynamisch an die Konfiguration (formConfig) des jeweiligen Events an.
- */
 export default function RsvpForm({ 
   eventId, 
   formConfig,
   existingRsvp,
-  isEmbed = false // NEU: Der Embed-Status wird als Parameter entgegengenommen (Standard: false)
+  isEmbed = false 
 }: { 
   eventId: string; 
   formConfig: string | null; 
   existingRsvp?: any; 
-  isEmbed?: boolean; // NEU: Typisierung für den neuen Parameter
+  isEmbed?: boolean; 
 }) {
   const [isAttending, setIsAttending] = useState<boolean | null>(existingRsvp ? existingRsvp.isAttending : null)
   const [hasPlusOne, setHasPlusOne] = useState<boolean>(existingRsvp ? existingRsvp.plusOne : false)
   const [submittedToken, setSubmittedToken] = useState<string | null>(null) 
+  
+  // NEU: Steuert, ob der gelbe Verifizierungs-Screen gezeigt wird
+  const [showVerifyScreen, setShowVerifyScreen] = useState<boolean>(false)
   
   const config = formConfig 
     ? JSON.parse(formConfig) 
@@ -32,13 +31,30 @@ export default function RsvpForm({
     const formData = new FormData(e.currentTarget)
     const result = await submitRsvp(formData)
     setSubmittedToken(result.editToken)
+    
+    // NEU: Auslesen, ob der gelbe Screen gezeigt werden soll
+    if (result.needsVerification) {
+      setShowVerifyScreen(true)
+    }
   }
 
   if (submittedToken) {
     const personalLink = typeof window !== 'undefined' ? `${window.location.origin}${window.location.pathname}?token=${submittedToken}` : ''
 
+    if (showVerifyScreen) {
+      return (
+        <div className={`flex flex-col items-center ${isEmbed ? 'py-6 text-yellow-800' : 'p-6 bg-yellow-50 text-yellow-800 rounded-lg shadow'}`}>
+          <h3 className="text-xl font-bold mb-2 text-center">Fast geschafft! ✉️</h3>
+          <p className="mb-6 text-center">Wir haben dir gerade eine E-Mail mit einem Bestätigungslink gesendet.</p>
+          <p className="text-sm text-yellow-700 text-center font-medium bg-yellow-100 p-4 rounded w-full">
+            Bitte klicke auf den Link in der E-Mail, um deine Anmeldung verbindlich abzuschließen. Erst danach erhältst du deinen Kalendereintrag!
+          </p>
+        </div>
+      )
+    }
+
+    // Der normale "Alles erfolgreich"-Screen
     return (
-      // NEU: Dynamische Klassen für die Erfolgsmeldung (kein Hintergrund/Schatten im Embed-Modus)
       <div className={`flex flex-col items-center ${isEmbed ? 'py-6 text-green-800' : 'p-6 bg-green-50 text-green-800 rounded-lg shadow'}`}>
         <h3 className="text-xl font-bold mb-2 text-center">Danke für deine Antwort!</h3>
         <p className="mb-6 text-center">Deine Rückmeldung wurde erfolgreich gespeichert.</p>
@@ -69,7 +85,7 @@ export default function RsvpForm({
   }
 
   return (
-    // NEU: Dynamische Klassen für das eigentliche Formular. Im Embed-Modus entfernen wir die Box-Optik komplett.
+    // Dynamische Klassen für das eigentliche Formular. Im Embed-Modus entfernen wir die Box-Optik komplett.
     <form onSubmit={handleSubmit} className={`space-y-6 text-gray-900 ${isEmbed ? '' : 'bg-white p-6 rounded-lg shadow'}`}>
       <input type="hidden" name="eventId" value={eventId} />
       {existingRsvp && <input type="hidden" name="editToken" value={existingRsvp.editToken} />}
@@ -99,7 +115,22 @@ export default function RsvpForm({
           {config.askEmail && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">E-Mail Adresse</label>
-              <input type="email" name="email" defaultValue={existingRsvp?.email || ''} required className="w-full border border-gray-300 p-2 rounded-md" placeholder="max@beispiel.de" />
+              <input 
+                type="email" 
+                name="email" 
+                defaultValue={existingRsvp?.email || ''} 
+                required 
+                // Wenn eine E-Mail existiert und verifiziert ist, wird das Feld gesperrt
+                readOnly={existingRsvp?.isVerified ? true : false}
+                className={`w-full border p-2 rounded-md ${existingRsvp?.isVerified ? 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed outline-none' : 'border-gray-300'}`}
+                placeholder="max@beispiel.de" 
+              />
+              {/* Kleiner visueller Hinweis für den Gast */}
+              {existingRsvp?.isVerified && existingRsvp?.email && (
+                <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                  🔒 E-Mail ist verifiziert und geschützt.
+                </p>
+              )}
             </div>
           )}
 
