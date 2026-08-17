@@ -23,6 +23,7 @@ model Event {
   rsvps       Rsvp[]
   createdAt   DateTime @default(now())
   duration    Int      @default(4)
+  maxCapacity        Int?
 }
 
 model Rsvp {
@@ -47,4 +48,5 @@ model Rsvp {
   isVerified     Boolean   @default(false)
   verifyToken    String?   @unique
   verifiedAt     DateTime?
+  isOnWaitlist       Boolean  @default(false)
 }

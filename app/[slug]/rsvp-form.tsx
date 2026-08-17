@@ -19,8 +19,9 @@ export default function RsvpForm({
   const [hasPlusOne, setHasPlusOne] = useState<boolean>(existingRsvp ? existingRsvp.plusOne : false)
   const [submittedToken, setSubmittedToken] = useState<string | null>(null) 
   
-  // NEU: Steuert, ob der gelbe Verifizierungs-Screen gezeigt wird
   const [showVerifyScreen, setShowVerifyScreen] = useState<boolean>(false)
+
+  const [isOnWaitlist, setIsOnWaitlist] = useState<boolean>(existingRsvp ? existingRsvp.isOnWaitlist : false)
   
   const config = formConfig 
     ? JSON.parse(formConfig) 
@@ -32,14 +33,38 @@ export default function RsvpForm({
     const result = await submitRsvp(formData)
     setSubmittedToken(result.editToken)
     
-    // NEU: Auslesen, ob der gelbe Screen gezeigt werden soll
+    // Auslesen, ob der gelbe Screen gezeigt werden soll
     if (result.needsVerification) {
       setShowVerifyScreen(true)
+    }
+    // Setze den Wartelisten-Status
+    if (result.isOnWaitlist !== undefined) {
+      setIsOnWaitlist(result.isOnWaitlist)
     }
   }
 
   if (submittedToken) {
     const personalLink = typeof window !== 'undefined' ? `${window.location.origin}${window.location.pathname}?token=${submittedToken}` : ''
+
+    // Spezieller Screen für Absagen
+    if (isAttending === false) {
+      return (
+        <div className={`flex flex-col items-center ${isEmbed ? 'py-6 text-red-800' : 'p-6 bg-red-50 text-red-800 rounded-lg shadow'}`}>
+          <h3 className="text-xl font-bold mb-2 text-center">Schade, dass du nicht dabei bist!</h3>
+          <p className="mb-6 text-center">Deine Absage wurde erfolgreich gespeichert.</p>
+          <div className="w-full text-left">
+            <p className="text-xs text-gray-600 mb-1">Dein persönlicher Link (falls du es dir anders überlegst):</p>
+            <input 
+              type="text" 
+              readOnly 
+              value={personalLink} 
+              className="w-full bg-white border border-red-200 rounded p-2 text-sm text-gray-700 outline-none cursor-pointer" 
+              onClick={(e) => e.currentTarget.select()} 
+            />
+          </div>
+        </div>
+      )
+    }
 
     if (showVerifyScreen) {
       return (
@@ -53,10 +78,27 @@ export default function RsvpForm({
       )
     }
 
+    // Wenn Warteliste aktiv ist
+    if (isOnWaitlist) {
+      return (
+        <div className={`flex flex-col items-center ${isEmbed ? 'py-6 text-orange-800' : 'p-6 bg-orange-50 text-orange-800 rounded-lg shadow'}`}>
+          <h3 className="text-xl font-bold mb-2 text-center">Du stehst auf der Warteliste! ⏳</h3>
+          <p className="mb-6 text-center">Das Event ist leider aktuell ausgebucht. Wir haben deine Anmeldung aber notiert.</p>
+          <p className="text-sm bg-orange-100 p-4 rounded w-full mb-6">
+            Sobald jemand abspringt und ein Platz für dich frei wird, rückt dein Platz automatisch nach und wir benachrichtigen dich sofort per E-Mail!
+          </p>
+          <div className="w-full text-left">
+            <p className="text-xs text-gray-600 mb-1">Dein persönlicher Link (z.B. für Absagen):</p>
+            <input type="text" readOnly value={personalLink} className="w-full bg-white border border-orange-200 rounded p-2 text-sm text-gray-700 outline-none" onClick={(e) => e.currentTarget.select()} />
+          </div>
+        </div>
+      )
+    }
+
     // Der normale "Alles erfolgreich"-Screen
     return (
       <div className={`flex flex-col items-center ${isEmbed ? 'py-6 text-green-800' : 'p-6 bg-green-50 text-green-800 rounded-lg shadow'}`}>
-        <h3 className="text-xl font-bold mb-2 text-center">Danke für deine Antwort!</h3>
+        <h3 className="text-xl font-bold mb-2 text-center">Danke für deine Anmeldung! 🎉</h3>
         <p className="mb-6 text-center">Deine Rückmeldung wurde erfolgreich gespeichert.</p>
         
         <div className={`w-full mb-6 ${isEmbed ? 'p-4 border border-green-200 rounded' : 'bg-white p-4 rounded border border-green-200'}`}>

@@ -51,6 +51,12 @@ export default async function CreateEventPage() {
           </div>
 
           <div>
+            <label className="block text-sm font-medium mb-1">Maximale Teilnehmerzahl (optional)</label>
+            <input type="number" name="maxCapacity" min="1" className="w-full border border-gray-300 p-2 rounded" placeholder="z.B. 50 (leer lassen für unbegrenzt)" />
+            <p className="text-xs text-gray-500 mt-1">Gäste landen automatisch auf der Warteliste, wenn dieses Limit erreicht ist.</p>
+          </div>
+
+          <div>
             <label className="block text-sm font-medium mb-1">Beschreibung / Einladungstext</label>
             <textarea name="description" rows={4} className="w-full border border-gray-300 p-2 rounded" placeholder="Wir laden euch herzlich ein..."></textarea>
           </div>

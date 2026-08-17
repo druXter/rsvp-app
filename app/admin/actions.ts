@@ -5,7 +5,8 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { PrismaClient } from '@prisma/client'
-import { sendReminderEmail } from '../lib/mail'
+import { randomUUID } from 'crypto'
+import { sendReminderEmail, sendWaitlistPromotedEmail, sendConfirmationEmail, sendVerificationEmail } from '../lib/mail'
 
 const prisma = new PrismaClient()
 
@@ -58,6 +59,8 @@ export async function createEvent(formData: FormData) {
   const location = formData.get('location') as string
   const description = formData.get('description') as string
   const duration = parseInt(formData.get('duration') as string) || 4 // Fallback auf 4 Stunden
+  const maxCapStr = formData.get('maxCapacity') as string
+  const maxCapacity = maxCapStr ? parseInt(maxCapStr) : null
 
   // NEU: Cronjob-Einstellungen auslesen
   const autoReminder = formData.get('autoReminder') === 'on'
@@ -87,9 +90,10 @@ export async function createEvent(formData: FormData) {
       description,
       duration,
       formConfig,
-      autoReminder, // NEU in DB
-      reminderDays,  // NEU in DB
-      requireVerification // NEU in DB
+      autoReminder,
+      reminderDays,
+      requireVerification,
+      maxCapacity
     }
   })
 
@@ -128,6 +132,8 @@ export async function updateEvent(formData: FormData) {
   const location = formData.get('location') as string
   const description = formData.get('description') as string
   const duration = parseInt(formData.get('duration') as string) || 4 
+  const maxCapStr = formData.get('maxCapacity') as string
+  const maxCapacity = maxCapStr ? parseInt(maxCapStr) : null
 
   // NEU: Cronjob-Einstellungen auslesen
   const autoReminder = formData.get('autoReminder') === 'on'
@@ -157,11 +163,15 @@ export async function updateEvent(formData: FormData) {
       description,
       duration,
       formConfig,
-      autoReminder, // NEU in DB
-      reminderDays,  // NEU in DB
-      requireVerification // NEU in DB
+      autoReminder,
+      reminderDays,
+      requireVerification,
+      maxCapacity
     }
   })
+
+  // Nach dem Speichern prüfen, ob durch eine Erhöhung der maxCapacity Leute nachrücken dürfen
+  await triggerWaitlistPromotion(id)
 
   revalidatePath('/admin')
   redirect('/admin')
@@ -173,16 +183,25 @@ export async function updateEvent(formData: FormData) {
 export async function deleteRsvp(formData: FormData) {
   const id = formData.get('rsvpId') as string
   
+  // 1. Gast vor dem Löschen laden, um zu sehen, ob ein fester Platz frei wird
+  const rsvpToDelete = await prisma.rsvp.findUnique({ where: { id } })
+  if (!rsvpToDelete) return
+
+  // 2. Gast löschen
   await prisma.rsvp.delete({
     where: { id }
   })
+  
+  // 3. Nachrück-Automatik auslösen, falls der Gast einen FESTEN Platz hatte
+  if (rsvpToDelete.isAttending && !rsvpToDelete.isOnWaitlist) {
+    await triggerWaitlistPromotion(rsvpToDelete.eventId)
+  }
   
   revalidatePath('/admin')
 }
 
 /**
  * Ermöglicht es dem Administrator, die Antwort eines Gastes manuell zu bearbeiten
- * (z.B. für Korrekturen oder nachträgliche telefonische Zusagen).
  */
 export async function updateAdminRsvp(formData: FormData) {
   const id = formData.get('rsvpId') as string
@@ -201,9 +220,10 @@ export async function updateAdminRsvp(formData: FormData) {
   const allergies = formData.get('allergies') as string || null
   const bringingItem = formData.get('bringingItem') as string || null
 
-  // Führt das Update auf Datenbankebene aus.
-  // Es wird sichergestellt, dass optionale Daten nur gespeichert werden, 
-  // wenn der Teilnahmestatus (isAttending) entsprechend gesetzt ist.
+  // Alten Status VOR dem Update laden
+  const existingRsvp = await prisma.rsvp.findUnique({ where: { id } })
+  if (!existingRsvp) return
+
   await prisma.rsvp.update({
     where: { id },
     data: {
@@ -222,8 +242,82 @@ export async function updateAdminRsvp(formData: FormData) {
     }
   })
 
+  // Wenn du als Admin jemanden nachträglich von "Kommt" auf "Kommt nicht" setzt:
+  if (existingRsvp.isAttending && !existingRsvp.isOnWaitlist && !isAttending) {
+    await triggerWaitlistPromotion(existingRsvp.eventId)
+  }
+
   revalidatePath('/admin')
   redirect('/admin')
+}
+
+/**
+ * Lässt einen Gast manuell von der Warteliste zu, selbst wenn das Event überbucht wird.
+ */
+export async function promoteFromWaitlist(formData: FormData) {
+  const id = formData.get('rsvpId') as string
+  
+  const rsvp = await prisma.rsvp.findUnique({ 
+    where: { id }, 
+    include: { event: true } 
+  })
+  if (!rsvp || !rsvp.isOnWaitlist) return
+
+  // Admin-Override: Wir ändern den Status direkt auf einen festen Platz
+  const promotedRsvp = await prisma.rsvp.update({
+    where: { id },
+    data: { isOnWaitlist: false }
+  })
+
+  // Erfolgs-Mails senden
+  if (promotedRsvp.email) {
+    await sendWaitlistPromotedEmail(promotedRsvp, rsvp.event);
+    await sendConfirmationEmail(promotedRsvp, rsvp.event);
+  }
+
+  revalidatePath('/admin')
+}
+
+/**
+ * HILFSFUNKTION: Füllt freie Plätze mit Nachrückern von der Warteliste auf.
+ * Funktioniert für einzelne freiwerdende Plätze UND wenn der Admin die Kapazität erhöht.
+ */
+async function triggerWaitlistPromotion(eventId: string) {
+  const event = await prisma.event.findUnique({ 
+    where: { id: eventId },
+    include: { rsvps: true }
+  })
+  if (!event || event.maxCapacity === null) return;
+
+  // Aktuelle Anzahl der Leute mit festem Platz zählen
+  let currentAttendeesCount = event.rsvps.filter(r => r.isAttending && !r.isOnWaitlist).length;
+
+  // Solange Plätze frei sind...
+  while (currentAttendeesCount < event.maxCapacity) {
+    const nextInLine = await prisma.rsvp.findFirst({
+      where: { 
+        eventId: event.id, 
+        isAttending: true, 
+        isOnWaitlist: true,
+        ...(event.requireVerification ? { isVerified: true } : {})
+      },
+      orderBy: { createdAt: 'asc' } // Derjenige, der am längsten wartet
+    });
+
+    if (!nextInLine) break; // Niemand mehr auf der Warteliste
+
+    const promotedRsvp = await prisma.rsvp.update({
+      where: { id: nextInLine.id },
+      data: { isOnWaitlist: false } 
+    });
+
+    if (promotedRsvp.email) {
+      await sendWaitlistPromotedEmail(promotedRsvp, event);
+      await sendConfirmationEmail(promotedRsvp, event); 
+    }
+
+    currentAttendeesCount++; // Zähler für den nächsten Schleifendurchlauf erhöhen
+  }
 }
 
 /**
@@ -277,4 +371,40 @@ export async function sendReminder(formData: FormData) {
 
   // 6. Das UI (Admin-Dashboard) neu laden, um das "Erinnerung wurde gesendet"-Label anzuzeigen
   revalidatePath('/admin')
+}
+
+/**
+ * Versendet die Verifizierungs-E-Mail (Double-Opt-In) manuell erneut.
+ * Nützlich, wenn der Gast die E-Mail nicht erhalten oder versehentlich gelöscht hat.
+ */
+export async function resendVerificationEmail(formData: FormData) {
+  // Sicherheits-Check
+  const cookieStore = await cookies()
+  const session = cookieStore.get('admin_session')
+  if (!session || session.value !== 'true') throw new Error('Nicht autorisiert')
+
+  const id = formData.get('rsvpId') as string
+  
+  const rsvp = await prisma.rsvp.findUnique({
+    where: { id },
+    include: { event: true }
+  })
+
+  // Wenn der Gast nicht existiert, keine Mail hat oder ohnehin schon verifiziert ist, abbrechen
+  if (!rsvp || !rsvp.email || rsvp.isVerified) return
+
+  // Fallback: Falls durch einen Bug (oder alte Daten) kein verifyToken existiert, 
+  // generieren wir sicherheitshalber einen neuen.
+  let tokenToUse = rsvp.verifyToken
+  if (!tokenToUse) {
+    tokenToUse = randomUUID()
+    await prisma.rsvp.update({
+      where: { id },
+      data: { verifyToken: tokenToUse }
+    })
+    rsvp.verifyToken = tokenToUse
+  }
+
+  // Die Mail-Funktion aufrufen
+  await sendVerificationEmail(rsvp, rsvp.event)
 }

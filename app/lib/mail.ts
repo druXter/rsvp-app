@@ -194,3 +194,70 @@ export async function sendVerificationEmail(
     return false
   }
 }
+
+/**
+ * Versendet eine E-Mail, wenn der Gast initial auf der Warteliste gelandet ist.
+ */
+export async function sendWaitlistEmail(rsvp: any, event: any) {
+  const baseUrl = process.env.BASE_URL || 'http://localhost:3000'
+  const personalLink = `${baseUrl}/${event.slug}?token=${rsvp.editToken}`
+
+  const mailOptions = {
+    from: process.env.SMTP_FROM,
+    to: rsvp.email,
+    subject: `Du stehst auf der Warteliste für ${event.title} ⏳`,
+    text: `Hallo ${rsvp.name},\n\ndas Event "${event.title}" ist aktuell leider ausgebucht. Du wurdest auf die Warteliste gesetzt.\n\nSobald ein Platz für dich frei wird, rücken wir dich automatisch nach und sagen dir per Mail Bescheid!\n\nHier ist dein persönlicher Link (z.B. falls du deine Wartelisten-Position stornieren möchtest):\n${personalLink}`,
+    html: `
+      <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
+        <h2>Du bist auf der Warteliste! ⏳</h2>
+        <p>Hallo ${rsvp.name},</p>
+        <p>Das Event <strong>${event.title}</strong> ist aktuell leider ausgebucht, aber wir haben deine Anmeldung notiert.</p>
+        <p>Sobald jemand abspringt und ein Platz frei wird, rücken wir dich automatisch nach und benachrichtigen dich sofort per E-Mail!</p>
+        <p style="text-align: center; margin: 30px 0;">
+          <a href="${personalLink}" style="display: inline-block; padding: 12px 24px; background-color: #f97316; color: #fff; text-decoration: none; border-radius: 5px; font-weight: bold;">Zur Event-Seite</a>
+        </p>
+      </div>
+    `
+  }
+
+  try {
+    await transporter.sendMail(mailOptions)
+    return true
+  } catch (error) {
+    console.error(`Fehler beim Senden der Wartelisten-Mail an ${rsvp.email}:`, error)
+    return false
+  }
+}
+
+/**
+ * Versendet eine E-Mail, wenn ein Gast von der Warteliste auf einen festen Platz nachrückt.
+ */
+export async function sendWaitlistPromotedEmail(rsvp: any, event: any) {
+  const baseUrl = process.env.BASE_URL || 'http://localhost:3000'
+  const personalLink = `${baseUrl}/${event.slug}?token=${rsvp.editToken}`
+
+  const mailOptions = {
+    from: process.env.SMTP_FROM,
+    to: rsvp.email,
+    subject: `Gute Nachrichten: Du bist nachgerückt! 🎉 (${event.title})`,
+    text: `Hallo ${rsvp.name},\n\nes ist ein Platz frei geworden und du bist von der Warteliste für "${event.title}" auf einen festen Platz nachgerückt! Deine Teilnahme ist nun verbindlich bestätigt.\n\nHier kannst du deine Anmeldung verwalten:\n${personalLink}`,
+    html: `
+      <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
+        <h2>Du bist dabei, ${rsvp.name}! 🥳</h2>
+        <p>Gute Nachrichten: Es ist ein Platz frei geworden und du bist von der Warteliste für <strong>${event.title}</strong> nachgerückt!</p>
+        <p>Deine Teilnahme ist damit nun fest eingebucht.</p>
+        <p style="text-align: center; margin: 30px 0;">
+          <a href="${personalLink}" style="display: inline-block; padding: 12px 24px; background-color: #3b82f6; color: #fff; text-decoration: none; border-radius: 5px; font-weight: bold;">Zur Event-Seite</a>
+        </p>
+      </div>
+    `
+  }
+
+  try {
+    await transporter.sendMail(mailOptions)
+    return true
+  } catch (error) {
+    console.error(`Fehler beim Senden der Nachrücker-Mail an ${rsvp.email}:`, error)
+    return false
+  }
+}

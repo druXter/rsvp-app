@@ -4,7 +4,7 @@
 import { PrismaClient } from '@prisma/client'
 import { revalidatePath } from 'next/cache'
 import { randomUUID } from 'crypto'
-import { sendConfirmationEmail, sendVerificationEmail } from './lib/mail'
+import { sendConfirmationEmail, sendVerificationEmail, sendWaitlistPromotedEmail, sendWaitlistEmail } from './lib/mail'
 
 const prisma = new PrismaClient()
 
@@ -25,27 +25,56 @@ export async function submitRsvp(formData: FormData) {
   const allergies = formData.get('allergies') as string || null
   const bringingItem = formData.get('bringingItem') as string || null
 
-  const event = await prisma.event.findUnique({ where: { id: eventId } })
+  const event = await prisma.event.findUnique({ 
+    where: { id: eventId },
+    include: { rsvps: true } 
+  })
   if (!event) throw new Error('Event nicht gefunden')
 
-  // Wir laden den Altbestand VORHER aus der Datenbank
   let existingRsvp = null;
   if (editToken) {
     existingRsvp = await prisma.rsvp.findUnique({ where: { editToken } })
   }
 
-  // Wenn die E-Mail bereits in der DB als verifiziert gilt, übernehmen wir stumpf die alte.
-  // Andernfalls lesen wir die neue Eingabe aus dem Formular aus.
   const emailInput = formData.get('email') as string || null;
-  const finalEmail = (existingRsvp && existingRsvp.isVerified && existingRsvp.email) 
+  const finalEmail = (existingRsvp && existingRsvp.verifiedAt && existingRsvp.email) 
     ? existingRsvp.email 
     : (isAttending ? emailInput : null);
+
+  // NEU: Verifizierungs-Logik auch für nachträgliche E-Mail-Änderungen zwingend anwenden
+  let needsVerification = false;
+  if (event.requireVerification && isAttending && finalEmail !== null) {
+    if (!existingRsvp) {
+      needsVerification = true;
+    } else {
+      // Wenn es vorher keine E-Mail gab oder sie noch nicht verifiziert war
+      if (existingRsvp.email !== finalEmail || !existingRsvp.isVerified) {
+        needsVerification = true;
+      }
+    }
+  }
+
+  // Kapazitätsprüfung & Warteliste
+  let isOnWaitlist = false;
+  if (isAttending && event.maxCapacity !== null) {
+    const currentAttendeesCount = event.rsvps.filter(r => 
+      r.isAttending && !r.isOnWaitlist && r.editToken !== editToken
+    ).length;
+
+    if (existingRsvp && existingRsvp.isAttending && !existingRsvp.isOnWaitlist) {
+      isOnWaitlist = false; // Behält seinen festen Platz
+    } else {
+      if (currentAttendeesCount >= event.maxCapacity) {
+        isOnWaitlist = true;
+      }
+    }
+  }
 
   const data = {
     eventId,
     name,
     isAttending,
-    email: finalEmail, // <-- Wir nutzen finalEmail
+    email: finalEmail,
     phone: isAttending ? phone : null,
     dietaryOption: isAttending ? dietaryOption : null,
     drinksAlcohol: isAttending ? drinksAlcohol : null,
@@ -54,38 +83,82 @@ export async function submitRsvp(formData: FormData) {
     plusOneName: isAttending && plusOne ? plusOneName : null,
     allergies: isAttending ? allergies : null,
     bringingItem: isAttending ? bringingItem : null,
-    declineReason: isAttending ? null : declineReason
+    declineReason: isAttending ? null : declineReason,
+    isOnWaitlist
   }
 
   let savedRsvp;
-
   if (editToken) {
     savedRsvp = await prisma.rsvp.update({
       where: { editToken },
-      data
+      data: {
+        ...data,
+        // Wenn eine Verifizierung nötig ist, setzen wir den Status sofort auf false zurück
+        ...(needsVerification ? {
+          isVerified: false,
+          verifyToken: existingRsvp?.verifyToken || randomUUID()
+        } : {})
+      }
     })
   } else {
-    // FIX: Hier prüfen wir nun auf finalEmail statt auf email
-    const needsVerification = event.requireVerification && isAttending && finalEmail !== null
-    
     savedRsvp = await prisma.rsvp.create({
       data: {
         ...data,
         editToken: randomUUID(),
-        isVerified: false, // Jeder startet als "nicht verifiziert"
+        isVerified: false,
         verifyToken: needsVerification ? randomUUID() : null
       }
     })
   }
 
-  // E-Mail-Versand Logik
+  // Nachrück-Automatik, wenn man von "Kommt" auf "Kommt nicht" wechselt
+  if (existingRsvp && existingRsvp.isAttending && !existingRsvp.isOnWaitlist && !isAttending) {
+    if (event.maxCapacity !== null) {
+      const nextInLine = await prisma.rsvp.findFirst({
+        where: { 
+          eventId: eventId, 
+          isAttending: true, 
+          isOnWaitlist: true,
+          ...(event.requireVerification ? { isVerified: true } : {})
+        },
+        orderBy: { createdAt: 'asc' }
+      });
+
+      if (nextInLine) {
+        const promotedRsvp = await prisma.rsvp.update({
+          where: { id: nextInLine.id },
+          data: { isOnWaitlist: false }
+        });
+        if (promotedRsvp.email) {
+          await sendWaitlistPromotedEmail(promotedRsvp, event);
+          await sendConfirmationEmail(promotedRsvp, event); 
+        }
+      }
+    }
+  }
+
+  // E-Mail Logik für den GAST
   if (savedRsvp.email && savedRsvp.isAttending) {
     try {
-      if (!savedRsvp.isVerified && savedRsvp.verifyToken && !editToken) {
+      if (needsVerification) {
+        // Schickt nun korrekterweise die Verifizierungsmail auch bei Updates!
         await sendVerificationEmail(savedRsvp, event)
-      } else if (!event.requireVerification && !editToken) {
-        // Wenn keine Verifizierung nötig ist, geht die Bestätigung direkt raus
-        await sendConfirmationEmail(savedRsvp, event)
+      } else if (savedRsvp.isVerified || !event.requireVerification) {
+        
+        const isNewFixed = !editToken && !savedRsvp.isOnWaitlist;
+        const isNewWaitlist = !editToken && savedRsvp.isOnWaitlist;
+
+        const changedFromDeclineToFixed = editToken && existingRsvp && !existingRsvp.isAttending && !savedRsvp.isOnWaitlist;
+        const changedFromDeclineToWaitlist = editToken && existingRsvp && !existingRsvp.isAttending && savedRsvp.isOnWaitlist;
+        
+        // NEU: Wenn man durch das Update plötzlich in einen frei gewordenen Platz gerutscht ist
+        const changedFromWaitlistToFixed = editToken && existingRsvp && existingRsvp.isOnWaitlist && !savedRsvp.isOnWaitlist;
+
+        if (isNewFixed || changedFromDeclineToFixed || changedFromWaitlistToFixed) {
+          await sendConfirmationEmail(savedRsvp, event)
+        } else if (isNewWaitlist || changedFromDeclineToWaitlist) {
+          await sendWaitlistEmail(savedRsvp, event)
+        }
       }
     } catch (error) {
       console.error("Fehler beim E-Mail-Versand:", error)
@@ -95,11 +168,9 @@ export async function submitRsvp(formData: FormData) {
   revalidatePath(`/${eventId}`)
   revalidatePath('/admin') 
   
-  // Wir geben dem Frontend zurück, ob der "Bitte Mails checken"-Screen gezeigt werden soll
-  const requiresMailCheck = event.requireVerification && savedRsvp.isAttending && !savedRsvp.isVerified;
-
   return { 
     editToken: savedRsvp.editToken,
-    needsVerification: requiresMailCheck 
+    needsVerification,
+    isOnWaitlist: savedRsvp.isOnWaitlist
   }
 }

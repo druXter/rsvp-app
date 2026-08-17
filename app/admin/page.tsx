@@ -2,7 +2,7 @@
 import { PrismaClient } from '@prisma/client'
 import { cookies } from 'next/headers'
 import Link from 'next/link'
-import { logoutAdmin, sendReminder } from './actions' // NEU: sendReminder hinzugefügt
+import { logoutAdmin, sendReminder, resendVerificationEmail, promoteFromWaitlist } from './actions' // NEU: sendReminder hinzugefügt
 import { redirect } from 'next/navigation'
 import DeleteButton from './delete-button'
 import DeleteRsvpButton from './delete-rsvp-button'
@@ -142,9 +142,31 @@ export default async function AdminDashboard() {
                           <tr key={rsvp.id} className="border-b last:border-0 hover:bg-gray-50">
                             <td className="p-2 font-medium text-gray-900">{rsvp.name}</td>
                             <td className="p-2">
-                              {rsvp.isAttending 
-                                ? <span className="text-green-600 font-semibold">Kommt</span>
-                                : <span className="text-red-600 font-semibold">Abgesagt</span>}
+                              {rsvp.isAttending ? (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-green-600 font-bold">Kommt</span>
+                                  {rsvp.isOnWaitlist && (
+                                    <div className="flex flex-col gap-1 items-start">
+                                      <span className="bg-orange-100 text-orange-800 text-[10px] px-2 py-0.5 rounded-full font-bold">
+                                        Warteliste
+                                      </span>
+                                      {/* Formular für den manuellen Admin-Override */}
+                                      <form action={promoteFromWaitlist}>
+                                        <input type="hidden" name="rsvpId" value={rsvp.id} />
+                                        <button 
+                                          type="submit" 
+                                          className="text-[10px] text-green-600 hover:text-green-800 transition flex items-center gap-1 bg-green-50 px-1.5 py-0.5 rounded border border-green-200"
+                                          title="Diesen Gast manuell fest eintragen (ignoriert Limit)"
+                                        >
+                                          ✅ Zulassen
+                                        </button>
+                                      </form>
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-red-500 font-bold">Abgesagt</span>
+                              )}
                             </td>
                             
                             <td className="p-2 text-gray-600">
@@ -154,9 +176,22 @@ export default async function AdminDashboard() {
                                   <>
                                     {/* Ausstehend: Event erfordert Prüfung, Gast ist aber noch false */}
                                     {event.requireVerification && !rsvp.isVerified && (
-                                      <span className="inline-block px-2 py-0.5 bg-yellow-100 text-yellow-800 text-[10px] font-bold rounded-full" title="Wartet auf Klick in der E-Mail">
-                                        🟡 Ausstehend
-                                      </span>
+                                      <div className="flex items-center gap-2 mt-1">
+                                        <span className="inline-block px-2 py-0.5 bg-yellow-100 text-yellow-800 text-[10px] font-bold rounded-full" title="Wartet auf Klick in der E-Mail">
+                                          🟡 Ausstehend
+                                        </span>
+                                        {/* NEU: Formular für den manuellen Re-Send */}
+                                        <form action={resendVerificationEmail}>
+                                          <input type="hidden" name="rsvpId" value={rsvp.id} />
+                                          <button 
+                                            type="submit" 
+                                            className="text-[10px] text-blue-600 hover:text-blue-800 hover:underline transition"
+                                            title="Verifizierungs-Mail erneut senden"
+                                          >
+                                            ✉️ Erneut senden
+                                          </button>
+                                        </form>
+                                      </div>
                                     )}
                                     {/* Verifiziert: Gast ist true */}
                                     {rsvp.isVerified && (

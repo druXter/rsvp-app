@@ -5,6 +5,11 @@ Ein schlankes, anpassbares und leistungsstarkes Event-Management-System, gebaut 
 ## ✨ Features
 
 * **Multi-Event-Support:** Verwalte beliebig viele Events gleichzeitig über dynamische URLs (z.B. `/sommerfest`).
+* **Kapazitätsgrenzen & intelligente Warteliste:**
+  * Optionale maximale Teilnehmerzahl pro Event festlegbar.
+  * Vollautomatische Warteliste: Sobald das Limit erreicht ist, reihen sich neue Gäste nahtlos in die Warteschlange ein (inkl. Wartelisten-Info per E-Mail).
+  * Auto-Nachrücken: Sagt ein Gast ab oder erhöht der Admin die Kapazität, rücken wartende Gäste automatisch chronologisch nach und erhalten ihr Ticket per Mail.
+  * Admin-Override: Manuelles Zulassen von Gästen ("VIPs") an der Warteliste und Kapazitätsgrenze vorbei.
 * **Dynamische Formulare:** Bestimme pro Event, welche Felder deine Gäste ausfüllen sollen:
   * Begleitperson (+1) inkl. Name
   * Essenspräferenzen (Vegan, Vegetarisch, Allesesser) & Allergien
@@ -17,7 +22,7 @@ Ein schlankes, anpassbares und leistungsstarkes Event-Management-System, gebaut 
   * Manueller Versand aus dem Dashboard an alle Zusagen (inkl. optionaler Zusatzinfos für die Gäste).
   * Vollautomatischer Versand X Tage vor dem Event (gesicherter Endpoint für Uptime Kuma oder Cronjobs).
 * **Admin Dashboard:** 
-  * Volle Übersicht über alle Zu- und Absagen.
+  * Volle Übersicht über alle Zu- und Absagen sowie Wartelistenplätze.
   * Status-Anzeige ausstehender E-Mail-Verifizierungen.
   * Nachträgliches, manuelles Bearbeiten von Gästedaten (z.B. bei telefonischer Zusage).
   * CSV-Export der kompletten Gästeliste mit einem Klick.
@@ -29,7 +34,7 @@ Ein schlankes, anpassbares und leistungsstarkes Event-Management-System, gebaut 
 * **Sprache:** TypeScript
 * **Datenbank:** SQLite mit Prisma ORM
 * **Styling:** Tailwind CSS
-* **Deployment:** Docker & Docker Compose
+* **Deployment:** Docker & Docker Compose (optimiert für Alpine)
 
 ## 🚀 Quick Start (Local & Docker)
 
@@ -82,7 +87,7 @@ Um automatische E-Mail-Erinnerungen für Events zu versenden, muss der folgende 
 
 ## 🔒 Sicherheitshinweise
 
-Die Datenbankdatei (`*.db`) und deine `.env`-Datei sind in der `.gitignore` vom Tracking ausgeschlossen. Stelle sicher, dass du niemals echte Passwörter oder Nutzerdaten in das Git-Repository hochlädst.
+Die Datenbankdatei (`*.db`) und deine `.env`-Datei sind vom Tracking ausgeschlossen. Stelle sicher, dass du niemals echte Passwörter oder Nutzerdaten in das Git-Repository hochlädst.
 
 ## 📄 Lizenz
 
