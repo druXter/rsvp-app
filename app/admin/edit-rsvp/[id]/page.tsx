@@ -17,11 +17,13 @@ export default async function EditRsvpPage({ params }: { params: Promise<{ id: s
   const session = cookieStore.get('admin_session')
   if (!session || session.value !== 'true') redirect('/admin/login')
 
-  // Die spezifische Antwort aus der Datenbank abrufen
+  // Die spezifische Antwort aus der Datenbank abrufen (inkl. des geteilten Gast-Profils)
   const { id } = await params
-  const rsvp = await prisma.rsvp.findUnique({ where: { id } })
+  const rsvp = await prisma.rsvp.findUnique({ where: { id }, include: { participant: true } })
 
   if (!rsvp) return <div className="p-8">Antwort nicht gefunden.</div>
+
+  const participant = rsvp.participant
 
   return (
     <main className="min-h-screen bg-gray-100 py-12 px-4">
@@ -39,7 +41,7 @@ export default async function EditRsvpPage({ params }: { params: Promise<{ id: s
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1">Name</label>
-              <input type="text" name="name" defaultValue={rsvp.name} required className="w-full border border-gray-300 p-2 rounded" />
+              <input type="text" name="name" defaultValue={participant.name} required className="w-full border border-gray-300 p-2 rounded" />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Status</label>
@@ -53,11 +55,11 @@ export default async function EditRsvpPage({ params }: { params: Promise<{ id: s
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1">E-Mail</label>
-              <input type="email" name="email" defaultValue={rsvp.email || ''} className="w-full border border-gray-300 p-2 rounded" />
+              <input type="email" name="email" defaultValue={participant.email || ''} className="w-full border border-gray-300 p-2 rounded" />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Handy</label>
-              <input type="tel" name="phone" defaultValue={rsvp.phone || ''} className="w-full border border-gray-300 p-2 rounded" />
+              <input type="tel" name="phone" defaultValue={participant.phone || ''} className="w-full border border-gray-300 p-2 rounded" />
             </div>
           </div>
 
@@ -78,7 +80,7 @@ export default async function EditRsvpPage({ params }: { params: Promise<{ id: s
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1">Essen</label>
-              <select name="dietaryOption" defaultValue={rsvp.dietaryOption || ''} className="w-full border border-gray-300 p-2 rounded bg-white">
+              <select name="dietaryOption" defaultValue={participant.dietaryOption || ''} className="w-full border border-gray-300 p-2 rounded bg-white">
                 <option value="">Keine Angabe</option>
                 <option value="Allesesser">Allesesser</option>
                 <option value="Vegetarisch">Vegetarisch</option>
@@ -97,7 +99,7 @@ export default async function EditRsvpPage({ params }: { params: Promise<{ id: s
 
           <div>
             <label className="block text-sm font-medium mb-1">Allergien</label>
-            <input type="text" name="allergies" defaultValue={rsvp.allergies || ''} className="w-full border border-gray-300 p-2 rounded" />
+            <input type="text" name="allergies" defaultValue={participant.allergies || ''} className="w-full border border-gray-300 p-2 rounded" />
           </div>
 
           <div>

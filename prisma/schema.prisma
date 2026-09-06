@@ -8,6 +8,30 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Eine optionale Veranstaltungsreihe (mehrere Termine, gemeinsames Gast-Profil).
+// Events ohne seriesId sind normale Einzel-Events und von diesem Modell unberührt.
+model EventSeries {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  title       String
+  description String?
+
+  // Reihenweit EINMALIG abgefragte Profil-Felder (gelten für alle Termine der Reihe)
+  askEmail     Boolean @default(false)
+  askPhone     Boolean @default(false)
+  askDiet      Boolean @default(true)
+  askAllergies Boolean @default(false)
+  requireVerification Boolean @default(false)
+
+  // Gruppen- & Vereins-Features gelten reihenweit statt pro Termin
+  isGuestListVisible Boolean @default(false)
+  eventPin           String?
+
+  createdAt    DateTime @default(now())
+  events       Event[]
+  participants Participant[]
+}
+
 model Event {
   id          String   @id @default(cuid())
   slug        String   @unique
@@ -26,29 +50,58 @@ model Event {
   maxCapacity        Int?
   isGuestListVisible Boolean  @default(false)
   eventPin           String?
+
+  // Optionale Zugehörigkeit zu einer Veranstaltungsreihe. Ist seriesId gesetzt,
+  // sind requireVerification/isGuestListVisible/eventPin auf DIESEM Event bedeutungslos -
+  // stattdessen gelten die gleichnamigen Felder der EventSeries, und formConfig enthält
+  // nur noch die pro Termin abgefragten Felder (askAlcohol, askPlusOne, askBringingItem).
+  seriesId    String?
+  series      EventSeries? @relation(fields: [seriesId], references: [id])
 }
 
+// Die Identität eines Gasts. Bei Einzel-Events entsteht pro Anmeldung ein eigener
+// Participant (seriesId = null). Innerhalb einer Reihe wird EIN Participant über
+// mehrere Termine (Rsvps) hinweg wiederverwendet, damit Kontakt-/Profildaten nicht
+// für jeden Termin erneut abgefragt werden müssen.
+model Participant {
+  id            String   @id @default(cuid())
+  seriesId      String?
+  series        EventSeries? @relation(fields: [seriesId], references: [id])
+
+  name          String
+  email         String?
+  phone         String?
+  dietaryOption String?
+  allergies     String?
+
+  isVerified    Boolean   @default(false)
+  verifyToken   String?   @unique
+  verifiedAt    DateTime?
+
+  editToken     String    @unique @default(uuid())
+  createdAt     DateTime  @default(now())
+  rsvps         Rsvp[]
+}
+
+// Die Antwort eines Participants zu GENAU EINEM Termin (Zusage/Absage, Warteliste
+// und alles, was pro Termin einzeln abgefragt wird).
 model Rsvp {
   id             String   @id @default(cuid())
   eventId        String
   event          Event    @relation(fields: [eventId], references: [id])
-  name           String
+  participantId  String
+  participant    Participant @relation(fields: [participantId], references: [id])
+
   isAttending    Boolean
-  dietaryOption  String?
   drinksAlcohol  Boolean?
   additionalInfo String?
   declineReason  String?
-  email          String?
-  phone          String?
-  customAnswers  String?  
-  createdAt      DateTime @default(now())
+  customAnswers  String?
   plusOne        Boolean  @default(false)
   plusOneName    String?
   bringingItem   String?
-  allergies      String?
-  editToken      String   @unique @default(uuid())
-  isVerified     Boolean   @default(false)
-  verifyToken    String?   @unique
-  verifiedAt     DateTime?
-  isOnWaitlist       Boolean  @default(false)
+  isOnWaitlist   Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  @@unique([eventId, participantId])
 }

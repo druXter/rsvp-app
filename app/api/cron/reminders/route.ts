@@ -29,10 +29,8 @@ export async function GET(request: Request) {
     },
     include: {
       rsvps: {
-        where: {
-          isAttending: true,
-          email: { not: null }
-        }
+        where: { isAttending: true },
+        include: { participant: true }
       }
     }
   })
@@ -46,12 +44,12 @@ export async function GET(request: Request) {
 
     // 4. Wenn "jetzt" das Trigger-Datum erreicht oder überschritten hat -> Mails senden!
     if (now >= triggerDate) {
-      const validRsvps = event.rsvps.filter(rsvp => rsvp.email && rsvp.email.trim() !== "")
-      
+      const validRsvps = event.rsvps.filter(rsvp => rsvp.participant.email && rsvp.participant.email.trim() !== "")
+
       if (validRsvps.length > 0) {
         // Bei der automatischen Erinnerung lassen wir den manuellen customMessage-Text leer
-        const emailPromises = validRsvps.map(rsvp => 
-          sendReminderEmail(event, rsvp, "") 
+        const emailPromises = validRsvps.map(rsvp =>
+          sendReminderEmail(event, rsvp.participant, "")
         )
         await Promise.allSettled(emailPromises)
       }

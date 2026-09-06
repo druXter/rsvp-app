@@ -18,6 +18,15 @@ const prisma = new PrismaClient()
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || Math.random().toString(36).slice(2)
 
 /**
+ * Prüft die Admin-Session. Wirft, wenn nicht eingeloggt.
+ */
+async function requireAdmin() {
+  const cookieStore = await cookies()
+  const session = cookieStore.get('admin_session')
+  if (!session || session.value !== 'true') throw new Error('Nicht autorisiert')
+}
+
+/**
  * Überprüft die Zugangsdaten und erstellt bei Erfolg eine Admin-Sitzung via Cookie.
  */
 export async function loginAdmin(formData: FormData) {
@@ -48,7 +57,7 @@ export async function logoutAdmin() {
 }
 
 /**
- * Legt ein neues Event in der Datenbank an.
+ * Legt ein neues, eigenständiges Event in der Datenbank an (Standard-Fall).
  * Konvertiert die Formulardaten in das passende Datenbank-Format und serialisiert
  * die dynamische Formular-Konfiguration als JSON.
  */
@@ -65,7 +74,6 @@ export async function createEvent(formData: FormData) {
   const eventPinInput = formData.get('eventPin') as string
   const eventPin = eventPinInput ? eventPinInput.trim() : null
 
-  // NEU: Cronjob-Einstellungen auslesen
   const autoReminder = formData.get('autoReminder') === 'on'
   const reminderDays = parseInt(formData.get('reminderDays') as string) || 7
   const requireVerification = formData.get('requireVerification') === 'on'
@@ -109,20 +117,22 @@ export async function createEvent(formData: FormData) {
 
 /**
  * Löscht ein Event mitsamt aller zugehörigen Antworten aus der Datenbank.
+ * Gehört das Event zu einer Reihe, bleiben die Participants (ihr Profil gilt
+ * ggf. noch für andere Termine der Reihe) unangetastet.
  */
 export async function deleteEvent(formData: FormData) {
   const id = formData.get('eventId') as string
-  
+
   // 1. Zuerst alle verknüpften Antworten (Gäste) löschen, um Fremdschlüssel-Konflikte zu vermeiden
   await prisma.rsvp.deleteMany({
     where: { eventId: id }
   })
-  
+
   // 2. Anschließend das eigentliche Event löschen
   await prisma.event.delete({
     where: { id }
   })
-  
+
   revalidatePath('/admin')
 }
 
@@ -136,19 +146,17 @@ export async function updateEvent(formData: FormData) {
   const date = new Date(formData.get('date') as string)
   const location = formData.get('location') as string
   const description = formData.get('description') as string
-  const duration = parseInt(formData.get('duration') as string) || 4 
+  const duration = parseInt(formData.get('duration') as string) || 4
   const maxCapStr = formData.get('maxCapacity') as string
   const maxCapacity = maxCapStr ? parseInt(maxCapStr) : null
   const isGuestListVisible = formData.get('isGuestListVisible') === 'on'
   const eventPinInput = formData.get('eventPin') as string
   const eventPin = eventPinInput ? eventPinInput.trim() : null
 
-  // Cronjob-Einstellungen auslesen
   const autoReminder = formData.get('autoReminder') === 'on'
   const reminderDays = parseInt(formData.get('reminderDays') as string) || 7
   const requireVerification = formData.get('requireVerification') === 'on'
 
-  // Aktualisierte Formular-Optionen serialisieren
   const formConfig = JSON.stringify({
     askEmail: formData.get('askEmail') === 'on',
     askPhone: formData.get('askPhone') === 'on',
@@ -188,65 +196,64 @@ export async function updateEvent(formData: FormData) {
 }
 
 /**
- * Löscht eine spezifische Antwort (RSVP) eines Gastes.
+ * Löscht eine spezifische Antwort (RSVP) eines Gastes zu einem Termin.
+ * Der Participant (das Profil) bleibt bestehen, falls er noch andere Antworten hat.
  */
 export async function deleteRsvp(formData: FormData) {
   const id = formData.get('rsvpId') as string
-  
-  // 1. Gast vor dem Löschen laden, um zu sehen, ob ein fester Platz frei wird
+
   const rsvpToDelete = await prisma.rsvp.findUnique({ where: { id } })
   if (!rsvpToDelete) return
 
-  // 2. Gast löschen
   await prisma.rsvp.delete({
     where: { id }
   })
-  
-  // 3. Nachrück-Automatik auslösen, falls der Gast einen FESTEN Platz hatte
+
   if (rsvpToDelete.isAttending && !rsvpToDelete.isOnWaitlist) {
     await triggerWaitlistPromotion(rsvpToDelete.eventId)
   }
-  
+
   revalidatePath('/admin')
 }
 
 /**
- * Ermöglicht es dem Administrator, die Antwort eines Gastes manuell zu bearbeiten
+ * Ermöglicht es dem Administrator, die Antwort eines Gastes zu einem Termin manuell
+ * zu bearbeiten - inklusive der reihenweit geteilten Profildaten (Name, Kontakt, Essen).
  */
 export async function updateAdminRsvp(formData: FormData) {
   const id = formData.get('rsvpId') as string
   const name = formData.get('name') as string
   const isAttending = formData.get('isAttending') === 'true'
-  
+
   const email = formData.get('email') as string || null
   const phone = formData.get('phone') as string || null
   const dietaryOption = formData.get('dietaryOption') as string || null
+  const allergies = formData.get('allergies') as string || null
+
   const drinksAlcohol = formData.has('drinksAlcohol') ? formData.get('drinksAlcohol') === 'true' : null
   const additionalInfo = formData.get('additionalInfo') as string || null
   const declineReason = formData.get('declineReason') as string || null
 
   const plusOne = formData.get('plusOne') === 'true'
   const plusOneName = formData.get('plusOneName') as string || null
-  const allergies = formData.get('allergies') as string || null
   const bringingItem = formData.get('bringingItem') as string || null
 
-  // Alten Status VOR dem Update laden
   const existingRsvp = await prisma.rsvp.findUnique({ where: { id } })
   if (!existingRsvp) return
+
+  await prisma.participant.update({
+    where: { id: existingRsvp.participantId },
+    data: { name, email, phone, dietaryOption, allergies }
+  })
 
   await prisma.rsvp.update({
     where: { id },
     data: {
-      name,
       isAttending,
-      email: isAttending ? email : null,
-      phone: isAttending ? phone : null,
-      dietaryOption: isAttending ? dietaryOption : null,
       drinksAlcohol: isAttending ? drinksAlcohol : null,
       additionalInfo: isAttending ? additionalInfo : null,
       plusOne: isAttending ? plusOne : false,
       plusOneName: isAttending && plusOne ? plusOneName : null,
-      allergies: isAttending ? allergies : null,
       bringingItem: isAttending ? bringingItem : null,
       declineReason: isAttending ? null : declineReason
     }
@@ -266,10 +273,10 @@ export async function updateAdminRsvp(formData: FormData) {
  */
 export async function promoteFromWaitlist(formData: FormData) {
   const id = formData.get('rsvpId') as string
-  
-  const rsvp = await prisma.rsvp.findUnique({ 
-    where: { id }, 
-    include: { event: true } 
+
+  const rsvp = await prisma.rsvp.findUnique({
+    where: { id },
+    include: { event: { include: { series: true } }, participant: true }
   })
   if (!rsvp || !rsvp.isOnWaitlist) return
 
@@ -280,9 +287,9 @@ export async function promoteFromWaitlist(formData: FormData) {
   })
 
   // Erfolgs-Mails senden
-  if (promotedRsvp.email) {
-    await sendWaitlistPromotedEmail(promotedRsvp, rsvp.event);
-    await sendConfirmationEmail(promotedRsvp, rsvp.event);
+  if (rsvp.participant.email) {
+    await sendWaitlistPromotedEmail(rsvp.participant, promotedRsvp, rsvp.event)
+    await sendConfirmationEmail(rsvp.participant, promotedRsvp, rsvp.event)
   }
 
   revalidatePath('/admin')
@@ -293,11 +300,13 @@ export async function promoteFromWaitlist(formData: FormData) {
  * Funktioniert für einzelne freiwerdende Plätze UND wenn der Admin die Kapazität erhöht.
  */
 async function triggerWaitlistPromotion(eventId: string) {
-  const event = await prisma.event.findUnique({ 
+  const event = await prisma.event.findUnique({
     where: { id: eventId },
-    include: { rsvps: true }
+    include: { rsvps: true, series: true }
   })
   if (!event || event.maxCapacity === null) return;
+
+  const requireVerification = event.series ? event.series.requireVerification : event.requireVerification
 
   // Aktuelle Anzahl der Leute mit festem Platz zählen
   let currentAttendeesCount = event.rsvps.filter(r => r.isAttending && !r.isOnWaitlist).length;
@@ -305,25 +314,26 @@ async function triggerWaitlistPromotion(eventId: string) {
   // Solange Plätze frei sind...
   while (currentAttendeesCount < event.maxCapacity) {
     const nextInLine = await prisma.rsvp.findFirst({
-      where: { 
-        eventId: event.id, 
-        isAttending: true, 
+      where: {
+        eventId: event.id,
+        isAttending: true,
         isOnWaitlist: true,
-        ...(event.requireVerification ? { isVerified: true } : {})
+        ...(requireVerification ? { participant: { isVerified: true } } : {})
       },
-      orderBy: { createdAt: 'asc' } // Derjenige, der am längsten wartet
-    });
+      orderBy: { createdAt: 'asc' }, // Derjenige, der am längsten wartet
+      include: { participant: true }
+    })
 
     if (!nextInLine) break; // Niemand mehr auf der Warteliste
 
     const promotedRsvp = await prisma.rsvp.update({
       where: { id: nextInLine.id },
-      data: { isOnWaitlist: false } 
-    });
+      data: { isOnWaitlist: false }
+    })
 
-    if (promotedRsvp.email) {
-      await sendWaitlistPromotedEmail(promotedRsvp, event);
-      await sendConfirmationEmail(promotedRsvp, event); 
+    if (nextInLine.participant.email) {
+      await sendWaitlistPromotedEmail(nextInLine.participant, promotedRsvp, event);
+      await sendConfirmationEmail(nextInLine.participant, promotedRsvp, event);
     }
 
     currentAttendeesCount++; // Zähler für den nächsten Schleifendurchlauf erhöhen
@@ -331,55 +341,42 @@ async function triggerWaitlistPromotion(eventId: string) {
 }
 
 /**
- * Server Action: Versendet Erinnerungen an alle zugesagten Gäste eines Events.
+ * Server Action: Versendet Erinnerungen an alle zugesagten Gäste eines Termins.
  * Schützt die Route via Cookie-Prüfung und aktualisiert danach das Dashboard.
  */
 export async function sendReminder(formData: FormData) {
-  // 1. Security First: Prüfen, ob der User wirklich Admin ist
-  const cookieStore = await cookies()
-  const session = cookieStore.get('admin_session')
-  
-  if (!session || session.value !== 'true') {
-    throw new Error('Nicht autorisiert')
-  }
+  await requireAdmin()
 
-  // 2. Daten aus dem Formular auslesen
   const eventId = formData.get('eventId') as string
   const customMessage = formData.get('customMessage') as string
 
   if (!eventId) return
 
-  // 3. Das Event und alle relevanten RSVPs (Nur Zusagen + hat E-Mail) aus der DB holen
   const event = await prisma.event.findUnique({
     where: { id: eventId },
     include: {
       rsvps: {
-        where: {
-          isAttending: true, // Nur Leute, die zugesagt haben
-          email: { not: null} // Nur Leute, die eine E-Mail hinterlegt haben
-        }
+        where: { isAttending: true },
+        include: { participant: true }
       }
     }
   })
 
   if (!event) throw new Error('Event nicht gefunden')
 
-  const validRsvps = event.rsvps.filter(rsvp => rsvp.email && rsvp.email.trim() !== "")
+  const validRsvps = event.rsvps.filter(rsvp => rsvp.participant.email && rsvp.participant.email.trim() !== "")
 
-  // 4. Mails asynchron über unsere neue Funktion verschicken
-  const emailPromises = validRsvps.map(rsvp => 
-    sendReminderEmail(event, rsvp, customMessage)
+  const emailPromises = validRsvps.map(rsvp =>
+    sendReminderEmail(event, rsvp.participant, customMessage)
   )
 
   await Promise.allSettled(emailPromises)
 
-  // 5. In der Datenbank vermerken, dass eine Erinnerung gesendet wurde
   await prisma.event.update({
     where: { id: eventId },
     data: { reminderSent: true }
   })
 
-  // 6. Das UI (Admin-Dashboard) neu laden, um das "Erinnerung wurde gesendet"-Label anzuzeigen
   revalidatePath('/admin')
 }
 
@@ -388,33 +385,202 @@ export async function sendReminder(formData: FormData) {
  * Nützlich, wenn der Gast die E-Mail nicht erhalten oder versehentlich gelöscht hat.
  */
 export async function resendVerificationEmail(formData: FormData) {
-  // Sicherheits-Check
-  const cookieStore = await cookies()
-  const session = cookieStore.get('admin_session')
-  if (!session || session.value !== 'true') throw new Error('Nicht autorisiert')
+  await requireAdmin()
 
   const id = formData.get('rsvpId') as string
-  
+
   const rsvp = await prisma.rsvp.findUnique({
     where: { id },
-    include: { event: true }
+    include: { event: true, participant: true }
   })
 
-  // Wenn der Gast nicht existiert, keine Mail hat oder ohnehin schon verifiziert ist, abbrechen
-  if (!rsvp || !rsvp.email || rsvp.isVerified) return
+  if (!rsvp || !rsvp.participant.email || rsvp.participant.isVerified) return
 
-  // Fallback: Falls durch einen Bug (oder alte Daten) kein verifyToken existiert, 
-  // generieren wir sicherheitshalber einen neuen.
-  let tokenToUse = rsvp.verifyToken
+  let tokenToUse = rsvp.participant.verifyToken
   if (!tokenToUse) {
     tokenToUse = randomUUID()
-    await prisma.rsvp.update({
-      where: { id },
+    await prisma.participant.update({
+      where: { id: rsvp.participant.id },
       data: { verifyToken: tokenToUse }
     })
-    rsvp.verifyToken = tokenToUse
   }
 
-  // Die Mail-Funktion aufrufen
-  await sendVerificationEmail(rsvp, rsvp.event)
+  await sendVerificationEmail(rsvp.participant, rsvp.event)
+}
+
+/**
+ * Legt eine neue Veranstaltungsreihe an (optionales Feature neben Einzel-Events).
+ */
+export async function createEventSeries(formData: FormData) {
+  await requireAdmin()
+
+  const title = formData.get('title') as string
+  const slugInput = formData.get('slug') as string
+  const description = formData.get('description') as string
+
+  const askEmail = formData.get('askEmail') === 'on'
+  const askPhone = formData.get('askPhone') === 'on'
+  const askDiet = formData.get('askDiet') === 'on'
+  const askAllergies = formData.get('askAllergies') === 'on'
+  const requireVerification = formData.get('requireVerification') === 'on'
+  const isGuestListVisible = formData.get('isGuestListVisible') === 'on'
+  const eventPinInput = formData.get('eventPin') as string
+  const eventPin = eventPinInput ? eventPinInput.trim() : null
+
+  const slug = slugInput.toLowerCase().replace(/[^a-z0-9-]/g, '-')
+
+  const series = await prisma.eventSeries.create({
+    data: { title, slug, description, askEmail, askPhone, askDiet, askAllergies, requireVerification, isGuestListVisible, eventPin }
+  })
+
+  revalidatePath('/admin')
+  redirect(`/admin/series/${series.id}`)
+}
+
+/**
+ * Aktualisiert die reihenweiten Einstellungen (gilt für alle Termine der Reihe).
+ */
+export async function updateEventSeries(formData: FormData) {
+  await requireAdmin()
+
+  const id = formData.get('seriesId') as string
+  const title = formData.get('title') as string
+  const slugInput = formData.get('slug') as string
+  const description = formData.get('description') as string
+
+  const askEmail = formData.get('askEmail') === 'on'
+  const askPhone = formData.get('askPhone') === 'on'
+  const askDiet = formData.get('askDiet') === 'on'
+  const askAllergies = formData.get('askAllergies') === 'on'
+  const requireVerification = formData.get('requireVerification') === 'on'
+  const isGuestListVisible = formData.get('isGuestListVisible') === 'on'
+  const eventPinInput = formData.get('eventPin') as string
+  const eventPin = eventPinInput ? eventPinInput.trim() : null
+
+  const slug = slugInput.toLowerCase().replace(/[^a-z0-9-]/g, '-')
+
+  await prisma.eventSeries.update({
+    where: { id },
+    data: { title, slug, description, askEmail, askPhone, askDiet, askAllergies, requireVerification, isGuestListVisible, eventPin }
+  })
+
+  revalidatePath('/admin')
+  redirect(`/admin/series/${id}`)
+}
+
+/**
+ * Löscht eine komplette Veranstaltungsreihe inkl. aller Termine, Antworten und Profile.
+ */
+export async function deleteEventSeries(formData: FormData) {
+  await requireAdmin()
+
+  const id = formData.get('seriesId') as string
+
+  const events = await prisma.event.findMany({ where: { seriesId: id }, select: { id: true } })
+  const eventIds = events.map(e => e.id)
+
+  await prisma.rsvp.deleteMany({ where: { eventId: { in: eventIds } } })
+  await prisma.event.deleteMany({ where: { seriesId: id } })
+  await prisma.participant.deleteMany({ where: { seriesId: id } })
+  await prisma.eventSeries.delete({ where: { id } })
+
+  revalidatePath('/admin')
+  redirect('/admin')
+}
+
+/**
+ * Fügt einer bestehenden Reihe einen neuen Termin hinzu. Die reihenweiten Felder
+ * (E-Mail/Handy/Essen/Allergien-Abfrage, Verifizierung, Gästeliste, PIN) kommen von
+ * der EventSeries - hier werden nur die pro Termin abweichenden Daten abgefragt.
+ */
+export async function addTerminToSeries(formData: FormData) {
+  await requireAdmin()
+
+  const seriesId = formData.get('seriesId') as string
+  const title = formData.get('title') as string
+  const slugInput = formData.get('slug') as string
+  const date = new Date(formData.get('date') as string)
+  const location = formData.get('location') as string
+  const description = formData.get('description') as string
+  const duration = parseInt(formData.get('duration') as string) || 4
+  const maxCapStr = formData.get('maxCapacity') as string
+  const maxCapacity = maxCapStr ? parseInt(maxCapStr) : null
+
+  const autoReminder = formData.get('autoReminder') === 'on'
+  const reminderDays = parseInt(formData.get('reminderDays') as string) || 7
+
+  const formConfig = JSON.stringify({
+    askEmail: false,
+    askPhone: false,
+    askDiet: false,
+    askAllergies: false,
+    askAlcohol: formData.get('askAlcohol') === 'on',
+    askPlusOne: formData.get('askPlusOne') === 'on',
+    askBringingItem: formData.get('askBringingItem') === 'on',
+  })
+
+  const slug = slugInput.toLowerCase().replace(/[^a-z0-9-]/g, '-')
+
+  await prisma.event.create({
+    data: {
+      seriesId,
+      title,
+      slug,
+      date,
+      location,
+      description,
+      duration,
+      formConfig,
+      autoReminder,
+      reminderDays,
+      maxCapacity
+    }
+  })
+
+  revalidatePath('/admin')
+  redirect(`/admin/series/${seriesId}`)
+}
+
+/**
+ * Aktualisiert einen bestehenden Termin innerhalb einer Reihe. Anders als bei
+ * updateEvent gibt es hier keine reihenweiten Felder (Profil-Abfragen, PIN,
+ * Gästeliste, Verifizierung) - die kommen ausschließlich von der EventSeries.
+ */
+export async function updateSeriesTermin(formData: FormData) {
+  await requireAdmin()
+
+  const id = formData.get('eventId') as string
+  const title = formData.get('title') as string
+  const slugInput = formData.get('slug') as string
+  const date = new Date(formData.get('date') as string)
+  const location = formData.get('location') as string
+  const description = formData.get('description') as string
+  const duration = parseInt(formData.get('duration') as string) || 4
+  const maxCapStr = formData.get('maxCapacity') as string
+  const maxCapacity = maxCapStr ? parseInt(maxCapStr) : null
+
+  const autoReminder = formData.get('autoReminder') === 'on'
+  const reminderDays = parseInt(formData.get('reminderDays') as string) || 7
+
+  const formConfig = JSON.stringify({
+    askEmail: false,
+    askPhone: false,
+    askDiet: false,
+    askAllergies: false,
+    askAlcohol: formData.get('askAlcohol') === 'on',
+    askPlusOne: formData.get('askPlusOne') === 'on',
+    askBringingItem: formData.get('askBringingItem') === 'on',
+  })
+
+  const slug = slugInput.toLowerCase().replace(/[^a-z0-9-]/g, '-')
+
+  const event = await prisma.event.update({
+    where: { id },
+    data: { title, slug, date, location, description, duration, formConfig, autoReminder, reminderDays, maxCapacity }
+  })
+
+  await triggerWaitlistPromotion(id)
+
+  revalidatePath('/admin')
+  redirect(`/admin/series/${event.seriesId}`)
 }

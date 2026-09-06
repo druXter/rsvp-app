@@ -16,10 +16,12 @@ export async function GET(request: Request) {
 
   const event = await prisma.event.findUnique({
     where: { id: eventId },
-    include: { rsvps: true } 
+    include: { rsvps: { include: { participant: true } }, series: true }
   })
 
   if (!event) return new NextResponse("Event nicht gefunden", { status: 404 })
+
+  const requireVerification = event.series ? event.series.requireVerification : event.requireVerification
 
   // CSV-Kopfzeile definieren (NEU: Spalte 'Verifizierung' hinzugefügt)
   const rows = [
@@ -41,34 +43,36 @@ export async function GET(request: Request) {
   ]
 
   event.rsvps.forEach(rsvp => {
+    const participant = rsvp.participant
+
     // Verifizierungs-Status berechnen
     let verificationStatus = "";
-    if (rsvp.email) {
-      if (event.requireVerification && !rsvp.isVerified) verificationStatus = "Ausstehend";
-      else if (rsvp.isVerified) verificationStatus = "Verifiziert";
+    if (participant.email) {
+      if (requireVerification && !participant.isVerified) verificationStatus = "Ausstehend";
+      else if (participant.isVerified) verificationStatus = "Verifiziert";
       else verificationStatus = "Ohne Prüfung";
     }
 
     rows.push([
-      rsvp.name,
+      participant.name,
       rsvp.isAttending ? "Kommt" : "Abgesagt",
-      rsvp.email || "",
+      participant.email || "",
       verificationStatus, // <-- NEU
-      rsvp.phone || "",
-      
+      participant.phone || "",
+
       rsvp.plusOne ? "Ja" : "Nein",
       rsvp.plusOneName || "",
-      
-      rsvp.dietaryOption || "",
-      rsvp.allergies || "",
-      
+
+      participant.dietaryOption || "",
+      participant.allergies || "",
+
       rsvp.drinksAlcohol === true ? "Ja" : rsvp.drinksAlcohol === false ? "Nein" : "",
       rsvp.bringingItem || "",
-      
+
       rsvp.isAttending ? (rsvp.additionalInfo || "") : (rsvp.declineReason || ""),
-      
+
       rsvp.createdAt.toISOString().split('T')[0]
-      
+
     ].map(field => `"${String(field).replace(/"/g, '""')}"`))
   })
 

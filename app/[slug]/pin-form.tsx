@@ -5,7 +5,7 @@
 import { useState } from 'react'
 import { verifyEventPin } from '../actions'
 
-export default function PinForm({ eventId, slug, title }: { eventId: string, slug: string, title: string }) {
+export default function PinForm({ eventId, seriesId, slug, title }: { eventId?: string, seriesId?: string, slug: string, title: string }) {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
@@ -33,7 +33,8 @@ export default function PinForm({ eventId, slug, title }: { eventId: string, slu
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <input type="hidden" name="eventId" value={eventId} />
+          {eventId && <input type="hidden" name="eventId" value={eventId} />}
+          {seriesId && <input type="hidden" name="seriesId" value={seriesId} />}
           <input type="hidden" name="slug" value={slug} />
           
           <div>

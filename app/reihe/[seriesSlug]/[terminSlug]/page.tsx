@@ -1,57 +1,48 @@
+// app/reihe/[seriesSlug]/[terminSlug]/page.tsx
 import { PrismaClient } from '@prisma/client'
-import { notFound, redirect } from 'next/navigation'
+import { notFound } from 'next/navigation'
 import { cookies } from 'next/headers'
-import RsvpForm from './rsvp-form'
-import PinForm from './pin-form'
+import Link from 'next/link'
+import RsvpForm from '../../../[slug]/rsvp-form'
+import PinForm from '../../../[slug]/pin-form'
 
 const prisma = new PrismaClient()
 
-export default async function EventPage({
+export default async function SeriesEventPage({
   params,
   searchParams
 }: {
-  params: Promise<{ slug: string }>,
+  params: Promise<{ seriesSlug: string; terminSlug: string }>,
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
-  // FIX: In Next.js 15+ müssen params und searchParams asynchron aufgelöst werden!
-  const { slug } = await params;
-  const currentSearchParams = await searchParams;
+  const { seriesSlug, terminSlug } = await params
+  const currentSearchParams = await searchParams
 
-  const event = await prisma.event.findUnique({
-    where: { slug: slug },
-    include: { series: true }
-  })
+  const series = await prisma.eventSeries.findUnique({ where: { slug: seriesSlug } })
+  if (!series) notFound()
 
+  const event = await prisma.event.findFirst({ where: { slug: terminSlug, seriesId: series.id } })
   if (!event) notFound()
 
-  // Termine einer Reihe werden ausschließlich über die Reihen-Route bedient,
-  // damit reihenweite PIN/Gästeliste/Profil-Einstellungen konsistent greifen.
-  if (event.series) {
-    const token = typeof currentSearchParams?.token === 'string' ? `?token=${currentSearchParams.token}` : ''
-    redirect(`/reihe/${event.series.slug}/${event.slug}${token}`)
-  }
-
-  // 1. Zugangsprüfung (Issue #9)
-  let isAuthorized = true;
-  if (event.eventPin) {
+  // Zugangsprüfung über die reihenweite PIN (gilt für alle Termine der Reihe)
+  let isAuthorized = true
+  if (series.eventPin) {
     const cookieStore = await cookies()
-    const pinCookie = cookieStore.get(`event_pin_${event.id}`)
-
-    if (pinCookie?.value !== event.eventPin) {
-      isAuthorized = false;
+    const pinCookie = cookieStore.get(`series_pin_${series.id}`)
+    if (pinCookie?.value !== series.eventPin) {
+      isAuthorized = false
     }
   }
 
-  // Wenn nicht berechtigt, zeige nur das PIN-Formular
   if (!isAuthorized) {
     return (
       <main className="min-h-screen bg-gray-50">
-        <PinForm eventId={event.id} slug={event.slug} title={event.title} />
+        <PinForm seriesId={series.id} slug={series.slug} title={series.title} />
       </main>
     )
   }
 
-  // 2. Token aus der URL auslesen und bestehenden Participant + dessen Antwort zu diesem Termin laden
+  // Participant + dessen Antwort zu GENAU DIESEM Termin laden
   const token = typeof currentSearchParams?.token === 'string' ? currentSearchParams.token : undefined
   let participant = null
   let existingRsvp = null
@@ -65,9 +56,20 @@ export default async function EventPage({
     }
   }
 
-  // 3. Gästeliste laden (Issue #8) - EXTREM WICHTIG: Nur ungefährliche Felder abfragen!
-  let publicRsvps: any[] = [];
-  if (event.isGuestListVisible) {
+  // Reihenweite Profil-Felder (E-Mail/Handy/Essen/Allergien) mit den pro Termin
+  // abgefragten Feldern (Alkohol/Begleitung/Mitbringsel) zu EINER Konfiguration mergen
+  const perTerminConfig = event.formConfig ? JSON.parse(event.formConfig) : {}
+  const mergedConfig = JSON.stringify({
+    ...perTerminConfig,
+    askEmail: series.askEmail,
+    askPhone: series.askPhone,
+    askDiet: series.askDiet,
+    askAllergies: series.askAllergies,
+  })
+
+  // Öffentliche Gästeliste - EXTREM WICHTIG: Nur ungefährliche Felder abfragen!
+  let publicRsvps: any[] = []
+  if (series.isGuestListVisible) {
     publicRsvps = await prisma.rsvp.findMany({
       where: { eventId: event.id },
       select: {
@@ -88,19 +90,20 @@ export default async function EventPage({
 
   return (
     <main className="min-h-screen bg-gray-50 py-10">
-      <div className="max-w-3xl mx-auto px-4">
+      <div className="max-w-3xl mx-auto px-4 space-y-4">
+        <Link href={`/reihe/${series.slug}${token ? `?token=${token}` : ''}`} className="inline-block text-sm text-blue-600 hover:underline">
+          ← Alle Termine von {series.title}
+        </Link>
 
-        {/* Das eigentliche Formular */}
         <RsvpForm
           eventId={event.id}
-          formConfig={event.formConfig}
+          formConfig={mergedConfig}
           participant={participant}
           rsvp={existingRsvp}
         />
 
-        {/* Die öffentliche Gästeliste */}
-        {event.isGuestListVisible && (
-          <div className="mt-12 bg-white p-6 rounded-lg shadow-sm border border-gray-100">
+        {series.isGuestListVisible && (
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
             <h3 className="text-xl font-bold mb-4 text-gray-800">Gästeliste</h3>
 
             {publicRsvps.length === 0 ? (
@@ -115,14 +118,12 @@ export default async function EventPage({
                         <span className="text-gray-500 text-sm ml-1">(+ {guest.plusOneName})</span>
                       )}
 
-                      {/* Mitbringsel anzeigen, falls Zusage */}
                       {guest.isAttending && guest.bringingItem && (
                         <div className="text-sm text-blue-600 mt-1">
                           🍕 Bringt mit: {guest.bringingItem}
                         </div>
                       )}
 
-                      {/* Absagegrund anzeigen, falls Absage */}
                       {!guest.isAttending && guest.declineReason && (
                         <div className="text-sm text-gray-500 mt-1 italic">
                           "{guest.declineReason}"
@@ -147,7 +148,6 @@ export default async function EventPage({
             )}
           </div>
         )}
-
       </div>
     </main>
   )
