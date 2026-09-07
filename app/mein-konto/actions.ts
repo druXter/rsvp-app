@@ -168,7 +168,7 @@ export async function changeGuestPassword(formData: FormData) {
 
   const matches = await bcrypt.compare(currentPassword, guestUser.passwordHash)
   if (!matches) {
-    redirect('/mein-konto?error=wrongpassword')
+    redirect('/mein-konto/account?error=wrongpassword')
   }
 
   const passwordHash = await bcrypt.hash(newPassword, 10)
@@ -178,7 +178,7 @@ export async function changeGuestPassword(formData: FormData) {
   const currentToken = cookieStore.get(GUEST_SESSION_COOKIE)?.value
   await prisma.guestSession.deleteMany({ where: { guestUserId: guestUser.id, token: { not: currentToken } } })
 
-  redirect('/mein-konto?passwordChanged=1')
+  redirect('/mein-konto/account?passwordChanged=1')
 }
 
 /**
@@ -195,14 +195,14 @@ export async function requestGuestEmailChange(formData: FormData) {
 
   const matches = await bcrypt.compare(currentPassword, guestUser.passwordHash)
   if (!matches) {
-    redirect('/mein-konto?error=wrongpassword')
+    redirect('/mein-konto/account?error=wrongpassword')
   }
 
   if (newEmail === guestUser.email) return
 
   const existing = await prisma.guestUser.findUnique({ where: { email: newEmail } })
   if (existing) {
-    redirect('/mein-konto?error=emailtaken')
+    redirect('/mein-konto/account?error=emailtaken')
   }
 
   const emailChangeToken = randomBytes(32).toString('hex')
@@ -218,7 +218,7 @@ export async function requestGuestEmailChange(formData: FormData) {
     console.error('Fehler beim Senden der Nutzer-E-Mail-Änderungs-Bestätigung:', error)
   }
 
-  redirect('/mein-konto?emailChangeRequested=1')
+  redirect('/mein-konto/account?emailChangeRequested=1')
 }
 
 /**
@@ -230,7 +230,7 @@ export async function cancelGuestEmailChange() {
     where: { id: guestUser.id },
     data: { pendingEmail: null, emailChangeToken: null, emailChangeTokenExpiresAt: null }
   })
-  redirect('/mein-konto')
+  redirect('/mein-konto/account')
 }
 
 /**
