@@ -69,6 +69,10 @@ export default async function GuestLoginPage({ searchParams }: { searchParams: P
         <p className="text-sm text-center text-gray-500">
           <Link href="/mein-konto/forgot-password" className="text-blue-600 hover:underline">Passwort vergessen?</Link>
         </p>
+
+        <p className="text-xs text-center text-gray-400 border-t pt-4">
+          Admin-Zugang für Events/Reihen? <Link href="/admin/login" className="text-blue-600 hover:underline">Hier einloggen</Link>
+        </p>
       </div>
     </main>
   )

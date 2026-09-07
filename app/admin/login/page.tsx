@@ -58,6 +58,10 @@ export default async function AdminLoginPage({ searchParams }: { searchParams: P
         <p className="text-sm text-center text-gray-500">
           <Link href="/admin/forgot-password" className="text-blue-600 hover:underline">Passwort vergessen?</Link>
         </p>
+
+        <p className="text-xs text-center text-gray-400 border-t pt-4">
+          Nutzer-Konto einer Veranstaltungsreihe? <Link href="/mein-konto/login" className="text-blue-600 hover:underline">Hier einloggen</Link>
+        </p>
       </div>
     </main>
   )

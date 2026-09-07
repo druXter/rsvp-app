@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { logoutUser } from './actions'
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '../lib/auth'
+import { getCurrentGuestUser } from '../lib/guest-auth'
 import { ROLE_LABELS } from '../lib/permissions'
 import EventRsvpCard from './event-rsvp-card'
 import DeleteSeriesButton from './delete-series-button'
@@ -80,6 +81,12 @@ export default async function AdminDashboard() {
   const user = await getCurrentUser()
   if (!user) redirect('/admin/login')
 
+  // Nur relevant, falls DIESES Konto (per anderer E-Mail oder zufällig gleicher) auch
+  // gerade als Nutzer eingeloggt ist (eigenes Cookie, siehe app/lib/guest-auth.ts) -
+  // dann bekommt es einen direkten Wechsel-Link, statt sich manuell zu "Mein Konto"
+  // durchklicken zu müssen (wichtig v.a. in der installierten PWA).
+  const guestUser = await getCurrentGuestUser()
+
   const isAdmin = user.role === 'ADMIN'
   const isModerator = user.role === 'MODERATOR'
 
@@ -98,6 +105,11 @@ export default async function AdminDashboard() {
           </div>
           <div className="flex gap-4 flex-wrap">
             <PushSubscribeButton vapidPublicKey={process.env.VAPID_PUBLIC_KEY || null} />
+            {guestUser && (
+              <Link href="/mein-konto" className="bg-emerald-100 text-emerald-700 px-4 py-2 rounded hover:bg-emerald-200 transition text-sm font-medium flex items-center">
+                🔀 Mein Konto ({guestUser.email})
+              </Link>
+            )}
             {isAdmin && (
               <Link href="/admin/users" className="bg-gray-100 text-gray-700 px-4 py-2 rounded hover:bg-gray-200 transition text-sm font-medium flex items-center">
                 👥 Nutzerverwaltung

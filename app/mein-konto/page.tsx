@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getCurrentGuestUser } from '../lib/guest-auth'
+import { getCurrentUser } from '../lib/auth'
 import { logoutGuestUser, updateGuestProfile } from './actions'
 
 const prisma = new PrismaClient()
@@ -16,6 +17,13 @@ const prisma = new PrismaClient()
 export default async function MeinKontoPage() {
   const guestUser = await getCurrentGuestUser()
   if (!guestUser) redirect('/mein-konto/login')
+
+  // Nur relevant, falls DIESES Konto auch gerade im Admin-Bereich eingeloggt ist (eigenes
+  // Cookie, siehe app/lib/auth.ts) - z.B. ein Moderator, der bei einer fremden Reihe auch
+  // ganz normal als Nutzer teilnimmt. Bekommt dann einen direkten Wechsel-Link zurück,
+  // ohne sich manuell zum Dashboard durchklicken zu müssen (wichtig v.a. in der
+  // installierten PWA).
+  const user = await getCurrentUser()
 
   const memberships = await prisma.guestUserSeries.findMany({
     where: { guestUserId: guestUser.id },
@@ -38,11 +46,18 @@ export default async function MeinKontoPage() {
             <h1 className="text-2xl font-bold text-gray-900">Mein Konto</h1>
             <p className="text-sm text-gray-500">{guestUser.email}</p>
           </div>
-          <form action={logoutGuestUser}>
-            <button type="submit" className="bg-gray-200 text-gray-800 px-4 py-2 rounded hover:bg-gray-300 transition text-sm font-medium">
-              Abmelden
-            </button>
-          </form>
+          <div className="flex gap-2 flex-wrap items-center">
+            {user && (
+              <Link href="/admin" className="bg-emerald-100 text-emerald-700 px-4 py-2 rounded hover:bg-emerald-200 transition text-sm font-medium flex items-center">
+                🔀 Admin-Dashboard ({user.email})
+              </Link>
+            )}
+            <form action={logoutGuestUser}>
+              <button type="submit" className="bg-gray-200 text-gray-800 px-4 py-2 rounded hover:bg-gray-300 transition text-sm font-medium">
+                Abmelden
+              </button>
+            </form>
+          </div>
         </div>
 
         <div className="bg-white p-6 rounded-lg shadow space-y-4">
