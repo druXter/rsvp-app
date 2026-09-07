@@ -222,6 +222,11 @@ model GuestUser {
   verifyToken String?   @unique
   verifiedAt  DateTime?
 
+  // Self-Service-Passwort-Reset (siehe #13, analoges Feldpaar wie bei User) - anders als
+  // beim Admin-User gibt es hier keine Rolle, die vom Reset ausgeschlossen wird.
+  resetToken          String?   @unique
+  resetTokenExpiresAt DateTime?
+
   createdAt DateTime @default(now())
 
   seriesMemberships GuestUserSeries[]

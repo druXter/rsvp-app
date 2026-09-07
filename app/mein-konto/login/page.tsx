@@ -1,4 +1,5 @@
 // app/mein-konto/login/page.tsx
+import Link from 'next/link'
 import { loginGuestUser } from '../actions'
 import SubmitButton from '../../ui/submit-button'
 
@@ -6,11 +7,12 @@ import SubmitButton from '../../ui/submit-button'
  * Login-Seite für Gast-Konten ("Nutzer", siehe #12) - strikt getrennt vom Admin-Login
  * unter /admin/login (eigenes Cookie/Session-Modell, siehe app/lib/guest-auth.ts).
  */
-export default async function GuestLoginPage({ searchParams }: { searchParams: Promise<{ error?: string; registered?: string }> }) {
+export default async function GuestLoginPage({ searchParams }: { searchParams: Promise<{ error?: string; registered?: string; reset?: string }> }) {
   const params = await searchParams
   const hasError = params.error === '1'
   const unverified = params.error === 'unverified'
   const justRegistered = params.registered === '1'
+  const wasReset = params.reset === '1'
 
   return (
     <main className="min-h-screen bg-gray-100 flex items-center justify-center px-4">
@@ -20,6 +22,11 @@ export default async function GuestLoginPage({ searchParams }: { searchParams: P
         {justRegistered && (
           <div className="p-3 bg-blue-50 text-blue-700 text-sm rounded">
             Fast geschafft! Bitte bestätige dein Konto über den Link in der E-Mail, die wir dir gerade geschickt haben.
+          </div>
+        )}
+        {wasReset && (
+          <div className="p-3 bg-green-50 text-green-700 text-sm rounded">
+            Dein Passwort wurde erfolgreich zurückgesetzt. Du kannst dich jetzt einloggen.
           </div>
         )}
         {unverified && (
@@ -58,6 +65,10 @@ export default async function GuestLoginPage({ searchParams }: { searchParams: P
 
           <SubmitButton>Einloggen</SubmitButton>
         </form>
+
+        <p className="text-sm text-center text-gray-500">
+          <Link href="/mein-konto/forgot-password" className="text-blue-600 hover:underline">Passwort vergessen?</Link>
+        </p>
       </div>
     </main>
   )

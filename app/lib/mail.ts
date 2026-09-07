@@ -299,6 +299,43 @@ export async function sendGuestVerificationEmail(guestUser: GuestUser, series: E
 }
 
 /**
+ * Versendet die Passwort-Reset-Mail für ein Nutzer-Konto (GuestUser, siehe #12/#13,
+ * requestGuestPasswordReset in app/mein-konto/actions.ts). Getrennt von
+ * sendPasswordResetEmail, da es sich um ein eigenständiges Login-System handelt.
+ */
+export async function sendGuestPasswordResetEmail(guestUser: GuestUser) {
+  const resetLink = `${baseUrl()}/mein-konto/reset-password?token=${guestUser.resetToken}`
+
+  const mailOptions = {
+    from: process.env.SMTP_FROM,
+    to: guestUser.email,
+    subject: 'Passwort zurücksetzen',
+    text: `Hallo ${guestUser.name},\n\nfür dein Konto (${guestUser.email}) wurde ein Passwort-Reset angefordert. Falls du das warst, klicke auf den folgenden Link, um ein neues Passwort zu vergeben:\n\n${resetLink}\n\nDer Link ist eine Stunde gültig. Falls du das nicht warst, kannst du diese E-Mail ignorieren - dein Passwort bleibt unverändert.`,
+    html: `
+      <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
+        <h2>Passwort zurücksetzen</h2>
+        <p>Hallo ${guestUser.name}, für dein Konto <strong>${guestUser.email}</strong> wurde ein Passwort-Reset angefordert. Falls du das warst, klicke auf den folgenden Button, um ein neues Passwort zu vergeben:</p>
+
+        <p style="text-align: center; margin: 30px 0;">
+          <a href="${resetLink}" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: #fff; text-decoration: none; border-radius: 5px; font-weight: bold;">Neues Passwort vergeben</a>
+        </p>
+
+        <p style="font-size: 12px; color: #666;">Der Link ist eine Stunde gültig. Falls der Button nicht funktioniert, kopiere diesen Link in deinen Browser:<br>${resetLink}</p>
+        <p style="font-size: 12px; color: #666;">Falls du das nicht warst, kannst du diese E-Mail ignorieren - dein Passwort bleibt unverändert.</p>
+      </div>
+    `
+  }
+
+  try {
+    await transporter.sendMail(mailOptions)
+    return true
+  } catch (error) {
+    console.error(`Fehler beim Senden der Nutzer-Passwort-Reset-Mail an ${guestUser.email}:`, error)
+    return false
+  }
+}
+
+/**
  * Versendet die Passwort-Reset-Mail für ein Admin-seitiges Benutzerkonto (siehe #13,
  * requestPasswordReset in app/admin/actions.ts). Wird NIE für ein Admin-Konto (role
  * ADMIN) aufgerufen - dort bleibt ein Reset ausschließlich über direkten Server-Zugriff

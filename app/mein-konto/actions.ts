@@ -7,7 +7,7 @@ import { revalidatePath } from 'next/cache'
 import { PrismaClient } from '@prisma/client'
 import { randomUUID, randomBytes } from 'crypto'
 import bcrypt from 'bcryptjs'
-import { sendGuestVerificationEmail } from '../lib/mail'
+import { sendGuestVerificationEmail, sendGuestPasswordResetEmail } from '../lib/mail'
 import { requireGuestUser, GUEST_SESSION_COOKIE, GUEST_SESSION_DURATION_MS } from '../lib/guest-auth'
 
 const prisma = new PrismaClient()
@@ -90,6 +90,65 @@ export async function logoutGuestUser() {
   }
   cookieStore.set(GUEST_SESSION_COOKIE, '', { maxAge: 0, path: '/' })
   redirect('/mein-konto/login')
+}
+
+const RESET_TOKEN_DURATION_MS = 1000 * 60 * 60 // 1 Stunde
+
+/**
+ * Fordert einen Passwort-Reset per E-Mail für ein Nutzer-Konto an. Zeigt IMMER dieselbe
+ * neutrale Bestätigung (Weiterleitung zu ?sent=1) - unabhängig davon, ob die E-Mail
+ * überhaupt zu einem Konto gehört, damit die Kontoexistenz nicht über das
+ * Antwortverhalten verraten wird (gleiches Muster wie requestPasswordReset für
+ * Admin-Konten in app/admin/actions.ts - hier gibt es aber keine Rolle, die
+ * ausgeschlossen wird, jedes Nutzer-Konto darf sein Passwort selbst zurücksetzen).
+ */
+export async function requestGuestPasswordReset(formData: FormData) {
+  const email = (formData.get('email') as string || '').trim().toLowerCase()
+  const guestUser = await prisma.guestUser.findUnique({ where: { email } })
+
+  if (guestUser) {
+    const resetToken = randomBytes(32).toString('hex')
+    const resetTokenExpiresAt = new Date(Date.now() + RESET_TOKEN_DURATION_MS)
+    const updated = await prisma.guestUser.update({ where: { id: guestUser.id }, data: { resetToken, resetTokenExpiresAt } })
+    try {
+      await sendGuestPasswordResetEmail(updated)
+    } catch (error) {
+      console.error('Fehler beim Senden der Nutzer-Passwort-Reset-Mail:', error)
+    }
+  }
+
+  redirect('/mein-konto/forgot-password?sent=1')
+}
+
+/**
+ * Setzt anhand eines gültigen, nicht abgelaufenen Reset-Tokens ein neues Passwort für ein
+ * Nutzer-Konto. Invalidiert dabei alle bestehenden Gast-Sessions des Kontos und macht den
+ * Token unbrauchbar. Markiert das Konto nebenbei als verifiziert, falls es das noch nicht
+ * war - wer einen nur per Mail zustellbaren Reset-Link anklicken konnte, hat die
+ * E-Mail-Adresse damit genauso bewiesen wie über den separaten Verifizierungslink.
+ */
+export async function resetGuestPassword(formData: FormData) {
+  const token = formData.get('token') as string
+  const password = formData.get('password') as string
+
+  const guestUser = token ? await prisma.guestUser.findUnique({ where: { resetToken: token } }) : null
+  if (!guestUser || !guestUser.resetTokenExpiresAt || guestUser.resetTokenExpiresAt < new Date()) {
+    redirect('/mein-konto/reset-password?error=invalid')
+  }
+
+  const passwordHash = await bcrypt.hash(password, 10)
+  await prisma.guestUser.update({
+    where: { id: guestUser.id },
+    data: {
+      passwordHash,
+      resetToken: null,
+      resetTokenExpiresAt: null,
+      ...(guestUser.isVerified ? {} : { isVerified: true, verifiedAt: new Date(), verifyToken: null })
+    }
+  })
+  await prisma.guestSession.deleteMany({ where: { guestUserId: guestUser.id } })
+
+  redirect('/mein-konto/login?reset=1')
 }
 
 /**
