@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   width="512"
+   height="512"
+   viewBox="0 0 512 512"
+   fill="none"
+   version="1.1"
+   id="svg5"
+   xmlns="http://www.w3.org/2000/svg">
+  <!-- 1. Blauer Hintergrund-Kreis -->
+  <circle
+     cx="256"
+     cy="256"
+     r="240"
+     fill="#3B82F6"
+     id="circle2" />
+  <!-- 2. Kalender-Körper -->
+  <rect
+     x="146"
+     y="176"
+     width="220"
+     height="200"
+     rx="24"
+     fill="#3B82F6"
+     stroke="white"
+     stroke-width="28"
+     id="rect2" />
+  <!-- 3. Kalender-Bindung (Ringe) -->
+  <rect
+     x="190"
+     y="130"
+     width="28"
+     height="60"
+     rx="14"
+     fill="white"
+     id="rect3" />
+  <rect
+     x="294"
+     y="130"
+     width="28"
+     height="60"
+     rx="14"
+     fill="white"
+     id="rect4" />
+  <!-- 4. Haken -->
+  <path
+     d="m 196,280 44,44 85.08516,-96.29684"
+     stroke="#ffffff"
+     stroke-width="32"
+     stroke-linecap="round"
+     stroke-linejoin="round"
+     id="path4" />
+</svg>
