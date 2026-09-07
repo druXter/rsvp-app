@@ -4,17 +4,23 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { updateEventSeries } from '../../../actions'
 import { getCurrentUser } from '../../../../lib/auth'
+import { isOwnerOrAdmin } from '../../../../lib/permissions'
+import ShareAccessPanel from '../../../share-access-panel'
 
 const prisma = new PrismaClient()
 
-export default async function EditEventSeriesPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function EditEventSeriesPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ shareError?: string }> }) {
   const user = await getCurrentUser()
   if (!user) redirect('/admin/login')
 
   const { id } = await params
-  const series = await prisma.eventSeries.findUnique({ where: { id } })
+  const { shareError } = await searchParams
+  const series = await prisma.eventSeries.findUnique({
+    where: { id },
+    include: { sharedWith: { include: { user: { select: { email: true } } } } }
+  })
 
-  if (!series || series.ownerId !== user.id) {
+  if (!series || !isOwnerOrAdmin(user, series.ownerId)) {
     return <div className="p-8">Reihe nicht gefunden.</div>
   }
 
@@ -99,6 +105,12 @@ export default async function EditEventSeriesPage({ params }: { params: Promise<
             Änderungen speichern
           </button>
         </form>
+
+        <ShareAccessPanel
+          seriesId={series.id}
+          shares={series.sharedWith.map(a => ({ id: a.id, email: a.user.email }))}
+          error={shareError}
+        />
       </div>
     </main>
   )

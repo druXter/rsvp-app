@@ -4,7 +4,7 @@ Ein schlankes, anpassbares und leistungsstarkes Event-Management-System, gebaut 
 
 ## ✨ Features
 
-* **Mehrere Benutzerkonten:** Verschiedene Referate, Vereine oder Freunde können dasselbe Tool getrennt voneinander nutzen - jedes Konto sieht und verwaltet ausschließlich seine eigenen Events und Reihen. Es gibt keine offene Registrierung; neue Konten werden von bereits eingeloggten Nutzern über "+ Nutzer anlegen" erstellt.
+* **Mehrere Benutzerkonten mit Rollen & geteiltem Zugriff:** Verschiedene Referate, Vereine oder Freunde können dasselbe Tool getrennt voneinander nutzen - jedes Creator-Konto sieht und verwaltet ausschließlich seine eigenen Events und Reihen. Es gibt keine offene Registrierung; neue Konten werden von bereits eingeloggten Nutzern über "+ Nutzer anlegen" erstellt. Drei Rollen: **Admin** (voller Zugriff auf alle Konten, einzige Rolle, die neue Creator- oder Admin-Konten anlegen darf), **Creator** (eigenständiges Konto mit eigenen Events/Reihen, kann Moderator-Konten anlegen), **Moderator** (kein eigenes Event, nur mit ihm/ihr geteilter Zugriff). Ein Creator kann einzelne Events oder ganze Reihen gezielt mit einem Moderator-Konto teilen (Check-in durchführen, Gäste-/Wartelisten einsehen & bearbeiten), ohne diesem vollen Zugriff auf das eigene Konto zu geben.
 * **Multi-Event-Support:** Verwalte beliebig viele Events gleichzeitig über dynamische URLs (z.B. `/sommerfest`).
 * **Veranstaltungsreihen:** Optional mehrere Termine zu einer Reihe bündeln (z.B. ein wöchentlicher Stammtisch). Kontaktdaten, Essenswunsch und Allergien werden dabei nur einmal pro Person abgefragt und automatisch für jeden weiteren Termin der Reihe übernommen; Zusage, Warteliste und der Rest der Antwort bleiben pro Termin individuell. Eigene Übersichtsseite je Reihe (`/reihe/[slug]`), reihenweite PIN und Gästeliste. Einzel-Events bleiben davon komplett unberührt und sind weiterhin der Standardfall.
 * **Gruppen- & Vereins-Features:**
@@ -105,6 +105,13 @@ VAPID_SUBJECT=mailto:deine-email@domain.de
 > docker compose run --rm rsvp-app node create-user.js deine-email@domain.de dein-passwort
 > ```
 > Danach kannst du dich unter `/admin/login` einloggen und über "+ Nutzer anlegen" im Dashboard weitere Konten für andere Referate/Freunde erstellen - `create-user.js` brauchst du dann nicht mehr.
+>
+> Dein allererstes Konto startet als **Creator**. Damit du im Dashboard Admin-Rechte hast (alle Konten sehen, neue Creator-Konten anlegen), beförderst du es einmalig zu **Admin**:
+> ```bash
+> node set-role.js deine-email@domain.de ADMIN
+> # oder im laufenden Docker-Container:
+> docker compose run --rm rsvp-app node set-role.js deine-email@domain.de ADMIN
+> ```
 
 ### 3. Mit Docker starten (Empfohlen)
    

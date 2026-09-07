@@ -4,6 +4,7 @@ import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { updateSeriesTermin } from '../../actions'
 import { getCurrentUser } from '../../../lib/auth'
+import { isOwnerOrAdmin } from '../../../lib/permissions'
 
 const prisma = new PrismaClient()
 
@@ -14,7 +15,7 @@ export default async function EditSeriesTerminPage({ params }: { params: Promise
   const { id } = await params
   const event = await prisma.event.findUnique({ where: { id }, include: { series: true } })
 
-  if (!event || !event.series || event.ownerId !== user.id) {
+  if (!event || !event.series || !isOwnerOrAdmin(user, event.ownerId)) {
     return notFound()
   }
 

@@ -13,8 +13,22 @@ export type EventForCard = Event & { rsvps: RsvpWithParticipant[] }
  * Reminder-Formular und die vollständige Gästeliste inkl. Antworten.
  * Wird sowohl für Einzel-Events als auch für die Termine einer Reihe verwendet -
  * requireVerification kommt dabei vom jeweils zuständigen Modell (Event oder EventSeries).
+ * `access` steuert, ob Owner-Aktionen (Bearbeiten/Löschen/Reminder versenden) zu sehen
+ * sind - ein Moderator mit nur geteiltem Zugriff sieht ausschließlich die Gästeliste
+ * und ihre Bearbeitungs-/Check-in-Aktionen.
  */
-export default function EventRsvpCard({ event, requireVerification }: { event: EventForCard; requireVerification: boolean }) {
+export default function EventRsvpCard({
+  event,
+  requireVerification,
+  access = 'owner',
+  ownerEmail
+}: {
+  event: EventForCard
+  requireVerification: boolean
+  access?: 'owner' | 'moderator'
+  ownerEmail?: string
+}) {
+  const isOwner = access === 'owner'
   const attendingCount = event.rsvps.filter(r => r.isAttending).length
   const decliningCount = event.rsvps.filter(r => !r.isAttending).length
   const confirmedCount = event.rsvps.filter(r => r.isAttending && !r.isOnWaitlist).length
@@ -29,6 +43,14 @@ export default function EventRsvpCard({ event, requireVerification }: { event: E
             <div>
               <h2 className="text-xl font-bold text-gray-900">{event.title}</h2>
               <p className="text-sm text-gray-500">URL-Slug: <span className="font-mono bg-gray-100 px-1 py-0.5 rounded">/{event.slug}</span></p>
+              {!isOwner && (
+                <span className="inline-block mt-1 px-2 py-0.5 bg-teal-100 text-teal-800 text-[10px] font-bold rounded-full">
+                  🔗 Für dich freigegeben{ownerEmail ? ` von ${ownerEmail}` : ''}
+                </span>
+              )}
+              {isOwner && ownerEmail && (
+                <p className="text-xs text-gray-400 mt-1">Eigentümer: {ownerEmail}</p>
+              )}
               <div className="mt-2 flex gap-4 text-sm font-semibold">
                 <span className="text-green-600">✅ Zusagen: {attendingCount}</span>
                 <span className="text-red-600">❌ Absagen: {decliningCount}</span>
@@ -38,37 +60,41 @@ export default function EventRsvpCard({ event, requireVerification }: { event: E
               </div>
             </div>
 
-            <div className="flex gap-2">
-              <Link href={event.seriesId ? `/admin/edit-termin/${event.id}` : `/admin/edit/${event.id}`} className="px-3 py-1 bg-blue-100 text-blue-700 text-sm font-medium rounded hover:bg-blue-200 transition">
-                ✏️ Bearbeiten
-              </Link>
-              <DeleteButton eventId={event.id} />
-            </div>
+            {isOwner && (
+              <div className="flex gap-2">
+                <Link href={event.seriesId ? `/admin/edit-termin/${event.id}` : `/admin/edit/${event.id}`} className="px-3 py-1 bg-blue-100 text-blue-700 text-sm font-medium rounded hover:bg-blue-200 transition">
+                  ✏️ Bearbeiten
+                </Link>
+                <DeleteButton eventId={event.id} />
+              </div>
+            )}
           </div>
 
-          <div className="mt-4 pt-4 border-t border-gray-100">
-            <details className="group">
-              <summary className="cursor-pointer text-sm font-bold text-blue-600 hover:text-blue-800 transition flex items-center gap-1 list-none">
-                <span>📧 Reminder an Zusagen senden</span>
-                {event.reminderSent && <span className="text-xs text-gray-500 font-normal ml-2">(Erinnerung wurde bereits gesendet)</span>}
-              </summary>
-              <form action={sendReminder} className="mt-3 flex flex-col gap-3">
-                <input type="hidden" name="eventId" value={event.id} />
-                <textarea
-                  name="customMessage"
-                  rows={2}
-                  className="w-full border border-gray-300 p-2 rounded text-sm text-gray-800"
-                  placeholder="Optionaler Zusatztext (z.B. Infos zum Parken, Treffpunkt...)"
-                ></textarea>
-                <button
-                  type="submit"
-                  className="self-start bg-blue-600 text-white px-4 py-1.5 rounded text-sm font-medium hover:bg-blue-700 transition"
-                >
-                  Jetzt verschicken ({attendingCount} Empfänger)
-                </button>
-              </form>
-            </details>
-          </div>
+          {isOwner && (
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              <details className="group">
+                <summary className="cursor-pointer text-sm font-bold text-blue-600 hover:text-blue-800 transition flex items-center gap-1 list-none">
+                  <span>📧 Reminder an Zusagen senden</span>
+                  {event.reminderSent && <span className="text-xs text-gray-500 font-normal ml-2">(Erinnerung wurde bereits gesendet)</span>}
+                </summary>
+                <form action={sendReminder} className="mt-3 flex flex-col gap-3">
+                  <input type="hidden" name="eventId" value={event.id} />
+                  <textarea
+                    name="customMessage"
+                    rows={2}
+                    className="w-full border border-gray-300 p-2 rounded text-sm text-gray-800"
+                    placeholder="Optionaler Zusatztext (z.B. Infos zum Parken, Treffpunkt...)"
+                  ></textarea>
+                  <button
+                    type="submit"
+                    className="self-start bg-blue-600 text-white px-4 py-1.5 rounded text-sm font-medium hover:bg-blue-700 transition"
+                  >
+                    Jetzt verschicken ({attendingCount} Empfänger)
+                  </button>
+                </form>
+              </details>
+            </div>
+          )}
         </div>
       </div>
 

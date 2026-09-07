@@ -4,17 +4,23 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { updateEvent } from '../../actions'
 import { getCurrentUser } from '../../../lib/auth'
+import { isOwnerOrAdmin } from '../../../lib/permissions'
+import ShareAccessPanel from '../../share-access-panel'
 
 const prisma = new PrismaClient()
 
-export default async function EditEventPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function EditEventPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ shareError?: string }> }) {
   const user = await getCurrentUser()
   if (!user) redirect('/admin/login')
 
   const { id } = await params
-  const event = await prisma.event.findUnique({ where: { id } })
+  const { shareError } = await searchParams
+  const event = await prisma.event.findUnique({
+    where: { id },
+    include: { sharedWith: { include: { user: { select: { email: true } } } } }
+  })
 
-  if (!event || event.ownerId !== user.id) {
+  if (!event || !isOwnerOrAdmin(user, event.ownerId)) {
     return <div className="p-8">Event nicht gefunden.</div>
   }
 
@@ -177,6 +183,12 @@ export default async function EditEventPage({ params }: { params: Promise<{ id: 
             Änderungen speichern
           </button>
         </form>
+
+        <ShareAccessPanel
+          eventId={event.id}
+          shares={event.sharedWith.map(a => ({ id: a.id, email: a.user.email }))}
+          error={shareError}
+        />
       </div>
     </main>
   )

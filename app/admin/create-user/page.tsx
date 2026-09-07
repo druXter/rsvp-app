@@ -5,17 +5,20 @@ import { getCurrentUser } from '../../lib/auth'
 import { createUser } from '../actions'
 
 /**
- * Legt ein weiteres Benutzerkonto an (z.B. für ein anderes Referat oder einen
- * Freund). Es gibt keine öffentliche Registrierung - nur wer bereits eingeloggt
- * ist, kann hier neue Konten erstellen. Das neue Konto sieht ausschließlich seine
- * eigenen, künftig angelegten Events - nie die des einladenden Nutzers.
+ * Legt ein weiteres Benutzerkonto an (z.B. für ein anderes Referat, einen Freund
+ * oder einen Moderator). Es gibt keine öffentliche Registrierung - nur wer bereits
+ * eingeloggt ist (außer Moderatoren), kann hier neue Konten erstellen. Nur Admins
+ * dürfen dabei die Rolle Creator oder Admin vergeben; alle anderen können ausschließlich
+ * Moderator-Konten anlegen (siehe createUser-Action für die serverseitige Durchsetzung).
  */
 export default async function CreateUserPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   const user = await getCurrentUser()
   if (!user) redirect('/admin/login')
+  if (user.role === 'MODERATOR') redirect('/admin')
 
   const params = await searchParams
   const alreadyExists = params.error === 'exists'
+  const isAdmin = user.role === 'ADMIN'
 
   return (
     <main className="min-h-screen bg-gray-100 py-12 px-4">
@@ -28,7 +31,9 @@ export default async function CreateUserPage({ searchParams }: { searchParams: P
         </div>
 
         <p className="text-sm text-gray-600">
-          Das neue Konto verwaltet ausschließlich seine eigenen Events - eure Gästelisten bleiben getrennt.
+          {isAdmin
+            ? 'Lege ein eigenständiges Creator-Konto (z.B. für ein anderes Referat) oder ein Moderator-Konto an.'
+            : 'Lege ein Moderator-Konto an, dem du anschließend Zugriff auf einzelne Events oder Reihen geben kannst.'}
         </p>
 
         {alreadyExists && (
@@ -47,6 +52,19 @@ export default async function CreateUserPage({ searchParams }: { searchParams: P
             <label className="block text-sm font-medium mb-1 text-gray-700">Passwort</label>
             <input type="password" name="password" required minLength={8} className="w-full border border-gray-300 p-2 rounded text-gray-900" placeholder="Mindestens 8 Zeichen" />
           </div>
+
+          {isAdmin ? (
+            <div>
+              <label className="block text-sm font-medium mb-1 text-gray-700">Rolle</label>
+              <select name="role" defaultValue="MODERATOR" className="w-full border border-gray-300 p-2 rounded text-gray-900 bg-white">
+                <option value="CREATOR">Creator (eigenständiges Konto mit eigenen Events/Reihen)</option>
+                <option value="MODERATOR">Moderator (nur mit dir geteilter Zugriff)</option>
+                <option value="ADMIN">Admin (voller Zugriff auf alles)</option>
+              </select>
+            </div>
+          ) : (
+            <input type="hidden" name="role" value="MODERATOR" />
+          )}
 
           <button type="submit" className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded hover:bg-blue-700 transition">
             Konto anlegen

@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { updateAdminRsvp } from '../../actions'
 import { getCurrentUser } from '../../../lib/auth'
+import { hasEventModeratorOrAbove } from '../../../lib/permissions'
 
 const prisma = new PrismaClient()
 
@@ -19,7 +20,7 @@ export default async function EditRsvpPage({ params }: { params: Promise<{ id: s
   const { id } = await params
   const rsvp = await prisma.rsvp.findUnique({ where: { id }, include: { participant: true, event: true } })
 
-  if (!rsvp || rsvp.event.ownerId !== user.id) return <div className="p-8">Antwort nicht gefunden.</div>
+  if (!rsvp || !(await hasEventModeratorOrAbove(user, rsvp.event))) return <div className="p-8">Antwort nicht gefunden.</div>
 
   const participant = rsvp.participant
 

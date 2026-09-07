@@ -4,11 +4,12 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient, Role } from '@prisma/client'
 import { randomUUID, randomBytes } from 'crypto'
 import bcrypt from 'bcryptjs'
 import { sendReminderEmail, sendWaitlistPromotedEmail, sendConfirmationEmail, sendVerificationEmail } from '../lib/mail'
 import { requireUser, SESSION_COOKIE, SESSION_DURATION_MS } from '../lib/auth'
+import { isOwnerOrAdmin, hasEventModeratorOrAbove } from '../lib/permissions'
 
 const prisma = new PrismaClient()
 
@@ -69,15 +70,23 @@ export async function logoutUser() {
 }
 
 /**
- * Legt ein neues Benutzerkonto an (z.B. für ein anderes Referat oder einen Freund).
- * Es gibt keine öffentliche Registrierung - nur bereits eingeloggte Nutzer können
- * weitere Konten anlegen.
+ * Legt ein neues Benutzerkonto an (z.B. für ein anderes Referat, einen Freund oder
+ * einen Moderator). Es gibt keine öffentliche Registrierung - nur bereits eingeloggte
+ * Nutzer (außer Moderatoren) können weitere Konten anlegen. Nur Admins dürfen dabei
+ * die Rolle CREATOR oder ADMIN vergeben - alle anderen Anfragen werden auf MODERATOR
+ * heruntergestuft, damit nicht jeder Creator beliebig neue eigenständige Mandanten
+ * (Creator-Konten) erzeugen kann.
  */
 export async function createUser(formData: FormData) {
-  await requireUser()
+  const user = await requireUser()
+  if (user.role === 'MODERATOR') return
 
   const email = (formData.get('email') as string || '').trim().toLowerCase()
   const password = formData.get('password') as string
+  const requestedRole = formData.get('role') as Role
+  const role: Role = (user.role === 'ADMIN' && (requestedRole === 'CREATOR' || requestedRole === 'ADMIN'))
+    ? requestedRole
+    : 'MODERATOR'
 
   const existing = await prisma.user.findUnique({ where: { email } })
   if (existing) {
@@ -85,7 +94,7 @@ export async function createUser(formData: FormData) {
   }
 
   const passwordHash = await bcrypt.hash(password, 10)
-  await prisma.user.create({ data: { email, passwordHash } })
+  await prisma.user.create({ data: { email, passwordHash, role } })
 
   revalidatePath('/admin')
   redirect('/admin')
@@ -98,6 +107,7 @@ export async function createUser(formData: FormData) {
  */
 export async function createEvent(formData: FormData) {
   const user = await requireUser()
+  if (user.role === 'MODERATOR') return
 
   const title = formData.get('title') as string
   const slugInput = formData.get('slug') as string
@@ -166,10 +176,14 @@ export async function deleteEvent(formData: FormData) {
   const id = formData.get('eventId') as string
 
   const event = await prisma.event.findUnique({ where: { id } })
-  if (!event || event.ownerId !== user.id) return
+  if (!event || !isOwnerOrAdmin(user, event.ownerId)) return
 
-  // 1. Zuerst alle verknüpften Antworten (Gäste) löschen, um Fremdschlüssel-Konflikte zu vermeiden
+  // 1. Zuerst alle verknüpften Antworten (Gäste) und geteilten Zugriffsrechte löschen,
+  // um Fremdschlüssel-Konflikte zu vermeiden
   await prisma.rsvp.deleteMany({
+    where: { eventId: id }
+  })
+  await prisma.resourceAccess.deleteMany({
     where: { eventId: id }
   })
 
@@ -189,7 +203,7 @@ export async function updateEvent(formData: FormData) {
   const id = formData.get('eventId') as string
 
   const existingEvent = await prisma.event.findUnique({ where: { id } })
-  if (!existingEvent || existingEvent.ownerId !== user.id) return
+  if (!existingEvent || !isOwnerOrAdmin(user, existingEvent.ownerId)) return
 
   const title = formData.get('title') as string
   const slugInput = formData.get('slug') as string
@@ -257,7 +271,7 @@ export async function deleteRsvp(formData: FormData) {
   const id = formData.get('rsvpId') as string
 
   const rsvpToDelete = await prisma.rsvp.findUnique({ where: { id }, include: { event: true } })
-  if (!rsvpToDelete || rsvpToDelete.event.ownerId !== user.id) return
+  if (!rsvpToDelete || !(await hasEventModeratorOrAbove(user, rsvpToDelete.event))) return
 
   await prisma.rsvp.delete({
     where: { id }
@@ -294,7 +308,7 @@ export async function updateAdminRsvp(formData: FormData) {
   const bringingItem = formData.get('bringingItem') as string || null
 
   const existingRsvp = await prisma.rsvp.findUnique({ where: { id }, include: { event: true } })
-  if (!existingRsvp || existingRsvp.event.ownerId !== user.id) return
+  if (!existingRsvp || !(await hasEventModeratorOrAbove(user, existingRsvp.event))) return
 
   await prisma.participant.update({
     where: { id: existingRsvp.participantId },
@@ -334,7 +348,7 @@ export async function promoteFromWaitlist(formData: FormData) {
     where: { id },
     include: { event: { include: { series: true } }, participant: true }
   })
-  if (!rsvp || !rsvp.isOnWaitlist || rsvp.event.ownerId !== user.id) return
+  if (!rsvp || !rsvp.isOnWaitlist || !(await hasEventModeratorOrAbove(user, rsvp.event))) return
 
   // Admin-Override: Wir ändern den Status direkt auf einen festen Platz
   const promotedRsvp = await prisma.rsvp.update({
@@ -419,7 +433,7 @@ export async function sendReminder(formData: FormData) {
     }
   })
 
-  if (!event || event.ownerId !== user.id) return
+  if (!event || !isOwnerOrAdmin(user, event.ownerId)) return
 
   const validRsvps = event.rsvps.filter(rsvp => rsvp.participant.email && rsvp.participant.email.trim() !== "")
 
@@ -451,7 +465,7 @@ export async function resendVerificationEmail(formData: FormData) {
     include: { event: true, participant: true }
   })
 
-  if (!rsvp || rsvp.event.ownerId !== user.id || !rsvp.participant.email || rsvp.participant.isVerified) return
+  if (!rsvp || !(await hasEventModeratorOrAbove(user, rsvp.event)) || !rsvp.participant.email || rsvp.participant.isVerified) return
 
   let tokenToUse = rsvp.participant.verifyToken
   if (!tokenToUse) {
@@ -470,6 +484,7 @@ export async function resendVerificationEmail(formData: FormData) {
  */
 export async function createEventSeries(formData: FormData) {
   const user = await requireUser()
+  if (user.role === 'MODERATOR') return
 
   const title = formData.get('title') as string
   const slugInput = formData.get('slug') as string
@@ -502,7 +517,7 @@ export async function updateEventSeries(formData: FormData) {
 
   const id = formData.get('seriesId') as string
   const existingSeries = await prisma.eventSeries.findUnique({ where: { id } })
-  if (!existingSeries || existingSeries.ownerId !== user.id) return
+  if (!existingSeries || !isOwnerOrAdmin(user, existingSeries.ownerId)) return
 
   const title = formData.get('title') as string
   const slugInput = formData.get('slug') as string
@@ -536,12 +551,13 @@ export async function deleteEventSeries(formData: FormData) {
 
   const id = formData.get('seriesId') as string
   const existingSeries = await prisma.eventSeries.findUnique({ where: { id } })
-  if (!existingSeries || existingSeries.ownerId !== user.id) return
+  if (!existingSeries || !isOwnerOrAdmin(user, existingSeries.ownerId)) return
 
   const events = await prisma.event.findMany({ where: { seriesId: id }, select: { id: true } })
   const eventIds = events.map(e => e.id)
 
   await prisma.rsvp.deleteMany({ where: { eventId: { in: eventIds } } })
+  await prisma.resourceAccess.deleteMany({ where: { OR: [{ seriesId: id }, { eventId: { in: eventIds } }] } })
   await prisma.event.deleteMany({ where: { seriesId: id } })
   await prisma.participant.deleteMany({ where: { seriesId: id } })
   await prisma.eventSeries.delete({ where: { id } })
@@ -560,7 +576,7 @@ export async function addTerminToSeries(formData: FormData) {
 
   const seriesId = formData.get('seriesId') as string
   const series = await prisma.eventSeries.findUnique({ where: { id: seriesId } })
-  if (!series || series.ownerId !== user.id) return
+  if (!series || !isOwnerOrAdmin(user, series.ownerId)) return
 
   const title = formData.get('title') as string
   const slugInput = formData.get('slug') as string
@@ -620,7 +636,7 @@ export async function updateSeriesTermin(formData: FormData) {
 
   const id = formData.get('eventId') as string
   const existingEvent = await prisma.event.findUnique({ where: { id } })
-  if (!existingEvent || existingEvent.ownerId !== user.id) return
+  if (!existingEvent || !isOwnerOrAdmin(user, existingEvent.ownerId)) return
 
   const title = formData.get('title') as string
   const slugInput = formData.get('slug') as string
@@ -668,7 +684,7 @@ export async function toggleAttendance(formData: FormData) {
 
   const id = formData.get('rsvpId') as string
   const rsvp = await prisma.rsvp.findUnique({ where: { id }, include: { event: true } })
-  if (!rsvp || rsvp.event.ownerId !== user.id) return
+  if (!rsvp || !(await hasEventModeratorOrAbove(user, rsvp.event))) return
 
   await prisma.rsvp.update({
     where: { id },
@@ -703,4 +719,65 @@ export async function unsubscribeFromPush(endpoint: string) {
   const user = await requireUser()
 
   await prisma.pushSubscription.deleteMany({ where: { endpoint, userId: user.id } })
+}
+
+/**
+ * Gewährt einem bestehenden Nutzer (per E-Mail) Moderator-Zugriff auf ein eigenes
+ * Event ODER eine eigene Reihe. Nur der Owner selbst oder ein Admin darf teilen - ein
+ * Creator, der selbst nur geteilten Zugriff auf eine Ressource hat, kann diesen nicht
+ * weitergeben (er ist dort ja selbst nur Moderator, siehe hasEventModeratorOrAbove).
+ */
+export async function shareResource(formData: FormData) {
+  const user = await requireUser()
+  const eventId = formData.get('eventId') as string || null
+  const seriesId = formData.get('seriesId') as string || null
+  const email = (formData.get('email') as string || '').trim().toLowerCase()
+
+  if (eventId) {
+    const event = await prisma.event.findUnique({ where: { id: eventId } })
+    if (!event || !isOwnerOrAdmin(user, event.ownerId)) return
+  } else if (seriesId) {
+    const series = await prisma.eventSeries.findUnique({ where: { id: seriesId } })
+    if (!series || !isOwnerOrAdmin(user, series.ownerId)) return
+  } else {
+    return
+  }
+
+  const target = await prisma.user.findUnique({ where: { email } })
+  if (!target) {
+    redirect(eventId ? `/admin/edit/${eventId}?shareError=notfound` : `/admin/series/${seriesId}/edit?shareError=notfound`)
+  }
+
+  await prisma.resourceAccess.upsert({
+    where: eventId
+      ? { userId_eventId: { userId: target.id, eventId } }
+      : { userId_seriesId: { userId: target.id, seriesId: seriesId! } },
+    update: {},
+    create: { userId: target.id, eventId, seriesId }
+  })
+
+  revalidatePath('/admin')
+  if (eventId) redirect(`/admin/edit/${eventId}`)
+  redirect(`/admin/series/${seriesId}/edit`)
+}
+
+/**
+ * Entzieht einen zuvor geteilten Moderator-Zugriff wieder. Nur der Owner der
+ * betroffenen Ressource oder ein Admin darf das.
+ */
+export async function unshareResource(formData: FormData) {
+  const user = await requireUser()
+  const accessId = formData.get('accessId') as string
+
+  const access = await prisma.resourceAccess.findUnique({
+    where: { id: accessId },
+    include: { event: true, series: true }
+  })
+  if (!access) return
+
+  const ownerId = access.event?.ownerId ?? access.series?.ownerId
+  if (!ownerId || !isOwnerOrAdmin(user, ownerId)) return
+
+  await prisma.resourceAccess.delete({ where: { id: accessId } })
+  revalidatePath('/admin')
 }

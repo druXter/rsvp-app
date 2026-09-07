@@ -8,20 +8,33 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ADMIN sieht/verwaltet alle Events & Reihen aller Konten. CREATOR verwaltet eigene
+// Events & Reihen und kann sie mit anderen Konten teilen sowie neue Nutzer/Moderatoren
+// anlegen (aber keine neuen Creator/Admin-Konten - das bleibt Admins vorbehalten, um
+// die Anzahl eigenständiger Mandanten unter Kontrolle zu halten). MODERATOR besitzt
+// keine eigenen Events, sondern ausschließlich per ResourceAccess geteilten Zugriff.
+enum Role {
+  ADMIN
+  CREATOR
+  MODERATOR
+}
+
 // Ein Benutzerkonto (Referat, Verein, Freund...). Registrierung ist nicht öffentlich -
 // Konten werden ausschließlich von bereits eingeloggten Nutzern angelegt (siehe
-// createUser-Action). Jeder Nutzer sieht und verwaltet ausschließlich seine eigenen
-// Events/Reihen; es gibt keine Owner-übergreifende Admin-Rolle.
+// createUser-Action). Jeder Nutzer verwaltet primär seine eigenen Events/Reihen;
+// zusätzlicher Zugriff auf fremde Ressourcen läuft ausschließlich über Role/ResourceAccess.
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
   passwordHash String
+  role         Role     @default(CREATOR)
   createdAt    DateTime @default(now())
 
   events            Event[]
   series            EventSeries[]
   pushSubscriptions PushSubscription[]
   sessions          Session[]
+  resourceAccess    ResourceAccess[]
 }
 
 // Server-seitige Session: das Cookie trägt nur den opaken, unratbaren `token` -
@@ -39,59 +52,61 @@ model Session {
 // Eine optionale Veranstaltungsreihe (mehrere Termine, gemeinsames Gast-Profil).
 // Events ohne seriesId sind normale Einzel-Events und von diesem Modell unberührt.
 model EventSeries {
-  id          String   @id @default(cuid())
-  slug        String   @unique
+  id          String  @id @default(cuid())
+  slug        String  @unique
   title       String
   description String?
 
-  ownerId     String
-  owner       User     @relation(fields: [ownerId], references: [id])
+  ownerId String
+  owner   User   @relation(fields: [ownerId], references: [id])
 
   // Reihenweit EINMALIG abgefragte Profil-Felder (gelten für alle Termine der Reihe)
-  askEmail     Boolean @default(false)
-  askPhone     Boolean @default(false)
-  askDiet      Boolean @default(true)
-  askAllergies Boolean @default(false)
+  askEmail            Boolean @default(false)
+  askPhone            Boolean @default(false)
+  askDiet             Boolean @default(true)
+  askAllergies        Boolean @default(false)
   requireVerification Boolean @default(false)
 
   // Gruppen- & Vereins-Features gelten reihenweit statt pro Termin
   isGuestListVisible Boolean @default(false)
   eventPin           String?
 
-  createdAt    DateTime @default(now())
+  createdAt    DateTime         @default(now())
   events       Event[]
   participants Participant[]
+  sharedWith   ResourceAccess[]
 }
 
 model Event {
-  id          String   @id @default(cuid())
-  slug        String   @unique
-  title       String
-  date        DateTime
-  location    String?
-  description String?
-  formConfig  String?  @default("{\"askEmail\":false,\"askPhone\":false,\"askDiet\":true,\"askAlcohol\":true}")
-  reminderSent Boolean @default(false)
-  autoReminder Boolean @default(false)
-  reminderDays Int     @default(7)
-  requireVerification Boolean @default(false)
-  rsvps       Rsvp[]
-  createdAt   DateTime @default(now())
-  duration    Int      @default(4)
-  maxCapacity        Int?
-  isGuestListVisible Boolean  @default(false)
-  eventPin           String?
-  enableCheckin      Boolean  @default(false)
+  id                  String   @id @default(cuid())
+  slug                String   @unique
+  title               String
+  date                DateTime
+  location            String?
+  description         String?
+  formConfig          String?  @default("{\"askEmail\":false,\"askPhone\":false,\"askDiet\":true,\"askAlcohol\":true}")
+  reminderSent        Boolean  @default(false)
+  autoReminder        Boolean  @default(false)
+  reminderDays        Int      @default(7)
+  requireVerification Boolean  @default(false)
+  rsvps               Rsvp[]
+  createdAt           DateTime @default(now())
+  duration            Int      @default(4)
+  maxCapacity         Int?
+  isGuestListVisible  Boolean  @default(false)
+  eventPin            String?
+  enableCheckin       Boolean  @default(false)
 
-  ownerId     String
-  owner       User     @relation(fields: [ownerId], references: [id])
+  ownerId String
+  owner   User   @relation(fields: [ownerId], references: [id])
 
   // Optionale Zugehörigkeit zu einer Veranstaltungsreihe. Ist seriesId gesetzt,
   // sind requireVerification/isGuestListVisible/eventPin auf DIESEM Event bedeutungslos -
   // stattdessen gelten die gleichnamigen Felder der EventSeries, und formConfig enthält
   // nur noch die pro Termin abgefragten Felder (askAlcohol, askPlusOne, askBringingItem).
-  seriesId    String?
-  series      EventSeries? @relation(fields: [seriesId], references: [id])
+  seriesId   String?
+  series     EventSeries?     @relation(fields: [seriesId], references: [id])
+  sharedWith ResourceAccess[]
 }
 
 // Die Identität eines Gasts. Bei Einzel-Events entsteht pro Anmeldung ein eigener
@@ -99,9 +114,9 @@ model Event {
 // mehrere Termine (Rsvps) hinweg wiederverwendet, damit Kontakt-/Profildaten nicht
 // für jeden Termin erneut abgefragt werden müssen.
 model Participant {
-  id            String   @id @default(cuid())
-  seriesId      String?
-  series        EventSeries? @relation(fields: [seriesId], references: [id])
+  id       String       @id @default(cuid())
+  seriesId String?
+  series   EventSeries? @relation(fields: [seriesId], references: [id])
 
   name          String
   email         String?
@@ -109,36 +124,36 @@ model Participant {
   dietaryOption String?
   allergies     String?
 
-  isVerified    Boolean   @default(false)
-  verifyToken   String?   @unique
-  verifiedAt    DateTime?
+  isVerified  Boolean   @default(false)
+  verifyToken String?   @unique
+  verifiedAt  DateTime?
 
-  editToken     String    @unique @default(uuid())
-  createdAt     DateTime  @default(now())
-  rsvps         Rsvp[]
+  editToken String   @unique @default(uuid())
+  createdAt DateTime @default(now())
+  rsvps     Rsvp[]
 }
 
 // Die Antwort eines Participants zu GENAU EINEM Termin (Zusage/Absage, Warteliste
 // und alles, was pro Termin einzeln abgefragt wird).
 model Rsvp {
-  id             String   @id @default(cuid())
-  eventId        String
-  event          Event    @relation(fields: [eventId], references: [id])
-  participantId  String
-  participant    Participant @relation(fields: [participantId], references: [id])
+  id            String      @id @default(cuid())
+  eventId       String
+  event         Event       @relation(fields: [eventId], references: [id])
+  participantId String
+  participant   Participant @relation(fields: [participantId], references: [id])
 
   isAttending    Boolean
   drinksAlcohol  Boolean?
   additionalInfo String?
   declineReason  String?
   customAnswers  String?
-  plusOne        Boolean  @default(false)
+  plusOne        Boolean   @default(false)
   plusOneName    String?
   bringingItem   String?
-  isOnWaitlist   Boolean  @default(false)
-  hasAttended    Boolean  @default(false)
+  isOnWaitlist   Boolean   @default(false)
+  hasAttended    Boolean   @default(false)
   checkedInAt    DateTime?
-  createdAt      DateTime @default(now())
+  createdAt      DateTime  @default(now())
 
   @@unique([eventId, participantId])
 }
@@ -153,6 +168,24 @@ model PushSubscription {
   auth      String
   createdAt DateTime @default(now())
 
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+}
+
+// Gewährt einem Nutzer Moderator-Rechte auf EIN fremdes Event ODER EINE fremde Reihe
+// (nie beides in derselben Zeile). Zugriff auf eine Reihe gilt automatisch für alle
+// ihre Termine, muss also nicht pro Termin einzeln vergeben werden. Wird ausschließlich
+// vom Owner der Ressource oder einem Admin vergeben - siehe shareResource/unshareResource.
+model ResourceAccess {
+  id        String       @id @default(cuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id])
+  user      User         @relation(fields: [userId], references: [id])
+  eventId   String?
+  event     Event?       @relation(fields: [eventId], references: [id])
+  seriesId  String?
+  series    EventSeries? @relation(fields: [seriesId], references: [id])
+  createdAt DateTime     @default(now())
+
+  @@unique([userId, eventId])
+  @@unique([userId, seriesId])
 }

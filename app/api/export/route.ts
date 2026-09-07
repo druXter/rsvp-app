@@ -2,12 +2,14 @@
 import { PrismaClient } from '@prisma/client'
 import { NextResponse } from 'next/server'
 import { getCurrentUser } from '../../lib/auth'
+import { hasEventModeratorOrAbove } from '../../lib/permissions'
 
 const prisma = new PrismaClient()
 
 /**
  * API-Route zum Exportieren einer Gästeliste als CSV-Datei.
- * Wird über /api/export?eventId=[ID] aufgerufen. Nur für den Owner des Events.
+ * Wird über /api/export?eventId=[ID] aufgerufen. Für den Owner, einen Admin oder
+ * einen Nutzer mit geteiltem Moderator-Zugriff auf dieses Event/seine Reihe.
  */
 export async function GET(request: Request) {
   const user = await getCurrentUser()
@@ -23,7 +25,7 @@ export async function GET(request: Request) {
     include: { rsvps: { include: { participant: true } }, series: true }
   })
 
-  if (!event || event.ownerId !== user.id) return new NextResponse("Event nicht gefunden", { status: 404 })
+  if (!event || !(await hasEventModeratorOrAbove(user, event))) return new NextResponse("Event nicht gefunden", { status: 404 })
 
   const requireVerification = event.series ? event.series.requireVerification : event.requireVerification
   const customQuestions: string[] = event.formConfig ? (JSON.parse(event.formConfig).customQuestions || []) : []

@@ -6,6 +6,7 @@ import { addTerminToSeries } from '../../actions'
 import EventRsvpCard from '../../event-rsvp-card'
 import DeleteSeriesButton from '../../delete-series-button'
 import { getCurrentUser } from '../../../lib/auth'
+import { isOwnerOrAdmin } from '../../../lib/permissions'
 
 const prisma = new PrismaClient()
 
@@ -25,11 +26,15 @@ export default async function SeriesDetailPage({ params }: { params: Promise<{ i
           }
         },
         orderBy: { date: 'asc' }
-      }
+      },
+      sharedWith: { where: { userId: user.id } }
     }
   })
 
-  if (!series || series.ownerId !== user.id) {
+  const isOwner = !!series && isOwnerOrAdmin(user, series.ownerId)
+  const isModerator = !!series && !isOwner && series.sharedWith.length > 0
+
+  if (!series || (!isOwner && !isModerator)) {
     return <div className="p-8">Reihe nicht gefunden.</div>
   }
 
@@ -48,13 +53,16 @@ export default async function SeriesDetailPage({ params }: { params: Promise<{ i
               <Link href="/admin" className="px-3 py-1 bg-gray-100 text-gray-700 text-sm font-medium rounded hover:bg-gray-200 transition">
                 ← Dashboard
               </Link>
-              <Link href={`/admin/series/${series.id}/edit`} className="px-3 py-1 bg-blue-100 text-blue-700 text-sm font-medium rounded hover:bg-blue-200 transition">
-                ✏️ Reihe bearbeiten
-              </Link>
-              <DeleteSeriesButton seriesId={series.id} />
+              {isOwner && (
+                <Link href={`/admin/series/${series.id}/edit`} className="px-3 py-1 bg-blue-100 text-blue-700 text-sm font-medium rounded hover:bg-blue-200 transition">
+                  ✏️ Reihe bearbeiten
+                </Link>
+              )}
+              {isOwner && <DeleteSeriesButton seriesId={series.id} />}
             </div>
           </div>
 
+          {isOwner && (
           <div className="pt-2">
             <details className="group">
               <summary className="cursor-pointer text-sm font-bold text-purple-600 hover:text-purple-800 transition list-none">
@@ -146,13 +154,14 @@ export default async function SeriesDetailPage({ params }: { params: Promise<{ i
               </form>
             </details>
           </div>
+          )}
         </div>
 
         {series.events.length === 0 ? (
           <p className="text-center text-gray-500 italic bg-white p-6 rounded-lg shadow">Diese Reihe hat noch keine Termine.</p>
         ) : (
           series.events.map(event => (
-            <EventRsvpCard key={event.id} event={event} requireVerification={series.requireVerification} />
+            <EventRsvpCard key={event.id} event={event} requireVerification={series.requireVerification} access={isOwner ? 'owner' : 'moderator'} />
           ))
         )}
 

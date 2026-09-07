@@ -7,6 +7,7 @@ import { getCurrentUser } from '../../lib/auth'
 export default async function CreateEventPage() {
   const user = await getCurrentUser()
   if (!user) redirect('/admin/login')
+  if (user.role === 'MODERATOR') redirect('/admin')
 
   return (
     <main className="min-h-screen bg-gray-100 py-12 px-4">

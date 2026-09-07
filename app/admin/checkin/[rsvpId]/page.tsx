@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { toggleAttendance } from '../../actions'
 import { getCurrentUser } from '../../../lib/auth'
+import { hasEventModeratorOrAbove } from '../../../lib/permissions'
 
 const prisma = new PrismaClient()
 
@@ -34,7 +35,7 @@ export default async function CheckinPage({ params }: { params: Promise<{ rsvpId
     )
   }
 
-  if (rsvp.event.ownerId !== user.id) {
+  if (!(await hasEventModeratorOrAbove(user, rsvp.event))) {
     return (
       <main className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
         <div className="bg-white p-8 rounded-lg shadow max-w-sm w-full text-center">
