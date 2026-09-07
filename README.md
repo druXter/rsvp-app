@@ -5,6 +5,7 @@ Ein schlankes, anpassbares und leistungsstarkes Event-Management-System, gebaut 
 ## ✨ Features
 
 * **Multi-Event-Support:** Verwalte beliebig viele Events gleichzeitig über dynamische URLs (z.B. `/sommerfest`).
+* **Veranstaltungsreihen:** Optional mehrere Termine zu einer Reihe bündeln (z.B. ein wöchentlicher Stammtisch). Kontaktdaten, Essenswunsch und Allergien werden dabei nur einmal pro Person abgefragt und automatisch für jeden weiteren Termin der Reihe übernommen; Zusage, Warteliste und der Rest der Antwort bleiben pro Termin individuell. Eigene Übersichtsseite je Reihe (`/reihe/[slug]`), reihenweite PIN und Gästeliste. Einzel-Events bleiben davon komplett unberührt und sind weiterhin der Standardfall.
 * **Gruppen- & Vereins-Features:**
   * **Transparente Gästeliste:** Optional zuschaltbare öffentliche Gästeliste, auf der Teilnehmer sehen können, wer zugesagt hat, wer Begleitungen mitbringt und wer welches Essen/Getränk beisteuert. Sensible Daten (E-Mail, Telefon) werden streng gefiltert.
   * **Event-PIN:** Schütze private Events mit einem Zugangscode vor unbefugten Aufrufen.
@@ -24,6 +25,7 @@ Ein schlankes, anpassbares und leistungsstarkes Event-Management-System, gebaut 
 * **Erinnerungs-Mails (Reminders):** 
   * Manueller Versand aus dem Dashboard an alle Zusagen (inkl. optionaler Zusatzinfos für die Gäste).
   * Vollautomatischer Versand X Tage vor dem Event (gesicherter Endpoint für Uptime Kuma oder Cronjobs).
+* **QR-Code Einlasskontrolle (optional, standardmäßig aus):** Pro Event/Termin zuschaltbar für Veranstaltungen mit echtem Einlass. Bestätigte Gäste bekommen einen persönlichen QR-Code (Bestätigungsmail & Erfolgsseite), der beim Scannen automatisch als "anwesend" markiert wird. Das Admin-Dashboard zeigt eine Live-Statistik ("🎫 Eingecheckt: 25/50") und erlaubt auch manuelles Ein-/Auschecken ohne Scan. Für die meisten privaten Feiern ohne Einlasskontrolle bleibt diese Option einfach deaktiviert.
 * **Admin Dashboard:** 
   * Volle Übersicht über alle Zu- und Absagen sowie Wartelistenplätze.
   * Status-Anzeige ausstehender E-Mail-Verifizierungen.
@@ -70,7 +72,17 @@ SMTP_FROM="RSVP Team <deine-email@domain.de>"
 
 # Sicherheitsschlüssel für den automatischen Cronjob-Versand (z.B. via Uptime Kuma)
 CRON_SECRET=DeinSehrGeheimesPasswort123
+
+# Angaben fürs Impressum (/impressum) - siehe Hinweis unten
+IMPRESSUM_NAME=Vorname Nachname
+IMPRESSUM_STREET=Musterstraße 1
+IMPRESSUM_ZIP=12345
+IMPRESSUM_CITY=Musterstadt
+IMPRESSUM_EMAIL=deine-email@domain.de
+IMPRESSUM_PHONE=Optional
 ```
+
+> **Impressum-Platzhalter:** Die Impressum-Seite (`app/impressum/page.tsx`) liest ihre Angaben zur Laufzeit aus `IMPRESSUM_NAME`/`IMPRESSUM_STREET`/`IMPRESSUM_ZIP`/`IMPRESSUM_CITY`/`IMPRESSUM_EMAIL`/`IMPRESSUM_PHONE`. Sind diese Variablen nicht gesetzt, zeigt die Seite generische Platzhalter (`[Dein Vorname] [Dein Nachname]` etc.) statt echter Daten an. So bleibt das Repository frei von personenbezogenen Daten - trag deine echten Angaben ausschließlich in deine eigene, nicht versionierte `.env` ein (lokal wie auf dem Server).
 
 ### 3. Mit Docker starten (Empfohlen)
    
