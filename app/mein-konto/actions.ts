@@ -71,6 +71,9 @@ export async function loginGuestUser(formData: FormData) {
   const token = randomBytes(32).toString('hex')
   const expiresAt = new Date(Date.now() + GUEST_SESSION_DURATION_MS)
   await prisma.guestSession.create({ data: { token, guestUserId: guestUser.id, expiresAt } })
+  // Hält lastLoginAt aktuell, damit die automatische Löschung inaktiver Konten (siehe
+  // app/api/cron/cleanup/route.ts) echte Inaktivität misst statt nur des Registrierungsdatums.
+  await prisma.guestUser.update({ where: { id: guestUser.id }, data: { lastLoginAt: new Date() } })
 
   const cookieStore = await cookies()
   cookieStore.set(GUEST_SESSION_COOKIE, token, {

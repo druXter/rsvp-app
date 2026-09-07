@@ -151,10 +151,21 @@ export default function DatenschutzPage() {
         <div>
           <h2 className="font-bold text-lg">10. Speicherdauer</h2>
           <p className="mt-2">
-            Wir speichern deine Daten, solange sie für die Organisation der jeweiligen Veranstaltung benötigt werden,
-            und darüber hinaus nur, bis du ihre Löschung beantragst oder selbst über die in Punkt 11 beschriebenen
-            Funktionen löschst. Es findet keine automatisierte, zeitgesteuerte Löschung statt - bei Fragen zur
-            Aufbewahrung einer konkreten Veranstaltung wende dich an die oben genannte Kontaktadresse.
+            Deine Daten zu einer Veranstaltung werden spätestens <strong>18 Monate nach dem Veranstaltungsdatum</strong>{' '}
+            automatisch vollständig gelöscht - inklusive des Veranstaltungs-Datensatzes selbst, nicht nur deiner
+            Antwort. Bei Veranstaltungsreihen bleibt dein Profil (Name, Kontaktdaten, Essenswunsch, Allergien)
+            erhalten, solange du noch zu einem jüngeren Termin derselben Reihe geantwortet hast - sind alle deine
+            Termine der Reihe älter als 18 Monate, wird auch dieses Profil automatisch gelöscht.
+          </p>
+          <p className="mt-2">
+            Ein Nutzer-Konto unter &quot;Mein Konto&quot; wird automatisch vollständig gelöscht, wenn du dich{' '}
+            <strong>2 Jahre</strong> lang nicht mehr eingeloggt hast - inklusive aller Reihen-Zuordnungen und
+            Antworten. Admin-Konten (Veranstalter:innen) sind von dieser automatischen Löschung ausgenommen.
+          </p>
+          <p className="mt-2">
+            Unabhängig von diesen automatischen Fristen kannst du deine Daten jederzeit früher über die in Punkt 11
+            beschriebenen Selbstbedienungs-Funktionen löschen oder uns unter der oben genannten Kontaktadresse um
+            frühere Löschung bitten.
           </p>
         </div>
 

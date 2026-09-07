@@ -227,6 +227,12 @@ model GuestUser {
   resetToken          String?   @unique
   resetTokenExpiresAt DateTime?
 
+  // Startet bei @default(now()) (nicht null), damit ein Konto, das sich nach der
+  // Registrierung nie wieder einloggt, ab der Registrierung selbst und nicht erst ab
+  // einem nie eintretenden ersten Login gezählt wird - siehe die automatische
+  // Löschung inaktiver Konten in app/api/cron/cleanup/route.ts (#13/DSGVO-Speicherbegrenzung).
+  lastLoginAt DateTime @default(now())
+
   createdAt DateTime @default(now())
 
   seriesMemberships GuestUserSeries[]
