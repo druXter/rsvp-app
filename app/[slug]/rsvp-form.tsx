@@ -2,21 +2,27 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { submitRsvp } from '../actions'
 import SubmitButton from '../ui/submit-button'
+import DeleteMyDataButton from './delete-my-data-button'
 
 export default function RsvpForm({
   eventId,
   formConfig,
   participant,
   rsvp,
-  isEmbed = false
+  isEmbed = false,
+  isGuestListVisible = false,
+  isSeriesShared = false
 }: {
   eventId: string;
   formConfig: string | null;
   participant?: any;
   rsvp?: any;
   isEmbed?: boolean;
+  isGuestListVisible?: boolean;
+  isSeriesShared?: boolean;
 }) {
   const [isAttending, setIsAttending] = useState<boolean | null>(rsvp ? rsvp.isAttending : null)
   const [hasPlusOne, setHasPlusOne] = useState<boolean>(rsvp ? rsvp.plusOne : false)
@@ -72,6 +78,9 @@ export default function RsvpForm({
               onClick={(e) => e.currentTarget.select()}
             />
           </div>
+          <div className="mt-4">
+            <DeleteMyDataButton editToken={submittedToken} eventId={eventId} isSeriesShared={isSeriesShared} />
+          </div>
         </div>
       )
     }
@@ -84,6 +93,9 @@ export default function RsvpForm({
           <p className="text-sm text-yellow-700 text-center font-medium bg-yellow-100 p-4 rounded w-full">
             Bitte klicke auf den Link in der E-Mail, um deine Anmeldung verbindlich abzuschließen. Erst danach erhältst du deinen Kalendereintrag!
           </p>
+          <div className="mt-4">
+            <DeleteMyDataButton editToken={submittedToken} eventId={eventId} isSeriesShared={isSeriesShared} />
+          </div>
         </div>
       )
     }
@@ -100,6 +112,9 @@ export default function RsvpForm({
           <div className="w-full text-left">
             <p className="text-xs text-gray-600 mb-1">Dein persönlicher Link (z.B. für Absagen):</p>
             <input type="text" readOnly value={personalLink} className="w-full bg-white border border-orange-200 rounded p-2 text-sm text-gray-700 outline-none" onClick={(e) => e.currentTarget.select()} />
+          </div>
+          <div className="mt-4">
+            <DeleteMyDataButton editToken={submittedToken} eventId={eventId} isSeriesShared={isSeriesShared} />
           </div>
         </div>
       )
@@ -141,6 +156,10 @@ export default function RsvpForm({
             <p className="text-xs text-gray-600 mt-2 text-center">Bitte am Einlass bereithalten (auch per E-Mail an dich verschickt).</p>
           </div>
         )}
+
+        <div className="mt-6">
+          <DeleteMyDataButton editToken={submittedToken} eventId={eventId} isSeriesShared={isSeriesShared} />
+        </div>
       </div>
     )
   }
@@ -150,6 +169,12 @@ export default function RsvpForm({
     <form onSubmit={handleSubmit} className={`space-y-6 text-gray-900 ${isEmbed ? '' : 'bg-white p-6 rounded-lg shadow'}`}>
       <input type="hidden" name="eventId" value={eventId} />
       {participant && <input type="hidden" name="editToken" value={participant.editToken} />}
+
+      {isGuestListVisible && (
+        <p className="text-xs bg-blue-50 text-blue-800 p-3 rounded border border-blue-100">
+          ℹ️ Für dieses Event ist eine öffentliche Gästeliste aktiv: Dein Name (nicht deine E-Mail, Telefonnummer oder Allergien) ist für andere Gäste sichtbar, sobald du zusagst.
+        </p>
+      )}
 
       <div>
         <label className="block text-sm font-medium mb-1">Dein Name</label>
@@ -235,6 +260,9 @@ export default function RsvpForm({
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Allergien oder Unverträglichkeiten? (Optional)</label>
               <input type="text" name="allergies" defaultValue={participant?.allergies || ''} className="w-full border border-gray-300 p-2 rounded-md" placeholder="z.B. Laktose, Nüsse, Gluten..." />
+              <p className="text-xs text-gray-500 mt-1">
+                Freiwillige Angabe zur Berücksichtigung bei der Verpflegung. Da dies ggf. ein Gesundheitsdatum ist, verarbeiten wir es nur auf Basis deiner Einwilligung durch das Ausfüllen dieses Feldes - jederzeit widerrufbar, z.B. über deinen persönlichen Link (siehe unsere <Link href="/datenschutz" className="underline">Datenschutzerklärung</Link>).
+              </p>
             </div>
           )}
 
@@ -283,6 +311,12 @@ export default function RsvpForm({
       )}
 
       <SubmitButton>{rsvp ? "Änderungen speichern" : "Antwort absenden"}</SubmitButton>
+
+      {participant?.editToken && (
+        <div className="pt-4 border-t border-gray-100 text-center">
+          <DeleteMyDataButton editToken={participant.editToken} eventId={eventId} isSeriesShared={isSeriesShared} />
+        </div>
+      )}
     </form>
   )
 }

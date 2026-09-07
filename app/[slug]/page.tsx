@@ -96,6 +96,7 @@ export default async function EventPage({
           formConfig={event.formConfig}
           participant={participant}
           rsvp={existingRsvp}
+          isGuestListVisible={event.isGuestListVisible}
         />
 
         {/* Die öffentliche Gästeliste */}

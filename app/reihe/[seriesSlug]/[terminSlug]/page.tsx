@@ -125,6 +125,8 @@ export default async function SeriesEventPage({
           formConfig={mergedConfig}
           participant={participant}
           rsvp={existingRsvp}
+          isGuestListVisible={series.isGuestListVisible}
+          isSeriesShared={true}
         />
 
         {series.isGuestListVisible && (

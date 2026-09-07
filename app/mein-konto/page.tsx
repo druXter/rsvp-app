@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { getCurrentGuestUser } from '../lib/guest-auth'
 import { getCurrentUser } from '../lib/auth'
 import { logoutGuestUser, updateGuestProfile } from './actions'
+import DeleteAccountButton from './delete-account-button'
 
 const prisma = new PrismaClient()
 
@@ -152,6 +153,15 @@ export default async function MeinKontoPage() {
             )
           })
         )}
+
+        <div className="bg-white p-6 rounded-lg shadow border-t-4 border-red-200 space-y-2">
+          <h2 className="font-bold text-gray-900">Konto löschen</h2>
+          <p className="text-xs text-gray-500">
+            Löscht dein Konto, alle Reihen-Zuordnungen und alle deine Antworten zu jedem Termin jeder Reihe
+            unwiderruflich. Mehr dazu in unserer <Link href="/datenschutz" className="underline">Datenschutzerklärung</Link>.
+          </p>
+          <DeleteAccountButton />
+        </div>
 
       </div>
     </main>

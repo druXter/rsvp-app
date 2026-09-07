@@ -134,6 +134,10 @@ Um automatische E-Mail-Erinnerungen für Events zu versenden, muss der folgende 
 
 Die Datenbankdatei (`*.db`) und deine `.env`-Datei sind vom Tracking ausgeschlossen. Stelle sicher, dass du niemals echte Passwörter oder Nutzerdaten in das Git-Repository hochlädst.
 
+## 🇪🇺 Datenschutz (DSGVO)
+
+Die Datenschutzerklärung (`/datenschutz`) liest wie das Impressum ihre Angaben zur Laufzeit aus deiner `.env` (Verantwortlicher, E-Mail-Server) - trag deine echten Daten dort ein, im Repository bleiben nur Platzhalter. Gäste können ihre eigenen Daten jederzeit selbst vollständig löschen: über ihren persönlichen Bearbeitungslink ("Meine Daten vollständig löschen") bzw. über ihr Nutzer-Konto unter "Mein Konto" ("Konto & alle Daten unwiderruflich löschen"). Das Formular weist außerdem sichtbar auf eine aktive öffentliche Gästeliste hin, bevor eine Zusage abgeschickt wird, und erklärt bei Allergien/Essenswünschen kurz die Einwilligungsgrundlage.
+
 ## 📄 Lizenz
 
 Dieses Projekt ist unter der MIT-Lizenz lizenziert.

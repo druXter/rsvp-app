@@ -34,15 +34,7 @@ export default function Home() {
           </div>
         </div>
       </main>
-
-      {/* Footer mit rechtlichen Pflichtlinks */}
-      <footer className="bg-white border-t border-gray-200 py-6 text-center text-sm text-gray-500">
-        <p>&copy; {new Date().getFullYear()} RSVP System. Alle Rechte vorbehalten.</p>
-        <div className="mt-2 space-x-4">
-          <Link href="/impressum" className="hover:text-gray-900 underline">Impressum</Link>
-          <Link href="/datenschutz" className="hover:text-gray-900 underline">Datenschutz</Link>
-        </div>
-      </footer>
+      {/* Impressum/Datenschutz stehen jetzt im globalen Footer (app/layout.tsx) */}
     </div>
   )
 }

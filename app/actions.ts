@@ -3,6 +3,7 @@
 
 import { PrismaClient } from '@prisma/client'
 import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
 import { randomUUID } from 'crypto'
 import { sendConfirmationEmail, sendVerificationEmail, sendWaitlistPromotedEmail, sendWaitlistEmail } from './lib/mail'
 import { generateCheckinQrDataUrl } from './lib/qrcode'
@@ -307,4 +308,36 @@ export async function verifyEventPin(formData: FormData) {
   }
 
   return { success: false, error: "Falscher Code. Bitte versuche es erneut." }
+}
+
+/**
+ * Löscht die gesamte, per editToken identifizierte Gast-Identität unwiderruflich -
+ * Recht auf Löschung (Art. 17 DSGVO). Der Participant ist bei einer Reihe über ALLE
+ * Termine hinweg geteilt, daher löscht dies auch alle anderen Antworten dieser Person
+ * innerhalb derselben Reihe, nicht nur die zu diesem einen Termin (siehe RsvpForm/
+ * DeleteMyDataButton, wo genau davor gewarnt wird). Ein evtl. verknüpftes Nutzer-Konto
+ * (GuestUser) selbst bleibt unberührt - dessen vollständige Löschung läuft separat über
+ * deleteGuestAccount in app/mein-konto/actions.ts.
+ */
+export async function deleteMyParticipantData(formData: FormData) {
+  const editToken = formData.get('editToken') as string
+  const eventId = formData.get('eventId') as string
+  if (!editToken) return
+
+  const participant = await prisma.participant.findUnique({ where: { editToken } })
+  if (!participant) return
+
+  const event = await prisma.event.findUnique({ where: { id: eventId }, include: { series: true } })
+
+  await prisma.rsvp.deleteMany({ where: { participantId: participant.id } })
+  await prisma.participant.delete({ where: { id: participant.id } })
+
+  revalidatePath('/admin')
+
+  if (event?.series) {
+    redirect(`/reihe/${event.series.slug}/${event.slug}`)
+  } else if (event) {
+    redirect(`/${event.slug}`)
+  }
+  redirect('/')
 }

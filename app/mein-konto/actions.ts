@@ -171,3 +171,24 @@ export async function updateGuestProfile(formData: FormData) {
 
   revalidatePath('/mein-konto')
 }
+
+/**
+ * Löscht das gesamte Nutzer-Konto unwiderruflich - Recht auf Löschung (Art. 17 DSGVO).
+ * Anders als deleteMyParticipantData in app/actions.ts (löscht nur die Identität EINER
+ * Reihe über den anonymen editToken-Link) betrifft dies das zentrale Konto und damit
+ * ALLE Reihen, denen der Nutzer jemals zugeordnet war.
+ */
+export async function deleteGuestAccount() {
+  const guestUser = await requireGuestUser()
+
+  await prisma.rsvp.deleteMany({ where: { participant: { guestUserId: guestUser.id } } })
+  await prisma.participant.deleteMany({ where: { guestUserId: guestUser.id } })
+  await prisma.guestUserSeries.deleteMany({ where: { guestUserId: guestUser.id } })
+  await prisma.guestSession.deleteMany({ where: { guestUserId: guestUser.id } })
+  await prisma.guestUser.delete({ where: { id: guestUser.id } })
+
+  const cookieStore = await cookies()
+  cookieStore.set(GUEST_SESSION_COOKIE, '', { maxAge: 0, path: '/' })
+
+  redirect('/mein-konto/login')
+}
