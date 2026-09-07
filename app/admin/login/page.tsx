@@ -1,4 +1,5 @@
 // app/admin/login/page.tsx
+import Link from 'next/link'
 import { loginUser } from '../actions'
 import SubmitButton from '../../ui/submit-button'
 
@@ -6,14 +7,21 @@ import SubmitButton from '../../ui/submit-button'
  * Login-Seite. Stellt ein Formular für E-Mail + Passwort bereit und fängt Fehler
  * über URL-Parameter ab.
  */
-export default async function AdminLoginPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+export default async function AdminLoginPage({ searchParams }: { searchParams: Promise<{ error?: string; reset?: string }> }) {
   const params = await searchParams;
   const hasError = params.error === '1';
+  const wasReset = params.reset === '1';
 
   return (
     <main className="min-h-screen bg-gray-100 flex items-center justify-center px-4">
       <div className="max-w-md w-full bg-white p-8 rounded-lg shadow space-y-6">
         <h1 className="text-2xl font-bold text-center text-gray-900">Login</h1>
+
+        {wasReset && (
+          <div className="p-3 bg-green-50 text-green-700 text-sm rounded">
+            Dein Passwort wurde erfolgreich zurückgesetzt. Du kannst dich jetzt einloggen.
+          </div>
+        )}
 
         {hasError && (
           <div className="p-3 bg-red-50 text-red-700 text-sm rounded">
@@ -46,6 +54,10 @@ export default async function AdminLoginPage({ searchParams }: { searchParams: P
 
           <SubmitButton>Einloggen</SubmitButton>
         </form>
+
+        <p className="text-sm text-center text-gray-500">
+          <Link href="/admin/forgot-password" className="text-blue-600 hover:underline">Passwort vergessen?</Link>
+        </p>
       </div>
     </main>
   )

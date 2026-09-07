@@ -1,7 +1,7 @@
 // app/lib/mail.ts
 import nodemailer from 'nodemailer'
 import { createEvent, DateArray } from 'ics'
-import { Event, EventSeries, GuestUser, Participant, Rsvp } from '@prisma/client'
+import { Event, EventSeries, GuestUser, Participant, Rsvp, User } from '@prisma/client'
 import { generateCheckinQrBuffer } from './qrcode'
 
 // Den Mail-Transporter mit den Daten aus der .env initialisieren
@@ -294,6 +294,44 @@ export async function sendGuestVerificationEmail(guestUser: GuestUser, series: E
     return true
   } catch (error) {
     console.error(`Fehler beim Senden der Nutzer-Verifizierungs-Mail an ${guestUser.email}:`, error)
+    return false
+  }
+}
+
+/**
+ * Versendet die Passwort-Reset-Mail für ein Admin-seitiges Benutzerkonto (siehe #13,
+ * requestPasswordReset in app/admin/actions.ts). Wird NIE für ein Admin-Konto (role
+ * ADMIN) aufgerufen - dort bleibt ein Reset ausschließlich über direkten Server-Zugriff
+ * möglich (create-user.js/set-role.js).
+ */
+export async function sendPasswordResetEmail(user: User) {
+  const resetLink = `${baseUrl()}/admin/reset-password?token=${user.resetToken}`
+
+  const mailOptions = {
+    from: process.env.SMTP_FROM,
+    to: user.email,
+    subject: 'Passwort zurücksetzen',
+    text: `Hallo,\n\nfür dein Konto (${user.email}) wurde ein Passwort-Reset angefordert. Falls du das warst, klicke auf den folgenden Link, um ein neues Passwort zu vergeben:\n\n${resetLink}\n\nDer Link ist eine Stunde gültig. Falls du das nicht warst, kannst du diese E-Mail ignorieren - dein Passwort bleibt unverändert.`,
+    html: `
+      <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
+        <h2>Passwort zurücksetzen</h2>
+        <p>Für dein Konto <strong>${user.email}</strong> wurde ein Passwort-Reset angefordert. Falls du das warst, klicke auf den folgenden Button, um ein neues Passwort zu vergeben:</p>
+
+        <p style="text-align: center; margin: 30px 0;">
+          <a href="${resetLink}" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: #fff; text-decoration: none; border-radius: 5px; font-weight: bold;">Neues Passwort vergeben</a>
+        </p>
+
+        <p style="font-size: 12px; color: #666;">Der Link ist eine Stunde gültig. Falls der Button nicht funktioniert, kopiere diesen Link in deinen Browser:<br>${resetLink}</p>
+        <p style="font-size: 12px; color: #666;">Falls du das nicht warst, kannst du diese E-Mail ignorieren - dein Passwort bleibt unverändert.</p>
+      </div>
+    `
+  }
+
+  try {
+    await transporter.sendMail(mailOptions)
+    return true
+  } catch (error) {
+    console.error(`Fehler beim Senden der Passwort-Reset-Mail an ${user.email}:`, error)
     return false
   }
 }

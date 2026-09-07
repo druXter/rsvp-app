@@ -7,7 +7,7 @@ import { revalidatePath } from 'next/cache'
 import { PrismaClient, Role } from '@prisma/client'
 import { randomUUID, randomBytes } from 'crypto'
 import bcrypt from 'bcryptjs'
-import { sendReminderEmail, sendWaitlistPromotedEmail, sendConfirmationEmail, sendVerificationEmail } from '../lib/mail'
+import { sendReminderEmail, sendWaitlistPromotedEmail, sendConfirmationEmail, sendVerificationEmail, sendPasswordResetEmail } from '../lib/mail'
 import { requireUser, SESSION_COOKIE, SESSION_DURATION_MS } from '../lib/auth'
 import { isOwnerOrAdmin, hasEventModeratorOrAbove, hasSeriesModeratorOrAbove } from '../lib/permissions'
 
@@ -67,6 +67,59 @@ export async function logoutUser() {
   }
   cookieStore.set(SESSION_COOKIE, '', { maxAge: 0, path: '/' })
   redirect('/admin/login')
+}
+
+const RESET_TOKEN_DURATION_MS = 1000 * 60 * 60 // 1 Stunde
+
+/**
+ * Fordert einen Passwort-Reset per E-Mail an. Zeigt IMMER dieselbe neutrale Bestätigung
+ * (Weiterleitung zu ?sent=1) - unabhängig davon, ob die E-Mail überhaupt zu einem Konto
+ * gehört oder ob es sich um ein Admin-Konto handelt, damit weder die Existenz eines
+ * Kontos noch dessen Admin-Status über das Antwortverhalten verraten wird. Für
+ * Admin-Konten wird bewusst NIE ein Reset-Token vergeben (siehe #13/#5) - dort bleibt
+ * ein Reset ausschließlich über direkten Server-Zugriff (create-user.js/set-role.js)
+ * möglich, damit ein kompromittiertes Admin-Postfach nicht automatisch vollen Zugriff gibt.
+ */
+export async function requestPasswordReset(formData: FormData) {
+  const email = (formData.get('email') as string || '').trim().toLowerCase()
+  const user = await prisma.user.findUnique({ where: { email } })
+
+  if (user && user.role !== 'ADMIN') {
+    const resetToken = randomBytes(32).toString('hex')
+    const resetTokenExpiresAt = new Date(Date.now() + RESET_TOKEN_DURATION_MS)
+    const updated = await prisma.user.update({ where: { id: user.id }, data: { resetToken, resetTokenExpiresAt } })
+    try {
+      await sendPasswordResetEmail(updated)
+    } catch (error) {
+      console.error('Fehler beim Senden der Passwort-Reset-Mail:', error)
+    }
+  }
+
+  redirect('/admin/forgot-password?sent=1')
+}
+
+/**
+ * Setzt anhand eines gültigen, nicht abgelaufenen Reset-Tokens ein neues Passwort.
+ * Invalidiert dabei alle bestehenden Sessions des Kontos (z.B. falls das alte Passwort
+ * durch einen Dritten kompromittiert wurde) und macht den Token unbrauchbar.
+ */
+export async function resetPassword(formData: FormData) {
+  const token = formData.get('token') as string
+  const password = formData.get('password') as string
+
+  const user = token ? await prisma.user.findUnique({ where: { resetToken: token } }) : null
+  if (!user || !user.resetTokenExpiresAt || user.resetTokenExpiresAt < new Date()) {
+    redirect('/admin/reset-password?error=invalid')
+  }
+
+  const passwordHash = await bcrypt.hash(password, 10)
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { passwordHash, resetToken: null, resetTokenExpiresAt: null }
+  })
+  await prisma.session.deleteMany({ where: { userId: user.id } })
+
+  redirect('/admin/login?reset=1')
 }
 
 /**

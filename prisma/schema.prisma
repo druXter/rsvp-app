@@ -30,6 +30,12 @@ model User {
   role         Role     @default(CREATOR)
   createdAt    DateTime @default(now())
 
+  // Self-Service-Passwort-Reset (siehe #13) - ausdrücklich NIE für ADMIN-Konten vergeben,
+  // dort bleibt ein Reset nur über direkten Server-Zugriff (set-role.js/create-user.js)
+  // möglich, damit ein kompromittiertes Admin-Postfach nicht automatisch vollen Zugriff gibt.
+  resetToken          String?   @unique
+  resetTokenExpiresAt DateTime?
+
   events            Event[]
   series            EventSeries[]
   pushSubscriptions PushSubscription[]
