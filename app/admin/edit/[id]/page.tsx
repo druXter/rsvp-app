@@ -41,7 +41,7 @@ export default async function EditEventPage({ params, searchParams }: { params: 
           </Link>
         </div>
 
-        <form action={updateEvent} className="space-y-4">
+        <form id="edit-event-form" action={updateEvent} className="space-y-4">
           <input type="hidden" name="eventId" value={event.id} />
 
           <div>
@@ -179,9 +179,6 @@ export default async function EditEventPage({ params, searchParams }: { params: 
             </div>
           </div>
 
-          <button type="submit" className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded hover:bg-blue-700 transition">
-            Änderungen speichern
-          </button>
         </form>
 
         <ShareAccessPanel
@@ -189,6 +186,10 @@ export default async function EditEventPage({ params, searchParams }: { params: 
           shares={event.sharedWith.map(a => ({ id: a.id, email: a.user.email }))}
           error={shareError}
         />
+
+        <button type="submit" form="edit-event-form" className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded hover:bg-blue-700 transition">
+          Änderungen speichern
+        </button>
       </div>
     </main>
   )

@@ -92,7 +92,7 @@ export default async function CreateEventSeriesPage() {
             </div>
           </div>
 
-          <button type="submit" className="w-full bg-purple-600 text-white font-bold py-2 px-4 rounded hover:bg-purple-700 transition">
+          <button type="submit" className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded hover:bg-blue-700 transition">
             Reihe speichern
           </button>
         </form>

@@ -49,7 +49,7 @@ export default async function EditEventSeriesPage({
         </div>
 
         {isOwner && (
-        <form action={updateEventSeries} className="space-y-4">
+        <form id="edit-series-form" action={updateEventSeries} className="space-y-4">
           <input type="hidden" name="seriesId" value={series.id} />
 
           <div>
@@ -115,9 +115,6 @@ export default async function EditEventSeriesPage({
             </div>
           </div>
 
-          <button type="submit" className="w-full bg-purple-600 text-white font-bold py-2 px-4 rounded hover:bg-purple-700 transition">
-            Änderungen speichern
-          </button>
         </form>
         )}
 
@@ -127,6 +124,12 @@ export default async function EditEventSeriesPage({
             shares={series.sharedWith.map(a => ({ id: a.id, email: a.user.email }))}
             error={shareError}
           />
+        )}
+
+        {isOwner && (
+          <button type="submit" form="edit-series-form" className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded hover:bg-blue-700 transition">
+            Änderungen speichern
+          </button>
         )}
 
         <GuestMembersPanel

@@ -66,8 +66,13 @@ export async function submitRsvp(formData: FormData) {
     ? existingParticipant.email
     : (isAttending ? emailInput : (existingParticipant?.email ?? null))
 
+  // Ein eingeloggter Nutzer (GuestUser), dessen Konto bereits verifiziert ist, hat seine
+  // E-Mail-Adresse schon bei der Kontoregistrierung bestätigt - für ihn braucht es beim
+  // ersten Termin einer NEUEN Reihe keine zusätzliche, redundante Double-Opt-In-Mail mehr.
+  const guestAlreadyVerified = !!(guestUser && guestUser.isVerified)
+
   let needsVerification = false
-  if (requireVerification && isAttending && finalEmail !== null) {
+  if (requireVerification && isAttending && finalEmail !== null && !guestAlreadyVerified) {
     if (!existingParticipant) {
       needsVerification = true
     } else if (existingParticipant.email !== finalEmail || !existingParticipant.isVerified) {
@@ -124,7 +129,11 @@ export async function submitRsvp(formData: FormData) {
       data: {
         ...participantData,
         editToken: randomUUID(),
-        isVerified: false,
+        // Ein bereits verifiziertes Nutzer-Konto vererbt seinen Verifizierungsstatus direkt
+        // an den neuen Participant dieser Reihe (siehe guestAlreadyVerified oben) - sonst
+        // würde die Kapazitäts-/Wartelisten-Logik ihn fälschlich als unverifiziert behandeln.
+        isVerified: guestAlreadyVerified,
+        verifiedAt: guestAlreadyVerified ? new Date() : null,
         verifyToken: needsVerification ? randomUUID() : null
       }
     })
