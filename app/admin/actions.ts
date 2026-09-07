@@ -631,3 +631,27 @@ export async function toggleAttendance(formData: FormData) {
 
   revalidatePath('/admin')
 }
+
+/**
+ * Speichert das Push-Abo eines Admin-Geräts (Browser-Endpoint + Verschlüsselungs-Keys).
+ * Wird ein bereits bekannter Endpoint erneut abonniert (z.B. nach Ablauf erneuert),
+ * werden einfach die Keys aktualisiert statt einen Duplikat-Eintrag anzulegen.
+ */
+export async function subscribeToPush(subscription: { endpoint: string; keys: { p256dh: string; auth: string } }) {
+  await requireAdmin()
+
+  await prisma.pushSubscription.upsert({
+    where: { endpoint: subscription.endpoint },
+    update: { p256dh: subscription.keys.p256dh, auth: subscription.keys.auth },
+    create: { endpoint: subscription.endpoint, p256dh: subscription.keys.p256dh, auth: subscription.keys.auth }
+  })
+}
+
+/**
+ * Entfernt das Push-Abo eines Geräts wieder (Admin hat Benachrichtigungen deaktiviert).
+ */
+export async function unsubscribeFromPush(endpoint: string) {
+  await requireAdmin()
+
+  await prisma.pushSubscription.delete({ where: { endpoint } }).catch(() => {})
+}

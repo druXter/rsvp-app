@@ -27,6 +27,7 @@ Ein schlankes, anpassbares und leistungsstarkes Event-Management-System, gebaut 
   * Manueller Versand aus dem Dashboard an alle Zusagen (inkl. optionaler Zusatzinfos für die Gäste).
   * Vollautomatischer Versand X Tage vor dem Event (gesicherter Endpoint für Uptime Kuma oder Cronjobs).
 * **QR-Code Einlasskontrolle (optional, standardmäßig aus):** Pro Event/Termin zuschaltbar für Veranstaltungen mit echtem Einlass. Bestätigte Gäste bekommen einen persönlichen QR-Code (Bestätigungsmail & Erfolgsseite), der beim Scannen automatisch als "anwesend" markiert wird. Das Admin-Dashboard zeigt eine Live-Statistik ("🎫 Eingecheckt: 25/50") und erlaubt auch manuelles Ein-/Auschecken ohne Scan. Für die meisten privaten Feiern ohne Einlasskontrolle bleibt diese Option einfach deaktiviert.
+* **Web-Push-Benachrichtigungen (PWA):** Das Dashboard ist als installierbare PWA konfiguriert. Admins können sich pro Gerät für Push-Benachrichtigungen anmelden ("🔕 Push aktivieren"-Button) und werden dann sofort informiert, sobald ein Gast eine neue Zu- oder Absage abgibt - auch ohne offenes Dashboard-Tab.
 * **Admin Dashboard:** 
   * Volle Übersicht über alle Zu- und Absagen sowie Wartelistenplätze.
   * Status-Anzeige ausstehender E-Mail-Verifizierungen.
@@ -81,9 +82,20 @@ IMPRESSUM_ZIP=12345
 IMPRESSUM_CITY=Musterstadt
 IMPRESSUM_EMAIL=deine-email@domain.de
 IMPRESSUM_PHONE=Optional
+
+# VAPID-Keys für Web-Push-Benachrichtigungen (Admin-Dashboard) - siehe Hinweis unten
+VAPID_PUBLIC_KEY=...
+VAPID_PRIVATE_KEY=...
+VAPID_SUBJECT=mailto:deine-email@domain.de
 ```
 
 > **Impressum-Platzhalter:** Die Impressum-Seite (`app/impressum/page.tsx`) liest ihre Angaben zur Laufzeit aus `IMPRESSUM_NAME`/`IMPRESSUM_STREET`/`IMPRESSUM_ZIP`/`IMPRESSUM_CITY`/`IMPRESSUM_EMAIL`/`IMPRESSUM_PHONE`. Sind diese Variablen nicht gesetzt, zeigt die Seite generische Platzhalter (`[Dein Vorname] [Dein Nachname]` etc.) statt echter Daten an. So bleibt das Repository frei von personenbezogenen Daten - trag deine echten Angaben ausschließlich in deine eigene, nicht versionierte `.env` ein (lokal wie auf dem Server).
+
+> **VAPID-Keys generieren:** Für die Web-Push-Benachrichtigungen brauchst du ein eigenes Schlüsselpaar. Einmalig generieren mit:
+> ```bash
+> node -e "console.log(require('web-push').generateVAPIDKeys())"
+> ```
+> `VAPID_PUBLIC_KEY` ist unkritisch (wird an den Browser ausgeliefert), `VAPID_PRIVATE_KEY` ist ein Geheimnis wie `SMTP_PASS`. Sind die Keys nicht gesetzt, bleibt das Feature einfach inaktiv (kein Push-Button im Dashboard) - der Rest der App läuft unverändert weiter.
 
 ### 3. Mit Docker starten (Empfohlen)
    

@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache'
 import { randomUUID } from 'crypto'
 import { sendConfirmationEmail, sendVerificationEmail, sendWaitlistPromotedEmail, sendWaitlistEmail } from './lib/mail'
 import { generateCheckinQrDataUrl } from './lib/qrcode'
+import { sendPushToAdmins } from './lib/push'
 import { cookies } from 'next/headers'
 
 const prisma = new PrismaClient()
@@ -149,6 +150,17 @@ export async function submitRsvp(formData: FormData) {
         participantId: participant.id
       }
     })
+
+    // Admin-Team per Push benachrichtigen (nur bei brandneuen Antworten, nicht bei Änderungen)
+    try {
+      await sendPushToAdmins({
+        title: isAttending ? 'Neue Zusage 🎉' : 'Neue Absage',
+        body: `${name} - ${event.title}`,
+        url: '/admin'
+      })
+    } catch (error) {
+      console.error("Fehler beim Push-Versand:", error)
+    }
   }
 
   // Nachrück-Automatik, wenn man von "Kommt" auf "Kommt nicht" wechselt

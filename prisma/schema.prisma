@@ -108,3 +108,14 @@ model Rsvp {
 
   @@unique([eventId, participantId])
 }
+
+// Ein Gerät (Browser), auf dem sich ein Admin für Web-Push-Benachrichtigungen
+// angemeldet hat. Nicht an einen bestimmten Nutzer gebunden (es gibt aktuell nur
+// das eine geteilte Admin-Passwort) - jede Zusage/Absage geht an alle Geräte raus.
+model PushSubscription {
+  id        String   @id @default(cuid())
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+}

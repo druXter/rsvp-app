@@ -6,6 +6,7 @@ import { logoutAdmin } from './actions'
 import { redirect } from 'next/navigation'
 import EventRsvpCard from './event-rsvp-card'
 import DeleteSeriesButton from './delete-series-button'
+import PushSubscribeButton from './push-subscribe-button'
 
 const prisma = new PrismaClient()
 
@@ -56,6 +57,7 @@ export default async function AdminDashboard() {
         <div className="flex justify-between items-center bg-white p-6 rounded-lg shadow">
           <h1 className="text-2xl font-bold text-gray-900">RSVP Admin-Dashboard</h1>
           <div className="flex gap-4">
+            <PushSubscribeButton vapidPublicKey={process.env.VAPID_PUBLIC_KEY || null} />
             <Link href="/admin/series/create" className="bg-purple-100 text-purple-700 px-4 py-2 rounded hover:bg-purple-200 transition text-sm font-medium flex items-center">
               + Neue Reihe
             </Link>
