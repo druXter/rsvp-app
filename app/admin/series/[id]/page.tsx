@@ -127,6 +127,13 @@ export default async function SeriesDetailPage({ params }: { params: Promise<{ i
                   </div>
                 </div>
 
+                <div className="space-y-2 pt-2 border-t border-purple-200">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" name="enableCheckin" className="w-4 h-4 text-teal-600" />
+                    <span className="text-sm font-medium">QR-Code Check-in für diesen Termin aktivieren</span>
+                  </label>
+                </div>
+
                 <button type="submit" className="w-full bg-purple-600 text-white font-bold py-2 px-4 rounded hover:bg-purple-700 transition">
                   Termin speichern
                 </button>

@@ -5,6 +5,7 @@ import { PrismaClient } from '@prisma/client'
 import { revalidatePath } from 'next/cache'
 import { randomUUID } from 'crypto'
 import { sendConfirmationEmail, sendVerificationEmail, sendWaitlistPromotedEmail, sendWaitlistEmail } from './lib/mail'
+import { generateCheckinQrDataUrl } from './lib/qrcode'
 import { cookies } from 'next/headers'
 
 const prisma = new PrismaClient()
@@ -202,10 +203,17 @@ export async function submitRsvp(formData: FormData) {
   if (event.series) revalidatePath(`/reihe/${event.series.slug}`)
   revalidatePath('/admin')
 
+  // Einlass-QR-Code für die Erfolgsseite - nur für einen bestätigten, festen Platz
+  // und nur, wenn der Check-in für diesen Termin aktiviert ist
+  const qrCode = event.enableCheckin && savedRsvp.isAttending && !savedRsvp.isOnWaitlist
+    ? await generateCheckinQrDataUrl(savedRsvp.id)
+    : null
+
   return {
     editToken: participant.editToken,
     needsVerification,
-    isOnWaitlist: savedRsvp.isOnWaitlist
+    isOnWaitlist: savedRsvp.isOnWaitlist,
+    qrCode
   }
 }
 

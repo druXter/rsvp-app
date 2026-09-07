@@ -2,6 +2,7 @@
 import nodemailer from 'nodemailer'
 import { createEvent, DateArray } from 'ics'
 import { Event, EventSeries, Participant, Rsvp } from '@prisma/client'
+import { generateCheckinQrBuffer } from './qrcode'
 
 // Den Mail-Transporter mit den Daten aus der .env initialisieren
 const transporter = nodemailer.createTransport({
@@ -92,6 +93,13 @@ export async function sendConfirmationEmail(participant: Participant, rsvp: Rsvp
     }
   }
 
+  // Einlass-QR-Code: Nur für bestätigte Zusagen (sendConfirmationEmail wird für
+  // Wartelisten-Fälle nie aufgerufen - siehe sendWaitlistEmail) und nur, wenn
+  // der Check-in für diesen Termin aktiviert ist.
+  const qrAttachment = rsvp.isAttending && event.enableCheckin
+    ? { filename: 'einlass-qrcode.png', content: await generateCheckinQrBuffer(rsvp.id), cid: 'checkinqr', contentType: 'image/png' }
+    : null
+
   // Betreff und Text je nach Zusage oder Absage anpassen
   const subject = rsvp.isAttending
     ? `Zusage bestätigt: ${event.title}`
@@ -102,7 +110,7 @@ export async function sendConfirmationEmail(participant: Participant, rsvp: Rsvp
 vielen Dank für deine Rückmeldung zum Event "${event.title}".
 
 ${rsvp.isAttending
-  ? 'Wir freuen uns sehr, dass du dabei bist! Im Anhang findest du eine Kalenderdatei (.ics), damit du dir den Termin direkt abspeichern kannst.'
+  ? 'Wir freuen uns sehr, dass du dabei bist! Im Anhang findest du eine Kalenderdatei (.ics), damit du dir den Termin direkt abspeichern kannst, sowie deinen persönlichen Einlass-QR-Code - bitte am Einlass bereithalten.'
   : 'Schade, dass du nicht dabei sein kannst. Falls sich deine Pläne doch noch ändern sollten, kannst du deine Antwort jederzeit anpassen.'}
 
 Du kannst deine Antwort und alle optionalen Angaben jederzeit über diesen persönlichen Link bearbeiten:
@@ -111,13 +119,35 @@ ${personalLink}${seriesHintText(event, participant)}
 Viele Grüße,
 Dein Event-Team`
 
+  const html = `
+    <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
+      <h2>${rsvp.isAttending ? `Zusage bestätigt, ${participant.name}! 🎉` : `Absage bestätigt, ${participant.name}`}</h2>
+      <p>Vielen Dank für deine Rückmeldung zum Event <strong>${event.title}</strong>.</p>
+      <p>${rsvp.isAttending
+        ? 'Wir freuen uns sehr, dass du dabei bist! Im Anhang findest du eine Kalenderdatei (.ics), damit du dir den Termin direkt abspeichern kannst.'
+        : 'Schade, dass du nicht dabei sein kannst. Falls sich deine Pläne doch noch ändern sollten, kannst du deine Antwort jederzeit anpassen.'}</p>
+      ${qrAttachment ? `
+        <p style="text-align: center; margin: 30px 0;">
+          <img src="cid:checkinqr" alt="Einlass-QR-Code" style="width: 220px; height: 220px;" />
+          <br>
+          <span style="font-size: 13px; color: #666;">Dein persönlicher Einlass-QR-Code - bitte am Einlass bereithalten.</span>
+        </p>
+      ` : ''}
+      <p>Du kannst deine Antwort und alle optionalen Angaben jederzeit über diesen persönlichen Link bearbeiten:</p>
+      <p><a href="${personalLink}">${personalLink}</a></p>
+      ${seriesHintHtml(event, participant)}
+      <p>Viele Grüße,<br>Dein Event-Team</p>
+    </div>
+  `
+
   // E-Mail abschicken
   await transporter.sendMail({
     from: process.env.SMTP_FROM,
     to: participant.email!,
     subject,
     text,
-    attachments: icsAttachment ? [icsAttachment] : undefined,
+    html,
+    attachments: [icsAttachment, qrAttachment].filter((a): a is NonNullable<typeof a> => a !== null),
 
     // Zwingt Mail-Server, den korrekten technischen Absender zu akzeptieren
     envelope: {

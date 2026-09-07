@@ -113,6 +113,14 @@ export default async function EditSeriesTerminPage({ params }: { params: Promise
             </div>
           </div>
 
+          <div className="space-y-3 pt-4 border-t border-gray-200 bg-teal-50 p-4 rounded-md">
+            <h3 className="font-bold text-teal-900">QR-Code Einlasskontrolle</h3>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" name="enableCheckin" defaultChecked={event.enableCheckin} className="w-4 h-4 text-teal-600" />
+              <span className="text-sm font-medium text-teal-900">QR-Code Check-in für diesen Termin aktivieren</span>
+            </label>
+          </div>
+
           <button type="submit" className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded hover:bg-blue-700 transition">
             Änderungen speichern
           </button>

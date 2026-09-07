@@ -143,6 +143,16 @@ export default async function EditEventPage({ params }: { params: Promise<{ id: 
             </label>
           </div>
 
+          <div className="space-y-3 pt-4 border-t border-gray-200 bg-teal-50 p-4 rounded-md">
+            <h3 className="font-bold text-teal-900">QR-Code Einlasskontrolle</h3>
+            <p className="text-xs text-teal-700 mb-2">Bestätigte Gäste erhalten einen persönlichen QR-Code (Mail & Erfolgsseite) zum Scannen am Einlass.</p>
+
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" name="enableCheckin" defaultChecked={event.enableCheckin} className="w-4 h-4 text-teal-600" />
+              <span className="text-sm font-medium text-teal-900">QR-Code Check-in aktivieren</span>
+            </label>
+          </div>
+
           {/* NEU: Gruppen- & Vereins-Features */}
           <div className="space-y-3 pt-4 border-t border-gray-200 bg-purple-50 p-4 rounded-md">
             <h3 className="font-bold text-purple-900">Gruppen- & Vereins-Features</h3>

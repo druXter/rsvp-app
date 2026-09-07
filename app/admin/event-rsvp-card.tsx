@@ -1,7 +1,7 @@
 // app/admin/event-rsvp-card.tsx
 import Link from 'next/link'
 import { Event, Rsvp, Participant } from '@prisma/client'
-import { sendReminder, resendVerificationEmail, promoteFromWaitlist } from './actions'
+import { sendReminder, resendVerificationEmail, promoteFromWaitlist, toggleAttendance } from './actions'
 import DeleteButton from './delete-button'
 import DeleteRsvpButton from './delete-rsvp-button'
 
@@ -17,6 +17,8 @@ export type EventForCard = Event & { rsvps: RsvpWithParticipant[] }
 export default function EventRsvpCard({ event, requireVerification }: { event: EventForCard; requireVerification: boolean }) {
   const attendingCount = event.rsvps.filter(r => r.isAttending).length
   const decliningCount = event.rsvps.filter(r => !r.isAttending).length
+  const confirmedCount = event.rsvps.filter(r => r.isAttending && !r.isOnWaitlist).length
+  const checkedInCount = event.rsvps.filter(r => r.hasAttended).length
 
   return (
     <div className="bg-white p-6 rounded-lg shadow mb-6">
@@ -29,6 +31,9 @@ export default function EventRsvpCard({ event, requireVerification }: { event: E
               <div className="mt-2 flex gap-4 text-sm font-semibold">
                 <span className="text-green-600">✅ Zusagen: {attendingCount}</span>
                 <span className="text-red-600">❌ Absagen: {decliningCount}</span>
+                {event.enableCheckin && (
+                  <span className="text-blue-600">🎫 Eingecheckt: {checkedInCount}/{confirmedCount}</span>
+                )}
               </div>
             </div>
 
@@ -95,6 +100,7 @@ export default function EventRsvpCard({ event, requireVerification }: { event: E
                   <th className="p-2">Alkohol</th>
                   <th className="p-2">Mitbringsel</th>
                   <th className="p-2">Anmerkungen / Grund</th>
+                  {event.enableCheckin && <th className="p-2">Check-in</th>}
                   <th className="p-2 text-right">Aktionen</th>
                 </tr>
               </thead>
@@ -189,6 +195,29 @@ export default function EventRsvpCard({ event, requireVerification }: { event: E
                         ? (rsvp.additionalInfo || '-')
                         : (rsvp.declineReason || '-')}
                     </td>
+
+                    {event.enableCheckin && (
+                      <td className="p-2">
+                        {rsvp.isAttending && !rsvp.isOnWaitlist ? (
+                          <form action={toggleAttendance}>
+                            <input type="hidden" name="rsvpId" value={rsvp.id} />
+                            <button
+                              type="submit"
+                              className={`text-[10px] px-2 py-0.5 rounded-full font-bold border transition ${
+                                rsvp.hasAttended
+                                  ? 'bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200'
+                                  : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'
+                              }`}
+                              title={rsvp.checkedInAt ? `Eingecheckt am ${rsvp.checkedInAt.toLocaleString('de-DE')}` : 'Noch nicht eingecheckt - hier klicken zum manuellen Einchecken'}
+                            >
+                              {rsvp.hasAttended ? '🎫 Da' : '⬜ Nicht da'}
+                            </button>
+                          </form>
+                        ) : (
+                          <span className="text-gray-300">-</span>
+                        )}
+                      </td>
+                    )}
 
                     <td className="p-2 text-right">
                       <div className="flex justify-end gap-2">

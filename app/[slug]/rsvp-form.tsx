@@ -24,6 +24,7 @@ export default function RsvpForm({
   const [showVerifyScreen, setShowVerifyScreen] = useState<boolean>(false)
 
   const [isOnWaitlist, setIsOnWaitlist] = useState<boolean>(rsvp ? rsvp.isOnWaitlist : false)
+  const [qrCode, setQrCode] = useState<string | null>(null)
 
   const config = formConfig
     ? JSON.parse(formConfig)
@@ -42,6 +43,9 @@ export default function RsvpForm({
     // Setze den Wartelisten-Status
     if (result.isOnWaitlist !== undefined) {
       setIsOnWaitlist(result.isOnWaitlist)
+    }
+    if (result.qrCode) {
+      setQrCode(result.qrCode)
     }
   }
 
@@ -123,6 +127,15 @@ export default function RsvpForm({
           >
             📅 Zum Kalender hinzufügen
           </a>
+        )}
+
+        {qrCode && (
+          <div className={`w-full mt-6 flex flex-col items-center ${isEmbed ? 'p-4 border border-green-200 rounded' : 'bg-white p-4 rounded border border-green-200'}`}>
+            <p className="text-sm font-bold mb-2 text-green-900">🎫 Dein persönlicher Einlass-QR-Code:</p>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={qrCode} alt="Einlass-QR-Code" className="w-48 h-48" />
+            <p className="text-xs text-gray-600 mt-2 text-center">Bitte am Einlass bereithalten (auch per E-Mail an dich verschickt).</p>
+          </div>
         )}
       </div>
     )

@@ -77,6 +77,7 @@ export async function createEvent(formData: FormData) {
   const autoReminder = formData.get('autoReminder') === 'on'
   const reminderDays = parseInt(formData.get('reminderDays') as string) || 7
   const requireVerification = formData.get('requireVerification') === 'on'
+  const enableCheckin = formData.get('enableCheckin') === 'on'
 
   // Abfrage-Optionen für die Gäste als JSON-String speichern
   const formConfig = JSON.stringify({
@@ -106,7 +107,8 @@ export async function createEvent(formData: FormData) {
       requireVerification,
       maxCapacity,
       isGuestListVisible,
-      eventPin
+      eventPin,
+      enableCheckin
     }
   })
 
@@ -156,6 +158,7 @@ export async function updateEvent(formData: FormData) {
   const autoReminder = formData.get('autoReminder') === 'on'
   const reminderDays = parseInt(formData.get('reminderDays') as string) || 7
   const requireVerification = formData.get('requireVerification') === 'on'
+  const enableCheckin = formData.get('enableCheckin') === 'on'
 
   const formConfig = JSON.stringify({
     askEmail: formData.get('askEmail') === 'on',
@@ -184,7 +187,8 @@ export async function updateEvent(formData: FormData) {
       requireVerification,
       maxCapacity,
       isGuestListVisible,
-      eventPin
+      eventPin,
+      enableCheckin
     }
   })
 
@@ -508,6 +512,7 @@ export async function addTerminToSeries(formData: FormData) {
 
   const autoReminder = formData.get('autoReminder') === 'on'
   const reminderDays = parseInt(formData.get('reminderDays') as string) || 7
+  const enableCheckin = formData.get('enableCheckin') === 'on'
 
   const formConfig = JSON.stringify({
     askEmail: false,
@@ -533,7 +538,8 @@ export async function addTerminToSeries(formData: FormData) {
       formConfig,
       autoReminder,
       reminderDays,
-      maxCapacity
+      maxCapacity,
+      enableCheckin
     }
   })
 
@@ -561,6 +567,7 @@ export async function updateSeriesTermin(formData: FormData) {
 
   const autoReminder = formData.get('autoReminder') === 'on'
   const reminderDays = parseInt(formData.get('reminderDays') as string) || 7
+  const enableCheckin = formData.get('enableCheckin') === 'on'
 
   const formConfig = JSON.stringify({
     askEmail: false,
@@ -576,11 +583,33 @@ export async function updateSeriesTermin(formData: FormData) {
 
   const event = await prisma.event.update({
     where: { id },
-    data: { title, slug, date, location, description, duration, formConfig, autoReminder, reminderDays, maxCapacity }
+    data: { title, slug, date, location, description, duration, formConfig, autoReminder, reminderDays, maxCapacity, enableCheckin }
   })
 
   await triggerWaitlistPromotion(id)
 
   revalidatePath('/admin')
   redirect(`/admin/series/${event.seriesId}`)
+}
+
+/**
+ * Manuelles Ein-/Auschecken eines Gasts aus der Gästeliste im Admin-Dashboard
+ * (Alternative zum Scannen des QR-Codes, z.B. falls der Gast kein Handy dabei hat).
+ */
+export async function toggleAttendance(formData: FormData) {
+  await requireAdmin()
+
+  const id = formData.get('rsvpId') as string
+  const rsvp = await prisma.rsvp.findUnique({ where: { id } })
+  if (!rsvp) return
+
+  await prisma.rsvp.update({
+    where: { id },
+    data: {
+      hasAttended: !rsvp.hasAttended,
+      checkedInAt: !rsvp.hasAttended ? new Date() : null
+    }
+  })
+
+  revalidatePath('/admin')
 }

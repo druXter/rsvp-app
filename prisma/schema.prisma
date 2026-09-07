@@ -50,6 +50,7 @@ model Event {
   maxCapacity        Int?
   isGuestListVisible Boolean  @default(false)
   eventPin           String?
+  enableCheckin      Boolean  @default(false)
 
   // Optionale Zugehörigkeit zu einer Veranstaltungsreihe. Ist seriesId gesetzt,
   // sind requireVerification/isGuestListVisible/eventPin auf DIESEM Event bedeutungslos -
@@ -101,6 +102,8 @@ model Rsvp {
   plusOneName    String?
   bringingItem   String?
   isOnWaitlist   Boolean  @default(false)
+  hasAttended    Boolean  @default(false)
+  checkedInAt    DateTime?
   createdAt      DateTime @default(now())
 
   @@unique([eventId, participantId])
