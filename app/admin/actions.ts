@@ -5,26 +5,12 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { PrismaClient } from '@prisma/client'
-import { randomUUID } from 'crypto'
+import { randomUUID, randomBytes } from 'crypto'
+import bcrypt from 'bcryptjs'
 import { sendReminderEmail, sendWaitlistPromotedEmail, sendConfirmationEmail, sendVerificationEmail } from '../lib/mail'
+import { requireUser, SESSION_COOKIE, SESSION_DURATION_MS } from '../lib/auth'
 
 const prisma = new PrismaClient()
-
-/**
- * Sicherheits-Fallback für das Admin-Passwort.
- * Lädt das Passwort aus den Umgebungsvariablen (.env). Ist dort keines definiert,
- * wird zur Laufzeit ein zufälliges Passwort generiert, um unbefugten Zugriff zu verhindern.
- */
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || Math.random().toString(36).slice(2)
-
-/**
- * Prüft die Admin-Session. Wirft, wenn nicht eingeloggt.
- */
-async function requireAdmin() {
-  const cookieStore = await cookies()
-  const session = cookieStore.get('admin_session')
-  if (!session || session.value !== 'true') throw new Error('Nicht autorisiert')
-}
 
 /**
  * Liest die bis zu 3 frei definierbaren Zusatzfragen aus dem Formular
@@ -41,33 +27,68 @@ function readCustomQuestions(formData: FormData): string[] {
 }
 
 /**
- * Überprüft die Zugangsdaten und erstellt bei Erfolg eine Admin-Sitzung via Cookie.
+ * Prüft E-Mail/Passwort gegen die Datenbank und erstellt bei Erfolg eine
+ * server-seitige Session (Cookie enthält nur den opaken Token, siehe app/lib/auth.ts).
  */
-export async function loginAdmin(formData: FormData) {
+export async function loginUser(formData: FormData) {
+  const email = (formData.get('email') as string || '').trim().toLowerCase()
   const password = formData.get('password') as string
 
-  if (password === ADMIN_PASSWORD) {
-    const cookieStore = await cookies()
-    cookieStore.set('admin_session', 'true', {
-      httpOnly: true, // Schützt vor Cross-Site-Scripting (XSS)
-      secure: process.env.NODE_ENV === 'production', // Überträgt Cookies in Produktion nur über HTTPS
-      maxAge: 60 * 60 * 24, // Sitzung bleibt für 24 Stunden gültig
-      path: '/',
-    })
-    redirect('/admin')
-  } else {
-    // Bei falschem Passwort mit Fehler-Parameter zurück zur Login-Seite
+  const user = await prisma.user.findUnique({ where: { email } })
+  const passwordMatches = user ? await bcrypt.compare(password, user.passwordHash) : false
+
+  if (!user || !passwordMatches) {
     redirect('/admin/login?error=1')
   }
+
+  const token = randomBytes(32).toString('hex')
+  const expiresAt = new Date(Date.now() + SESSION_DURATION_MS)
+  await prisma.session.create({ data: { token, userId: user.id, expiresAt } })
+
+  const cookieStore = await cookies()
+  cookieStore.set(SESSION_COOKIE, token, {
+    httpOnly: true, // Schützt vor Cross-Site-Scripting (XSS)
+    secure: process.env.NODE_ENV === 'production', // Überträgt Cookies in Produktion nur über HTTPS
+    maxAge: SESSION_DURATION_MS / 1000,
+    path: '/',
+  })
+  redirect('/admin')
 }
 
 /**
- * Beendet die Admin-Sitzung, indem das Authentifizierungs-Cookie gelöscht wird.
+ * Beendet die Sitzung: löscht die Session in der Datenbank und das Cookie.
  */
-export async function logoutAdmin() {
+export async function logoutUser() {
   const cookieStore = await cookies()
-  cookieStore.set('admin_session', '', { maxAge: 0, path: '/' })
+  const token = cookieStore.get(SESSION_COOKIE)?.value
+  if (token) {
+    await prisma.session.delete({ where: { token } }).catch(() => {})
+  }
+  cookieStore.set(SESSION_COOKIE, '', { maxAge: 0, path: '/' })
   redirect('/admin/login')
+}
+
+/**
+ * Legt ein neues Benutzerkonto an (z.B. für ein anderes Referat oder einen Freund).
+ * Es gibt keine öffentliche Registrierung - nur bereits eingeloggte Nutzer können
+ * weitere Konten anlegen.
+ */
+export async function createUser(formData: FormData) {
+  await requireUser()
+
+  const email = (formData.get('email') as string || '').trim().toLowerCase()
+  const password = formData.get('password') as string
+
+  const existing = await prisma.user.findUnique({ where: { email } })
+  if (existing) {
+    redirect('/admin/create-user?error=exists')
+  }
+
+  const passwordHash = await bcrypt.hash(password, 10)
+  await prisma.user.create({ data: { email, passwordHash } })
+
+  revalidatePath('/admin')
+  redirect('/admin')
 }
 
 /**
@@ -76,6 +97,8 @@ export async function logoutAdmin() {
  * die dynamische Formular-Konfiguration als JSON.
  */
 export async function createEvent(formData: FormData) {
+  const user = await requireUser()
+
   const title = formData.get('title') as string
   const slugInput = formData.get('slug') as string
   const date = new Date(formData.get('date') as string)
@@ -110,6 +133,7 @@ export async function createEvent(formData: FormData) {
 
   await prisma.event.create({
     data: {
+      ownerId: user.id,
       title,
       slug,
       date,
@@ -138,7 +162,11 @@ export async function createEvent(formData: FormData) {
  * ggf. noch für andere Termine der Reihe) unangetastet.
  */
 export async function deleteEvent(formData: FormData) {
+  const user = await requireUser()
   const id = formData.get('eventId') as string
+
+  const event = await prisma.event.findUnique({ where: { id } })
+  if (!event || event.ownerId !== user.id) return
 
   // 1. Zuerst alle verknüpften Antworten (Gäste) löschen, um Fremdschlüssel-Konflikte zu vermeiden
   await prisma.rsvp.deleteMany({
@@ -157,7 +185,12 @@ export async function deleteEvent(formData: FormData) {
  * Aktualisiert die Meta-Daten und die Formular-Konfiguration eines bestehenden Events.
  */
 export async function updateEvent(formData: FormData) {
+  const user = await requireUser()
   const id = formData.get('eventId') as string
+
+  const existingEvent = await prisma.event.findUnique({ where: { id } })
+  if (!existingEvent || existingEvent.ownerId !== user.id) return
+
   const title = formData.get('title') as string
   const slugInput = formData.get('slug') as string
   const date = new Date(formData.get('date') as string)
@@ -220,10 +253,11 @@ export async function updateEvent(formData: FormData) {
  * Der Participant (das Profil) bleibt bestehen, falls er noch andere Antworten hat.
  */
 export async function deleteRsvp(formData: FormData) {
+  const user = await requireUser()
   const id = formData.get('rsvpId') as string
 
-  const rsvpToDelete = await prisma.rsvp.findUnique({ where: { id } })
-  if (!rsvpToDelete) return
+  const rsvpToDelete = await prisma.rsvp.findUnique({ where: { id }, include: { event: true } })
+  if (!rsvpToDelete || rsvpToDelete.event.ownerId !== user.id) return
 
   await prisma.rsvp.delete({
     where: { id }
@@ -241,6 +275,7 @@ export async function deleteRsvp(formData: FormData) {
  * zu bearbeiten - inklusive der reihenweit geteilten Profildaten (Name, Kontakt, Essen).
  */
 export async function updateAdminRsvp(formData: FormData) {
+  const user = await requireUser()
   const id = formData.get('rsvpId') as string
   const name = formData.get('name') as string
   const isAttending = formData.get('isAttending') === 'true'
@@ -258,8 +293,8 @@ export async function updateAdminRsvp(formData: FormData) {
   const plusOneName = formData.get('plusOneName') as string || null
   const bringingItem = formData.get('bringingItem') as string || null
 
-  const existingRsvp = await prisma.rsvp.findUnique({ where: { id } })
-  if (!existingRsvp) return
+  const existingRsvp = await prisma.rsvp.findUnique({ where: { id }, include: { event: true } })
+  if (!existingRsvp || existingRsvp.event.ownerId !== user.id) return
 
   await prisma.participant.update({
     where: { id: existingRsvp.participantId },
@@ -292,13 +327,14 @@ export async function updateAdminRsvp(formData: FormData) {
  * Lässt einen Gast manuell von der Warteliste zu, selbst wenn das Event überbucht wird.
  */
 export async function promoteFromWaitlist(formData: FormData) {
+  const user = await requireUser()
   const id = formData.get('rsvpId') as string
 
   const rsvp = await prisma.rsvp.findUnique({
     where: { id },
     include: { event: { include: { series: true } }, participant: true }
   })
-  if (!rsvp || !rsvp.isOnWaitlist) return
+  if (!rsvp || !rsvp.isOnWaitlist || rsvp.event.ownerId !== user.id) return
 
   // Admin-Override: Wir ändern den Status direkt auf einen festen Platz
   const promotedRsvp = await prisma.rsvp.update({
@@ -318,6 +354,7 @@ export async function promoteFromWaitlist(formData: FormData) {
 /**
  * HILFSFUNKTION: Füllt freie Plätze mit Nachrückern von der Warteliste auf.
  * Funktioniert für einzelne freiwerdende Plätze UND wenn der Admin die Kapazität erhöht.
+ * Wird ausschließlich von bereits Owner-geprüften Actions aufgerufen.
  */
 async function triggerWaitlistPromotion(eventId: string) {
   const event = await prisma.event.findUnique({
@@ -362,10 +399,10 @@ async function triggerWaitlistPromotion(eventId: string) {
 
 /**
  * Server Action: Versendet Erinnerungen an alle zugesagten Gäste eines Termins.
- * Schützt die Route via Cookie-Prüfung und aktualisiert danach das Dashboard.
+ * Schützt die Route via Session-Prüfung und aktualisiert danach das Dashboard.
  */
 export async function sendReminder(formData: FormData) {
-  await requireAdmin()
+  const user = await requireUser()
 
   const eventId = formData.get('eventId') as string
   const customMessage = formData.get('customMessage') as string
@@ -382,7 +419,7 @@ export async function sendReminder(formData: FormData) {
     }
   })
 
-  if (!event) throw new Error('Event nicht gefunden')
+  if (!event || event.ownerId !== user.id) return
 
   const validRsvps = event.rsvps.filter(rsvp => rsvp.participant.email && rsvp.participant.email.trim() !== "")
 
@@ -405,7 +442,7 @@ export async function sendReminder(formData: FormData) {
  * Nützlich, wenn der Gast die E-Mail nicht erhalten oder versehentlich gelöscht hat.
  */
 export async function resendVerificationEmail(formData: FormData) {
-  await requireAdmin()
+  const user = await requireUser()
 
   const id = formData.get('rsvpId') as string
 
@@ -414,7 +451,7 @@ export async function resendVerificationEmail(formData: FormData) {
     include: { event: true, participant: true }
   })
 
-  if (!rsvp || !rsvp.participant.email || rsvp.participant.isVerified) return
+  if (!rsvp || rsvp.event.ownerId !== user.id || !rsvp.participant.email || rsvp.participant.isVerified) return
 
   let tokenToUse = rsvp.participant.verifyToken
   if (!tokenToUse) {
@@ -432,7 +469,7 @@ export async function resendVerificationEmail(formData: FormData) {
  * Legt eine neue Veranstaltungsreihe an (optionales Feature neben Einzel-Events).
  */
 export async function createEventSeries(formData: FormData) {
-  await requireAdmin()
+  const user = await requireUser()
 
   const title = formData.get('title') as string
   const slugInput = formData.get('slug') as string
@@ -450,7 +487,7 @@ export async function createEventSeries(formData: FormData) {
   const slug = slugInput.toLowerCase().replace(/[^a-z0-9-]/g, '-')
 
   const series = await prisma.eventSeries.create({
-    data: { title, slug, description, askEmail, askPhone, askDiet, askAllergies, requireVerification, isGuestListVisible, eventPin }
+    data: { ownerId: user.id, title, slug, description, askEmail, askPhone, askDiet, askAllergies, requireVerification, isGuestListVisible, eventPin }
   })
 
   revalidatePath('/admin')
@@ -461,9 +498,12 @@ export async function createEventSeries(formData: FormData) {
  * Aktualisiert die reihenweiten Einstellungen (gilt für alle Termine der Reihe).
  */
 export async function updateEventSeries(formData: FormData) {
-  await requireAdmin()
+  const user = await requireUser()
 
   const id = formData.get('seriesId') as string
+  const existingSeries = await prisma.eventSeries.findUnique({ where: { id } })
+  if (!existingSeries || existingSeries.ownerId !== user.id) return
+
   const title = formData.get('title') as string
   const slugInput = formData.get('slug') as string
   const description = formData.get('description') as string
@@ -492,9 +532,11 @@ export async function updateEventSeries(formData: FormData) {
  * Löscht eine komplette Veranstaltungsreihe inkl. aller Termine, Antworten und Profile.
  */
 export async function deleteEventSeries(formData: FormData) {
-  await requireAdmin()
+  const user = await requireUser()
 
   const id = formData.get('seriesId') as string
+  const existingSeries = await prisma.eventSeries.findUnique({ where: { id } })
+  if (!existingSeries || existingSeries.ownerId !== user.id) return
 
   const events = await prisma.event.findMany({ where: { seriesId: id }, select: { id: true } })
   const eventIds = events.map(e => e.id)
@@ -514,9 +556,12 @@ export async function deleteEventSeries(formData: FormData) {
  * der EventSeries - hier werden nur die pro Termin abweichenden Daten abgefragt.
  */
 export async function addTerminToSeries(formData: FormData) {
-  await requireAdmin()
+  const user = await requireUser()
 
   const seriesId = formData.get('seriesId') as string
+  const series = await prisma.eventSeries.findUnique({ where: { id: seriesId } })
+  if (!series || series.ownerId !== user.id) return
+
   const title = formData.get('title') as string
   const slugInput = formData.get('slug') as string
   const date = new Date(formData.get('date') as string)
@@ -545,6 +590,7 @@ export async function addTerminToSeries(formData: FormData) {
 
   await prisma.event.create({
     data: {
+      ownerId: series.ownerId,
       seriesId,
       title,
       slug,
@@ -570,9 +616,12 @@ export async function addTerminToSeries(formData: FormData) {
  * Gästeliste, Verifizierung) - die kommen ausschließlich von der EventSeries.
  */
 export async function updateSeriesTermin(formData: FormData) {
-  await requireAdmin()
+  const user = await requireUser()
 
   const id = formData.get('eventId') as string
+  const existingEvent = await prisma.event.findUnique({ where: { id } })
+  if (!existingEvent || existingEvent.ownerId !== user.id) return
+
   const title = formData.get('title') as string
   const slugInput = formData.get('slug') as string
   const date = new Date(formData.get('date') as string)
@@ -615,11 +664,11 @@ export async function updateSeriesTermin(formData: FormData) {
  * (Alternative zum Scannen des QR-Codes, z.B. falls der Gast kein Handy dabei hat).
  */
 export async function toggleAttendance(formData: FormData) {
-  await requireAdmin()
+  const user = await requireUser()
 
   const id = formData.get('rsvpId') as string
-  const rsvp = await prisma.rsvp.findUnique({ where: { id } })
-  if (!rsvp) return
+  const rsvp = await prisma.rsvp.findUnique({ where: { id }, include: { event: true } })
+  if (!rsvp || rsvp.event.ownerId !== user.id) return
 
   await prisma.rsvp.update({
     where: { id },
@@ -633,25 +682,25 @@ export async function toggleAttendance(formData: FormData) {
 }
 
 /**
- * Speichert das Push-Abo eines Admin-Geräts (Browser-Endpoint + Verschlüsselungs-Keys).
- * Wird ein bereits bekannter Endpoint erneut abonniert (z.B. nach Ablauf erneuert),
- * werden einfach die Keys aktualisiert statt einen Duplikat-Eintrag anzulegen.
+ * Speichert das Push-Abo eines Geräts (Browser-Endpoint + Verschlüsselungs-Keys) für
+ * den eingeloggten Nutzer. Wird ein bereits bekannter Endpoint erneut abonniert (z.B.
+ * nach Ablauf erneuert), werden einfach die Keys aktualisiert statt einen Duplikat-Eintrag anzulegen.
  */
 export async function subscribeToPush(subscription: { endpoint: string; keys: { p256dh: string; auth: string } }) {
-  await requireAdmin()
+  const user = await requireUser()
 
   await prisma.pushSubscription.upsert({
     where: { endpoint: subscription.endpoint },
-    update: { p256dh: subscription.keys.p256dh, auth: subscription.keys.auth },
-    create: { endpoint: subscription.endpoint, p256dh: subscription.keys.p256dh, auth: subscription.keys.auth }
+    update: { p256dh: subscription.keys.p256dh, auth: subscription.keys.auth, userId: user.id },
+    create: { endpoint: subscription.endpoint, p256dh: subscription.keys.p256dh, auth: subscription.keys.auth, userId: user.id }
   })
 }
 
 /**
- * Entfernt das Push-Abo eines Geräts wieder (Admin hat Benachrichtigungen deaktiviert).
+ * Entfernt das Push-Abo eines Geräts wieder (Nutzer hat Benachrichtigungen deaktiviert).
  */
 export async function unsubscribeFromPush(endpoint: string) {
-  await requireAdmin()
+  const user = await requireUser()
 
-  await prisma.pushSubscription.delete({ where: { endpoint } }).catch(() => {})
+  await prisma.pushSubscription.deleteMany({ where: { endpoint, userId: user.id } })
 }

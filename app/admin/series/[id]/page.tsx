@@ -1,18 +1,17 @@
 // app/admin/series/[id]/page.tsx
 import { PrismaClient } from '@prisma/client'
-import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { addTerminToSeries } from '../../actions'
 import EventRsvpCard from '../../event-rsvp-card'
 import DeleteSeriesButton from '../../delete-series-button'
+import { getCurrentUser } from '../../../lib/auth'
 
 const prisma = new PrismaClient()
 
 export default async function SeriesDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const cookieStore = await cookies()
-  const session = cookieStore.get('admin_session')
-  if (!session || session.value !== 'true') redirect('/admin/login')
+  const user = await getCurrentUser()
+  if (!user) redirect('/admin/login')
 
   const { id } = await params
   const series = await prisma.eventSeries.findUnique({
@@ -30,7 +29,7 @@ export default async function SeriesDetailPage({ params }: { params: Promise<{ i
     }
   })
 
-  if (!series) {
+  if (!series || series.ownerId !== user.id) {
     return <div className="p-8">Reihe nicht gefunden.</div>
   }
 

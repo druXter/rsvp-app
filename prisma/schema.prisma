@@ -8,6 +8,34 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Ein Benutzerkonto (Referat, Verein, Freund...). Registrierung ist nicht öffentlich -
+// Konten werden ausschließlich von bereits eingeloggten Nutzern angelegt (siehe
+// createUser-Action). Jeder Nutzer sieht und verwaltet ausschließlich seine eigenen
+// Events/Reihen; es gibt keine Owner-übergreifende Admin-Rolle.
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  events            Event[]
+  series            EventSeries[]
+  pushSubscriptions PushSubscription[]
+  sessions          Session[]
+}
+
+// Server-seitige Session: das Cookie trägt nur den opaken, unratbaren `token` -
+// wer eingeloggt ist, ergibt sich ausschließlich aus einem DB-Lookup, nie aus dem
+// Cookie-Inhalt selbst (verhindert Session-Fälschung durch Cookie-Manipulation).
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
 // Eine optionale Veranstaltungsreihe (mehrere Termine, gemeinsames Gast-Profil).
 // Events ohne seriesId sind normale Einzel-Events und von diesem Modell unberührt.
 model EventSeries {
@@ -15,6 +43,9 @@ model EventSeries {
   slug        String   @unique
   title       String
   description String?
+
+  ownerId     String
+  owner       User     @relation(fields: [ownerId], references: [id])
 
   // Reihenweit EINMALIG abgefragte Profil-Felder (gelten für alle Termine der Reihe)
   askEmail     Boolean @default(false)
@@ -51,6 +82,9 @@ model Event {
   isGuestListVisible Boolean  @default(false)
   eventPin           String?
   enableCheckin      Boolean  @default(false)
+
+  ownerId     String
+  owner       User     @relation(fields: [ownerId], references: [id])
 
   // Optionale Zugehörigkeit zu einer Veranstaltungsreihe. Ist seriesId gesetzt,
   // sind requireVerification/isGuestListVisible/eventPin auf DIESEM Event bedeutungslos -
@@ -109,13 +143,16 @@ model Rsvp {
   @@unique([eventId, participantId])
 }
 
-// Ein Gerät (Browser), auf dem sich ein Admin für Web-Push-Benachrichtigungen
-// angemeldet hat. Nicht an einen bestimmten Nutzer gebunden (es gibt aktuell nur
-// das eine geteilte Admin-Passwort) - jede Zusage/Absage geht an alle Geräte raus.
+// Ein Gerät (Browser), auf dem sich EIN BESTIMMTER Nutzer für Web-Push-Benachrichtigungen
+// angemeldet hat. Bei einer neuen Zu-/Absage wird nur der Owner des jeweiligen Events
+// benachrichtigt (auf all seinen Geräten), nie fremde Nutzer.
 model PushSubscription {
   id        String   @id @default(cuid())
   endpoint  String   @unique
   p256dh    String
   auth      String
   createdAt DateTime @default(now())
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
 }

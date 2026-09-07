@@ -1,18 +1,18 @@
 // app/admin/page.tsx
 import { PrismaClient } from '@prisma/client'
-import { cookies } from 'next/headers'
 import Link from 'next/link'
-import { logoutAdmin } from './actions'
+import { logoutUser } from './actions'
 import { redirect } from 'next/navigation'
+import { getCurrentUser } from '../lib/auth'
 import EventRsvpCard from './event-rsvp-card'
 import DeleteSeriesButton from './delete-series-button'
 import PushSubscribeButton from './push-subscribe-button'
 
 const prisma = new PrismaClient()
 
-const getStandaloneEvents = () => {
+const getStandaloneEvents = (ownerId: string) => {
   return prisma.event.findMany({
-    where: { seriesId: null },
+    where: { seriesId: null, ownerId },
     include: {
       rsvps: {
         include: { participant: true },
@@ -23,8 +23,9 @@ const getStandaloneEvents = () => {
   })
 }
 
-const getSeries = () => {
+const getSeries = (ownerId: string) => {
   return prisma.eventSeries.findMany({
+    where: { ownerId },
     include: {
       events: {
         include: {
@@ -41,36 +42,44 @@ const getSeries = () => {
 }
 
 export default async function AdminDashboard() {
-  const cookieStore = await cookies()
-  const session = cookieStore.get('admin_session')
+  const user = await getCurrentUser()
+  if (!user) redirect('/admin/login')
 
-  if (!session || session.value !== 'true') {
-    redirect('/admin/login')
-  }
-
-  const [events, series] = await Promise.all([getStandaloneEvents(), getSeries()])
+  const [events, series] = await Promise.all([getStandaloneEvents(user.id), getSeries(user.id)])
 
   return (
     <main className="min-h-screen bg-gray-100 py-12 px-4">
       <div className="max-w-4xl mx-auto space-y-8">
 
-        <div className="flex justify-between items-center bg-white p-6 rounded-lg shadow">
-          <h1 className="text-2xl font-bold text-gray-900">RSVP Admin-Dashboard</h1>
-          <div className="flex gap-4">
+        <div className="flex justify-between items-center bg-white p-6 rounded-lg shadow flex-wrap gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">RSVP Admin-Dashboard</h1>
+            <p className="text-sm text-gray-500">Eingeloggt als {user.email}</p>
+          </div>
+          <div className="flex gap-4 flex-wrap">
             <PushSubscribeButton vapidPublicKey={process.env.VAPID_PUBLIC_KEY || null} />
+            <Link href="/admin/create-user" className="bg-gray-100 text-gray-700 px-4 py-2 rounded hover:bg-gray-200 transition text-sm font-medium flex items-center">
+              + Nutzer anlegen
+            </Link>
             <Link href="/admin/series/create" className="bg-purple-100 text-purple-700 px-4 py-2 rounded hover:bg-purple-200 transition text-sm font-medium flex items-center">
               + Neue Reihe
             </Link>
             <Link href="/admin/create" className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition text-sm font-medium flex items-center">
               + Neues Event
             </Link>
-            <form action={logoutAdmin}>
+            <form action={logoutUser}>
               <button type="submit" className="bg-gray-200 text-gray-800 px-4 py-2 rounded hover:bg-gray-300 transition text-sm font-medium">
                 Abmelden
               </button>
             </form>
           </div>
         </div>
+
+        {events.length === 0 && series.length === 0 && (
+          <p className="text-center text-gray-500 italic bg-white p-6 rounded-lg shadow">
+            Noch keine Events oder Reihen. Leg oben dein erstes Event an.
+          </p>
+        )}
 
         {events.map(event => (
           <EventRsvpCard key={event.id} event={event} requireVerification={event.requireVerification} />

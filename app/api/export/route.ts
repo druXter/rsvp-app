@@ -1,14 +1,18 @@
 // app/api/export/route.ts
 import { PrismaClient } from '@prisma/client'
 import { NextResponse } from 'next/server'
+import { getCurrentUser } from '../../lib/auth'
 
 const prisma = new PrismaClient()
 
 /**
  * API-Route zum Exportieren einer Gästeliste als CSV-Datei.
- * Wird über /api/export?eventId=[ID] aufgerufen.
+ * Wird über /api/export?eventId=[ID] aufgerufen. Nur für den Owner des Events.
  */
 export async function GET(request: Request) {
+  const user = await getCurrentUser()
+  if (!user) return new NextResponse("Nicht autorisiert", { status: 401 })
+
   const { searchParams } = new URL(request.url)
   const eventId = searchParams.get('eventId')
 
@@ -19,7 +23,7 @@ export async function GET(request: Request) {
     include: { rsvps: { include: { participant: true } }, series: true }
   })
 
-  if (!event) return new NextResponse("Event nicht gefunden", { status: 404 })
+  if (!event || event.ownerId !== user.id) return new NextResponse("Event nicht gefunden", { status: 404 })
 
   const requireVerification = event.series ? event.series.requireVerification : event.requireVerification
   const customQuestions: string[] = event.formConfig ? (JSON.parse(event.formConfig).customQuestions || []) : []

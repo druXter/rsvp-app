@@ -1,24 +1,20 @@
 // app/admin/edit/[id]/page.tsx
 import { PrismaClient } from '@prisma/client'
-import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { updateEvent } from '../../actions'
+import { getCurrentUser } from '../../../lib/auth'
 
 const prisma = new PrismaClient()
 
 export default async function EditEventPage({ params }: { params: Promise<{ id: string }> }) {
-  const cookieStore = await cookies()
-  const session = cookieStore.get('admin_session')
-
-  if (!session || session.value !== 'true') {
-    redirect('/admin/login')
-  }
+  const user = await getCurrentUser()
+  if (!user) redirect('/admin/login')
 
   const { id } = await params
   const event = await prisma.event.findUnique({ where: { id } })
 
-  if (!event) {
+  if (!event || event.ownerId !== user.id) {
     return <div className="p-8">Event nicht gefunden.</div>
   }
 

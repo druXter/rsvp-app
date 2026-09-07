@@ -1,16 +1,12 @@
 // app/admin/series/create/page.tsx
-import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createEventSeries } from '../../actions'
+import { getCurrentUser } from '../../../lib/auth'
 
 export default async function CreateEventSeriesPage() {
-  const cookieStore = await cookies()
-  const session = cookieStore.get('admin_session')
-
-  if (!session || session.value !== 'true') {
-    redirect('/admin/login')
-  }
+  const user = await getCurrentUser()
+  if (!user) redirect('/admin/login')
 
   return (
     <main className="min-h-screen bg-gray-100 py-12 px-4">

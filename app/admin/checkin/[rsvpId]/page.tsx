@@ -1,9 +1,9 @@
 // app/admin/checkin/[rsvpId]/page.tsx
 import { PrismaClient } from '@prisma/client'
-import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { toggleAttendance } from '../../actions'
+import { getCurrentUser } from '../../../lib/auth'
 
 const prisma = new PrismaClient()
 
@@ -13,9 +13,8 @@ const prisma = new PrismaClient()
  * direkt beim Aufrufen der Seite als anwesend (kein zusätzlicher Klick nötig).
  */
 export default async function CheckinPage({ params }: { params: Promise<{ rsvpId: string }> }) {
-  const cookieStore = await cookies()
-  const session = cookieStore.get('admin_session')
-  if (!session || session.value !== 'true') redirect('/admin/login')
+  const user = await getCurrentUser()
+  if (!user) redirect('/admin/login')
 
   const { rsvpId } = await params
   const rsvp = await prisma.rsvp.findUnique({
@@ -30,6 +29,18 @@ export default async function CheckinPage({ params }: { params: Promise<{ rsvpId
           <span className="text-5xl block mb-4">❓</span>
           <h1 className="text-xl font-bold text-red-600">Unbekannter QR-Code</h1>
           <p className="text-gray-500 mt-2">Diese Antwort existiert nicht (mehr).</p>
+        </div>
+      </main>
+    )
+  }
+
+  if (rsvp.event.ownerId !== user.id) {
+    return (
+      <main className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+        <div className="bg-white p-8 rounded-lg shadow max-w-sm w-full text-center">
+          <span className="text-5xl block mb-4">🔒</span>
+          <h1 className="text-xl font-bold text-red-600">Nicht dein Event</h1>
+          <p className="text-gray-500 mt-2">Dieser QR-Code gehört zu einem Event eines anderen Kontos.</p>
         </div>
       </main>
     )

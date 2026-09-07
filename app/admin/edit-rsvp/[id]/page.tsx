@@ -1,9 +1,9 @@
 // app/admin/edit-rsvp/[id]/page.tsx
 import { PrismaClient } from '@prisma/client'
-import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { updateAdminRsvp } from '../../actions'
+import { getCurrentUser } from '../../../lib/auth'
 
 const prisma = new PrismaClient()
 
@@ -12,16 +12,14 @@ const prisma = new PrismaClient()
  * Ermöglicht Korrekturen durch den Administrator, falls Gäste sich vertippt haben oder nachträgliche Änderungen mitteilen.
  */
 export default async function EditRsvpPage({ params }: { params: Promise<{ id: string }> }) {
-  // Sicherheits-Check
-  const cookieStore = await cookies()
-  const session = cookieStore.get('admin_session')
-  if (!session || session.value !== 'true') redirect('/admin/login')
+  const user = await getCurrentUser()
+  if (!user) redirect('/admin/login')
 
   // Die spezifische Antwort aus der Datenbank abrufen (inkl. des geteilten Gast-Profils)
   const { id } = await params
-  const rsvp = await prisma.rsvp.findUnique({ where: { id }, include: { participant: true } })
+  const rsvp = await prisma.rsvp.findUnique({ where: { id }, include: { participant: true, event: true } })
 
-  if (!rsvp) return <div className="p-8">Antwort nicht gefunden.</div>
+  if (!rsvp || rsvp.event.ownerId !== user.id) return <div className="p-8">Antwort nicht gefunden.</div>
 
   const participant = rsvp.participant
 

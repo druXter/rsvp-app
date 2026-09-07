@@ -18,15 +18,15 @@ function ensureVapidConfigured() {
 }
 
 /**
- * Schickt eine Push-Benachrichtigung an alle Geräte, die sich im Admin-Dashboard
- * dafür angemeldet haben. Abgelaufene/ungültige Abos (HTTP 404/410 vom Push-Dienst)
- * werden dabei automatisch aus der Datenbank entfernt.
+ * Schickt eine Push-Benachrichtigung an alle Geräte EINES BESTIMMTEN Nutzers (z.B. des
+ * Event-Owners) - nie an fremde Nutzer. Abgelaufene/ungültige Abos (HTTP 404/410 vom
+ * Push-Dienst) werden dabei automatisch aus der Datenbank entfernt.
  */
-export async function sendPushToAdmins(payload: { title: string; body: string; url?: string }) {
+export async function sendPushToUser(userId: string, payload: { title: string; body: string; url?: string }) {
   ensureVapidConfigured()
   if (!vapidConfigured) return // Keine VAPID-Keys konfiguriert -> Feature bleibt inaktiv
 
-  const subscriptions = await prisma.pushSubscription.findMany()
+  const subscriptions = await prisma.pushSubscription.findMany({ where: { userId } })
   if (subscriptions.length === 0) return
 
   const results = await Promise.allSettled(

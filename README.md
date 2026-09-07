@@ -4,6 +4,7 @@ Ein schlankes, anpassbares und leistungsstarkes Event-Management-System, gebaut 
 
 ## ✨ Features
 
+* **Mehrere Benutzerkonten:** Verschiedene Referate, Vereine oder Freunde können dasselbe Tool getrennt voneinander nutzen - jedes Konto sieht und verwaltet ausschließlich seine eigenen Events und Reihen. Es gibt keine offene Registrierung; neue Konten werden von bereits eingeloggten Nutzern über "+ Nutzer anlegen" erstellt.
 * **Multi-Event-Support:** Verwalte beliebig viele Events gleichzeitig über dynamische URLs (z.B. `/sommerfest`).
 * **Veranstaltungsreihen:** Optional mehrere Termine zu einer Reihe bündeln (z.B. ein wöchentlicher Stammtisch). Kontaktdaten, Essenswunsch und Allergien werden dabei nur einmal pro Person abgefragt und automatisch für jeden weiteren Termin der Reihe übernommen; Zusage, Warteliste und der Rest der Antwort bleiben pro Termin individuell. Eigene Übersichtsseite je Reihe (`/reihe/[slug]`), reihenweite PIN und Gästeliste. Einzel-Events bleiben davon komplett unberührt und sind weiterhin der Standardfall.
 * **Gruppen- & Vereins-Features:**
@@ -33,7 +34,7 @@ Ein schlankes, anpassbares und leistungsstarkes Event-Management-System, gebaut 
   * Status-Anzeige ausstehender E-Mail-Verifizierungen.
   * Nachträgliches, manuelles Bearbeiten von Gästedaten (z.B. bei telefonischer Zusage).
   * CSV-Export der kompletten Gästeliste mit einem Klick.
-  * Geschützt durch ein Master-Passwort.
+  * Geschützt durch individuelle Benutzerkonten (E-Mail + Passwort).
 
 ## 🛠 Tech Stack
 
@@ -60,7 +61,7 @@ Kopiere die Vorlage und öffne sie:
 cp .env.example .env
 ```
    
-Trage in der `.env` dein gewünschtes sicheres `ADMIN_PASSWORD` ein und konfiguriere den automatischen E-Mail-Versand:
+Konfiguriere den automatischen E-Mail-Versand:
    
 ```env
 # E-Mail & URL Konfiguration für automatische Bestätigungen
@@ -96,6 +97,14 @@ VAPID_SUBJECT=mailto:deine-email@domain.de
 > node -e "console.log(require('web-push').generateVAPIDKeys())"
 > ```
 > `VAPID_PUBLIC_KEY` ist unkritisch (wird an den Browser ausgeliefert), `VAPID_PRIVATE_KEY` ist ein Geheimnis wie `SMTP_PASS`. Sind die Keys nicht gesetzt, bleibt das Feature einfach inaktiv (kein Push-Button im Dashboard) - der Rest der App läuft unverändert weiter.
+
+> **Erstes Benutzerkonto anlegen:** Es gibt keine öffentliche Registrierung. Dein allererstes Konto legst du einmalig per Skript an:
+> ```bash
+> node create-user.js deine-email@domain.de dein-passwort
+> # oder im laufenden Docker-Container:
+> docker compose run --rm rsvp-app node create-user.js deine-email@domain.de dein-passwort
+> ```
+> Danach kannst du dich unter `/admin/login` einloggen und über "+ Nutzer anlegen" im Dashboard weitere Konten für andere Referate/Freunde erstellen - `create-user.js` brauchst du dann nicht mehr.
 
 ### 3. Mit Docker starten (Empfohlen)
    

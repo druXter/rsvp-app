@@ -1,21 +1,20 @@
 // app/admin/edit-termin/[id]/page.tsx
 import { PrismaClient } from '@prisma/client'
-import { cookies } from 'next/headers'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { updateSeriesTermin } from '../../actions'
+import { getCurrentUser } from '../../../lib/auth'
 
 const prisma = new PrismaClient()
 
 export default async function EditSeriesTerminPage({ params }: { params: Promise<{ id: string }> }) {
-  const cookieStore = await cookies()
-  const session = cookieStore.get('admin_session')
-  if (!session || session.value !== 'true') redirect('/admin/login')
+  const user = await getCurrentUser()
+  if (!user) redirect('/admin/login')
 
   const { id } = await params
   const event = await prisma.event.findUnique({ where: { id }, include: { series: true } })
 
-  if (!event || !event.series) {
+  if (!event || !event.series || event.ownerId !== user.id) {
     return notFound()
   }
 
