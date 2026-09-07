@@ -36,6 +36,15 @@ model User {
   resetToken          String?   @unique
   resetTokenExpiresAt DateTime?
 
+  // Self-Service-E-Mail-Änderung (bei eingeloggten Nutzern JEDER Rolle, inkl. Admin -
+  // anders als beim Passwort-Reset per Mail-Link reicht hier kein kompromittiertes
+  // Postfach: erfordert eine aktive Session UND das aktuelle Passwort, siehe
+  // requestEmailChange in app/admin/actions.ts). Die neue Adresse wird erst nach Klick auf
+  // den an SIE verschickten Bestätigungslink wirksam.
+  pendingEmail              String?
+  emailChangeToken          String?   @unique
+  emailChangeTokenExpiresAt DateTime?
+
   events            Event[]
   series            EventSeries[]
   pushSubscriptions PushSubscription[]
@@ -226,6 +235,12 @@ model GuestUser {
   // beim Admin-User gibt es hier keine Rolle, die vom Reset ausgeschlossen wird.
   resetToken          String?   @unique
   resetTokenExpiresAt DateTime?
+
+  // Self-Service-E-Mail-Änderung, analoges Feldpaar wie bei User (siehe dort) - wirksam
+  // erst nach Klick auf den an die NEUE Adresse verschickten Bestätigungslink.
+  pendingEmail              String?
+  emailChangeToken          String?   @unique
+  emailChangeTokenExpiresAt DateTime?
 
   // Startet bei @default(now()) (nicht null), damit ein Konto, das sich nach der
   // Registrierung nie wieder einloggt, ab der Registrierung selbst und nicht erst ab

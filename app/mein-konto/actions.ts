@@ -7,7 +7,7 @@ import { revalidatePath } from 'next/cache'
 import { PrismaClient } from '@prisma/client'
 import { randomUUID, randomBytes } from 'crypto'
 import bcrypt from 'bcryptjs'
-import { sendGuestVerificationEmail, sendGuestPasswordResetEmail } from '../lib/mail'
+import { sendGuestVerificationEmail, sendGuestPasswordResetEmail, sendGuestEmailChangeConfirmation } from '../lib/mail'
 import { requireGuestUser, GUEST_SESSION_COOKIE, GUEST_SESSION_DURATION_MS } from '../lib/guest-auth'
 
 const prisma = new PrismaClient()
@@ -152,6 +152,85 @@ export async function resetGuestPassword(formData: FormData) {
   await prisma.guestSession.deleteMany({ where: { guestUserId: guestUser.id } })
 
   redirect('/mein-konto/login?reset=1')
+}
+
+/**
+ * Ändert das Passwort eines bereits eingeloggten Nutzer-Kontos - erfordert das aktuelle
+ * Passwort statt eines Mail-Links (gleiches Prinzip wie changePassword für Admin-Konten
+ * in app/admin/actions.ts). Invalidiert alle ANDEREN Gast-Sessions dieses Kontos, meldet
+ * die aktuelle Sitzung aber nicht ab.
+ */
+export async function changeGuestPassword(formData: FormData) {
+  const guestUser = await requireGuestUser()
+
+  const currentPassword = formData.get('currentPassword') as string
+  const newPassword = formData.get('newPassword') as string
+
+  const matches = await bcrypt.compare(currentPassword, guestUser.passwordHash)
+  if (!matches) {
+    redirect('/mein-konto?error=wrongpassword')
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, 10)
+  await prisma.guestUser.update({ where: { id: guestUser.id }, data: { passwordHash } })
+
+  const cookieStore = await cookies()
+  const currentToken = cookieStore.get(GUEST_SESSION_COOKIE)?.value
+  await prisma.guestSession.deleteMany({ where: { guestUserId: guestUser.id, token: { not: currentToken } } })
+
+  redirect('/mein-konto?passwordChanged=1')
+}
+
+/**
+ * Fordert eine E-Mail-Änderung für ein Nutzer-Konto an - erfordert das aktuelle Passwort.
+ * Die neue Adresse wird erst nach Klick auf den an SIE verschickten Bestätigungslink
+ * wirksam (siehe /mein-konto/confirm-email), gleiches Prinzip wie requestEmailChange für
+ * Admin-Konten.
+ */
+export async function requestGuestEmailChange(formData: FormData) {
+  const guestUser = await requireGuestUser()
+
+  const currentPassword = formData.get('currentPassword') as string
+  const newEmail = (formData.get('newEmail') as string || '').trim().toLowerCase()
+
+  const matches = await bcrypt.compare(currentPassword, guestUser.passwordHash)
+  if (!matches) {
+    redirect('/mein-konto?error=wrongpassword')
+  }
+
+  if (newEmail === guestUser.email) return
+
+  const existing = await prisma.guestUser.findUnique({ where: { email: newEmail } })
+  if (existing) {
+    redirect('/mein-konto?error=emailtaken')
+  }
+
+  const emailChangeToken = randomBytes(32).toString('hex')
+  const emailChangeTokenExpiresAt = new Date(Date.now() + RESET_TOKEN_DURATION_MS)
+  const updated = await prisma.guestUser.update({
+    where: { id: guestUser.id },
+    data: { pendingEmail: newEmail, emailChangeToken, emailChangeTokenExpiresAt }
+  })
+
+  try {
+    await sendGuestEmailChangeConfirmation(updated)
+  } catch (error) {
+    console.error('Fehler beim Senden der Nutzer-E-Mail-Änderungs-Bestätigung:', error)
+  }
+
+  redirect('/mein-konto?emailChangeRequested=1')
+}
+
+/**
+ * Bricht eine noch nicht bestätigte E-Mail-Änderung wieder ab.
+ */
+export async function cancelGuestEmailChange() {
+  const guestUser = await requireGuestUser()
+  await prisma.guestUser.update({
+    where: { id: guestUser.id },
+    data: { pendingEmail: null, emailChangeToken: null, emailChangeTokenExpiresAt: null }
+  })
+  redirect('/mein-konto')
 }
 
 /**

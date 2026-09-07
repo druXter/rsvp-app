@@ -105,6 +105,9 @@ export default async function AdminDashboard() {
           </div>
           <div className="flex gap-4 flex-wrap">
             <PushSubscribeButton vapidPublicKey={process.env.VAPID_PUBLIC_KEY || null} />
+            <Link href="/admin/account" className="bg-gray-100 text-gray-700 px-4 py-2 rounded hover:bg-gray-200 transition text-sm font-medium flex items-center">
+              ⚙️ Konto-Einstellungen
+            </Link>
             {guestUser && (
               <Link href="/mein-konto" className="bg-emerald-100 text-emerald-700 px-4 py-2 rounded hover:bg-emerald-200 transition text-sm font-medium flex items-center">
                 🔀 Mein Konto ({guestUser.email})

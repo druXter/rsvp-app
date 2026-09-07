@@ -183,7 +183,10 @@ export default function DatenschutzPage() {
             Schaltfläche &quot;Meine Daten vollständig löschen&quot; sofort und eigenständig löschen - bei
             Veranstaltungsreihen betrifft das alle deine Antworten der gesamten Reihe, nicht nur einen einzelnen
             Termin. Hast du zusätzlich ein Konto unter &quot;Mein Konto&quot;, kannst du dieses dort jederzeit
-            vollständig löschen (&quot;Konto & alle Daten unwiderruflich löschen&quot;).
+            vollständig löschen (&quot;Konto & alle Daten unwiderruflich löschen&quot;). Ein eingeloggtes Konto (Admin-
+            wie Nutzer-Konto) kann sein Passwort und seine E-Mail-Adresse zudem jederzeit selbst ändern (&quot;⚙️
+            Konto-Einstellungen&quot; bzw. der entsprechende Bereich unter &quot;Mein Konto&quot;) - eine
+            E-Mail-Änderung wird erst nach Bestätigung über einen an die neue Adresse geschickten Link wirksam.
           </p>
           <p className="mt-2">
             Unabhängig davon hast du das Recht, dich bei einer Datenschutz-Aufsichtsbehörde zu beschweren, wenn du der

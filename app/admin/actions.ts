@@ -7,7 +7,7 @@ import { revalidatePath } from 'next/cache'
 import { PrismaClient, Role } from '@prisma/client'
 import { randomUUID, randomBytes } from 'crypto'
 import bcrypt from 'bcryptjs'
-import { sendReminderEmail, sendWaitlistPromotedEmail, sendConfirmationEmail, sendVerificationEmail, sendPasswordResetEmail } from '../lib/mail'
+import { sendReminderEmail, sendWaitlistPromotedEmail, sendConfirmationEmail, sendVerificationEmail, sendPasswordResetEmail, sendEmailChangeConfirmation } from '../lib/mail'
 import { requireUser, SESSION_COOKIE, SESSION_DURATION_MS } from '../lib/auth'
 import { isOwnerOrAdmin, hasEventModeratorOrAbove, hasSeriesModeratorOrAbove } from '../lib/permissions'
 
@@ -120,6 +120,88 @@ export async function resetPassword(formData: FormData) {
   await prisma.session.deleteMany({ where: { userId: user.id } })
 
   redirect('/admin/login?reset=1')
+}
+
+/**
+ * Ändert das Passwort eines bereits eingeloggten Kontos (jeder Rolle, inkl. Admin) -
+ * erfordert das aktuelle Passwort statt eines Mail-Links. Anders als der Reset per
+ * Mail-Link (siehe requestPasswordReset, für Admin-Konten ausgeschlossen) reicht dafür
+ * ein kompromittiertes Postfach nicht aus - es braucht zusätzlich eine aktive Session,
+ * daher ist das auch für Admin-Konten sicher. Invalidiert alle ANDEREN Sessions dieses
+ * Kontos, damit ein evtl. gestohlenes altes Passwort keinen dauerhaften Zugriff behält,
+ * meldet die aktuelle Sitzung aber nicht ab.
+ */
+export async function changePassword(formData: FormData) {
+  const user = await requireUser()
+
+  const currentPassword = formData.get('currentPassword') as string
+  const newPassword = formData.get('newPassword') as string
+
+  const matches = await bcrypt.compare(currentPassword, user.passwordHash)
+  if (!matches) {
+    redirect('/admin/account?error=wrongpassword')
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, 10)
+  await prisma.user.update({ where: { id: user.id }, data: { passwordHash } })
+
+  const cookieStore = await cookies()
+  const currentToken = cookieStore.get(SESSION_COOKIE)?.value
+  await prisma.session.deleteMany({ where: { userId: user.id, token: { not: currentToken } } })
+
+  redirect('/admin/account?passwordChanged=1')
+}
+
+/**
+ * Fordert eine E-Mail-Änderung an - erfordert das aktuelle Passwort. Die neue Adresse
+ * wird erst nach Klick auf den an SIE (nicht an die alte Adresse) verschickten
+ * Bestätigungslink wirksam (siehe /admin/confirm-email). Für jede Rolle inkl. Admin
+ * verfügbar, siehe changePassword für die Begründung.
+ */
+export async function requestEmailChange(formData: FormData) {
+  const user = await requireUser()
+
+  const currentPassword = formData.get('currentPassword') as string
+  const newEmail = (formData.get('newEmail') as string || '').trim().toLowerCase()
+
+  const matches = await bcrypt.compare(currentPassword, user.passwordHash)
+  if (!matches) {
+    redirect('/admin/account?error=wrongpassword')
+  }
+
+  if (newEmail === user.email) return
+
+  const existing = await prisma.user.findUnique({ where: { email: newEmail } })
+  if (existing) {
+    redirect('/admin/account?error=emailtaken')
+  }
+
+  const emailChangeToken = randomBytes(32).toString('hex')
+  const emailChangeTokenExpiresAt = new Date(Date.now() + RESET_TOKEN_DURATION_MS)
+  const updated = await prisma.user.update({
+    where: { id: user.id },
+    data: { pendingEmail: newEmail, emailChangeToken, emailChangeTokenExpiresAt }
+  })
+
+  try {
+    await sendEmailChangeConfirmation(updated)
+  } catch (error) {
+    console.error('Fehler beim Senden der E-Mail-Änderungs-Bestätigung:', error)
+  }
+
+  redirect('/admin/account?emailChangeRequested=1')
+}
+
+/**
+ * Bricht eine noch nicht bestätigte E-Mail-Änderung wieder ab.
+ */
+export async function cancelEmailChange() {
+  const user = await requireUser()
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { pendingEmail: null, emailChangeToken: null, emailChangeTokenExpiresAt: null }
+  })
+  redirect('/admin/account')
 }
 
 /**

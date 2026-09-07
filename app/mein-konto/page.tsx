@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getCurrentGuestUser } from '../lib/guest-auth'
 import { getCurrentUser } from '../lib/auth'
-import { logoutGuestUser, updateGuestProfile } from './actions'
+import { logoutGuestUser, updateGuestProfile, changeGuestPassword, requestGuestEmailChange, cancelGuestEmailChange } from './actions'
 import DeleteAccountButton from './delete-account-button'
 
 const prisma = new PrismaClient()
@@ -15,9 +15,19 @@ const prisma = new PrismaClient()
  * Antwortstatus. Antworten funktionieren über die bestehende Termin-Seite ganz ohne
  * Token in der URL, da die Identität dort über die Gast-Session aufgelöst wird.
  */
-export default async function MeinKontoPage() {
+export default async function MeinKontoPage({
+  searchParams
+}: {
+  searchParams: Promise<{ error?: string; passwordChanged?: string; emailChangeRequested?: string }>
+}) {
   const guestUser = await getCurrentGuestUser()
   if (!guestUser) redirect('/mein-konto/login')
+
+  const params = await searchParams
+  const wrongPassword = params.error === 'wrongpassword'
+  const emailTaken = params.error === 'emailtaken'
+  const passwordChanged = params.passwordChanged === '1'
+  const emailChangeRequested = params.emailChangeRequested === '1'
 
   // Nur relevant, falls DIESES Konto auch gerade im Admin-Bereich eingeloggt ist (eigenes
   // Cookie, siehe app/lib/auth.ts) - z.B. ein Moderator, der bei einer fremden Reihe auch
@@ -59,6 +69,65 @@ export default async function MeinKontoPage() {
               </button>
             </form>
           </div>
+        </div>
+
+        {passwordChanged && (
+          <div className="p-3 bg-green-50 text-green-700 text-sm rounded">Passwort erfolgreich geändert. Andere angemeldete Geräte wurden abgemeldet.</div>
+        )}
+        {wrongPassword && (
+          <div className="p-3 bg-red-50 text-red-700 text-sm rounded">Aktuelles Passwort ist falsch.</div>
+        )}
+        {emailTaken && (
+          <div className="p-3 bg-red-50 text-red-700 text-sm rounded">Für diese E-Mail-Adresse existiert bereits ein Konto.</div>
+        )}
+        {emailChangeRequested && (
+          <div className="p-3 bg-blue-50 text-blue-700 text-sm rounded">Bestätigungslink an die neue Adresse gesendet. Die Änderung wird erst nach dem Klick darauf wirksam.</div>
+        )}
+
+        {guestUser.pendingEmail && (
+          <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg space-y-2">
+            <p className="text-sm text-yellow-800">
+              Ausstehende Änderung zu <strong>{guestUser.pendingEmail}</strong> - prüfe dein Postfach für den Bestätigungslink.
+            </p>
+            <form action={cancelGuestEmailChange}>
+              <button type="submit" className="text-xs text-yellow-700 hover:text-yellow-900 underline">Änderung abbrechen</button>
+            </form>
+          </div>
+        )}
+
+        <div className="bg-white p-6 rounded-lg shadow space-y-4">
+          <h2 className="font-bold text-gray-900">Passwort ändern</h2>
+          <form action={changeGuestPassword} className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium mb-1 text-gray-700">Aktuelles Passwort</label>
+              <input type="password" name="currentPassword" required className="w-full border border-gray-300 p-2 rounded text-gray-900" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1 text-gray-700">Neues Passwort</label>
+              <input type="password" name="newPassword" required minLength={8} className="w-full border border-gray-300 p-2 rounded text-gray-900" placeholder="Mindestens 8 Zeichen" />
+            </div>
+            <button type="submit" className="bg-blue-600 text-white font-bold py-2 px-4 rounded hover:bg-blue-700 transition text-sm">
+              Passwort ändern
+            </button>
+          </form>
+        </div>
+
+        <div className="bg-white p-6 rounded-lg shadow space-y-4">
+          <h2 className="font-bold text-gray-900">E-Mail-Adresse ändern</h2>
+          <form action={requestGuestEmailChange} className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium mb-1 text-gray-700">Aktuelles Passwort</label>
+              <input type="password" name="currentPassword" required className="w-full border border-gray-300 p-2 rounded text-gray-900" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1 text-gray-700">Neue E-Mail-Adresse</label>
+              <input type="email" name="newEmail" required className="w-full border border-gray-300 p-2 rounded text-gray-900" />
+              <p className="text-xs text-gray-500 mt-1">Wird erst nach Bestätigung über einen an diese Adresse geschickten Link wirksam.</p>
+            </div>
+            <button type="submit" className="bg-blue-600 text-white font-bold py-2 px-4 rounded hover:bg-blue-700 transition text-sm">
+              Bestätigungslink anfordern
+            </button>
+          </form>
         </div>
 
         <div className="bg-white p-6 rounded-lg shadow space-y-4">

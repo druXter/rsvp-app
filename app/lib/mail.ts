@@ -374,6 +374,83 @@ export async function sendPasswordResetEmail(user: User) {
 }
 
 /**
+ * Versendet den Bestätigungslink für eine E-Mail-Änderung eines Admin-seitigen
+ * Benutzerkontos (siehe requestEmailChange in app/admin/actions.ts). Geht an die NEUE
+ * Adresse, nicht an die alte - erst der Klick macht die Änderung wirksam. Das ist auch
+ * für Admin-Konten sicher, anders als der Passwort-Reset per Mail-Link: hier wurde der
+ * Vorgang bereits mit einer aktiven Session UND dem aktuellen Passwort ausgelöst, ein
+ * kompromittiertes ALTES Postfach reicht dafür nicht aus.
+ */
+export async function sendEmailChangeConfirmation(user: User) {
+  const confirmLink = `${baseUrl()}/admin/confirm-email?token=${user.emailChangeToken}`
+
+  const mailOptions = {
+    from: process.env.SMTP_FROM,
+    to: user.pendingEmail!,
+    subject: 'Neue E-Mail-Adresse bestätigen',
+    text: `Hallo,\n\nfür dein Konto (aktuell ${user.email}) wurde eine Änderung der E-Mail-Adresse auf diese Adresse angefordert. Falls du das warst, klicke auf den folgenden Link, um die Änderung zu bestätigen:\n\n${confirmLink}\n\nDer Link ist eine Stunde gültig. Falls du das nicht warst, kannst du diese E-Mail ignorieren - deine E-Mail-Adresse bleibt unverändert.`,
+    html: `
+      <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
+        <h2>Neue E-Mail-Adresse bestätigen</h2>
+        <p>Für dein Konto (aktuell <strong>${user.email}</strong>) wurde eine Änderung der E-Mail-Adresse auf diese Adresse angefordert. Falls du das warst, klicke auf den folgenden Button, um die Änderung zu bestätigen:</p>
+
+        <p style="text-align: center; margin: 30px 0;">
+          <a href="${confirmLink}" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: #fff; text-decoration: none; border-radius: 5px; font-weight: bold;">E-Mail-Adresse bestätigen</a>
+        </p>
+
+        <p style="font-size: 12px; color: #666;">Der Link ist eine Stunde gültig. Falls der Button nicht funktioniert, kopiere diesen Link in deinen Browser:<br>${confirmLink}</p>
+        <p style="font-size: 12px; color: #666;">Falls du das nicht warst, kannst du diese E-Mail ignorieren - deine E-Mail-Adresse bleibt unverändert.</p>
+      </div>
+    `
+  }
+
+  try {
+    await transporter.sendMail(mailOptions)
+    return true
+  } catch (error) {
+    console.error(`Fehler beim Senden der E-Mail-Änderungs-Bestätigung an ${user.pendingEmail}:`, error)
+    return false
+  }
+}
+
+/**
+ * Versendet den Bestätigungslink für eine E-Mail-Änderung eines Nutzer-Kontos (GuestUser,
+ * siehe requestGuestEmailChange in app/mein-konto/actions.ts) - gleiches Prinzip wie
+ * sendEmailChangeConfirmation, nur für das andere Login-System.
+ */
+export async function sendGuestEmailChangeConfirmation(guestUser: GuestUser) {
+  const confirmLink = `${baseUrl()}/mein-konto/confirm-email?token=${guestUser.emailChangeToken}`
+
+  const mailOptions = {
+    from: process.env.SMTP_FROM,
+    to: guestUser.pendingEmail!,
+    subject: 'Neue E-Mail-Adresse bestätigen',
+    text: `Hallo ${guestUser.name},\n\nfür dein Konto (aktuell ${guestUser.email}) wurde eine Änderung der E-Mail-Adresse auf diese Adresse angefordert. Falls du das warst, klicke auf den folgenden Link, um die Änderung zu bestätigen:\n\n${confirmLink}\n\nDer Link ist eine Stunde gültig. Falls du das nicht warst, kannst du diese E-Mail ignorieren - deine E-Mail-Adresse bleibt unverändert.`,
+    html: `
+      <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
+        <h2>Neue E-Mail-Adresse bestätigen</h2>
+        <p>Hallo ${guestUser.name}, für dein Konto (aktuell <strong>${guestUser.email}</strong>) wurde eine Änderung der E-Mail-Adresse auf diese Adresse angefordert. Falls du das warst, klicke auf den folgenden Button, um die Änderung zu bestätigen:</p>
+
+        <p style="text-align: center; margin: 30px 0;">
+          <a href="${confirmLink}" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: #fff; text-decoration: none; border-radius: 5px; font-weight: bold;">E-Mail-Adresse bestätigen</a>
+        </p>
+
+        <p style="font-size: 12px; color: #666;">Der Link ist eine Stunde gültig. Falls der Button nicht funktioniert, kopiere diesen Link in deinen Browser:<br>${confirmLink}</p>
+        <p style="font-size: 12px; color: #666;">Falls du das nicht warst, kannst du diese E-Mail ignorieren - deine E-Mail-Adresse bleibt unverändert.</p>
+      </div>
+    `
+  }
+
+  try {
+    await transporter.sendMail(mailOptions)
+    return true
+  } catch (error) {
+    console.error(`Fehler beim Senden der E-Mail-Änderungs-Bestätigung an ${guestUser.pendingEmail}:`, error)
+    return false
+  }
+}
+
+/**
  * Versendet eine E-Mail, wenn der Gast initial auf der Warteliste gelandet ist.
  */
 export async function sendWaitlistEmail(participant: Participant, rsvp: Rsvp, event: EventWithSeries) {
