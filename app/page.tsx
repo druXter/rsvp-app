@@ -18,12 +18,18 @@ export default function Home() {
           <p className="text-lg text-gray-600">
             Das schlanke RSVP-System für reibungslose Zusagen, Absagen und Gästelisten.
           </p>
-          <div className="pt-8">
-            <Link 
-              href="/admin/login" 
+          <div className="pt-8 flex flex-wrap gap-4 justify-center">
+            <Link
+              href="/admin/login"
               className="inline-block bg-blue-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-blue-700 transition shadow-lg"
             >
               Zum Admin-Bereich
+            </Link>
+            <Link
+              href="/mein-konto/login"
+              className="inline-block bg-white text-blue-600 font-bold py-3 px-8 rounded-lg hover:bg-gray-100 transition shadow-lg border border-blue-200"
+            >
+              Mein Konto (Gäste-Login)
             </Link>
           </div>
         </div>

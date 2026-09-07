@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation'
 import { cookies } from 'next/headers'
 import Link from 'next/link'
 import PinForm from '../../[slug]/pin-form'
+import { getCurrentGuestUser } from '../../lib/guest-auth'
 
 const prisma = new PrismaClient()
 
@@ -44,6 +45,7 @@ export default async function SeriesOverviewPage({
 
   const token = typeof currentSearchParams?.token === 'string' ? currentSearchParams.token : undefined
   const tokenQuery = token ? `?token=${token}` : ''
+  const guestUser = await getCurrentGuestUser()
 
   return (
     <main className="min-h-screen bg-gray-50 py-10">
@@ -51,6 +53,18 @@ export default async function SeriesOverviewPage({
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
           <h1 className="text-2xl font-bold text-gray-900">{series.title}</h1>
           {series.description && <p className="text-gray-600 mt-2">{series.description}</p>}
+
+          {guestUser ? (
+            <p className="mt-4 text-sm text-gray-600">
+              Eingeloggt als {guestUser.email} - <Link href="/mein-konto" className="text-blue-600 hover:underline font-medium">Zu deinem Konto</Link>
+            </p>
+          ) : (
+            <p className="mt-4 text-sm text-gray-600">
+              <Link href={`/reihe/${series.slug}/registrieren`} className="text-blue-600 hover:underline font-medium">Konto erstellen</Link>
+              {' '}um dich künftig automatisch einzuloggen, statt dir einen Link zu merken. Bereits ein Konto?{' '}
+              <Link href="/mein-konto/login" className="text-blue-600 hover:underline font-medium">Einloggen</Link>.
+            </p>
+          )}
 
           <div className="mt-6 space-y-3">
             {series.events.length === 0 ? (

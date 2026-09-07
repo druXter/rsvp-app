@@ -71,10 +71,11 @@ model EventSeries {
   isGuestListVisible Boolean @default(false)
   eventPin           String?
 
-  createdAt    DateTime         @default(now())
+  createdAt    DateTime          @default(now())
   events       Event[]
   participants Participant[]
   sharedWith   ResourceAccess[]
+  guestMembers GuestUserSeries[]
 }
 
 model Event {
@@ -127,6 +128,11 @@ model Participant {
   isVerified  Boolean   @default(false)
   verifyToken String?   @unique
   verifiedAt  DateTime?
+
+  // Gesetzt, wenn diese Reihen-Identität zu einem eingeloggten Gäste-Konto (GuestUser)
+  // gehört - siehe submitRsvp für die Auflösung ohne editToken über die Gast-Session.
+  guestUserId String?
+  guestUser   GuestUser? @relation(fields: [guestUserId], references: [id])
 
   editToken String   @unique @default(uuid())
   createdAt DateTime @default(now())
@@ -188,4 +194,58 @@ model ResourceAccess {
 
   @@unique([userId, eventId])
   @@unique([userId, seriesId])
+}
+
+// Gastseitiges Login-Konto ("Nutzer", die vierte Rolle neben Admin/Creator/Moderator -
+// siehe Role weiter oben, die ausschließlich das Admin-Dashboard betrifft). Komplett
+// getrennt von User/Session (eigenes Cookie, eigene Route /mein-konto), damit Gast- und
+// Admin-Sessions nie verwechselt werden können. Trägt das reihenübergreifende Profil
+// ZENTRAL: submitRsvp befüllt den Participant einer Reihe daraus, sobald über die
+// Gast-Session (ohne editToken) geantwortet wird, und spiegelt spätere Änderungen sofort
+// auf alle Participant-Zeilen dieses Kontos zurück (siehe app/actions.ts, app/mein-konto/actions.ts).
+model GuestUser {
+  id            String  @id @default(cuid())
+  email         String  @unique
+  passwordHash  String
+  name          String
+  phone         String?
+  dietaryOption String?
+  allergies     String?
+
+  isVerified  Boolean   @default(false)
+  verifyToken String?   @unique
+  verifiedAt  DateTime?
+
+  createdAt DateTime @default(now())
+
+  seriesMemberships GuestUserSeries[]
+  participants      Participant[]
+  sessions          GuestSession[]
+}
+
+// Mitgliedschaft eines Nutzer-Kontos in einer Reihe (n:m - ein Konto kann mehreren Reihen
+// angehören, ohne dass dafür mehrere Konten nötig wären). Entsteht entweder bei der
+// Selbstregistrierung auf der jeweiligen Reihen-Seite oder wird von einem Creator/Moderator
+// nachträglich für eine weitere Reihe vergeben (addGuestUserToSeries), oder automatisch
+// beim ersten Beantworten eines Termins dieser Reihe über eine bestehende Gast-Session.
+model GuestUserSeries {
+  id          String      @id @default(cuid())
+  guestUserId String
+  guestUser   GuestUser   @relation(fields: [guestUserId], references: [id])
+  seriesId    String
+  series      EventSeries @relation(fields: [seriesId], references: [id])
+  createdAt   DateTime    @default(now())
+
+  @@unique([guestUserId, seriesId])
+}
+
+// Server-seitige Gast-Session, strikt getrennt vom Admin-Session-Modell - auch hier trägt
+// das Cookie nur den opaken Token, nie eine Kontoidentität direkt.
+model GuestSession {
+  id          String    @id @default(cuid())
+  token       String    @unique
+  guestUserId String
+  guestUser   GuestUser @relation(fields: [guestUserId], references: [id])
+  expiresAt   DateTime
+  createdAt   DateTime  @default(now())
 }

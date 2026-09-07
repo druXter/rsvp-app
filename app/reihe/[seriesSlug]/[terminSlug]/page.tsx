@@ -5,6 +5,7 @@ import { cookies } from 'next/headers'
 import Link from 'next/link'
 import RsvpForm from '../../../[slug]/rsvp-form'
 import PinForm from '../../../[slug]/pin-form'
+import { getCurrentGuestUser } from '../../../lib/guest-auth'
 
 const prisma = new PrismaClient()
 
@@ -53,6 +54,30 @@ export default async function SeriesEventPage({
       existingRsvp = await prisma.rsvp.findUnique({
         where: { eventId_participantId: { eventId: event.id, participantId: participant.id } }
       })
+    }
+  } else {
+    // Ohne Token: eingeloggten Gast (Nutzer-Konto, siehe #12) über die Session auflösen -
+    // so kann ein eingeloggter Nutzer ohne Link direkt aus "Mein Konto" antworten.
+    const guestUser = await getCurrentGuestUser()
+    if (guestUser) {
+      const guestParticipant = await prisma.participant.findFirst({ where: { seriesId: series.id, guestUserId: guestUser.id } })
+      if (guestParticipant) {
+        participant = guestParticipant
+        existingRsvp = await prisma.rsvp.findUnique({
+          where: { eventId_participantId: { eventId: event.id, participantId: guestParticipant.id } }
+        })
+      } else {
+        // Erster Termin dieser Reihe für diesen Nutzer - Formular aus dem zentralen Profil vorausfüllen
+        participant = {
+          name: guestUser.name,
+          email: guestUser.email,
+          phone: guestUser.phone,
+          dietaryOption: guestUser.dietaryOption,
+          allergies: guestUser.allergies,
+          isVerified: guestUser.isVerified,
+          editToken: undefined
+        }
+      }
     }
   }
 

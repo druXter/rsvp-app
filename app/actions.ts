@@ -7,6 +7,7 @@ import { randomUUID } from 'crypto'
 import { sendConfirmationEmail, sendVerificationEmail, sendWaitlistPromotedEmail, sendWaitlistEmail } from './lib/mail'
 import { generateCheckinQrDataUrl } from './lib/qrcode'
 import { sendPushToUser } from './lib/push'
+import { getCurrentGuestUser } from './lib/guest-auth'
 import { cookies } from 'next/headers'
 
 const prisma = new PrismaClient()
@@ -39,10 +40,16 @@ export async function submitRsvp(formData: FormData) {
   // Ist der Termin Teil einer Reihe, gelten die Profil-/Zugangs-Einstellungen der Reihe
   const requireVerification = event.series ? event.series.requireVerification : event.requireVerification
 
-  // Der Participant trägt die reihenweit (bzw. bei Einzel-Events: einmalig) geteilte Identität
+  // Der Participant trägt die reihenweit (bzw. bei Einzel-Events: einmalig) geteilte Identität.
+  // Ohne editToken wird bei einem Reihen-Termin zusätzlich versucht, die Identität über eine
+  // eingeloggte Gast-Session (Nutzer-Konto, siehe #12) aufzulösen - so muss ein eingeloggter
+  // Nutzer keinen Link mehr kennen, um seine reihenweite Identität wiederzufinden.
+  const guestUser = !editToken && event.seriesId ? await getCurrentGuestUser() : null
   const existingParticipant = editToken
     ? await prisma.participant.findUnique({ where: { editToken } })
-    : null
+    : guestUser
+      ? await prisma.participant.findFirst({ where: { seriesId: event.seriesId, guestUserId: guestUser.id } })
+      : null
 
   // Die Antwort zu GENAU DIESEM Termin - kann fehlen, auch wenn der Participant schon existiert
   // (z.B. wenn er über seinen Reihen-Link zum ersten Mal auf einen NEUEN Termin antwortet)
@@ -82,12 +89,17 @@ export async function submitRsvp(formData: FormData) {
     }
   }
 
+  // Verknüpfung zu einem Nutzer-Konto (GuestUser) bleibt erhalten, auch wenn gerade z.B.
+  // über den alten editToken-Link geantwortet wird, ohne aktuell eingeloggt zu sein.
+  const linkedGuestUserId = guestUser?.id ?? existingParticipant?.guestUserId ?? null
+
   // Participant-Profil anlegen/aktualisieren. Felder, die im Formular nicht vorkamen
   // (z.B. weil gerade abgesagt wird), überschreiben ein vorhandenes Profil NICHT mit null -
   // sie bleiben für andere Termine der Reihe erhalten.
   const participantData = {
     name,
     seriesId: event.seriesId,
+    guestUserId: linkedGuestUserId,
     email: finalEmail,
     phone: phone ?? existingParticipant?.phone ?? null,
     dietaryOption: dietaryOption ?? existingParticipant?.dietaryOption ?? null,
@@ -115,6 +127,23 @@ export async function submitRsvp(formData: FormData) {
         isVerified: false,
         verifyToken: needsVerification ? randomUUID() : null
       }
+    })
+  }
+
+  // Zentrales Nutzer-Profil zurückspiegeln (gilt dann sofort für alle Reihen des Kontos)
+  // und die Reihen-Mitgliedschaft sicherstellen, damit der Termin in "Mein Konto" auftaucht -
+  // auch wenn noch niemand ihn dort explizit hinzugefügt hat.
+  if (linkedGuestUserId) {
+    await prisma.guestUser.update({
+      where: { id: linkedGuestUserId },
+      data: { name: participant.name, phone: participant.phone, dietaryOption: participant.dietaryOption, allergies: participant.allergies }
+    })
+  }
+  if (guestUser && event.seriesId) {
+    await prisma.guestUserSeries.upsert({
+      where: { guestUserId_seriesId: { guestUserId: guestUser.id, seriesId: event.seriesId } },
+      update: {},
+      create: { guestUserId: guestUser.id, seriesId: event.seriesId }
     })
   }
 

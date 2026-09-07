@@ -4,23 +4,36 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { updateEventSeries } from '../../../actions'
 import { getCurrentUser } from '../../../../lib/auth'
-import { isOwnerOrAdmin } from '../../../../lib/permissions'
+import { isOwnerOrAdmin, hasSeriesModeratorOrAbove } from '../../../../lib/permissions'
 import ShareAccessPanel from '../../../share-access-panel'
+import GuestMembersPanel from '../../../guest-members-panel'
 
 const prisma = new PrismaClient()
 
-export default async function EditEventSeriesPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ shareError?: string }> }) {
+export default async function EditEventSeriesPage({
+  params,
+  searchParams
+}: {
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ shareError?: string; guestError?: string }>
+}) {
   const user = await getCurrentUser()
   if (!user) redirect('/admin/login')
 
   const { id } = await params
-  const { shareError } = await searchParams
+  const { shareError, guestError } = await searchParams
   const series = await prisma.eventSeries.findUnique({
     where: { id },
-    include: { sharedWith: { include: { user: { select: { email: true } } } } }
+    include: {
+      sharedWith: { include: { user: { select: { email: true } } } },
+      guestMembers: { include: { guestUser: { select: { email: true, name: true } } } }
+    }
   })
 
-  if (!series || !isOwnerOrAdmin(user, series.ownerId)) {
+  const isOwner = !!series && isOwnerOrAdmin(user, series.ownerId)
+  const isModerator = !!series && !isOwner && (await hasSeriesModeratorOrAbove(user, series))
+
+  if (!series || (!isOwner && !isModerator)) {
     return <div className="p-8">Reihe nicht gefunden.</div>
   }
 
@@ -29,12 +42,13 @@ export default async function EditEventSeriesPage({ params, searchParams }: { pa
       <div className="max-w-2xl mx-auto bg-white p-8 rounded-lg shadow space-y-6 text-gray-900">
 
         <div className="flex justify-between items-center border-b pb-4">
-          <h1 className="text-2xl font-bold">Reihe bearbeiten</h1>
+          <h1 className="text-2xl font-bold">{isOwner ? 'Reihe bearbeiten' : 'Nutzer-Mitglieder verwalten'}</h1>
           <Link href={`/admin/series/${series.id}`} className="text-gray-500 hover:text-gray-800 transition">
-            Abbrechen
+            {isOwner ? 'Abbrechen' : '← Zurück'}
           </Link>
         </div>
 
+        {isOwner && (
         <form action={updateEventSeries} className="space-y-4">
           <input type="hidden" name="seriesId" value={series.id} />
 
@@ -105,11 +119,20 @@ export default async function EditEventSeriesPage({ params, searchParams }: { pa
             Änderungen speichern
           </button>
         </form>
+        )}
 
-        <ShareAccessPanel
+        {isOwner && (
+          <ShareAccessPanel
+            seriesId={series.id}
+            shares={series.sharedWith.map(a => ({ id: a.id, email: a.user.email }))}
+            error={shareError}
+          />
+        )}
+
+        <GuestMembersPanel
           seriesId={series.id}
-          shares={series.sharedWith.map(a => ({ id: a.id, email: a.user.email }))}
-          error={shareError}
+          members={series.guestMembers.map(m => ({ membershipId: m.id, email: m.guestUser.email, name: m.guestUser.name }))}
+          error={guestError}
         />
       </div>
     </main>

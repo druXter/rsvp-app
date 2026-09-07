@@ -9,7 +9,7 @@ import { randomUUID, randomBytes } from 'crypto'
 import bcrypt from 'bcryptjs'
 import { sendReminderEmail, sendWaitlistPromotedEmail, sendConfirmationEmail, sendVerificationEmail } from '../lib/mail'
 import { requireUser, SESSION_COOKIE, SESSION_DURATION_MS } from '../lib/auth'
-import { isOwnerOrAdmin, hasEventModeratorOrAbove } from '../lib/permissions'
+import { isOwnerOrAdmin, hasEventModeratorOrAbove, hasSeriesModeratorOrAbove } from '../lib/permissions'
 
 const prisma = new PrismaClient()
 
@@ -802,6 +802,50 @@ export async function updateUserRole(formData: FormData) {
 
   await prisma.user.update({ where: { id: targetId }, data: { role } })
   revalidatePath('/admin/users')
+}
+
+/**
+ * Fügt ein BESTEHENDES Nutzer-Konto (per E-Mail, siehe #12/GuestUser) einer weiteren
+ * Reihe hinzu - ohne dass dafür ein neues Konto nötig wäre (n:m-Mitgliedschaft). Owner,
+ * ein per ResourceAccess geteilter Moderator oder ein Admin dürfen das; erstellt aber
+ * NIE ein neues Nutzer-Konto (das geht nur über Selbstregistrierung).
+ */
+export async function addGuestUserToSeries(formData: FormData) {
+  const user = await requireUser()
+  const seriesId = formData.get('seriesId') as string
+  const email = (formData.get('email') as string || '').trim().toLowerCase()
+
+  const series = await prisma.eventSeries.findUnique({ where: { id: seriesId } })
+  if (!series || !(await hasSeriesModeratorOrAbove(user, series))) return
+
+  const guestUser = await prisma.guestUser.findUnique({ where: { email } })
+  if (!guestUser) {
+    redirect(`/admin/series/${seriesId}/edit?guestError=notfound`)
+  }
+
+  await prisma.guestUserSeries.upsert({
+    where: { guestUserId_seriesId: { guestUserId: guestUser.id, seriesId } },
+    update: {},
+    create: { guestUserId: guestUser.id, seriesId }
+  })
+
+  revalidatePath(`/admin/series/${seriesId}/edit`)
+  redirect(`/admin/series/${seriesId}/edit`)
+}
+
+/**
+ * Entfernt die Mitgliedschaft eines Nutzer-Kontos in einer Reihe wieder - löscht NICHT
+ * das Konto selbst, nur die Zuordnung zu dieser einen Reihe.
+ */
+export async function removeGuestUserFromSeries(formData: FormData) {
+  const user = await requireUser()
+  const membershipId = formData.get('membershipId') as string
+
+  const membership = await prisma.guestUserSeries.findUnique({ where: { id: membershipId }, include: { series: true } })
+  if (!membership || !(await hasSeriesModeratorOrAbove(user, membership.series))) return
+
+  await prisma.guestUserSeries.delete({ where: { id: membershipId } })
+  revalidatePath(`/admin/series/${membership.seriesId}/edit`)
 }
 
 /**

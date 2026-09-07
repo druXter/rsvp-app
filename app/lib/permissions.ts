@@ -39,3 +39,15 @@ export async function hasEventModeratorOrAbove(user: User, event: { ownerId: str
   if (isOwnerOrAdmin(user, event.ownerId)) return true
   return hasModeratorAccess(user.id, { eventId: event.id, seriesId: event.seriesId })
 }
+
+/**
+ * Owner/Admin ODER geteilter Moderator-Zugriff auf eine ganze Reihe (nicht auf einen
+ * einzelnen Termin davon). Genutzt z.B. für addGuestUserToSeries/removeGuestUserFromSeries,
+ * wo laut Rollenkonzept ausdrücklich sowohl der Creator als auch ein Moderator der Reihe
+ * bestehende Nutzer-Konten zuordnen dürfen sollen.
+ */
+export async function hasSeriesModeratorOrAbove(user: User, series: { ownerId: string; id: string }): Promise<boolean> {
+  if (isOwnerOrAdmin(user, series.ownerId)) return true
+  const found = await prisma.resourceAccess.findFirst({ where: { userId: user.id, seriesId: series.id } })
+  return !!found
+}

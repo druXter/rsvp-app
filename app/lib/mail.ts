@@ -1,7 +1,7 @@
 // app/lib/mail.ts
 import nodemailer from 'nodemailer'
 import { createEvent, DateArray } from 'ics'
-import { Event, EventSeries, Participant, Rsvp } from '@prisma/client'
+import { Event, EventSeries, GuestUser, Participant, Rsvp } from '@prisma/client'
 import { generateCheckinQrBuffer } from './qrcode'
 
 // Den Mail-Transporter mit den Daten aus der .env initialisieren
@@ -256,6 +256,44 @@ export async function sendVerificationEmail(
     return true
   } catch (error) {
     console.error(`Fehler beim Senden der Verifizierungs-Mail an ${participant.email}:`, error)
+    return false
+  }
+}
+
+/**
+ * Versendet die Bestätigungs-E-Mail für ein neu registriertes Nutzer-Konto (siehe #12,
+ * app/mein-konto/actions.ts registerGuestUser). Getrennt von sendVerificationEmail, da
+ * es hier um das Login-Konto selbst geht, nicht um die Verifizierung einer einzelnen
+ * Anmeldung/Participant.
+ */
+export async function sendGuestVerificationEmail(guestUser: GuestUser, series: EventSeries) {
+  const verifyLink = `${baseUrl()}/mein-konto/verify?token=${guestUser.verifyToken}`
+
+  const mailOptions = {
+    from: process.env.SMTP_FROM,
+    to: guestUser.email,
+    subject: `Bitte bestätige dein Konto für ${series.title}`,
+    text: `Hallo ${guestUser.name},\n\ndu hast dir gerade ein Konto für die Reihe "${series.title}" angelegt. Bitte klicke auf den folgenden Link, um dein Konto zu bestätigen - danach kannst du dich einloggen und siehst automatisch alle Termine dieser (und weiterer, dir zugeordneter) Reihen:\n\n${verifyLink}`,
+    html: `
+      <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
+        <h2>Fast geschafft, ${guestUser.name}! ✉️</h2>
+        <p>Du hast dir gerade ein Konto für die Reihe <strong>${series.title}</strong> angelegt.</p>
+        <p>Bitte bestätige dein Konto über den folgenden Button - danach kannst du dich einloggen und siehst automatisch alle Termine dieser (und weiterer, dir zugeordneter) Reihen, ohne dir Links merken oder Angaben erneut eintragen zu müssen.</p>
+
+        <p style="text-align: center; margin: 30px 0;">
+          <a href="${verifyLink}" style="display: inline-block; padding: 12px 24px; background-color: #10b981; color: #fff; text-decoration: none; border-radius: 5px; font-weight: bold;">Konto bestätigen</a>
+        </p>
+
+        <p style="font-size: 12px; color: #666;">Falls der Button nicht funktioniert, kopiere diesen Link in deinen Browser:<br>${verifyLink}</p>
+      </div>
+    `
+  }
+
+  try {
+    await transporter.sendMail(mailOptions)
+    return true
+  } catch (error) {
+    console.error(`Fehler beim Senden der Nutzer-Verifizierungs-Mail an ${guestUser.email}:`, error)
     return false
   }
 }
