@@ -1,5 +1,6 @@
 // app/mein-konto/login/page.tsx
 import { loginGuestUser } from '../actions'
+import SubmitButton from '../../ui/submit-button'
 
 /**
  * Login-Seite für Gast-Konten ("Nutzer", siehe #12) - strikt getrennt vom Admin-Login
@@ -55,9 +56,7 @@ export default async function GuestLoginPage({ searchParams }: { searchParams: P
             />
           </div>
 
-          <button type="submit" className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded hover:bg-blue-700 transition">
-            Einloggen
-          </button>
+          <SubmitButton>Einloggen</SubmitButton>
         </form>
       </div>
     </main>

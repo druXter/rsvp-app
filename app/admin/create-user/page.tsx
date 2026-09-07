@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getCurrentUser } from '../../lib/auth'
 import { createUser } from '../actions'
+import SubmitButton from '../../ui/submit-button'
 
 /**
  * Legt ein weiteres Benutzerkonto an (z.B. für ein anderes Referat, einen Freund
@@ -66,9 +67,7 @@ export default async function CreateUserPage({ searchParams }: { searchParams: P
             <input type="hidden" name="role" value="MODERATOR" />
           )}
 
-          <button type="submit" className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded hover:bg-blue-700 transition">
-            Konto anlegen
-          </button>
+          <SubmitButton>Konto anlegen</SubmitButton>
         </form>
       </div>
     </main>

@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { updateSeriesTermin } from '../../actions'
 import { getCurrentUser } from '../../../lib/auth'
 import { isOwnerOrAdmin } from '../../../lib/permissions'
+import SubmitButton from '../../../ui/submit-button'
+import ThemeSection, { themeClasses } from '../../../ui/theme-section'
 
 const prisma = new PrismaClient()
 
@@ -106,31 +108,26 @@ export default async function EditSeriesTerminPage({ params }: { params: Promise
             <input type="text" name="customQuestion3" defaultValue={config.customQuestions?.[2] || ''} className="w-full border border-gray-300 p-2 rounded" placeholder="Optionale dritte Frage" />
           </div>
 
-          <div className="space-y-3 pt-4 border-t border-gray-200 bg-blue-50 p-4 rounded-md">
-            <h3 className="font-bold text-blue-900">Automatische E-Mail Erinnerung</h3>
-
+          <ThemeSection color="sky" title="Automatische E-Mail Erinnerung">
             <label className="flex items-center gap-2 cursor-pointer mb-3">
-              <input type="checkbox" name="autoReminder" defaultChecked={event.autoReminder} className="w-4 h-4 text-blue-600" />
-              <span className="text-sm font-medium text-blue-900">Automatische Erinnerung aktivieren</span>
+              <input type="checkbox" name="autoReminder" defaultChecked={event.autoReminder} className={`w-4 h-4 ${themeClasses('sky').accent}`} />
+              <span className={`text-sm font-medium ${themeClasses('sky').heading}`}>Automatische Erinnerung aktivieren</span>
             </label>
 
             <div>
-              <label className="block text-sm font-medium mb-1 text-blue-900">Wie viele Tage vor dem Termin?</label>
+              <label className={`block text-sm font-medium mb-1 ${themeClasses('sky').heading}`}>Wie viele Tage vor dem Termin?</label>
               <input type="number" name="reminderDays" min="1" max="30" defaultValue={event.reminderDays} className="w-full border border-gray-300 p-2 rounded" />
             </div>
-          </div>
+          </ThemeSection>
 
-          <div className="space-y-3 pt-4 border-t border-gray-200 bg-teal-50 p-4 rounded-md">
-            <h3 className="font-bold text-teal-900">QR-Code Einlasskontrolle</h3>
+          <ThemeSection color="teal" title="QR-Code Einlasskontrolle">
             <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" name="enableCheckin" defaultChecked={event.enableCheckin} className="w-4 h-4 text-teal-600" />
-              <span className="text-sm font-medium text-teal-900">QR-Code Check-in für diesen Termin aktivieren</span>
+              <input type="checkbox" name="enableCheckin" defaultChecked={event.enableCheckin} className={`w-4 h-4 ${themeClasses('teal').accent}`} />
+              <span className={`text-sm font-medium ${themeClasses('teal').heading}`}>QR-Code Check-in für diesen Termin aktivieren</span>
             </label>
-          </div>
+          </ThemeSection>
 
-          <button type="submit" className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded hover:bg-blue-700 transition">
-            Änderungen speichern
-          </button>
+          <SubmitButton>Änderungen speichern</SubmitButton>
         </form>
       </div>
     </main>

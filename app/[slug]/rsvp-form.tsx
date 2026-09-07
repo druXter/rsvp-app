@@ -3,6 +3,7 @@
 
 import { useState } from 'react'
 import { submitRsvp } from '../actions'
+import SubmitButton from '../ui/submit-button'
 
 export default function RsvpForm({
   eventId,
@@ -281,9 +282,7 @@ export default function RsvpForm({
         </div>
       )}
 
-      <button type="submit" className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded hover:bg-blue-700 transition">
-        {rsvp ? "Änderungen speichern" : "Antwort absenden"}
-      </button>
+      <SubmitButton>{rsvp ? "Änderungen speichern" : "Antwort absenden"}</SubmitButton>
     </form>
   )
 }

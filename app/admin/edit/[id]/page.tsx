@@ -6,6 +6,8 @@ import { updateEvent } from '../../actions'
 import { getCurrentUser } from '../../../lib/auth'
 import { isOwnerOrAdmin } from '../../../lib/permissions'
 import ShareAccessPanel from '../../share-access-panel'
+import SubmitButton from '../../../ui/submit-button'
+import ThemeSection, { themeClasses } from '../../../ui/theme-section'
 
 const prisma = new PrismaClient()
 
@@ -128,56 +130,44 @@ export default async function EditEventPage({ params, searchParams }: { params: 
           </div>
 
           {/* Einstellungen für Uptime Kuma Cronjob */}
-          <div className="space-y-3 pt-4 border-t border-gray-200 bg-blue-50 p-4 rounded-md">
-            <h3 className="font-bold text-blue-900">Automatische E-Mail Erinnerung</h3>
-            <p className="text-xs text-blue-700 mb-2">Erfordert, dass Gäste ihre E-Mail angeben (siehe oben).</p>
-            
+          <ThemeSection color="sky" title="Automatische E-Mail Erinnerung" description="Erfordert, dass Gäste ihre E-Mail angeben (siehe oben).">
             <label className="flex items-center gap-2 cursor-pointer mb-3">
-              <input type="checkbox" name="autoReminder" defaultChecked={event.autoReminder} className="w-4 h-4 text-blue-600" />
-              <span className="text-sm font-medium text-blue-900">Automatische Erinnerung aktivieren</span>
+              <input type="checkbox" name="autoReminder" defaultChecked={event.autoReminder} className={`w-4 h-4 ${themeClasses('sky').accent}`} />
+              <span className={`text-sm font-medium ${themeClasses('sky').heading}`}>Automatische Erinnerung aktivieren</span>
             </label>
-            
+
             <div>
-              <label className="block text-sm font-medium mb-1 text-blue-900">Wie viele Tage vor dem Event?</label>
+              <label className={`block text-sm font-medium mb-1 ${themeClasses('sky').heading}`}>Wie viele Tage vor dem Event?</label>
               <input type="number" name="reminderDays" min="1" max="30" defaultValue={event.reminderDays} className="w-full border border-gray-300 p-2 rounded" />
             </div>
-          </div>
+          </ThemeSection>
 
-          <div className="space-y-3 pt-4 border-t border-gray-200 bg-yellow-50 p-4 rounded-md">
-            <h3 className="font-bold text-yellow-900">E-Mail-Verifizierung (Double-Opt-In)</h3>
-            <p className="text-xs text-yellow-700 mb-2">Gäste müssen ihre Anmeldung per Klick in einer E-Mail bestätigen. (Erfordert E-Mail-Abfrage oben).</p>
-            
+          <ThemeSection color="yellow" title="E-Mail-Verifizierung (Double-Opt-In)" description="Gäste müssen ihre Anmeldung per Klick in einer E-Mail bestätigen. (Erfordert E-Mail-Abfrage oben).">
             <label className="flex items-center gap-2 cursor-pointer mb-3">
-              <input type="checkbox" name="requireVerification" defaultChecked={event.requireVerification} className="w-4 h-4 text-yellow-600" />
-              <span className="text-sm font-medium text-yellow-900">Verifizierung zwingend erforderlich</span>
+              <input type="checkbox" name="requireVerification" defaultChecked={event.requireVerification} className={`w-4 h-4 ${themeClasses('yellow').accent}`} />
+              <span className={`text-sm font-medium ${themeClasses('yellow').heading}`}>Verifizierung zwingend erforderlich</span>
             </label>
-          </div>
+          </ThemeSection>
 
-          <div className="space-y-3 pt-4 border-t border-gray-200 bg-teal-50 p-4 rounded-md">
-            <h3 className="font-bold text-teal-900">QR-Code Einlasskontrolle</h3>
-            <p className="text-xs text-teal-700 mb-2">Bestätigte Gäste erhalten einen persönlichen QR-Code (Mail & Erfolgsseite) zum Scannen am Einlass.</p>
-
+          <ThemeSection color="teal" title="QR-Code Einlasskontrolle" description="Bestätigte Gäste erhalten einen persönlichen QR-Code (Mail & Erfolgsseite) zum Scannen am Einlass.">
             <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" name="enableCheckin" defaultChecked={event.enableCheckin} className="w-4 h-4 text-teal-600" />
-              <span className="text-sm font-medium text-teal-900">QR-Code Check-in aktivieren</span>
+              <input type="checkbox" name="enableCheckin" defaultChecked={event.enableCheckin} className={`w-4 h-4 ${themeClasses('teal').accent}`} />
+              <span className={`text-sm font-medium ${themeClasses('teal').heading}`}>QR-Code Check-in aktivieren</span>
             </label>
-          </div>
+          </ThemeSection>
 
-          {/* NEU: Gruppen- & Vereins-Features */}
-          <div className="space-y-3 pt-4 border-t border-gray-200 bg-purple-50 p-4 rounded-md">
-            <h3 className="font-bold text-purple-900">Gruppen- & Vereins-Features</h3>
-            
+          <ThemeSection color="indigo" title="Gruppen- & Vereins-Features">
             <label className="flex items-center gap-2 cursor-pointer mb-3">
-              <input type="checkbox" name="isGuestListVisible" defaultChecked={event.isGuestListVisible} className="w-4 h-4 text-purple-600" />
-              <span className="text-sm font-medium text-purple-900">Transparente Gästeliste (Zeigt Wer kommt & Mitbringsel)</span>
+              <input type="checkbox" name="isGuestListVisible" defaultChecked={event.isGuestListVisible} className={`w-4 h-4 ${themeClasses('indigo').accent}`} />
+              <span className={`text-sm font-medium ${themeClasses('indigo').heading}`}>Transparente Gästeliste (Zeigt Wer kommt & Mitbringsel)</span>
             </label>
 
             <div>
-              <label className="block text-sm font-medium text-purple-900 mb-1">Event-PIN / Passwort (Optional)</label>
-              <input type="text" name="eventPin" defaultValue={event.eventPin || ''} className="w-full border border-purple-300 p-2 rounded outline-none focus:border-purple-500" placeholder="z.B. Sommer26 (leer lassen für öffentliches Event)" />
-              <p className="text-xs text-purple-700 mt-1">Gäste müssen diesen Code eingeben, bevor sie das Formular oder die Gästeliste sehen können.</p>
+              <label className={`block text-sm font-medium mb-1 ${themeClasses('indigo').heading}`}>Event-PIN / Passwort (Optional)</label>
+              <input type="text" name="eventPin" defaultValue={event.eventPin || ''} className={`w-full border ${themeClasses('indigo').border} p-2 rounded outline-none ${themeClasses('indigo').borderFocus}`} placeholder="z.B. Sommer26 (leer lassen für öffentliches Event)" />
+              <p className={`text-xs ${themeClasses('indigo').text} mt-1`}>Gäste müssen diesen Code eingeben, bevor sie das Formular oder die Gästeliste sehen können.</p>
             </div>
-          </div>
+          </ThemeSection>
 
         </form>
 
@@ -187,9 +177,7 @@ export default async function EditEventPage({ params, searchParams }: { params: 
           error={shareError}
         />
 
-        <button type="submit" form="edit-event-form" className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded hover:bg-blue-700 transition">
-          Änderungen speichern
-        </button>
+        <SubmitButton form="edit-event-form">Änderungen speichern</SubmitButton>
       </div>
     </main>
   )

@@ -4,6 +4,7 @@
 
 import { useState } from 'react'
 import { verifyEventPin } from '../actions'
+import SubmitButton from '../ui/submit-button'
 
 export default function PinForm({ eventId, seriesId, slug, title }: { eventId?: string, seriesId?: string, slug: string, title: string }) {
   const [error, setError] = useState<string | null>(null)
@@ -49,13 +50,9 @@ export default function PinForm({ eventId, seriesId, slug, title }: { eventId?: 
 
           {error && <p className="text-red-500 text-sm text-center font-bold bg-red-50 p-2 rounded">{error}</p>}
 
-          <button 
-            type="submit" 
-            disabled={isLoading}
-            className="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-md hover:bg-blue-700 transition disabled:opacity-50"
-          >
+          <SubmitButton disabled={isLoading}>
             {isLoading ? 'Prüfe Code...' : 'Freischalten'}
-          </button>
+          </SubmitButton>
         </form>
       </div>
     </div>

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { updateAdminRsvp } from '../../actions'
 import { getCurrentUser } from '../../../lib/auth'
 import { hasEventModeratorOrAbove } from '../../../lib/permissions'
+import SubmitButton from '../../../ui/submit-button'
 
 const prisma = new PrismaClient()
 
@@ -120,9 +121,7 @@ export default async function EditRsvpPage({ params }: { params: Promise<{ id: s
             ></textarea>
           </div>
 
-          <button type="submit" className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded hover:bg-blue-700 transition">
-            Änderungen speichern
-          </button>
+          <SubmitButton>Änderungen speichern</SubmitButton>
         </form>
       </div>
     </main>

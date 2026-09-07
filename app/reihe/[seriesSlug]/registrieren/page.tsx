@@ -5,6 +5,7 @@ import { cookies } from 'next/headers'
 import Link from 'next/link'
 import PinForm from '../../../[slug]/pin-form'
 import { registerGuestUser } from '../../../mein-konto/actions'
+import SubmitButton from '../../../ui/submit-button'
 
 const prisma = new PrismaClient()
 
@@ -76,9 +77,7 @@ export default async function RegisterGuestUserPage({
             <input type="password" name="password" required minLength={8} className="w-full border border-gray-300 p-2 rounded text-gray-900" placeholder="Mindestens 8 Zeichen" />
           </div>
 
-          <button type="submit" className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded hover:bg-blue-700 transition">
-            Konto erstellen
-          </button>
+          <SubmitButton>Konto erstellen</SubmitButton>
         </form>
 
         <p className="text-xs text-gray-500 text-center">

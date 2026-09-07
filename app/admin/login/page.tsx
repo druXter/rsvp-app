@@ -1,5 +1,6 @@
 // app/admin/login/page.tsx
 import { loginUser } from '../actions'
+import SubmitButton from '../../ui/submit-button'
 
 /**
  * Login-Seite. Stellt ein Formular für E-Mail + Passwort bereit und fängt Fehler
@@ -43,9 +44,7 @@ export default async function AdminLoginPage({ searchParams }: { searchParams: P
             />
           </div>
 
-          <button type="submit" className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded hover:bg-blue-700 transition">
-            Einloggen
-          </button>
+          <SubmitButton>Einloggen</SubmitButton>
         </form>
       </div>
     </main>

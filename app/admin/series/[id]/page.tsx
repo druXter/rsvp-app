@@ -7,6 +7,7 @@ import EventRsvpCard from '../../event-rsvp-card'
 import DeleteSeriesButton from '../../delete-series-button'
 import { getCurrentUser } from '../../../lib/auth'
 import { isOwnerOrAdmin } from '../../../lib/permissions'
+import SubmitButton from '../../../ui/submit-button'
 
 const prisma = new PrismaClient()
 
@@ -153,9 +154,7 @@ export default async function SeriesDetailPage({ params }: { params: Promise<{ i
                   </label>
                 </div>
 
-                <button type="submit" className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded hover:bg-blue-700 transition">
-                  Termin speichern
-                </button>
+                <SubmitButton>Termin speichern</SubmitButton>
               </form>
             </details>
           </div>

@@ -3,6 +3,8 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createEventSeries } from '../../actions'
 import { getCurrentUser } from '../../../lib/auth'
+import SubmitButton from '../../../ui/submit-button'
+import ThemeSection, { themeClasses } from '../../../ui/theme-section'
 
 export default async function CreateEventSeriesPage() {
   const user = await getCurrentUser()
@@ -67,34 +69,27 @@ export default async function CreateEventSeriesPage() {
             </label>
           </div>
 
-          <div className="space-y-3 pt-4 border-t border-gray-200 bg-yellow-50 p-4 rounded-md">
-            <h3 className="font-bold text-yellow-900">E-Mail-Verifizierung (Double-Opt-In)</h3>
-            <p className="text-xs text-yellow-700 mb-2">Gäste müssen ihre Anmeldung per Klick in einer E-Mail bestätigen - gilt einmalig für die ganze Reihe. (Erfordert E-Mail-Abfrage oben).</p>
-
+          <ThemeSection color="yellow" title="E-Mail-Verifizierung (Double-Opt-In)" description="Gäste müssen ihre Anmeldung per Klick in einer E-Mail bestätigen - gilt einmalig für die ganze Reihe. (Erfordert E-Mail-Abfrage oben).">
             <label className="flex items-center gap-2 cursor-pointer mb-3">
-              <input type="checkbox" name="requireVerification" className="w-4 h-4 text-yellow-600" />
-              <span className="text-sm font-medium text-yellow-900">Verifizierung zwingend erforderlich</span>
+              <input type="checkbox" name="requireVerification" className={`w-4 h-4 ${themeClasses('yellow').accent}`} />
+              <span className={`text-sm font-medium ${themeClasses('yellow').heading}`}>Verifizierung zwingend erforderlich</span>
             </label>
-          </div>
+          </ThemeSection>
 
-          <div className="space-y-3 pt-4 border-t border-gray-200 bg-purple-50 p-4 rounded-md">
-            <h3 className="font-bold text-purple-900">Gruppen- & Vereins-Features (gelten für alle Termine der Reihe)</h3>
-
+          <ThemeSection color="indigo" title="Gruppen- & Vereins-Features (gelten für alle Termine der Reihe)">
             <label className="flex items-center gap-2 cursor-pointer mb-3">
-              <input type="checkbox" name="isGuestListVisible" className="w-4 h-4 text-purple-600" />
-              <span className="text-sm font-medium text-purple-900">Transparente Gästeliste (Zeigt Wer kommt & Mitbringsel)</span>
+              <input type="checkbox" name="isGuestListVisible" className={`w-4 h-4 ${themeClasses('indigo').accent}`} />
+              <span className={`text-sm font-medium ${themeClasses('indigo').heading}`}>Transparente Gästeliste (Zeigt Wer kommt & Mitbringsel)</span>
             </label>
 
             <div>
-              <label className="block text-sm font-medium text-purple-900 mb-1">Reihen-PIN / Passwort (Optional)</label>
-              <input type="text" name="eventPin" className="w-full border border-purple-300 p-2 rounded outline-none focus:border-purple-500" placeholder="z.B. Sommer26 (leer lassen für öffentliche Reihe)" />
-              <p className="text-xs text-purple-700 mt-1">Gäste müssen diesen Code eingeben, bevor sie die Reihe oder einen ihrer Termine sehen können.</p>
+              <label className={`block text-sm font-medium mb-1 ${themeClasses('indigo').heading}`}>Reihen-PIN / Passwort (Optional)</label>
+              <input type="text" name="eventPin" className={`w-full border ${themeClasses('indigo').border} p-2 rounded outline-none ${themeClasses('indigo').borderFocus}`} placeholder="z.B. Sommer26 (leer lassen für öffentliche Reihe)" />
+              <p className={`text-xs ${themeClasses('indigo').text} mt-1`}>Gäste müssen diesen Code eingeben, bevor sie die Reihe oder einen ihrer Termine sehen können.</p>
             </div>
-          </div>
+          </ThemeSection>
 
-          <button type="submit" className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded hover:bg-blue-700 transition">
-            Reihe speichern
-          </button>
+          <SubmitButton>Reihe speichern</SubmitButton>
         </form>
 
       </div>

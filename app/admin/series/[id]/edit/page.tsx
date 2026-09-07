@@ -7,6 +7,8 @@ import { getCurrentUser } from '../../../../lib/auth'
 import { isOwnerOrAdmin, hasSeriesModeratorOrAbove } from '../../../../lib/permissions'
 import ShareAccessPanel from '../../../share-access-panel'
 import GuestMembersPanel from '../../../guest-members-panel'
+import SubmitButton from '../../../../ui/submit-button'
+import ThemeSection, { themeClasses } from '../../../../ui/theme-section'
 
 const prisma = new PrismaClient()
 
@@ -91,29 +93,24 @@ export default async function EditEventSeriesPage({
             </label>
           </div>
 
-          <div className="space-y-3 pt-4 border-t border-gray-200 bg-yellow-50 p-4 rounded-md">
-            <h3 className="font-bold text-yellow-900">E-Mail-Verifizierung (Double-Opt-In)</h3>
-            <p className="text-xs text-yellow-700 mb-2">Gilt einmalig für die ganze Reihe. (Erfordert E-Mail-Abfrage oben).</p>
-
+          <ThemeSection color="yellow" title="E-Mail-Verifizierung (Double-Opt-In)" description="Gilt einmalig für die ganze Reihe. (Erfordert E-Mail-Abfrage oben).">
             <label className="flex items-center gap-2 cursor-pointer mb-3">
-              <input type="checkbox" name="requireVerification" defaultChecked={series.requireVerification} className="w-4 h-4 text-yellow-600" />
-              <span className="text-sm font-medium text-yellow-900">Verifizierung zwingend erforderlich</span>
+              <input type="checkbox" name="requireVerification" defaultChecked={series.requireVerification} className={`w-4 h-4 ${themeClasses('yellow').accent}`} />
+              <span className={`text-sm font-medium ${themeClasses('yellow').heading}`}>Verifizierung zwingend erforderlich</span>
             </label>
-          </div>
+          </ThemeSection>
 
-          <div className="space-y-3 pt-4 border-t border-gray-200 bg-purple-50 p-4 rounded-md">
-            <h3 className="font-bold text-purple-900">Gruppen- & Vereins-Features (gelten für alle Termine der Reihe)</h3>
-
+          <ThemeSection color="indigo" title="Gruppen- & Vereins-Features (gelten für alle Termine der Reihe)">
             <label className="flex items-center gap-2 cursor-pointer mb-3">
-              <input type="checkbox" name="isGuestListVisible" defaultChecked={series.isGuestListVisible} className="w-4 h-4 text-purple-600" />
-              <span className="text-sm font-medium text-purple-900">Transparente Gästeliste (Zeigt Wer kommt & Mitbringsel)</span>
+              <input type="checkbox" name="isGuestListVisible" defaultChecked={series.isGuestListVisible} className={`w-4 h-4 ${themeClasses('indigo').accent}`} />
+              <span className={`text-sm font-medium ${themeClasses('indigo').heading}`}>Transparente Gästeliste (Zeigt Wer kommt & Mitbringsel)</span>
             </label>
 
             <div>
-              <label className="block text-sm font-medium text-purple-900 mb-1">Reihen-PIN / Passwort (Optional)</label>
-              <input type="text" name="eventPin" defaultValue={series.eventPin || ''} className="w-full border border-purple-300 p-2 rounded outline-none focus:border-purple-500" placeholder="leer lassen für öffentliche Reihe" />
+              <label className={`block text-sm font-medium mb-1 ${themeClasses('indigo').heading}`}>Reihen-PIN / Passwort (Optional)</label>
+              <input type="text" name="eventPin" defaultValue={series.eventPin || ''} className={`w-full border ${themeClasses('indigo').border} p-2 rounded outline-none ${themeClasses('indigo').borderFocus}`} placeholder="leer lassen für öffentliche Reihe" />
             </div>
-          </div>
+          </ThemeSection>
 
         </form>
         )}
@@ -126,11 +123,7 @@ export default async function EditEventSeriesPage({
           />
         )}
 
-        {isOwner && (
-          <button type="submit" form="edit-series-form" className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded hover:bg-blue-700 transition">
-            Änderungen speichern
-          </button>
-        )}
+        {isOwner && <SubmitButton form="edit-series-form">Änderungen speichern</SubmitButton>}
 
         <GuestMembersPanel
           seriesId={series.id}
