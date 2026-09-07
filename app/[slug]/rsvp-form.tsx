@@ -30,6 +30,9 @@ export default function RsvpForm({
     ? JSON.parse(formConfig)
     : { askEmail: false, askPhone: false, askDiet: true, askAlcohol: true, askPlusOne: false, askBringingItem: false, askAllergies: false }
 
+  const customQuestions: string[] = config.customQuestions || []
+  const existingCustomAnswers: string[] = rsvp?.customAnswers ? JSON.parse(rsvp.customAnswers) : []
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const formData = new FormData(e.currentTarget)
@@ -254,6 +257,13 @@ export default function RsvpForm({
               <input type="text" name="bringingItem" defaultValue={rsvp?.bringingItem || ''} className="w-full border border-gray-300 p-2 rounded-md" placeholder="z.B. Nudelsalat, Kasten Bier..." />
             </div>
           )}
+
+          {customQuestions.map((question: string, i: number) => (
+            <div key={i}>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{question} (Optional)</label>
+              <input type="text" name={`customAnswer_${i}`} defaultValue={existingCustomAnswers[i] || ''} className="w-full border border-gray-300 p-2 rounded-md" />
+            </div>
+          ))}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Sonstige Anmerkungen? (Optional)</label>

@@ -117,6 +117,14 @@ export default async function EditEventPage({ params }: { params: Promise<{ id: 
             </label>
           </div>
 
+          <div className="space-y-3 pt-4 border-t border-gray-200">
+            <h3 className="font-bold text-gray-900">Freie Zusatzfragen (optional, max. 3)</h3>
+            <p className="text-xs text-gray-500 mb-2">Leer lassen, um keine zusätzliche Frage zu stellen. Wird nur bei Zusage abgefragt.</p>
+            <input type="text" name="customQuestion1" defaultValue={config.customQuestions?.[0] || ''} className="w-full border border-gray-300 p-2 rounded" placeholder="z.B. Welchen Song wünschst du dir vom DJ?" />
+            <input type="text" name="customQuestion2" defaultValue={config.customQuestions?.[1] || ''} className="w-full border border-gray-300 p-2 rounded" placeholder="Optionale zweite Frage" />
+            <input type="text" name="customQuestion3" defaultValue={config.customQuestions?.[2] || ''} className="w-full border border-gray-300 p-2 rounded" placeholder="Optionale dritte Frage" />
+          </div>
+
           {/* Einstellungen für Uptime Kuma Cronjob */}
           <div className="space-y-3 pt-4 border-t border-gray-200 bg-blue-50 p-4 rounded-md">
             <h3 className="font-bold text-blue-900">Automatische E-Mail Erinnerung</h3>

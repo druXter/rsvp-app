@@ -117,6 +117,12 @@ export async function submitRsvp(formData: FormData) {
     })
   }
 
+  // Antworten auf die frei definierten Zusatzfragen (positionsbasiert, siehe formConfig.customQuestions)
+  const customQuestions: string[] = event.formConfig ? (JSON.parse(event.formConfig).customQuestions || []) : []
+  const customAnswers = isAttending && customQuestions.length > 0
+    ? JSON.stringify(customQuestions.map((_, i) => (formData.get(`customAnswer_${i}`) as string) || ''))
+    : null
+
   const rsvpData = {
     isAttending,
     drinksAlcohol: isAttending ? drinksAlcohol : null,
@@ -125,6 +131,7 @@ export async function submitRsvp(formData: FormData) {
     plusOneName: isAttending && plusOne ? plusOneName : null,
     bringingItem: isAttending ? bringingItem : null,
     declineReason: isAttending ? null : declineReason,
+    customAnswers,
     isOnWaitlist
   }
 

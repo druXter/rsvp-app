@@ -22,23 +22,25 @@ export async function GET(request: Request) {
   if (!event) return new NextResponse("Event nicht gefunden", { status: 404 })
 
   const requireVerification = event.series ? event.series.requireVerification : event.requireVerification
+  const customQuestions: string[] = event.formConfig ? (JSON.parse(event.formConfig).customQuestions || []) : []
 
   // CSV-Kopfzeile definieren (NEU: Spalte 'Verifizierung' hinzugefügt)
   const rows = [
     [
-      "Name", 
-      "Status", 
+      "Name",
+      "Status",
       "E-Mail",
       "Verifizierung", // <-- NEU
-      "Handy", 
-      "Begleitung", 
-      "Name der Begleitung", 
-      "Essen", 
-      "Allergien", 
-      "Alkohol", 
-      "Mitbringsel", 
-      "Anmerkungen / Grund", 
-      "Datum"
+      "Handy",
+      "Begleitung",
+      "Name der Begleitung",
+      "Essen",
+      "Allergien",
+      "Alkohol",
+      "Mitbringsel",
+      "Anmerkungen / Grund",
+      "Datum",
+      ...customQuestions
     ]
   ]
 
@@ -71,7 +73,12 @@ export async function GET(request: Request) {
 
       rsvp.isAttending ? (rsvp.additionalInfo || "") : (rsvp.declineReason || ""),
 
-      rsvp.createdAt.toISOString().split('T')[0]
+      rsvp.createdAt.toISOString().split('T')[0],
+
+      ...customQuestions.map((_, i) => {
+        const answers: string[] = rsvp.customAnswers ? JSON.parse(rsvp.customAnswers) : []
+        return answers[i] || ""
+      })
 
     ].map(field => `"${String(field).replace(/"/g, '""')}"`))
   })

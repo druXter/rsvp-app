@@ -27,6 +27,20 @@ async function requireAdmin() {
 }
 
 /**
+ * Liest die bis zu 3 frei definierbaren Zusatzfragen aus dem Formular
+ * (leere Felder werden verworfen).
+ */
+function readCustomQuestions(formData: FormData): string[] {
+  return [
+    formData.get('customQuestion1') as string,
+    formData.get('customQuestion2') as string,
+    formData.get('customQuestion3') as string,
+  ]
+    .map(q => (q || '').trim())
+    .filter(q => q !== '')
+}
+
+/**
  * Überprüft die Zugangsdaten und erstellt bei Erfolg eine Admin-Sitzung via Cookie.
  */
 export async function loginAdmin(formData: FormData) {
@@ -88,6 +102,7 @@ export async function createEvent(formData: FormData) {
     askPlusOne: formData.get('askPlusOne') === 'on',
     askBringingItem: formData.get('askBringingItem') === 'on',
     askAllergies: formData.get('askAllergies') === 'on',
+    customQuestions: readCustomQuestions(formData),
   })
 
   // Den URL-Slug normalisieren (nur Kleinbuchstaben und Bindestriche)
@@ -168,6 +183,7 @@ export async function updateEvent(formData: FormData) {
     askPlusOne: formData.get('askPlusOne') === 'on',
     askBringingItem: formData.get('askBringingItem') === 'on',
     askAllergies: formData.get('askAllergies') === 'on',
+    customQuestions: readCustomQuestions(formData),
   })
 
   const slug = slugInput.toLowerCase().replace(/[^a-z0-9-]/g, '-')
@@ -522,6 +538,7 @@ export async function addTerminToSeries(formData: FormData) {
     askAlcohol: formData.get('askAlcohol') === 'on',
     askPlusOne: formData.get('askPlusOne') === 'on',
     askBringingItem: formData.get('askBringingItem') === 'on',
+    customQuestions: readCustomQuestions(formData),
   })
 
   const slug = slugInput.toLowerCase().replace(/[^a-z0-9-]/g, '-')
@@ -577,6 +594,7 @@ export async function updateSeriesTermin(formData: FormData) {
     askAlcohol: formData.get('askAlcohol') === 'on',
     askPlusOne: formData.get('askPlusOne') === 'on',
     askBringingItem: formData.get('askBringingItem') === 'on',
+    customQuestions: readCustomQuestions(formData),
   })
 
   const slug = slugInput.toLowerCase().replace(/[^a-z0-9-]/g, '-')

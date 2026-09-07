@@ -20,6 +20,7 @@ Ein schlankes, anpassbares und leistungsstarkes Event-Management-System, gebaut 
   * Alkohol-Präferenz
   * Mitbringsel (Essen/Trinken)
   * E-Mail und Handynummer
+* **Freie Zusatzfragen:** Bis zu 3 frei definierbare Textfragen pro Event/Termin (z.B. "Welchen Song wünschst du dir vom DJ?"), die dynamisch im Gästeformular erscheinen. Antworten landen in der Admin-Gästetabelle und im CSV-Export.
 * **Double-Opt-In (Verifizierung):** Optional zuschaltbare E-Mail-Bestätigung für Gäste, um Spam-Anmeldungen zu verhindern und korrekte Adressen sicherzustellen.
 * **Automatischer E-Mail-Versand:** Gäste erhalten nach der Zusage eine automatische Bestätigungsmail inkl. iCal-Datei und personalisiertem Link zur nachträglichen Bearbeitung.
 * **Erinnerungs-Mails (Reminders):** 

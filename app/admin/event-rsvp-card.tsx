@@ -19,6 +19,7 @@ export default function EventRsvpCard({ event, requireVerification }: { event: E
   const decliningCount = event.rsvps.filter(r => !r.isAttending).length
   const confirmedCount = event.rsvps.filter(r => r.isAttending && !r.isOnWaitlist).length
   const checkedInCount = event.rsvps.filter(r => r.hasAttended).length
+  const customQuestions: string[] = event.formConfig ? (JSON.parse(event.formConfig).customQuestions || []) : []
 
   return (
     <div className="bg-white p-6 rounded-lg shadow mb-6">
@@ -100,6 +101,7 @@ export default function EventRsvpCard({ event, requireVerification }: { event: E
                   <th className="p-2">Alkohol</th>
                   <th className="p-2">Mitbringsel</th>
                   <th className="p-2">Anmerkungen / Grund</th>
+                  {customQuestions.map((q, i) => <th key={i} className="p-2">{q}</th>)}
                   {event.enableCheckin && <th className="p-2">Check-in</th>}
                   <th className="p-2 text-right">Aktionen</th>
                 </tr>
@@ -195,6 +197,11 @@ export default function EventRsvpCard({ event, requireVerification }: { event: E
                         ? (rsvp.additionalInfo || '-')
                         : (rsvp.declineReason || '-')}
                     </td>
+
+                    {customQuestions.map((_, i) => {
+                      const answers: string[] = rsvp.customAnswers ? JSON.parse(rsvp.customAnswers) : []
+                      return <td key={i} className="p-2 text-gray-600">{answers[i] || '-'}</td>
+                    })}
 
                     {event.enableCheckin && (
                       <td className="p-2">

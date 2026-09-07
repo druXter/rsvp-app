@@ -117,6 +117,13 @@ export default async function SeriesDetailPage({ params }: { params: Promise<{ i
                 </div>
 
                 <div className="space-y-2 pt-2 border-t border-purple-200">
+                  <h4 className="font-bold text-gray-900 text-sm">Freie Zusatzfragen für DIESEN Termin (optional, max. 3):</h4>
+                  <input type="text" name="customQuestion1" className="w-full border border-gray-300 p-2 rounded" placeholder="z.B. Welchen Song wünschst du dir vom DJ?" />
+                  <input type="text" name="customQuestion2" className="w-full border border-gray-300 p-2 rounded" placeholder="Optionale zweite Frage" />
+                  <input type="text" name="customQuestion3" className="w-full border border-gray-300 p-2 rounded" placeholder="Optionale dritte Frage" />
+                </div>
+
+                <div className="space-y-2 pt-2 border-t border-purple-200">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input type="checkbox" name="autoReminder" className="w-4 h-4 text-blue-600" />
                     <span className="text-sm font-medium">Automatische Erinnerung aktivieren</span>
