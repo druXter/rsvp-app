@@ -98,6 +98,11 @@ export default async function AdminDashboard() {
           </div>
           <div className="flex gap-4 flex-wrap">
             <PushSubscribeButton vapidPublicKey={process.env.VAPID_PUBLIC_KEY || null} />
+            {isAdmin && (
+              <Link href="/admin/users" className="bg-gray-100 text-gray-700 px-4 py-2 rounded hover:bg-gray-200 transition text-sm font-medium flex items-center">
+                👥 Nutzerverwaltung
+              </Link>
+            )}
             {!isModerator && (
               <Link href="/admin/create-user" className="bg-gray-100 text-gray-700 px-4 py-2 rounded hover:bg-gray-200 transition text-sm font-medium flex items-center">
                 + Nutzer anlegen

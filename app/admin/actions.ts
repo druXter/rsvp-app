@@ -781,3 +781,58 @@ export async function unshareResource(formData: FormData) {
   await prisma.resourceAccess.delete({ where: { id: accessId } })
   revalidatePath('/admin')
 }
+
+/**
+ * Ändert die Rolle eines bestehenden Kontos. Nur Admins dürfen das - und niemals für
+ * ein Admin-Konto (auch nicht das eigene), damit kein Admin versehentlich sich selbst
+ * oder einen anderen Admin degradiert und so der letzte funktionierende Admin-Zugang
+ * verloren geht. Ein Rollenwechsel für ein Admin-Konto bleibt nur per set-role.js mit
+ * direktem Server-Zugriff möglich.
+ */
+export async function updateUserRole(formData: FormData) {
+  const user = await requireUser()
+  if (user.role !== 'ADMIN') return
+
+  const targetId = formData.get('userId') as string
+  const role = formData.get('role') as Role
+  if (!(['ADMIN', 'CREATOR', 'MODERATOR'] as Role[]).includes(role)) return
+
+  const target = await prisma.user.findUnique({ where: { id: targetId } })
+  if (!target || target.role === 'ADMIN') return
+
+  await prisma.user.update({ where: { id: targetId }, data: { role } })
+  revalidatePath('/admin/users')
+}
+
+/**
+ * Löscht ein Benutzerkonto unwiderruflich inkl. aller eigenen Events, Reihen, Antworten
+ * und Gast-Profile (gleiche Kaskade wie deleteEventSeries) sowie aller geteilten
+ * Zugriffsrechte. Nur Admins dürfen das, und AUSDRÜCKLICH NIE ein anderes Admin-Konto -
+ * so kann niemand versehentlich den letzten funktionierenden Admin-Zugang verlieren.
+ */
+export async function deleteUser(formData: FormData) {
+  const user = await requireUser()
+  if (user.role !== 'ADMIN') return
+
+  const targetId = formData.get('userId') as string
+  const target = await prisma.user.findUnique({ where: { id: targetId } })
+  if (!target || target.role === 'ADMIN') return
+
+  const ownSeries = await prisma.eventSeries.findMany({ where: { ownerId: targetId }, select: { id: true } })
+  const seriesIds = ownSeries.map(s => s.id)
+  const ownEvents = await prisma.event.findMany({ where: { ownerId: targetId }, select: { id: true } })
+  const eventIds = ownEvents.map(e => e.id)
+
+  await prisma.rsvp.deleteMany({ where: { eventId: { in: eventIds } } })
+  await prisma.resourceAccess.deleteMany({
+    where: { OR: [{ userId: targetId }, { eventId: { in: eventIds } }, { seriesId: { in: seriesIds } }] }
+  })
+  await prisma.event.deleteMany({ where: { id: { in: eventIds } } })
+  await prisma.participant.deleteMany({ where: { seriesId: { in: seriesIds } } })
+  await prisma.eventSeries.deleteMany({ where: { id: { in: seriesIds } } })
+  await prisma.pushSubscription.deleteMany({ where: { userId: targetId } })
+  await prisma.session.deleteMany({ where: { userId: targetId } })
+  await prisma.user.delete({ where: { id: targetId } })
+
+  revalidatePath('/admin/users')
+}
