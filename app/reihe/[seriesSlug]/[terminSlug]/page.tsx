@@ -127,6 +127,7 @@ export default async function SeriesEventPage({
           rsvp={existingRsvp}
           isGuestListVisible={series.isGuestListVisible}
           isSeriesShared={true}
+          usedUrlToken={!!token}
         />
 
         {series.isGuestListVisible && (

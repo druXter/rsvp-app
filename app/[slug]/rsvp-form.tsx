@@ -14,7 +14,8 @@ export default function RsvpForm({
   rsvp,
   isEmbed = false,
   isGuestListVisible = false,
-  isSeriesShared = false
+  isSeriesShared = false,
+  usedUrlToken = true
 }: {
   eventId: string;
   formConfig: string | null;
@@ -23,6 +24,7 @@ export default function RsvpForm({
   isEmbed?: boolean;
   isGuestListVisible?: boolean;
   isSeriesShared?: boolean;
+  usedUrlToken?: boolean;
 }) {
   const [isAttending, setIsAttending] = useState<boolean | null>(rsvp ? rsvp.isAttending : null)
   const [hasPlusOne, setHasPlusOne] = useState<boolean>(rsvp ? rsvp.plusOne : false)
@@ -168,7 +170,14 @@ export default function RsvpForm({
     // Dynamische Klassen für das eigentliche Formular. Im Embed-Modus entfernen wir die Box-Optik komplett.
     <form onSubmit={handleSubmit} className={`space-y-6 text-gray-900 ${isEmbed ? '' : 'bg-white p-6 rounded-lg shadow'}`}>
       <input type="hidden" name="eventId" value={eventId} />
-      {participant && <input type="hidden" name="editToken" value={participant.editToken} />}
+      {/* Nur mitschicken, wenn der Participant wirklich über einen ?token= aus der URL
+          aufgelöst wurde (anonymer Bearbeitungs-Link) - sonst würde submitRsvp die
+          Reihen-Gast-Session (siehe #12) fälschlich ignorieren, obwohl der Nutzer gerade
+          eingeloggt ist und seine Identität schon über die Session sicher feststeht
+          (ein Participant, der über die Session gefunden wurde, hat trotzdem bereits
+          einen echten editToken - z.B. fürs Löschen -, der aber hier nicht das Signal
+          "anonymer Link" auslösen darf). */}
+      {participant?.editToken && usedUrlToken && <input type="hidden" name="editToken" value={participant.editToken} />}
 
       {isGuestListVisible && (
         <p className="text-xs bg-blue-50 text-blue-800 p-3 rounded border border-blue-100">

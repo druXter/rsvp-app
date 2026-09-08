@@ -97,6 +97,7 @@ export default async function EventPage({
           participant={participant}
           rsvp={existingRsvp}
           isGuestListVisible={event.isGuestListVisible}
+          usedUrlToken={!!token}
         />
 
         {/* Die öffentliche Gästeliste */}
