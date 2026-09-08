@@ -62,10 +62,13 @@ export async function submitRsvp(formData: FormData) {
 
   // Einmal verifizierte E-Mails sind gesperrt (siehe rsvp-form.tsx: Feld wird readOnly).
   // Bei einer Absage behalten wir eine evtl. vorhandene (auch unverifizierte) E-Mail,
-  // da sie bei Reihen für weitere Termine relevant bleibt.
+  // da sie bei Reihen für weitere Termine relevant bleibt. Fragt der Termin gar keine
+  // E-Mail ab (askEmail aus), liefert das Formular kein emailInput - für einen
+  // eingeloggten Nutzer ist seine bereits bekannte, ggf. verifizierte Adresse aus dem
+  // zentralen Konto (guestUser.email) trotzdem die richtige Angabe, nicht "keine E-Mail".
   const finalEmail = (existingParticipant && existingParticipant.isVerified && existingParticipant.email)
     ? existingParticipant.email
-    : (isAttending ? emailInput : (existingParticipant?.email ?? null))
+    : (isAttending ? (emailInput || guestUser?.email || existingParticipant?.email || null) : (existingParticipant?.email ?? guestUser?.email ?? null))
 
   // Ein eingeloggter Nutzer (GuestUser), dessen Konto bereits verifiziert ist, hat seine
   // E-Mail-Adresse schon bei der Kontoregistrierung bestätigt - für ihn braucht es beim

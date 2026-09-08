@@ -1,14 +1,22 @@
 // app/page.tsx
 import Link from 'next/link'
+import { getCurrentUser } from './lib/auth'
+import { getCurrentGuestUser } from './lib/guest-auth'
 
 /**
  * Die allgemeine Startseite (Landingpage) der Anwendung.
  * Dient als Einstiegspunkt und leitet Administratoren zum Dashboard weiter.
  */
-export default function Home() {
+export default async function Home() {
+  // Führt direkt zum jeweiligen Dashboard, wenn die entsprechende Session bereits aktiv
+  // ist - sonst würde ein bereits eingeloggter Nutzer hier immer wieder am Login landen
+  // (bemerkt v.a. beim Einstieg über den globalen Footer/Impressum in der PWA).
+  const user = await getCurrentUser()
+  const guestUser = await getCurrentGuestUser()
+
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
-      
+
       {/* Hauptbereich (Hero Section) */}
       <main className="grow flex items-center justify-center px-4">
         <div className="max-w-2xl text-center space-y-6">
@@ -20,16 +28,16 @@ export default function Home() {
           </p>
           <div className="pt-8 flex flex-wrap gap-4 justify-center">
             <Link
-              href="/admin/login"
+              href={user ? '/admin' : '/admin/login'}
               className="inline-block bg-blue-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-blue-700 transition shadow-lg"
             >
-              Zum Admin-Bereich
+              {user ? `Zum Admin-Dashboard (${user.email})` : 'Zum Admin-Bereich'}
             </Link>
             <Link
-              href="/mein-konto/login"
+              href={guestUser ? '/mein-konto' : '/mein-konto/login'}
               className="inline-block bg-white text-blue-600 font-bold py-3 px-8 rounded-lg hover:bg-gray-100 transition shadow-lg border border-blue-200"
             >
-              Mein Konto (Gäste-Login)
+              {guestUser ? `Zu Mein Konto (${guestUser.email})` : 'Mein Konto (Gäste-Login)'}
             </Link>
           </div>
         </div>
