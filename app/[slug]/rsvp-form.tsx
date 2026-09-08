@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { submitRsvp } from '../actions'
 import SubmitButton from '../ui/submit-button'
 import DeleteMyDataButton from './delete-my-data-button'
+import PushSubscribeToggle from './push-subscribe-toggle'
 
 export default function RsvpForm({
   eventId,
@@ -15,7 +16,8 @@ export default function RsvpForm({
   isEmbed = false,
   isGuestListVisible = false,
   isSeriesShared = false,
-  usedUrlToken = true
+  usedUrlToken = true,
+  vapidPublicKey = null
 }: {
   eventId: string;
   formConfig: string | null;
@@ -25,6 +27,7 @@ export default function RsvpForm({
   isGuestListVisible?: boolean;
   isSeriesShared?: boolean;
   usedUrlToken?: boolean;
+  vapidPublicKey?: string | null;
 }) {
   const [isAttending, setIsAttending] = useState<boolean | null>(rsvp ? rsvp.isAttending : null)
   const [hasPlusOne, setHasPlusOne] = useState<boolean>(rsvp ? rsvp.plusOne : false)
@@ -115,7 +118,8 @@ export default function RsvpForm({
             <p className="text-xs text-gray-600 mb-1">Dein persönlicher Link (z.B. für Absagen):</p>
             <input type="text" readOnly value={personalLink} className="w-full bg-white border border-orange-200 rounded p-2 text-sm text-gray-700 outline-none" onClick={(e) => e.currentTarget.select()} />
           </div>
-          <div className="mt-4">
+          <div className="mt-4 flex flex-wrap gap-2 justify-center">
+            <PushSubscribeToggle editToken={submittedToken} vapidPublicKey={vapidPublicKey} />
             <DeleteMyDataButton editToken={submittedToken} eventId={eventId} isSeriesShared={isSeriesShared} />
           </div>
         </div>
@@ -159,7 +163,8 @@ export default function RsvpForm({
           </div>
         )}
 
-        <div className="mt-6">
+        <div className="mt-6 flex flex-wrap gap-2 justify-center">
+          <PushSubscribeToggle editToken={submittedToken} vapidPublicKey={vapidPublicKey} />
           <DeleteMyDataButton editToken={submittedToken} eventId={eventId} isSeriesShared={isSeriesShared} />
         </div>
       </div>
@@ -322,7 +327,8 @@ export default function RsvpForm({
       <SubmitButton>{rsvp ? "Änderungen speichern" : "Antwort absenden"}</SubmitButton>
 
       {participant?.editToken && (
-        <div className="pt-4 border-t border-gray-100 text-center">
+        <div className="pt-4 border-t border-gray-100 flex flex-wrap gap-2 justify-center">
+          <PushSubscribeToggle editToken={participant.editToken} vapidPublicKey={vapidPublicKey} />
           <DeleteMyDataButton editToken={participant.editToken} eventId={eventId} isSeriesShared={isSeriesShared} />
         </div>
       )}

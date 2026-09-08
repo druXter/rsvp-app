@@ -29,7 +29,7 @@ Ein schlankes, anpassbares und leistungsstarkes Event-Management-System, gebaut 
   * Manueller Versand aus dem Dashboard an alle Zusagen (inkl. optionaler Zusatzinfos für die Gäste).
   * Vollautomatischer Versand X Tage vor dem Event (gesicherter Endpoint für Uptime Kuma oder Cronjobs).
 * **QR-Code Einlasskontrolle (optional, standardmäßig aus):** Pro Event/Termin zuschaltbar für Veranstaltungen mit echtem Einlass. Bestätigte Gäste bekommen einen persönlichen QR-Code (Bestätigungsmail & Erfolgsseite), der beim Scannen automatisch als "anwesend" markiert wird. Das Admin-Dashboard zeigt eine Live-Statistik ("🎫 Eingecheckt: 25/50") und erlaubt auch manuelles Ein-/Auschecken ohne Scan. Für die meisten privaten Feiern ohne Einlasskontrolle bleibt diese Option einfach deaktiviert.
-* **Web-Push-Benachrichtigungen (PWA):** Das Dashboard ist als installierbare PWA konfiguriert. Admins können sich pro Gerät für Push-Benachrichtigungen anmelden ("🔕 Push aktivieren"-Button) und werden dann sofort informiert, sobald ein Gast eine neue Zu- oder Absage abgibt - auch ohne offenes Dashboard-Tab.
+* **Web-Push-Benachrichtigungen (PWA):** Sowohl das Admin-Dashboard als auch die Gast-Seiten sind als installierbare PWA konfiguriert. Admins können sich pro Gerät anmelden und werden sofort informiert, sobald ein Gast eine neue Zu- oder Absage abgibt. Gäste können sich direkt auf ihrer Antwort-Seite ("🔕 Push-Benachrichtigungen aktivieren"-Button) anmelden - ganz ohne eigenes Konto - und bekommen dann Erinnerungen sowie kurzfristige Termin-Änderungen (Uhrzeit/Ort/Titel/Beschreibung) auch als Push, nicht nur per Mail.
 * **Admin Dashboard:** 
   * Volle Übersicht über alle Zu- und Absagen sowie Wartelistenplätze.
   * Status-Anzeige ausstehender E-Mail-Verifizierungen.
@@ -85,7 +85,8 @@ IMPRESSUM_CITY=Musterstadt
 IMPRESSUM_EMAIL=deine-email@domain.de
 IMPRESSUM_PHONE=Optional
 
-# VAPID-Keys für Web-Push-Benachrichtigungen (Admin-Dashboard) - siehe Hinweis unten
+# VAPID-Keys für Web-Push-Benachrichtigungen (Admin-Dashboard UND Gast-Seiten teilen sich
+# dasselbe Schlüsselpaar) - siehe Hinweis unten
 VAPID_PUBLIC_KEY=...
 VAPID_PRIVATE_KEY=...
 VAPID_SUBJECT=mailto:deine-email@domain.de
@@ -97,7 +98,7 @@ VAPID_SUBJECT=mailto:deine-email@domain.de
 > ```bash
 > node -e "console.log(require('web-push').generateVAPIDKeys())"
 > ```
-> `VAPID_PUBLIC_KEY` ist unkritisch (wird an den Browser ausgeliefert), `VAPID_PRIVATE_KEY` ist ein Geheimnis wie `SMTP_PASS`. Sind die Keys nicht gesetzt, bleibt das Feature einfach inaktiv (kein Push-Button im Dashboard) - der Rest der App läuft unverändert weiter.
+> `VAPID_PUBLIC_KEY` ist unkritisch (wird an den Browser ausgeliefert), `VAPID_PRIVATE_KEY` ist ein Geheimnis wie `SMTP_PASS`. Sind die Keys nicht gesetzt, bleiben beide Push-Features (Admin-Dashboard und Gast-Seiten) einfach inaktiv (kein Push-Button sichtbar) - der Rest der App läuft unverändert weiter.
 
 > **Erstes Benutzerkonto anlegen:** Es gibt keine öffentliche Registrierung. Dein allererstes Konto legst du einmalig per Skript an:
 > ```bash

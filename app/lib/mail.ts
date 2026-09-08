@@ -23,8 +23,10 @@ const baseUrl = () => process.env.BASE_URL || 'http://localhost:3000'
 /**
  * Persönlicher Link für einen Participant zu genau EINEM Termin. Bei Reihen-Terminen
  * führt der Link über die Reihen-Route, bei Einzel-Events direkt auf den Event-Slug.
+ * Exportiert, damit auch Gast-Push-Benachrichtigungen (siehe app/lib/push.ts,
+ * sendPushToParticipant) auf denselben Link verweisen können wie die zugehörige E-Mail.
  */
-function personalEventLink(event: EventWithSeries, participant: Participant) {
+export function personalEventLink(event: EventWithSeries, participant: Participant) {
   if (event.series) {
     return `${baseUrl()}/reihe/${event.series.slug}/${event.slug}?token=${participant.editToken}`
   }

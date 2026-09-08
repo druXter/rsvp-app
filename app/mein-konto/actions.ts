@@ -264,6 +264,7 @@ export async function deleteGuestAccount() {
   const guestUser = await requireGuestUser()
 
   await prisma.rsvp.deleteMany({ where: { participant: { guestUserId: guestUser.id } } })
+  await prisma.participantPushSubscription.deleteMany({ where: { participant: { guestUserId: guestUser.id } } })
   await prisma.participant.deleteMany({ where: { guestUserId: guestUser.id } })
   await prisma.guestUserSeries.deleteMany({ where: { guestUserId: guestUser.id } })
   await prisma.guestSession.deleteMany({ where: { guestUserId: guestUser.id } })

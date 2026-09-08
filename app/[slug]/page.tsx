@@ -98,6 +98,7 @@ export default async function EventPage({
           rsvp={existingRsvp}
           isGuestListVisible={event.isGuestListVisible}
           usedUrlToken={!!token}
+          vapidPublicKey={process.env.VAPID_PUBLIC_KEY || null}
         />
 
         {/* Die öffentliche Gästeliste */}

@@ -158,6 +158,25 @@ model Participant {
   editToken String   @unique @default(uuid())
   createdAt DateTime @default(now())
   rsvps     Rsvp[]
+
+  pushSubscriptions ParticipantPushSubscription[]
+}
+
+// Push-Abo eines Gast-Geräts, verknüpft mit dem Participant statt (wie PushSubscription)
+// mit einem admin-seitigen User - so funktioniert Gast-Push sowohl für anonyme
+// editToken-Teilnehmer als auch für eingeloggte GuestUser gleichermaßen, ganz ohne
+// Konto-Pflicht (siehe subscribeParticipantToPush in app/actions.ts). Bei einem
+// Reihen-Termin deckt EIN Abo automatisch alle Termine der Reihe ab, da der Participant
+// dort geteilt ist.
+model ParticipantPushSubscription {
+  id        String   @id @default(cuid())
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  participantId String
+  participant   Participant @relation(fields: [participantId], references: [id])
 }
 
 // Die Antwort eines Participants zu GENAU EINEM Termin (Zusage/Absage, Warteliste

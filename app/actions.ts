@@ -333,6 +333,7 @@ export async function deleteMyParticipantData(formData: FormData) {
   const event = await prisma.event.findUnique({ where: { id: eventId }, include: { series: true } })
 
   await prisma.rsvp.deleteMany({ where: { participantId: participant.id } })
+  await prisma.participantPushSubscription.deleteMany({ where: { participantId: participant.id } })
   await prisma.participant.delete({ where: { id: participant.id } })
 
   revalidatePath('/admin')
@@ -343,4 +344,40 @@ export async function deleteMyParticipantData(formData: FormData) {
     redirect(`/${event.slug}`)
   }
   redirect('/')
+}
+
+/**
+ * Speichert das Push-Abo eines Geräts für den per editToken identifizierten Participant
+ * (siehe app/lib/push.ts, sendPushToParticipant). Anders als beim admin-seitigen
+ * subscribeToPush braucht es hier keine Login-Session - der Besitz eines gültigen
+ * editToken genügt als Autorisierung, genau wie bei deleteMyParticipantData oben. Wird
+ * ein bereits bekannter Endpoint erneut abonniert, werden einfach die Keys aktualisiert
+ * statt einen Duplikat-Eintrag anzulegen.
+ */
+export async function subscribeParticipantToPush(
+  editToken: string,
+  subscription: { endpoint: string; keys: { p256dh: string; auth: string } }
+) {
+  if (!editToken) return
+
+  const participant = await prisma.participant.findUnique({ where: { editToken } })
+  if (!participant) return
+
+  await prisma.participantPushSubscription.upsert({
+    where: { endpoint: subscription.endpoint },
+    update: { p256dh: subscription.keys.p256dh, auth: subscription.keys.auth, participantId: participant.id },
+    create: { endpoint: subscription.endpoint, p256dh: subscription.keys.p256dh, auth: subscription.keys.auth, participantId: participant.id }
+  })
+}
+
+/**
+ * Entfernt das Push-Abo eines Geräts wieder (Gast hat Benachrichtigungen deaktiviert).
+ */
+export async function unsubscribeParticipantFromPush(editToken: string, endpoint: string) {
+  if (!editToken) return
+
+  const participant = await prisma.participant.findUnique({ where: { editToken } })
+  if (!participant) return
+
+  await prisma.participantPushSubscription.deleteMany({ where: { endpoint, participantId: participant.id } })
 }

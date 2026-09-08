@@ -2,6 +2,7 @@
 import { PrismaClient } from '@prisma/client'
 import { NextResponse } from 'next/server'
 import { sendReminderEmail } from '../../../lib/mail'
+import { sendReminderPush } from '../../../lib/push'
 
 const prisma = new PrismaClient()
 
@@ -31,7 +32,8 @@ export async function GET(request: Request) {
       rsvps: {
         where: { isAttending: true },
         include: { participant: true }
-      }
+      },
+      series: true
     }
   })
 
@@ -46,12 +48,19 @@ export async function GET(request: Request) {
     if (now >= triggerDate) {
       const validRsvps = event.rsvps.filter(rsvp => rsvp.participant.email && rsvp.participant.email.trim() !== "")
 
+      // E-Mail und Push unabhängig voneinander verschicken: Push hängt an der
+      // Participant-Identität (siehe sendPushToParticipant), nicht an einer hinterlegten
+      // E-Mail - jemand kann also auch ganz ohne E-Mail-Adresse Push-Erinnerungen bekommen.
       if (validRsvps.length > 0) {
         // Bei der automatischen Erinnerung lassen wir den manuellen customMessage-Text leer
         const emailPromises = validRsvps.map(rsvp =>
           sendReminderEmail(event, rsvp.participant, "")
         )
         await Promise.allSettled(emailPromises)
+      }
+      if (event.rsvps.length > 0) {
+        const pushPromises = event.rsvps.map(rsvp => sendReminderPush(event, rsvp.participant))
+        await Promise.allSettled(pushPromises)
       }
 
       // 5. In der Datenbank markieren, dass für dieses Event alles erledigt ist 

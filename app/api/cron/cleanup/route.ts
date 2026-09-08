@@ -52,7 +52,9 @@ export async function GET(request: Request) {
     where: { rsvps: { none: {} } },
     select: { id: true }
   })
-  await prisma.participant.deleteMany({ where: { id: { in: orphanedParticipants.map(p => p.id) } } })
+  const orphanedParticipantIds = orphanedParticipants.map(p => p.id)
+  await prisma.participantPushSubscription.deleteMany({ where: { participantId: { in: orphanedParticipantIds } } })
+  await prisma.participant.deleteMany({ where: { id: { in: orphanedParticipantIds } } })
 
   const inactivityCutoff = new Date()
   inactivityCutoff.setFullYear(inactivityCutoff.getFullYear() - GUEST_ACCOUNT_INACTIVITY_YEARS)
@@ -64,6 +66,7 @@ export async function GET(request: Request) {
   const inactiveGuestUserIds = inactiveGuestUsers.map(g => g.id)
 
   await prisma.rsvp.deleteMany({ where: { participant: { guestUserId: { in: inactiveGuestUserIds } } } })
+  await prisma.participantPushSubscription.deleteMany({ where: { participant: { guestUserId: { in: inactiveGuestUserIds } } } })
   await prisma.participant.deleteMany({ where: { guestUserId: { in: inactiveGuestUserIds } } })
   await prisma.guestUserSeries.deleteMany({ where: { guestUserId: { in: inactiveGuestUserIds } } })
   await prisma.guestSession.deleteMany({ where: { guestUserId: { in: inactiveGuestUserIds } } })

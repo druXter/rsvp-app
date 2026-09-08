@@ -10,6 +10,7 @@ import bcrypt from 'bcryptjs'
 import { sendReminderEmail, sendWaitlistPromotedEmail, sendConfirmationEmail, sendVerificationEmail, sendPasswordResetEmail, sendEmailChangeConfirmation, sendEventUpdatedEmail } from '../lib/mail'
 import { requireUser, SESSION_COOKIE, SESSION_DURATION_MS } from '../lib/auth'
 import { isOwnerOrAdmin, hasEventModeratorOrAbove, hasSeriesModeratorOrAbove } from '../lib/permissions'
+import { sendReminderPush, sendEventChangedPush } from '../lib/push'
 
 const prisma = new PrismaClient()
 
@@ -88,7 +89,14 @@ async function notifyAttendeesOfChange(eventId: string, changes: { label: string
   const emailPromises = validRsvps.map(rsvp =>
     sendEventUpdatedEmail(rsvp.participant, rsvp, event, changes)
   )
-  await Promise.allSettled(emailPromises)
+  // Push ist an die Participant-Identität geknüpft, nicht an eine verifizierte E-Mail -
+  // gilt daher für alle Teilnehmenden, die effektiv verifiziert sind (bzw. für die es gar
+  // nicht nötig ist), unabhängig davon, ob überhaupt eine E-Mail hinterlegt wurde.
+  const pushEligibleRsvps = event.rsvps.filter(rsvp => !requireVerification || rsvp.participant.isVerified)
+  const pushPromises = pushEligibleRsvps.map(rsvp =>
+    sendEventChangedPush(event, rsvp.participant, changes)
+  )
+  await Promise.allSettled([...emailPromises, ...pushPromises])
 }
 
 /**
@@ -639,7 +647,8 @@ export async function sendReminder(formData: FormData) {
       rsvps: {
         where: { isAttending: true },
         include: { participant: true }
-      }
+      },
+      series: true
     }
   })
 
@@ -650,8 +659,9 @@ export async function sendReminder(formData: FormData) {
   const emailPromises = validRsvps.map(rsvp =>
     sendReminderEmail(event, rsvp.participant, customMessage)
   )
+  const pushPromises = event.rsvps.map(rsvp => sendReminderPush(event, rsvp.participant))
 
-  await Promise.allSettled(emailPromises)
+  await Promise.allSettled([...emailPromises, ...pushPromises])
 
   await prisma.event.update({
     where: { id: eventId },
@@ -769,6 +779,7 @@ export async function deleteEventSeries(formData: FormData) {
   await prisma.rsvp.deleteMany({ where: { eventId: { in: eventIds } } })
   await prisma.resourceAccess.deleteMany({ where: { OR: [{ seriesId: id }, { eventId: { in: eventIds } }] } })
   await prisma.event.deleteMany({ where: { seriesId: id } })
+  await prisma.participantPushSubscription.deleteMany({ where: { participant: { seriesId: id } } })
   await prisma.participant.deleteMany({ where: { seriesId: id } })
   await prisma.eventSeries.delete({ where: { id } })
 
@@ -1093,6 +1104,7 @@ export async function deleteUser(formData: FormData) {
     where: { OR: [{ userId: targetId }, { eventId: { in: eventIds } }, { seriesId: { in: seriesIds } }] }
   })
   await prisma.event.deleteMany({ where: { id: { in: eventIds } } })
+  await prisma.participantPushSubscription.deleteMany({ where: { participant: { seriesId: { in: seriesIds } } } })
   await prisma.participant.deleteMany({ where: { seriesId: { in: seriesIds } } })
   await prisma.eventSeries.deleteMany({ where: { id: { in: seriesIds } } })
   await prisma.pushSubscription.deleteMany({ where: { userId: targetId } })

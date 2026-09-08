@@ -128,6 +128,7 @@ export default async function SeriesEventPage({
           isGuestListVisible={series.isGuestListVisible}
           isSeriesShared={true}
           usedUrlToken={!!token}
+          vapidPublicKey={process.env.VAPID_PUBLIC_KEY || null}
         />
 
         {series.isGuestListVisible && (
