@@ -113,6 +113,12 @@ model Event {
   eventPin            String?
   enableCheckin       Boolean  @default(false)
 
+  // Wird bei jeder inhaltlichen Änderung (Titel/Datum/Dauer/Ort/Beschreibung, siehe
+  // diffEventFields in app/admin/actions.ts) um 1 erhöht - dient als ICS-SEQUENCE, damit
+  // Kalender-Apps eine neu verschickte .ics-Datei als Update des bestehenden Eintrags
+  // erkennen statt einen Duplikat-Eintrag anzulegen (siehe app/lib/mail.ts).
+  icsSequence Int @default(0)
+
   ownerId String
   owner   User   @relation(fields: [ownerId], references: [id])
 

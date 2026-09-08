@@ -8,6 +8,7 @@ import { isOwnerOrAdmin } from '../../../lib/permissions'
 import ShareAccessPanel from '../../share-access-panel'
 import SubmitButton from '../../../ui/submit-button'
 import ThemeSection, { themeClasses } from '../../../ui/theme-section'
+import NotifyGuestsToggle from '../../notify-guests-toggle'
 
 const prisma = new PrismaClient()
 
@@ -168,6 +169,17 @@ export default async function EditEventPage({ params, searchParams }: { params: 
               <p className={`text-xs ${themeClasses('indigo').text} mt-1`}>Gäste müssen diesen Code eingeben, bevor sie das Formular oder die Gästeliste sehen können.</p>
             </div>
           </ThemeSection>
+
+          <NotifyGuestsToggle
+            formId="edit-event-form"
+            original={{
+              title: event.title,
+              date: formattedDate,
+              duration: String(event.duration),
+              location: event.location || '',
+              description: event.description || ''
+            }}
+          />
 
         </form>
 

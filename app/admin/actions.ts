@@ -7,7 +7,7 @@ import { revalidatePath } from 'next/cache'
 import { PrismaClient, Role } from '@prisma/client'
 import { randomUUID, randomBytes } from 'crypto'
 import bcrypt from 'bcryptjs'
-import { sendReminderEmail, sendWaitlistPromotedEmail, sendConfirmationEmail, sendVerificationEmail, sendPasswordResetEmail, sendEmailChangeConfirmation } from '../lib/mail'
+import { sendReminderEmail, sendWaitlistPromotedEmail, sendConfirmationEmail, sendVerificationEmail, sendPasswordResetEmail, sendEmailChangeConfirmation, sendEventUpdatedEmail } from '../lib/mail'
 import { requireUser, SESSION_COOKIE, SESSION_DURATION_MS } from '../lib/auth'
 import { isOwnerOrAdmin, hasEventModeratorOrAbove, hasSeriesModeratorOrAbove } from '../lib/permissions'
 
@@ -25,6 +25,70 @@ function readCustomQuestions(formData: FormData): string[] {
   ]
     .map(q => (q || '').trim())
     .filter(q => q !== '')
+}
+
+/**
+ * Vergleicht die für Gäste relevanten Termin-Felder (Titel/Datum/Dauer/Ort/Beschreibung)
+ * vor und nach einer Bearbeitung. Gemeinsam genutzt von updateEvent und
+ * updateSeriesTermin, damit "was zählt als dringende Änderung" an genau einer Stelle
+ * definiert ist. Ein nicht-leeres Ergebnis entscheidet sowohl, ob die ICS-SEQUENCE
+ * hochgezählt wird, als auch (bei angehaktem "Teilnehmende benachrichtigen"), ob
+ * überhaupt eine Änderungs-Mail verschickt wird.
+ */
+function diffEventFields(
+  existing: { title: string; date: Date; duration: number; location: string | null; description: string | null },
+  updated: { title: string; date: Date; duration: number; location: string | null; description: string | null }
+): { label: string; detail: string }[] {
+  const changes: { label: string; detail: string }[] = []
+  const fmt = (d: Date) => d.toLocaleString('de-DE', {
+    timeZone: 'Europe/Berlin', weekday: 'long', day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'
+  })
+
+  if (existing.title !== updated.title) {
+    changes.push({ label: 'Titel', detail: `„${existing.title}“ → „${updated.title}“` })
+  }
+  if (existing.date.getTime() !== updated.date.getTime()) {
+    changes.push({ label: 'Datum & Uhrzeit', detail: `${fmt(existing.date)} Uhr → ${fmt(updated.date)} Uhr` })
+  }
+  if (existing.duration !== updated.duration) {
+    changes.push({ label: 'Dauer', detail: `${existing.duration} Std. → ${updated.duration} Std.` })
+  }
+  if ((existing.location || '') !== (updated.location || '')) {
+    changes.push({ label: 'Ort', detail: `${existing.location || '(keine Angabe)'} → ${updated.location || '(keine Angabe)'}` })
+  }
+  if ((existing.description || '') !== (updated.description || '')) {
+    changes.push({ label: 'Beschreibung', detail: 'wurde aktualisiert' })
+  }
+  return changes
+}
+
+/**
+ * Verschickt die Änderungs-Mail (siehe sendEventUpdatedEmail) an alle Gäste mit fester
+ * Zusage oder Wartelisten-Platz zu genau diesem Termin - unabhängig von Reihen-
+ * Zugehörigkeit gilt Kapazität/Teilnahme wie überall sonst pro Termin. Berücksichtigt bei
+ * einer Reihe die reihenweite requireVerification (siehe CLAUDE.md "Effective settings").
+ */
+async function notifyAttendeesOfChange(eventId: string, changes: { label: string; detail: string }[]) {
+  const event = await prisma.event.findUnique({
+    where: { id: eventId },
+    include: {
+      rsvps: { where: { isAttending: true }, include: { participant: true } },
+      series: true
+    }
+  })
+  if (!event) return
+
+  const requireVerification = event.series ? event.series.requireVerification : event.requireVerification
+
+  const validRsvps = event.rsvps.filter(rsvp =>
+    rsvp.participant.email && rsvp.participant.email.trim() !== '' &&
+    (!requireVerification || rsvp.participant.isVerified)
+  )
+
+  const emailPromises = validRsvps.map(rsvp =>
+    sendEventUpdatedEmail(rsvp.participant, rsvp, event, changes)
+  )
+  await Promise.allSettled(emailPromises)
 }
 
 /**
@@ -356,6 +420,7 @@ export async function updateEvent(formData: FormData) {
   const reminderDays = parseInt(formData.get('reminderDays') as string) || 7
   const requireVerification = formData.get('requireVerification') === 'on'
   const enableCheckin = formData.get('enableCheckin') === 'on'
+  const notifyGuests = formData.get('notifyGuests') === 'on'
 
   const formConfig = JSON.stringify({
     askEmail: formData.get('askEmail') === 'on',
@@ -369,6 +434,11 @@ export async function updateEvent(formData: FormData) {
   })
 
   const slug = slugInput.toLowerCase().replace(/[^a-z0-9-]/g, '-')
+
+  // Dringende Änderungen erkennen, BEVOR die neuen Werte gespeichert werden - entscheidet
+  // sowohl über das Hochzählen der ICS-SEQUENCE als auch (bei angehaktem "Teilnehmende
+  // benachrichtigen") über den Versand der Änderungs-Mail (siehe diffEventFields oben).
+  const changes = diffEventFields(existingEvent, { title, date, duration, location, description })
 
   await prisma.event.update({
     where: { id },
@@ -386,12 +456,17 @@ export async function updateEvent(formData: FormData) {
       maxCapacity,
       isGuestListVisible,
       eventPin,
-      enableCheckin
+      enableCheckin,
+      ...(changes.length > 0 ? { icsSequence: { increment: 1 } } : {})
     }
   })
 
   // Nach dem Speichern prüfen, ob durch eine Erhöhung der maxCapacity Leute nachrücken dürfen
   await triggerWaitlistPromotion(id)
+
+  if (notifyGuests && changes.length > 0) {
+    await notifyAttendeesOfChange(id, changes)
+  }
 
   revalidatePath('/admin')
   redirect('/admin')
@@ -785,6 +860,7 @@ export async function updateSeriesTermin(formData: FormData) {
   const autoReminder = formData.get('autoReminder') === 'on'
   const reminderDays = parseInt(formData.get('reminderDays') as string) || 7
   const enableCheckin = formData.get('enableCheckin') === 'on'
+  const notifyGuests = formData.get('notifyGuests') === 'on'
 
   const formConfig = JSON.stringify({
     askEmail: false,
@@ -799,12 +875,22 @@ export async function updateSeriesTermin(formData: FormData) {
 
   const slug = slugInput.toLowerCase().replace(/[^a-z0-9-]/g, '-')
 
+  // Siehe updateEvent: gleiche Diff-Logik, entscheidet über ICS-SEQUENCE und Mail-Versand.
+  const changes = diffEventFields(existingEvent, { title, date, duration, location, description })
+
   const event = await prisma.event.update({
     where: { id },
-    data: { title, slug, date, location, description, duration, formConfig, autoReminder, reminderDays, maxCapacity, enableCheckin }
+    data: {
+      title, slug, date, location, description, duration, formConfig, autoReminder, reminderDays, maxCapacity, enableCheckin,
+      ...(changes.length > 0 ? { icsSequence: { increment: 1 } } : {})
+    }
   })
 
   await triggerWaitlistPromotion(id)
+
+  if (notifyGuests && changes.length > 0) {
+    await notifyAttendeesOfChange(id, changes)
+  }
 
   revalidatePath('/admin')
   redirect(`/admin/series/${event.seriesId}`)

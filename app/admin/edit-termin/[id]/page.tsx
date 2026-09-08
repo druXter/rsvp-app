@@ -7,6 +7,7 @@ import { getCurrentUser } from '../../../lib/auth'
 import { isOwnerOrAdmin } from '../../../lib/permissions'
 import SubmitButton from '../../../ui/submit-button'
 import ThemeSection, { themeClasses } from '../../../ui/theme-section'
+import NotifyGuestsToggle from '../../notify-guests-toggle'
 
 const prisma = new PrismaClient()
 
@@ -43,7 +44,7 @@ export default async function EditSeriesTerminPage({ params }: { params: Promise
           zentral <Link href={`/admin/series/${event.series.id}/edit`} className="underline">für die ganze Reihe</Link> verwaltet.
         </p>
 
-        <form action={updateSeriesTermin} className="space-y-4">
+        <form id="edit-termin-form" action={updateSeriesTermin} className="space-y-4">
           <input type="hidden" name="eventId" value={event.id} />
 
           <div>
@@ -126,6 +127,17 @@ export default async function EditSeriesTerminPage({ params }: { params: Promise
               <span className={`text-sm font-medium ${themeClasses('teal').heading}`}>QR-Code Check-in für diesen Termin aktivieren</span>
             </label>
           </ThemeSection>
+
+          <NotifyGuestsToggle
+            formId="edit-termin-form"
+            original={{
+              title: event.title,
+              date: formattedDate,
+              duration: String(event.duration),
+              location: event.location || '',
+              description: event.description || ''
+            }}
+          />
 
           <SubmitButton>Änderungen speichern</SubmitButton>
         </form>

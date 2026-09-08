@@ -54,44 +54,70 @@ function seriesHintHtml(event: EventWithSeries, participant: Participant): strin
 }
 
 /**
+ * Stabile, an die Event-ID gebundene UID für die .ics-Datei eines Termins - anders als
+ * eine bei jedem Mail-Versand neu zufällig erzeugte UID erkennen Kalender-Apps (Google/
+ * Apple/Outlook) eine erneut verschickte .ics mit gleicher UID und höherer SEQUENCE
+ * (siehe icsSequence auf Event, hochgezählt in diffEventFields/updateEvent) als Update
+ * des bestehenden Eintrags statt als neuen Duplikat-Eintrag.
+ */
+function icsUid(event: Event): string {
+  let host = 'rsvp-app.local'
+  try {
+    host = new URL(baseUrl()).host
+  } catch {
+    // baseUrl() ungültig (z.B. lokale Entwicklung ohne BASE_URL) - Fallback-Host reicht,
+    // da nur Eindeutigkeit innerhalb dieser Installation zählt.
+  }
+  return `event-${event.id}@${host}`
+}
+
+/**
+ * Baut den .ics-Kalender-Anhang für einen zugesagten Gast. Gemeinsam genutzt von der
+ * Bestätigungs- und der Änderungs-Mail, damit beide dieselbe stabile UID/SEQUENCE
+ * verwenden (siehe icsUid).
+ */
+function buildIcsAttachment(event: EventWithSeries, participant: Participant) {
+  const date = new Date(event.date)
+  const eventDate: DateArray = [
+    date.getUTCFullYear(),
+    date.getUTCMonth() + 1,
+    date.getUTCDate(),
+    date.getUTCHours(),
+    date.getUTCMinutes()
+  ]
+
+  const personalLink = personalEventLink(event, participant)
+  const fullDescription = `${event.description || ''}\n\nAntwort nachträglich bearbeiten: ${personalLink}`
+
+  const { error, value } = createEvent({
+    uid: icsUid(event),
+    sequence: event.icsSequence,
+    title: event.title,
+    description: fullDescription,
+    location: event.location || '',
+    start: eventDate,
+    duration: { hours: event.duration },
+    startInputType: 'utc',
+    startOutputType: 'utc'
+  })
+
+  if (error || !value) return null
+
+  return {
+    filename: `${event.slug}.ics`,
+    content: value,
+    contentType: 'text/calendar'
+  }
+}
+
+/**
  * Generiert die Kalenderdatei und verschickt eine Bestätigungs-E-Mail an den Gast.
  */
 export async function sendConfirmationEmail(participant: Participant, rsvp: Rsvp, event: EventWithSeries) {
   const personalLink = personalEventLink(event, participant)
 
-  let icsAttachment = null
-
   // Wenn der Gast zusagt, generieren wir die .ics-Datei für den Anhang
-  if (rsvp.isAttending) {
-    const date = new Date(event.date)
-    const eventDate: DateArray = [
-      date.getUTCFullYear(),
-      date.getUTCMonth() + 1,
-      date.getUTCDate(),
-      date.getUTCHours(),
-      date.getUTCMinutes()
-    ]
-
-    const fullDescription = `${event.description || ''}\n\nAntwort nachträglich bearbeiten: ${personalLink}`
-
-    const { error, value } = createEvent({
-      title: event.title,
-      description: fullDescription,
-      location: event.location || '',
-      start: eventDate,
-      duration: { hours: event.duration },
-      startInputType: 'utc',
-      startOutputType: 'utc'
-    })
-
-    if (!error && value) {
-      icsAttachment = {
-        filename: `${event.slug}.ics`,
-        content: value,
-        contentType: 'text/calendar'
-      }
-    }
-  }
+  const icsAttachment = rsvp.isAttending ? buildIcsAttachment(event, participant) : null
 
   // Einlass-QR-Code: Nur für bestätigte Zusagen (sendConfirmationEmail wird für
   // Wartelisten-Fälle nie aufgerufen - siehe sendWaitlistEmail) und nur, wenn
@@ -512,6 +538,73 @@ export async function sendWaitlistPromotedEmail(participant: Participant, rsvp: 
     return true
   } catch (error) {
     console.error(`Fehler beim Senden der Nachrücker-Mail an ${participant.email}:`, error)
+    return false
+  }
+}
+
+/**
+ * Versendet eine Änderungs-Mail an einen bereits zugesagten Gast, wenn ein Admin/Creator
+ * dringende Termin-Details (Titel/Datum/Dauer/Ort/Beschreibung, siehe diffEventFields in
+ * app/admin/actions.ts) nachträglich ändert und dabei bewusst "Teilnehmende benachrichtigen"
+ * angehakt hat. Hängt bei einer Zusage die aktualisierte .ics-Datei an (gleiche UID, höhere
+ * SEQUENCE als zuvor - siehe buildIcsAttachment), damit ein bereits gespeicherter
+ * Kalender-Eintrag beim Öffnen aktualisiert statt dupliziert wird.
+ */
+export async function sendEventUpdatedEmail(
+  participant: Participant,
+  rsvp: Rsvp,
+  event: EventWithSeries,
+  changes: { label: string; detail: string }[]
+) {
+  const personalLink = personalEventLink(event, participant)
+  const icsAttachment = buildIcsAttachment(event, participant)
+
+  const changesText = changes.map(c => `- ${c.label}: ${c.detail}`).join('\n')
+  const changesHtml = changes.map(c => `<li><strong>${c.label}:</strong> ${c.detail}</li>`).join('')
+  const icsHint = icsAttachment
+    ? ' Im Anhang findest du eine aktualisierte Kalenderdatei (.ics) - beim Öffnen kannst du deinen bestehenden Kalendereintrag aktualisieren, statt einen doppelten Eintrag anzulegen.'
+    : ''
+
+  const mailOptions = {
+    from: process.env.SMTP_FROM,
+    to: participant.email!,
+    subject: `Wichtige Änderung: ${event.title}`,
+    text: `Hallo ${participant.name},
+
+für "${event.title}", zu dem du zugesagt hast, gab es eine kurzfristige Änderung:
+
+${changesText}
+
+Bitte beachte das bei deiner Planung.${icsHint}
+
+Deine Antwort bearbeiten: ${personalLink}${seriesHintText(event, participant)}
+
+Viele Grüße,
+Dein Event-Team`,
+    html: `
+      <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
+        <h2>Wichtige Änderung an "${event.title}" ⚠️</h2>
+        <p>Hallo ${participant.name}, für den Termin, zu dem du zugesagt hast, gab es eine kurzfristige Änderung:</p>
+        <ul>${changesHtml}</ul>
+        <p>Bitte beachte das bei deiner Planung.${icsHint}</p>
+        <p><a href="${personalLink}" style="display: inline-block; padding: 10px 20px; background-color: #2563eb; color: #fff; text-decoration: none; border-radius: 5px;">Antwort bearbeiten</a></p>
+        ${seriesHintHtml(event, participant)}
+      </div>
+    `,
+    attachments: icsAttachment ? [icsAttachment] : [],
+
+    // Zwingt Mail-Server, den korrekten technischen Absender zu akzeptieren
+    envelope: {
+      from: process.env.SMTP_USER,
+      to: participant.email!
+    }
+  }
+
+  try {
+    await transporter.sendMail(mailOptions)
+    return true
+  } catch (error) {
+    console.error(`Fehler beim Senden der Änderungs-Mail an ${participant.email}:`, error)
     return false
   }
 }
