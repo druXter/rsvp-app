@@ -255,6 +255,31 @@ export async function updateGuestProfile(formData: FormData) {
 }
 
 /**
+ * Setzt die Präferenz, Bestätigungs-Mails (sendConfirmationEmail) zugunsten einer
+ * Push-Benachrichtigung (sendConfirmationPush, siehe app/lib/push.ts und
+ * shouldSuppressConfirmationEmail in app/actions.ts) zu unterdrücken. Das Aktivieren wird
+ * serverseitig abgelehnt, solange keine der eigenen Participant-Zeilen (über alle Reihen
+ * hinweg) eine aktive ParticipantPushSubscription hat - sonst bekäme der Gast beim nächsten
+ * Zusagen gar keine Benachrichtigung mehr. Das Deaktivieren ist immer erlaubt.
+ */
+export async function updateConfirmationEmailPreference(formData: FormData) {
+  const guestUser = await requireGuestUser()
+  const disable = formData.get('disableConfirmationEmails') === 'true'
+
+  if (disable) {
+    const hasPushSubscription = await prisma.participantPushSubscription.findFirst({
+      where: { participant: { guestUserId: guestUser.id } }
+    })
+    if (!hasPushSubscription) {
+      redirect('/mein-konto/account?error=nopush')
+    }
+  }
+
+  await prisma.guestUser.update({ where: { id: guestUser.id }, data: { disableConfirmationEmails: disable } })
+  redirect('/mein-konto/account?confirmationPrefSaved=1')
+}
+
+/**
  * Löscht das gesamte Nutzer-Konto unwiderruflich - Recht auf Löschung (Art. 17 DSGVO).
  * Anders als deleteMyParticipantData in app/actions.ts (löscht nur die Identität EINER
  * Reihe über den anonymen editToken-Link) betrifft dies das zentrale Konto und damit

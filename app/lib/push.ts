@@ -124,3 +124,24 @@ export async function sendEventChangedPush(
     url: personalEventLink(event, participant)
   })
 }
+
+/**
+ * Push-Pendant zu sendConfirmationEmail (app/lib/mail.ts) - wird ANSTELLE der
+ * Bestätigungs-Mail verschickt, wenn der Gast in seinem Nutzer-Konto
+ * (GuestUser.disableConfirmationEmails, siehe /mein-konto/account) festgelegt hat, keine
+ * Bestätigungs-Mails mehr zu wollen, weil ihm die Info ohnehin per PWA-Push angezeigt wird
+ * (siehe shouldSuppressConfirmationEmail in app/actions.ts). Wie sendConfirmationEmail wird
+ * sie nie für Wartelisten-Fälle aufgerufen (dafür bleibt sendWaitlistEmail zuständig). Anders
+ * als die Mail enthält sie bewusst keinen .ics-Anhang und keinen QR-Check-in-Code - beides
+ * bleibt über den verlinkten personalEventLink() auf der Termin-Seite abrufbar.
+ */
+export async function sendConfirmationPush(event: EventWithSeries, participant: Participant) {
+  const formattedDate = new Date(event.date).toLocaleString('de-DE', {
+    timeZone: 'Europe/Berlin', weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+  })
+  await sendPushToParticipant(participant.id, {
+    title: `✅ Zusage bestätigt: ${event.title}`,
+    body: `${formattedDate} Uhr${event.location ? ' · ' + event.location : ''}`,
+    url: personalEventLink(event, participant)
+  })
+}

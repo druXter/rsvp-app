@@ -1,10 +1,13 @@
 // app/mein-konto/account/page.tsx
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import { PrismaClient } from '@prisma/client'
 import { getCurrentGuestUser } from '../../lib/guest-auth'
-import { changeGuestPassword, requestGuestEmailChange, cancelGuestEmailChange } from '../actions'
+import { changeGuestPassword, requestGuestEmailChange, cancelGuestEmailChange, updateConfirmationEmailPreference } from '../actions'
 import SubmitButton from '../../ui/submit-button'
 import DeleteAccountButton from '../delete-account-button'
+
+const prisma = new PrismaClient()
 
 /**
  * Konto-Einstellungen für Nutzer-Konten (GuestUser) - Passwort ändern, E-Mail-Adresse
@@ -15,7 +18,7 @@ import DeleteAccountButton from '../delete-account-button'
 export default async function GuestAccountPage({
   searchParams
 }: {
-  searchParams: Promise<{ error?: string; passwordChanged?: string; emailChangeRequested?: string }>
+  searchParams: Promise<{ error?: string; passwordChanged?: string; emailChangeRequested?: string; confirmationPrefSaved?: string }>
 }) {
   const guestUser = await getCurrentGuestUser()
   if (!guestUser) redirect('/mein-konto/login')
@@ -23,8 +26,14 @@ export default async function GuestAccountPage({
   const params = await searchParams
   const wrongPassword = params.error === 'wrongpassword'
   const emailTaken = params.error === 'emailtaken'
+  const noPushSubscription = params.error === 'nopush'
   const passwordChanged = params.passwordChanged === '1'
   const emailChangeRequested = params.emailChangeRequested === '1'
+  const confirmationPrefSaved = params.confirmationPrefSaved === '1'
+
+  const hasPushSubscription = (await prisma.participantPushSubscription.count({
+    where: { participant: { guestUserId: guestUser.id } }
+  })) > 0
 
   return (
     <main className="min-h-screen bg-gray-100 py-12 px-4">
@@ -49,6 +58,12 @@ export default async function GuestAccountPage({
         )}
         {emailChangeRequested && (
           <div className="p-3 bg-blue-50 text-blue-700 text-sm rounded">Bestätigungslink an die neue Adresse gesendet. Die Änderung wird erst nach dem Klick darauf wirksam.</div>
+        )}
+        {noPushSubscription && (
+          <div className="p-3 bg-red-50 text-red-700 text-sm rounded">Dafür brauchst du zuerst mindestens ein aktiviertes Push-Abo für eine deiner Reihen.</div>
+        )}
+        {confirmationPrefSaved && (
+          <div className="p-3 bg-green-50 text-green-700 text-sm rounded">Einstellung gespeichert.</div>
         )}
 
         {guestUser.pendingEmail && (
@@ -90,6 +105,30 @@ export default async function GuestAccountPage({
               <p className="text-xs text-gray-500 mt-1">Wird erst nach Bestätigung über einen an diese Adresse geschickten Link wirksam.</p>
             </div>
             <SubmitButton>Bestätigungslink anfordern</SubmitButton>
+          </form>
+        </div>
+
+        <div className="bg-white p-6 rounded-lg shadow space-y-3">
+          <h2 className="font-bold text-gray-900">Bestätigungs-Mails</h2>
+          <p className="text-sm text-gray-500">
+            Wenn du Push-Benachrichtigungen für eine deiner Reihen aktiviert hast, siehst du eine Zusage
+            auch direkt in dieser App. Du kannst dann auf die separate Bestätigungs-Mail verzichten.
+          </p>
+          <form action={updateConfirmationEmailPreference} className="space-y-2">
+            <label className={`flex items-start gap-2 text-sm ${hasPushSubscription ? 'text-gray-700' : 'text-gray-400'}`}>
+              <input
+                type="checkbox"
+                name="disableConfirmationEmails"
+                value="true"
+                defaultChecked={guestUser.disableConfirmationEmails}
+                disabled={!hasPushSubscription}
+              />
+              <span>Keine Bestätigungs-Mails mehr schicken, wenn ich per Push benachrichtigt werde</span>
+            </label>
+            {!hasPushSubscription && (
+              <p className="text-xs text-gray-400">Aktiviere zuerst Push-Benachrichtigungen auf einer deiner Termin-Seiten.</p>
+            )}
+            <SubmitButton>Speichern</SubmitButton>
           </form>
         </div>
 

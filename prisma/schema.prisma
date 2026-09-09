@@ -286,6 +286,15 @@ model GuestUser {
   // Löschung inaktiver Konten in app/api/cron/cleanup/route.ts (#13/DSGVO-Speicherbegrenzung).
   lastLoginAt DateTime @default(now())
 
+  // Selbst gesetzte Präferenz in /mein-konto/account: unterdrückt sendConfirmationEmail
+  // (app/lib/mail.ts) und schickt stattdessen sendConfirmationPush (app/lib/push.ts) - nur
+  // gedacht für Gäste, die die Info ohnehin per PWA-Push angezeigt bekommen. Die Aktivierung
+  // wird serverseitig nur erlaubt, solange mindestens eine ParticipantPushSubscription für
+  // einen der eigenen Participants existiert (siehe updateConfirmationEmailPreference in
+  // app/mein-konto/actions.ts) - betrifft ausdrücklich nur die Bestätigungs-Mail, nicht
+  // Erinnerungs- oder Änderungs-Mails, die weiterhin immer zusätzlich zum Push gehen.
+  disableConfirmationEmails Boolean @default(false)
+
   createdAt DateTime @default(now())
 
   seriesMemberships GuestUserSeries[]

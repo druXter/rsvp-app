@@ -7,11 +7,27 @@ import { redirect } from 'next/navigation'
 import { randomUUID } from 'crypto'
 import { sendConfirmationEmail, sendVerificationEmail, sendWaitlistPromotedEmail, sendWaitlistEmail } from './lib/mail'
 import { generateCheckinQrDataUrl } from './lib/qrcode'
-import { sendPushToUser } from './lib/push'
+import { sendPushToUser, sendConfirmationPush } from './lib/push'
 import { getCurrentGuestUser } from './lib/guest-auth'
 import { cookies } from 'next/headers'
 
 const prisma = new PrismaClient()
+
+/**
+ * Ob statt der Bestätigungs-Mail eine Push-Benachrichtigung (sendConfirmationPush) gehen
+ * soll - der Gast hat das in seinem Nutzer-Konto so eingestellt (GuestUser.disableConfirmationEmails,
+ * siehe /mein-konto/account), weil ihm die Info ohnehin per PWA-Push angezeigt wird. Betrifft
+ * nur die Bestätigungs-Mail; anonyme editToken-Gäste ohne Konto (guestUserId null) bekommen
+ * sie unverändert immer.
+ */
+async function shouldSuppressConfirmationEmail(participant: { guestUserId: string | null }) {
+  if (!participant.guestUserId) return false
+  const guestUser = await prisma.guestUser.findUnique({
+    where: { id: participant.guestUserId },
+    select: { disableConfirmationEmails: true }
+  })
+  return guestUser?.disableConfirmationEmails ?? false
+}
 
 export async function submitRsvp(formData: FormData) {
   const eventId = formData.get('eventId') as string
@@ -226,7 +242,11 @@ export async function submitRsvp(formData: FormData) {
         })
         if (nextInLine.participant.email) {
           await sendWaitlistPromotedEmail(nextInLine.participant, promotedRsvp, event)
-          await sendConfirmationEmail(nextInLine.participant, promotedRsvp, event)
+          if (await shouldSuppressConfirmationEmail(nextInLine.participant)) {
+            await sendConfirmationPush(event, nextInLine.participant)
+          } else {
+            await sendConfirmationEmail(nextInLine.participant, promotedRsvp, event)
+          }
         }
       }
     }
@@ -250,7 +270,11 @@ export async function submitRsvp(formData: FormData) {
         const changedFromWaitlistToFixed = existingRsvp && existingRsvp.isOnWaitlist && !savedRsvp.isOnWaitlist
 
         if (isNewFixed || changedFromDeclineToFixed || changedFromWaitlistToFixed) {
-          await sendConfirmationEmail(participant, savedRsvp, event)
+          if (await shouldSuppressConfirmationEmail(participant)) {
+            await sendConfirmationPush(event, participant)
+          } else {
+            await sendConfirmationEmail(participant, savedRsvp, event)
+          }
         } else if (isNewWaitlist || changedFromDeclineToWaitlist) {
           await sendWaitlistEmail(participant, savedRsvp, event)
         }
