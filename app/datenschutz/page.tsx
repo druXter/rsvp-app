@@ -46,8 +46,9 @@ export default function DatenschutzPage() {
             Einlasskontrolle). Wir erheben dabei ausschließlich Daten, die für diesen Zweck erforderlich sind oder die
             du uns freiwillig zusätzlich mitteilst. Rechtsgrundlage ist grundsätzlich Art. 6 Abs. 1 lit. b DSGVO
             (Erfüllung eines Vertrags bzw. vorvertraglicher Maßnahmen - deine Anmeldung zur Veranstaltung), für rein
-            freiwillige Zusatzangaben (z.B. Allergien, siehe Punkt 4) Art. 6 Abs. 1 lit. a bzw. Art. 9 Abs. 2 lit. a
-            DSGVO (Einwilligung durch das Ausfüllen des jeweiligen Feldes).
+            freiwillige Zusatzangaben (z.B. Allergien, siehe Punkt 4) sowie für optionale Funktionen wie
+            Push-Benachrichtigungen (Punkt 6) Art. 6 Abs. 1 lit. a bzw. Art. 9 Abs. 2 lit. a DSGVO (Einwilligung durch
+            das Ausfüllen des jeweiligen Feldes bzw. das aktive Aktivieren der Funktion).
           </p>
         </div>
 
@@ -57,8 +58,10 @@ export default function DatenschutzPage() {
             Für Veranstalter:innen (E-Mail, Passwort-Hash) und für Gäste, die sich freiwillig ein Nutzer-Konto unter
             &quot;Mein Konto&quot; anlegen (E-Mail, Passwort-Hash, Name, optional Handynummer/Essenswunsch/Allergien),
             speichern wir Login-Daten. Passwörter werden ausschließlich als Hash (bcrypt) gespeichert, niemals im
-            Klartext. Die Anmeldung erfolgt über ein zufällig erzeugtes Sitzungs-Token in einem Cookie (siehe Punkt 7)
-            - niemals über deinen Namen oder deine E-Mail-Adresse direkt im Cookie.
+            Klartext. Die Anmeldung erfolgt über ein zufällig erzeugtes Sitzungs-Token in einem Cookie (siehe Punkt 11)
+            - niemals über deinen Namen oder deine E-Mail-Adresse direkt im Cookie. Bei einem Nutzer-Konto speichern
+            wir außerdem den Zeitpunkt deines letzten Logins, um das Konto nach längerer Inaktivität automatisch
+            löschen zu können (siehe Punkt 13).
           </p>
         </div>
 
@@ -68,7 +71,7 @@ export default function DatenschutzPage() {
             Je nach Konfiguration der jeweiligen Veranstaltung fragen wir Name (Pflichtfeld), E-Mail-Adresse,
             Handynummer, Essenswunsch, Begleitperson, Alkohol-Präferenz, Mitbringsel und freie Zusatzfragen ab. Diese
             Angaben verwenden wir ausschließlich zur Organisation und Durchführung der jeweiligen Veranstaltung. Wir
-            geben deine Daten nicht an Dritte außerhalb der in Punkt 8 genannten Auftragsverarbeiter weiter.
+            geben deine Daten nicht an Dritte außerhalb der in Punkt 12 genannten Auftragsverarbeiter weiter.
           </p>
           <p className="mt-2">
             <strong>Allergien/Unverträglichkeiten:</strong> Dieses Feld ist stets freiwillig und optional. Da
@@ -76,22 +79,70 @@ export default function DatenschutzPage() {
             verarbeiten wir sie ausschließlich auf Basis deiner ausdrücklichen Einwilligung, die du durch das
             freiwillige Ausfüllen dieses Feldes erteilst (Art. 9 Abs. 2 lit. a DSGVO). Du kannst diese Einwilligung
             jederzeit mit Wirkung für die Zukunft widerrufen, z.B. indem du deine Angabe über deinen persönlichen Link
-            entfernst oder deine Daten vollständig löschst (siehe Punkt 9).
+            entfernst oder deine Daten vollständig löschst (siehe Punkt 14).
+          </p>
+          <p className="mt-2">
+            <strong>Veranstaltungsreihen:</strong> Gehört ein Termin zu einer Reihe, werden deine Kontakt- und
+            Profilangaben einmalig für die gesamte Reihe gespeichert und für weitere Termine derselben Reihe
+            wiederverwendet, damit du sie nicht bei jedem Termin erneut eingeben musst. Deine eigentliche Antwort
+            (Zu-/Absage, Begleitung, Mitbringsel usw.) wird dagegen immer getrennt pro Termin gespeichert.
           </p>
         </div>
 
         <div>
-          <h2 className="font-bold text-lg">5. E-Mail-Bestätigung (Double-Opt-In) & Erinnerungen</h2>
+          <h2 className="font-bold text-lg">5. E-Mails an Gäste (Bestätigung, Erinnerung, Änderungen)</h2>
           <p className="mt-2">
             Ist für eine Veranstaltung die E-Mail-Bestätigung aktiviert, verschicken wir dir einen Bestätigungslink,
             bevor deine Anmeldung gültig wird - das schützt dich und uns vor missbräuchlichen Anmeldungen unter
-            fremdem Namen. Zusätzlich kannst du automatische oder manuelle Erinnerungs-E-Mails vor der Veranstaltung
-            erhalten, sofern du eine E-Mail-Adresse hinterlegt hast.
+            fremdem Namen. Sofern du eine E-Mail-Adresse hinterlegt hast, erhältst du außerdem eine Bestätigung deiner
+            Zusage (mit Kalenderdatei und - falls aktiviert - deinem Einlass-QR-Code), Benachrichtigungen zur
+            Warteliste sowie automatische oder manuelle Erinnerungen vor der Veranstaltung.
+          </p>
+          <p className="mt-2">
+            <strong>Änderungs-Mitteilungen:</strong> Ändert die Veranstalter:in nach deiner Zusage wesentliche Angaben
+            zum Termin (Titel, Datum, Dauer, Ort oder Beschreibung), kann sie alle bereits zugesagten Gäste darüber
+            informieren. Du erhältst diese Mitteilung per E-Mail und - falls du Push-Benachrichtigungen aktiviert hast
+            - zusätzlich als Push-Benachrichtigung (siehe Punkt 6).
+          </p>
+          <p className="mt-2">
+            <strong>Bestätigungs-Mails abbestellen:</strong> Hast du ein Nutzer-Konto unter &quot;Mein Konto&quot; und
+            dort Push-Benachrichtigungen aktiviert, kannst du unter &quot;⚙️ Konto-Einstellungen&quot; festlegen, dass
+            wir dir keine Bestätigungs-Mails mehr schicken - du erhältst die Bestätigung dann ausschließlich als
+            Push-Benachrichtigung. Diese Einstellung lässt sich jederzeit wieder zurücknehmen. Verifizierungs-,
+            Passwort-Reset- und E-Mail-Änderungs-Nachrichten sind davon ausgenommen, da sie für die Sicherheit deines
+            Kontos erforderlich sind.
           </p>
         </div>
 
         <div>
-          <h2 className="font-bold text-lg">6. Öffentliche Gästeliste</h2>
+          <h2 className="font-bold text-lg">6. Push-Benachrichtigungen (PWA)</h2>
+          <p className="mt-2">
+            Diese Anwendung kann als App auf deinem Gerät installiert werden (Progressive Web App) und dir auf Wunsch
+            Push-Benachrichtigungen schicken. Diese Funktion ist <strong>immer freiwillig</strong> und wird erst aktiv,
+            nachdem du sie selbst aktiviert und die Benachrichtigungs-Erlaubnis deines Browsers erteilt hast
+            (Rechtsgrundlage: Art. 6 Abs. 1 lit. a DSGVO - Einwilligung).
+          </p>
+          <ul className="list-disc list-inside mt-2 space-y-1 text-sm">
+            <li>
+              <strong>Als Gast:</strong> Erinnerungen an bevorstehende Termine, Mitteilungen über Termin-Änderungen
+              und - falls du Bestätigungs-Mails abbestellt hast (Punkt 5) - die Bestätigung deiner Zusage. Bei einer
+              Veranstaltungsreihe gilt eine einmal aktivierte Benachrichtigung für alle Termine dieser Reihe.
+            </li>
+            <li>
+              <strong>Als Veranstalter:in:</strong> Hinweise auf neue Zu- und Absagen zu den eigenen Veranstaltungen.
+            </li>
+          </ul>
+          <p className="mt-2">
+            Für die Zustellung speichern wir die technische Abo-Adresse (Endpoint-URL) und die Verschlüsselungs-Keys
+            deines Browsers. Die Auslieferung erfolgt technisch über den Push-Dienst deines Browser-Herstellers - die
+            damit verbundene Datenübermittlung ist in Punkt 12 beschrieben. Du kannst die Benachrichtigungen jederzeit
+            an derselben Stelle wieder deaktivieren oder die Erlaubnis in den Einstellungen deines Browsers entziehen;
+            das gespeicherte Abo wird dann gelöscht.
+          </p>
+        </div>
+
+        <div>
+          <h2 className="font-bold text-lg">7. Öffentliche Gästeliste</h2>
           <p className="mt-2">
             Manche Veranstaltungen zeigen optional eine öffentliche Gästeliste, auf der andere Gäste sehen können, wer
             zugesagt hat, wer eine Begleitung mitbringt und wer welches Mitbringsel beisteuert. Dort wird
@@ -102,7 +153,7 @@ export default function DatenschutzPage() {
         </div>
 
         <div>
-          <h2 className="font-bold text-lg">7. QR-Code-Einlasskontrolle</h2>
+          <h2 className="font-bold text-lg">8. QR-Code-Einlasskontrolle</h2>
           <p className="mt-2">
             Ist für eine Veranstaltung die Einlasskontrolle aktiviert, erhältst du bei einer bestätigten Zusage einen
             persönlichen QR-Code (per E-Mail und auf der Erfolgsseite). Wird dieser beim Einlass gescannt, speichern
@@ -111,7 +162,37 @@ export default function DatenschutzPage() {
         </div>
 
         <div>
-          <h2 className="font-bold text-lg">8. Cookies</h2>
+          <h2 className="font-bold text-lg">9. Verlinkte externe Abstimmungen</h2>
+          <p className="mt-2">
+            Veranstalter:innen können einen Termin mit einer Abstimmung in einer separaten Abstimmungs-Anwendung
+            verknüpfen. Diese Anwendung ist ein eigenständiges Angebot mit einer eigenen Datenschutzerklärung; erst
+            wenn du den entsprechenden Link aktiv anklickst, verlässt du diese Anwendung.
+          </p>
+          <p className="mt-2">
+            Bist du zu diesem Zeitpunkt mit einem bestätigten Nutzer-Konto unter &quot;Mein Konto&quot; angemeldet,
+            übermitteln wir dabei <strong>deine E-Mail-Adresse</strong> in einem kryptographisch signierten,
+            <strong> nur 10 Minuten gültigen</strong> Token an die verlinkte Abstimmung. Das dient ausschließlich dazu,
+            dich dort als bereits bestätigte Person auszuweisen, damit du nicht erneut eine Verifizierung durchlaufen
+            musst. Weitere Angaben (Name, Handynummer, Essenswunsch, Allergien, deine Antworten) werden dabei nicht
+            übertragen, ebenso wenig dein Passwort oder deine Sitzung. Bist du nicht angemeldet, führt derselbe Link
+            ohne jede Übermittlung personenbezogener Daten zur Abstimmung.
+          </p>
+        </div>
+
+        <div>
+          <h2 className="font-bold text-lg">10. Zugriff durch Veranstalter:innen und Moderator:innen</h2>
+          <p className="mt-2">
+            Deine Angaben zu einer Veranstaltung (einschließlich E-Mail-Adresse, Handynummer, Essenswunsch und
+            Allergien) sind für die Veranstalter:in einsehbar, die diese Veranstaltung angelegt hat, und können von ihr
+            als Liste exportiert werden. Zusätzlich kann sie einzelnen weiteren Konten Moderations-Rechte für eine
+            bestimmte Veranstaltung oder Reihe einräumen; diese sehen dann dieselbe Gästeliste und können Antworten
+            pflegen sowie den Einlass abwickeln. Administrator:innen dieser Instanz haben technisch bedingt Zugriff auf
+            alle Daten. Ein Zugriff durch andere Veranstalter:innen ohne eine solche Freigabe findet nicht statt.
+          </p>
+        </div>
+
+        <div>
+          <h2 className="font-bold text-lg">11. Cookies</h2>
           <p className="mt-2">
             Wir setzen ausschließlich technisch notwendige Cookies ein (Art. 6 Abs. 1 lit. b/f DSGVO, § 25 Abs. 2 Nr. 2
             TTDSG) - dafür ist keine Einwilligung erforderlich. Es gibt keine Tracking-, Analyse- oder
@@ -125,7 +206,7 @@ export default function DatenschutzPage() {
         </div>
 
         <div>
-          <h2 className="font-bold text-lg">9. Empfänger und Auftragsverarbeiter</h2>
+          <h2 className="font-bold text-lg">12. Empfänger und Auftragsverarbeiter</h2>
           <p className="mt-2">
             <strong>E-Mail-Versand:</strong> Bestätigungs-, Erinnerungs-, Verifizierungs- und Passwort-Reset-E-Mails
             versenden wir über den E-Mail-Server <code>{smtpHost}</code>. Mit dem Betreiber dieses Servers besteht,
@@ -133,13 +214,16 @@ export default function DatenschutzPage() {
             DSGVO.
           </p>
           <p className="mt-2">
-            <strong>Web-Push-Benachrichtigungen:</strong> Veranstalter:innen können sich optional für
-            Push-Benachrichtigungen über neue Zu-/Absagen anmelden. Diese werden technisch über den
-            Push-Dienst deines jeweiligen Browser-Herstellers (z.B. Google, Mozilla, Apple) ausgeliefert - dabei
-            können Kurzinformationen wie ein Gästename sowie die IP-Adresse des Empfangsgeräts an Server dieser
-            Anbieter übertragen werden, die sich auch außerhalb der EU/des EWR befinden können. Diese Funktion
-            betrifft ausschließlich das Gerät der Veranstalter:in, die sich aktiv dafür angemeldet hat, nicht die
-            Geräte der Gäste.
+            <strong>Web-Push-Benachrichtigungen:</strong> Hast du Push-Benachrichtigungen aktiviert (siehe Punkt 6 -
+            als Gast oder als Veranstalter:in), werden diese technisch über den Push-Dienst deines jeweiligen
+            Browser-Herstellers (z.B. Google, Mozilla, Apple) ausgeliefert. Dabei können Kurzinformationen wie ein
+            Veranstaltungstitel, ein Termin oder ein Gästename sowie die IP-Adresse des Empfangsgeräts an Server dieser
+            Anbieter übertragen werden, die sich auch außerhalb der EU/des EWR befinden können. Die Funktion betrifft
+            ausschließlich Geräte, auf denen sie zuvor aktiv aktiviert wurde.
+          </p>
+          <p className="mt-2">
+            <strong>Verlinkte Abstimmungs-Anwendung:</strong> Beim Klick auf einen Abstimmungs-Link kann deine
+            E-Mail-Adresse an die verlinkte Anwendung übermittelt werden - die Einzelheiten dazu stehen in Punkt 9.
           </p>
           <p className="mt-2">
             <strong>Hosting:</strong> Diese Anwendung wird auf einem vom Verantwortlichen selbst betriebenen und
@@ -149,7 +233,7 @@ export default function DatenschutzPage() {
         </div>
 
         <div>
-          <h2 className="font-bold text-lg">10. Speicherdauer</h2>
+          <h2 className="font-bold text-lg">13. Speicherdauer</h2>
           <p className="mt-2">
             Deine Daten zu einer Veranstaltung werden spätestens <strong>18 Monate nach dem Veranstaltungsdatum</strong>{' '}
             automatisch vollständig gelöscht - inklusive des Veranstaltungs-Datensatzes selbst, nicht nur deiner
@@ -163,14 +247,19 @@ export default function DatenschutzPage() {
             Antworten. Admin-Konten (Veranstalter:innen) sind von dieser automatischen Löschung ausgenommen.
           </p>
           <p className="mt-2">
-            Unabhängig von diesen automatischen Fristen kannst du deine Daten jederzeit früher über die in Punkt 11
+            Gespeicherte Push-Abos werden gelöscht, sobald du die Benachrichtigungen deaktivierst, dein Browser das Abo
+            beendet (z.B. beim Löschen der Websitedaten) oder die zugehörigen Daten nach den oben genannten Fristen
+            entfallen.
+          </p>
+          <p className="mt-2">
+            Unabhängig von diesen automatischen Fristen kannst du deine Daten jederzeit früher über die in Punkt 14
             beschriebenen Selbstbedienungs-Funktionen löschen oder uns unter der oben genannten Kontaktadresse um
             frühere Löschung bitten.
           </p>
         </div>
 
         <div>
-          <h2 className="font-bold text-lg">11. Deine Rechte</h2>
+          <h2 className="font-bold text-lg">14. Deine Rechte</h2>
           <p className="mt-2">
             Du hast das Recht auf Auskunft (Art. 15 DSGVO), Berichtigung (Art. 16 DSGVO), Löschung (Art. 17 DSGVO),
             Einschränkung der Verarbeitung (Art. 18 DSGVO), Datenübertragbarkeit (Art. 20 DSGVO) und Widerspruch (Art.
@@ -186,7 +275,9 @@ export default function DatenschutzPage() {
             Konto-Einstellungen&quot; eine Schaltfläche, um dieses Konto jederzeit vollständig zu löschen. An
             derselben Stelle (bzw. bei Admin-Konten unter &quot;⚙️ Konto-Einstellungen&quot; im Dashboard) kannst du
             dein Passwort und deine E-Mail-Adresse jederzeit selbst ändern - eine E-Mail-Änderung wird erst nach
-            Bestätigung über einen an die neue Adresse geschickten Link wirksam.
+            Bestätigung über einen an die neue Adresse geschickten Link wirksam. Ebenfalls dort steuerst du, ob du
+            Bestätigungs-Mails erhalten möchtest (Punkt 5); Push-Benachrichtigungen deaktivierst du direkt auf der
+            jeweiligen Termin-Seite bzw. im Dashboard (Punkt 6).
           </p>
           <p className="mt-2">
             Unabhängig davon hast du das Recht, dich bei einer Datenschutz-Aufsichtsbehörde zu beschweren, wenn du der
@@ -195,7 +286,7 @@ export default function DatenschutzPage() {
         </div>
 
         <div>
-          <h2 className="font-bold text-lg">12. Datensicherheit</h2>
+          <h2 className="font-bold text-lg">15. Datensicherheit</h2>
           <p className="mt-2">
             Die Übertragung erfolgt verschlüsselt (TLS/HTTPS). Login-Cookies sind <code>httpOnly</code> gesetzt und
             damit per JavaScript nicht auslesbar. Passwörter werden ausschließlich als Hash gespeichert, persönliche
