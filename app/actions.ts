@@ -4,302 +4,43 @@
 import { PrismaClient } from '@prisma/client'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { randomUUID } from 'crypto'
-import { sendConfirmationEmail, sendVerificationEmail, sendWaitlistPromotedEmail, sendWaitlistEmail } from './lib/mail'
-import { generateCheckinQrDataUrl } from './lib/qrcode'
-import { sendPushToUser, sendConfirmationPush } from './lib/push'
 import { getCurrentGuestUser } from './lib/guest-auth'
+import { performRsvpSubmission } from './lib/rsvp-submission'
 import { cookies } from 'next/headers'
 
 const prisma = new PrismaClient()
 
 /**
- * Ob statt der Bestätigungs-Mail eine Push-Benachrichtigung (sendConfirmationPush) gehen
- * soll - der Gast hat das in seinem Nutzer-Konto so eingestellt (GuestUser.disableConfirmationEmails,
- * siehe /mein-konto/account), weil ihm die Info ohnehin per PWA-Push angezeigt wird. Betrifft
- * nur die Bestätigungs-Mail; anonyme editToken-Gäste ohne Konto (guestUserId null) bekommen
- * sie unverändert immer.
+ * Server Action des Web-Formulars. Übersetzt nur die FormData-Felder und stellt die
+ * Identität aus der Gast-Session fest; die eigentliche Logik liegt in
+ * performRsvpSubmission (app/lib/rsvp-submission.ts), die sich die Client-API teilt.
+ * Die Identität stammt ausschließlich aus dem Session-Cookie - niemals aus einem Feld des
+ * abgeschickten Formulars, das ein Angreifer selbst befüllen könnte.
  */
-async function shouldSuppressConfirmationEmail(participant: { guestUserId: string | null }) {
-  if (!participant.guestUserId) return false
-  const guestUser = await prisma.guestUser.findUnique({
-    where: { id: participant.guestUserId },
-    select: { disableConfirmationEmails: true }
-  })
-  return guestUser?.disableConfirmationEmails ?? false
-}
-
 export async function submitRsvp(formData: FormData) {
-  const eventId = formData.get('eventId') as string
   const editToken = (formData.get('editToken') as string) || null
-  const name = formData.get('name') as string
-  const isAttending = formData.get('isAttending') === 'true'
 
-  const phone = formData.get('phone') as string || null
-  const dietaryOption = formData.get('dietaryOption') as string || null
-  const allergies = formData.get('allergies') as string || null
-  const emailInput = formData.get('email') as string || null
-
-  const drinksAlcohol = formData.has('drinksAlcohol') ? formData.get('drinksAlcohol') === 'true' : null
-  const additionalInfo = formData.get('additionalInfo') as string || null
-  const declineReason = formData.get('declineReason') as string || null
-
-  const plusOne = formData.get('plusOne') === 'true'
-  const plusOneName = formData.get('plusOneName') as string || null
-  const bringingItem = formData.get('bringingItem') as string || null
-
-  const event = await prisma.event.findUnique({
-    where: { id: eventId },
-    include: { rsvps: true, series: true }
-  })
-  if (!event) throw new Error('Event nicht gefunden')
-
-  // Ist der Termin Teil einer Reihe, gelten die Profil-/Zugangs-Einstellungen der Reihe
-  const requireVerification = event.series ? event.series.requireVerification : event.requireVerification
-
-  // Der Participant trägt die reihenweit (bzw. bei Einzel-Events: einmalig) geteilte Identität.
-  // Ohne editToken wird bei einem Reihen-Termin zusätzlich versucht, die Identität über eine
-  // eingeloggte Gast-Session (Nutzer-Konto, siehe #12) aufzulösen - so muss ein eingeloggter
-  // Nutzer keinen Link mehr kennen, um seine reihenweite Identität wiederzufinden.
-  const guestUser = !editToken && event.seriesId ? await getCurrentGuestUser() : null
-  const existingParticipant = editToken
-    ? await prisma.participant.findUnique({ where: { editToken } })
-    : guestUser
-      ? await prisma.participant.findFirst({ where: { seriesId: event.seriesId, guestUserId: guestUser.id } })
-      : null
-
-  // Die Antwort zu GENAU DIESEM Termin - kann fehlen, auch wenn der Participant schon existiert
-  // (z.B. wenn er über seinen Reihen-Link zum ersten Mal auf einen NEUEN Termin antwortet)
-  const existingRsvp = existingParticipant
-    ? await prisma.rsvp.findUnique({
-        where: { eventId_participantId: { eventId, participantId: existingParticipant.id } }
-      })
-    : null
-
-  // Einmal verifizierte E-Mails sind gesperrt (siehe rsvp-form.tsx: Feld wird readOnly).
-  // Bei einer Absage behalten wir eine evtl. vorhandene (auch unverifizierte) E-Mail,
-  // da sie bei Reihen für weitere Termine relevant bleibt. Fragt der Termin gar keine
-  // E-Mail ab (askEmail aus), liefert das Formular kein emailInput - für einen
-  // eingeloggten Nutzer ist seine bereits bekannte, ggf. verifizierte Adresse aus dem
-  // zentralen Konto (guestUser.email) trotzdem die richtige Angabe, nicht "keine E-Mail".
-  const finalEmail = (existingParticipant && existingParticipant.isVerified && existingParticipant.email)
-    ? existingParticipant.email
-    : (isAttending ? (emailInput || guestUser?.email || existingParticipant?.email || null) : (existingParticipant?.email ?? guestUser?.email ?? null))
-
-  // Ein eingeloggter Nutzer (GuestUser), dessen Konto bereits verifiziert ist, hat seine
-  // E-Mail-Adresse schon bei der Kontoregistrierung bestätigt - für ihn braucht es beim
-  // ersten Termin einer NEUEN Reihe keine zusätzliche, redundante Double-Opt-In-Mail mehr.
-  const guestAlreadyVerified = !!(guestUser && guestUser.isVerified)
-
-  let needsVerification = false
-  if (requireVerification && isAttending && finalEmail !== null && !guestAlreadyVerified) {
-    if (!existingParticipant) {
-      needsVerification = true
-    } else if (existingParticipant.email !== finalEmail || !existingParticipant.isVerified) {
-      needsVerification = true
-    }
-  }
-
-  // Kapazitätsprüfung & Warteliste - weiterhin ausschließlich pro Termin
-  let isOnWaitlist = false
-  if (isAttending && event.maxCapacity !== null) {
-    const currentAttendeesCount = event.rsvps.filter(r =>
-      r.isAttending && !r.isOnWaitlist && r.participantId !== existingParticipant?.id
-    ).length
-
-    if (existingRsvp && existingRsvp.isAttending && !existingRsvp.isOnWaitlist) {
-      isOnWaitlist = false // Behält seinen festen Platz
-    } else if (currentAttendeesCount >= event.maxCapacity) {
-      isOnWaitlist = true
-    }
-  }
-
-  // Verknüpfung zu einem Nutzer-Konto (GuestUser) bleibt erhalten, auch wenn gerade z.B.
-  // über den alten editToken-Link geantwortet wird, ohne aktuell eingeloggt zu sein.
-  const linkedGuestUserId = guestUser?.id ?? existingParticipant?.guestUserId ?? null
-
-  // Participant-Profil anlegen/aktualisieren. Felder, die im Formular nicht vorkamen
-  // (z.B. weil gerade abgesagt wird), überschreiben ein vorhandenes Profil NICHT mit null -
-  // sie bleiben für andere Termine der Reihe erhalten.
-  const participantData = {
-    name,
-    seriesId: event.seriesId,
-    guestUserId: linkedGuestUserId,
-    email: finalEmail,
-    phone: phone ?? existingParticipant?.phone ?? null,
-    dietaryOption: dietaryOption ?? existingParticipant?.dietaryOption ?? null,
-    allergies: allergies ?? existingParticipant?.allergies ?? null,
-  }
-
-  let participant
-  if (existingParticipant) {
-    participant = await prisma.participant.update({
-      where: { id: existingParticipant.id },
-      data: {
-        ...participantData,
-        // Wenn eine Verifizierung nötig ist, setzen wir den Status sofort auf false zurück
-        ...(needsVerification ? {
-          isVerified: false,
-          verifyToken: existingParticipant.verifyToken || randomUUID()
-        } : {})
-      }
-    })
-  } else {
-    participant = await prisma.participant.create({
-      data: {
-        ...participantData,
-        editToken: randomUUID(),
-        // Ein bereits verifiziertes Nutzer-Konto vererbt seinen Verifizierungsstatus direkt
-        // an den neuen Participant dieser Reihe (siehe guestAlreadyVerified oben) - sonst
-        // würde die Kapazitäts-/Wartelisten-Logik ihn fälschlich als unverifiziert behandeln.
-        isVerified: guestAlreadyVerified,
-        verifiedAt: guestAlreadyVerified ? new Date() : null,
-        verifyToken: needsVerification ? randomUUID() : null
-      }
-    })
-  }
-
-  // Zentrales Nutzer-Profil zurückspiegeln (gilt dann sofort für alle Reihen des Kontos)
-  // und die Reihen-Mitgliedschaft sicherstellen, damit der Termin in "Mein Konto" auftaucht -
-  // auch wenn noch niemand ihn dort explizit hinzugefügt hat.
-  if (linkedGuestUserId) {
-    await prisma.guestUser.update({
-      where: { id: linkedGuestUserId },
-      data: { name: participant.name, phone: participant.phone, dietaryOption: participant.dietaryOption, allergies: participant.allergies }
-    })
-  }
-  if (guestUser && event.seriesId) {
-    await prisma.guestUserSeries.upsert({
-      where: { guestUserId_seriesId: { guestUserId: guestUser.id, seriesId: event.seriesId } },
-      update: {},
-      create: { guestUserId: guestUser.id, seriesId: event.seriesId }
-    })
-  }
-
-  // Antworten auf die frei definierten Zusatzfragen (positionsbasiert, siehe formConfig.customQuestions)
-  const customQuestions: string[] = event.formConfig ? (JSON.parse(event.formConfig).customQuestions || []) : []
-  const customAnswers = isAttending && customQuestions.length > 0
-    ? JSON.stringify(customQuestions.map((_, i) => (formData.get(`customAnswer_${i}`) as string) || ''))
-    : null
-
-  const rsvpData = {
-    isAttending,
-    drinksAlcohol: isAttending ? drinksAlcohol : null,
-    additionalInfo: isAttending ? additionalInfo : null,
-    plusOne: isAttending ? plusOne : false,
-    plusOneName: isAttending && plusOne ? plusOneName : null,
-    bringingItem: isAttending ? bringingItem : null,
-    declineReason: isAttending ? null : declineReason,
-    customAnswers,
-    isOnWaitlist
-  }
-
-  let savedRsvp
-  if (existingRsvp) {
-    savedRsvp = await prisma.rsvp.update({
-      where: { id: existingRsvp.id },
-      data: rsvpData
-    })
-  } else {
-    savedRsvp = await prisma.rsvp.create({
-      data: {
-        ...rsvpData,
-        eventId,
-        participantId: participant.id
-      }
-    })
-
-    // Event-Owner per Push benachrichtigen (nur bei brandneuen Antworten, nicht bei Änderungen)
-    try {
-      await sendPushToUser(event.ownerId, {
-        title: isAttending ? 'Neue Zusage 🎉' : 'Neue Absage',
-        body: `${name} - ${event.title}`,
-        url: '/admin'
-      })
-    } catch (error) {
-      console.error("Fehler beim Push-Versand:", error)
-    }
-  }
-
-  // Nachrück-Automatik, wenn man von "Kommt" auf "Kommt nicht" wechselt
-  if (existingRsvp && existingRsvp.isAttending && !existingRsvp.isOnWaitlist && !isAttending) {
-    if (event.maxCapacity !== null) {
-      const nextInLine = await prisma.rsvp.findFirst({
-        where: {
-          eventId,
-          isAttending: true,
-          isOnWaitlist: true,
-          ...(requireVerification ? { participant: { isVerified: true } } : {})
-        },
-        orderBy: { createdAt: 'asc' },
-        include: { participant: true }
-      })
-
-      if (nextInLine) {
-        const promotedRsvp = await prisma.rsvp.update({
-          where: { id: nextInLine.id },
-          data: { isOnWaitlist: false }
-        })
-        if (nextInLine.participant.email) {
-          await sendWaitlistPromotedEmail(nextInLine.participant, promotedRsvp, event)
-          if (await shouldSuppressConfirmationEmail(nextInLine.participant)) {
-            await sendConfirmationPush(event, nextInLine.participant)
-          } else {
-            await sendConfirmationEmail(nextInLine.participant, promotedRsvp, event)
-          }
-        }
-      }
-    }
-  }
-
-  // E-Mail Logik für den GAST
-  if (participant.email && savedRsvp.isAttending) {
-    try {
-      if (needsVerification) {
-        // Schickt die Verifizierungsmail auch bei einer neuen E-Mail-Adresse im Update-Fall
-        await sendVerificationEmail(participant, event)
-      } else if (participant.isVerified || !requireVerification) {
-
-        const isNewFixed = !existingRsvp && !savedRsvp.isOnWaitlist
-        const isNewWaitlist = !existingRsvp && savedRsvp.isOnWaitlist
-
-        const changedFromDeclineToFixed = existingRsvp && !existingRsvp.isAttending && !savedRsvp.isOnWaitlist
-        const changedFromDeclineToWaitlist = existingRsvp && !existingRsvp.isAttending && savedRsvp.isOnWaitlist
-
-        // Wenn man durch das Update plötzlich in einen frei gewordenen Platz gerutscht ist
-        const changedFromWaitlistToFixed = existingRsvp && existingRsvp.isOnWaitlist && !savedRsvp.isOnWaitlist
-
-        if (isNewFixed || changedFromDeclineToFixed || changedFromWaitlistToFixed) {
-          if (await shouldSuppressConfirmationEmail(participant)) {
-            await sendConfirmationPush(event, participant)
-          } else {
-            await sendConfirmationEmail(participant, savedRsvp, event)
-          }
-        } else if (isNewWaitlist || changedFromDeclineToWaitlist) {
-          await sendWaitlistEmail(participant, savedRsvp, event)
-        }
-      }
-    } catch (error) {
-      console.error("Fehler beim E-Mail-Versand:", error)
-    }
-  }
-
-  revalidatePath(`/${event.slug}`)
-  if (event.series) revalidatePath(`/reihe/${event.series.slug}`)
-  revalidatePath('/admin')
-
-  // Einlass-QR-Code für die Erfolgsseite - nur für einen bestätigten, festen Platz
-  // und nur, wenn der Check-in für diesen Termin aktiviert ist
-  const qrCode = event.enableCheckin && savedRsvp.isAttending && !savedRsvp.isOnWaitlist
-    ? await generateCheckinQrDataUrl(savedRsvp.id)
-    : null
-
-  return {
-    editToken: participant.editToken,
-    needsVerification,
-    isOnWaitlist: savedRsvp.isOnWaitlist,
-    qrCode
-  }
+  return performRsvpSubmission(
+    {
+      eventId: formData.get('eventId') as string,
+      editToken,
+      name: formData.get('name') as string,
+      isAttending: formData.get('isAttending') === 'true',
+      phone: formData.get('phone') as string || null,
+      dietaryOption: formData.get('dietaryOption') as string || null,
+      allergies: formData.get('allergies') as string || null,
+      emailInput: formData.get('email') as string || null,
+      drinksAlcohol: formData.has('drinksAlcohol') ? formData.get('drinksAlcohol') === 'true' : null,
+      additionalInfo: formData.get('additionalInfo') as string || null,
+      declineReason: formData.get('declineReason') as string || null,
+      plusOne: formData.get('plusOne') === 'true',
+      plusOneName: formData.get('plusOneName') as string || null,
+      bringingItem: formData.get('bringingItem') as string || null,
+      // Bis zu 3 frei definierbare Zusatzfragen, positionsbasiert (siehe readCustomQuestions)
+      customAnswers: [0, 1, 2].map(i => (formData.get(`customAnswer_${i}`) as string) || '')
+    },
+    editToken ? null : await getCurrentGuestUser()
+  )
 }
 
 /**
