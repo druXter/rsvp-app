@@ -9,6 +9,7 @@ import { randomUUID, randomBytes } from 'crypto'
 import bcrypt from 'bcryptjs'
 import { sendGuestVerificationEmail, sendGuestPasswordResetEmail, sendGuestEmailChangeConfirmation } from '../lib/mail'
 import { requireGuestUser, GUEST_SESSION_COOKIE, GUEST_SESSION_DURATION_MS } from '../lib/guest-auth'
+import { generateApiToken, hashApiToken, NEW_API_TOKEN_COOKIE } from '../lib/api-auth'
 
 const prisma = new PrismaClient()
 
@@ -280,6 +281,48 @@ export async function updateConfirmationEmailPreference(formData: FormData) {
 }
 
 /**
+ * Erzeugt einen API-Token für einen selbstgebauten Client (z.B. eine WatchOS-App, siehe
+ * app/api/v1/). Gespeichert wird nur der Hash - der Klartext wird dem Nutzenden genau
+ * einmal angezeigt und dafür kurz in einem httpOnly-Cookie zwischengelagert, statt ihn an
+ * die URL zu hängen, wo er in der Browser-History und in Server-Logs stehen bliebe. Das
+ * Cookie läuft nach einer Minute von selbst ab, weil eine Server Component es nach dem
+ * Anzeigen nicht selbst löschen kann.
+ */
+export async function createApiToken(formData: FormData) {
+  const guestUser = await requireGuestUser()
+  const name = (formData.get('name') as string || '').trim() || 'Unbenanntes Gerät'
+
+  const token = generateApiToken()
+  await prisma.guestApiToken.create({
+    data: { name, tokenHash: hashApiToken(token), guestUserId: guestUser.id }
+  })
+
+  const cookieStore = await cookies()
+  cookieStore.set(NEW_API_TOKEN_COOKIE, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 60,
+    path: '/mein-konto',
+  })
+
+  redirect('/mein-konto/account?tokenCreated=1')
+}
+
+/**
+ * Widerruft einen API-Token endgültig. Die Löschung ist auf die eigenen Token beschränkt,
+ * damit eine fremde Token-ID nicht das Gerät einer anderen Person abmelden kann.
+ */
+export async function revokeApiToken(formData: FormData) {
+  const guestUser = await requireGuestUser()
+  const tokenId = formData.get('tokenId') as string
+  if (!tokenId) return
+
+  await prisma.guestApiToken.deleteMany({ where: { id: tokenId, guestUserId: guestUser.id } })
+
+  redirect('/mein-konto/account?tokenRevoked=1')
+}
+
+/**
  * Löscht das gesamte Nutzer-Konto unwiderruflich - Recht auf Löschung (Art. 17 DSGVO).
  * Anders als deleteMyParticipantData in app/actions.ts (löscht nur die Identität EINER
  * Reihe über den anonymen editToken-Link) betrifft dies das zentrale Konto und damit
@@ -293,6 +336,7 @@ export async function deleteGuestAccount() {
   await prisma.participant.deleteMany({ where: { guestUserId: guestUser.id } })
   await prisma.guestUserSeries.deleteMany({ where: { guestUserId: guestUser.id } })
   await prisma.guestSession.deleteMany({ where: { guestUserId: guestUser.id } })
+  await prisma.guestApiToken.deleteMany({ where: { guestUserId: guestUser.id } })
   await prisma.guestUser.delete({ where: { id: guestUser.id } })
 
   const cookieStore = await cookies()

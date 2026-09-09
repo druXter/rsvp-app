@@ -300,6 +300,7 @@ model GuestUser {
   seriesMemberships GuestUserSeries[]
   participants      Participant[]
   sessions          GuestSession[]
+  apiTokens         GuestApiToken[]
 }
 
 // Mitgliedschaft eines Nutzer-Kontos in einer Reihe (n:m - ein Konto kann mehreren Reihen
@@ -326,5 +327,24 @@ model GuestSession {
   guestUserId String
   guestUser   GuestUser @relation(fields: [guestUserId], references: [id])
   expiresAt   DateTime
+  createdAt   DateTime  @default(now())
+}
+
+// Langlebiger API-Schlüssel eines Nutzer-Kontos für selbstgebaute Clients (z.B. eine
+// WatchOS-App), siehe app/lib/api-auth.ts und app/api/v1/. Bewusst NICHT dasselbe wie
+// GuestSession: eine Session gehört zum Browser-Cookie und läuft nach 30 Tagen ab, ein
+// API-Token lebt bis zum ausdrücklichen Widerruf und wird vom Nutzenden in fremde Software
+// eingetragen. Deshalb liegt hier - anders als bei Session/GuestSession - nur der
+// SHA-256-Hash des Tokens, damit ein Datenbank-Leak keine sofort einsetzbaren Schlüssel
+// preisgibt; der Klartext existiert nur einmal direkt nach dem Erzeugen. SHA-256 statt
+// bcrypt, weil bei 32 zufälligen Bytes kein Erraten droht und jeder API-Request den Hash
+// berechnen muss.
+model GuestApiToken {
+  id          String    @id @default(cuid())
+  name        String
+  tokenHash   String    @unique
+  guestUserId String
+  guestUser   GuestUser @relation(fields: [guestUserId], references: [id])
+  lastUsedAt  DateTime?
   createdAt   DateTime  @default(now())
 }

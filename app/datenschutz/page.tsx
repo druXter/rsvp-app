@@ -58,7 +58,7 @@ export default function DatenschutzPage() {
             Für Veranstalter:innen (E-Mail, Passwort-Hash) und für Gäste, die sich freiwillig ein Nutzer-Konto unter
             &quot;Mein Konto&quot; anlegen (E-Mail, Passwort-Hash, Name, optional Handynummer/Essenswunsch/Allergien),
             speichern wir Login-Daten. Passwörter werden ausschließlich als Hash (bcrypt) gespeichert, niemals im
-            Klartext. Die Anmeldung erfolgt über ein zufällig erzeugtes Sitzungs-Token in einem Cookie (siehe Punkt 11)
+            Klartext. Die Anmeldung erfolgt über ein zufällig erzeugtes Sitzungs-Token in einem Cookie (siehe Punkt 12)
             - niemals über deinen Namen oder deine E-Mail-Adresse direkt im Cookie. Bei einem Nutzer-Konto speichern
             wir außerdem den Zeitpunkt deines letzten Logins, um das Konto nach längerer Inaktivität automatisch
             löschen zu können (siehe Punkt 13).
@@ -71,7 +71,7 @@ export default function DatenschutzPage() {
             Je nach Konfiguration der jeweiligen Veranstaltung fragen wir Name (Pflichtfeld), E-Mail-Adresse,
             Handynummer, Essenswunsch, Begleitperson, Alkohol-Präferenz, Mitbringsel und freie Zusatzfragen ab. Diese
             Angaben verwenden wir ausschließlich zur Organisation und Durchführung der jeweiligen Veranstaltung. Wir
-            geben deine Daten nicht an Dritte außerhalb der in Punkt 12 genannten Auftragsverarbeiter weiter.
+            geben deine Daten nicht an Dritte außerhalb der in Punkt 13 genannten Auftragsverarbeiter weiter.
           </p>
           <p className="mt-2">
             <strong>Allergien/Unverträglichkeiten:</strong> Dieses Feld ist stets freiwillig und optional. Da
@@ -79,7 +79,7 @@ export default function DatenschutzPage() {
             verarbeiten wir sie ausschließlich auf Basis deiner ausdrücklichen Einwilligung, die du durch das
             freiwillige Ausfüllen dieses Feldes erteilst (Art. 9 Abs. 2 lit. a DSGVO). Du kannst diese Einwilligung
             jederzeit mit Wirkung für die Zukunft widerrufen, z.B. indem du deine Angabe über deinen persönlichen Link
-            entfernst oder deine Daten vollständig löschst (siehe Punkt 14).
+            entfernst oder deine Daten vollständig löschst (siehe Punkt 15).
           </p>
           <p className="mt-2">
             <strong>Veranstaltungsreihen:</strong> Gehört ein Termin zu einer Reihe, werden deine Kontakt- und
@@ -135,7 +135,7 @@ export default function DatenschutzPage() {
           <p className="mt-2">
             Für die Zustellung speichern wir die technische Abo-Adresse (Endpoint-URL) und die Verschlüsselungs-Keys
             deines Browsers. Die Auslieferung erfolgt technisch über den Push-Dienst deines Browser-Herstellers - die
-            damit verbundene Datenübermittlung ist in Punkt 12 beschrieben. Du kannst die Benachrichtigungen jederzeit
+            damit verbundene Datenübermittlung ist in Punkt 13 beschrieben. Du kannst die Benachrichtigungen jederzeit
             an derselben Stelle wieder deaktivieren oder die Erlaubnis in den Einstellungen deines Browsers entziehen;
             das gespeicherte Abo wird dann gelöscht.
           </p>
@@ -192,7 +192,26 @@ export default function DatenschutzPage() {
         </div>
 
         <div>
-          <h2 className="font-bold text-lg">11. Cookies</h2>
+          <h2 className="font-bold text-lg">11. API-Zugang für eigene Apps</h2>
+          <p className="mt-2">
+            Du kannst dir in den Konto-Einstellungen einen API-Token erzeugen, um mit einer selbst
+            entwickelten App (z.B. auf einer Smartwatch) deine Termine abzurufen und zu- oder abzusagen. Ein
+            solcher Token gibt ausschließlich <strong>deine eigenen</strong> Daten heraus - deine Reihen, deine
+            Termine und deine Antworten. Gästelisten oder Angaben anderer Personen sind darüber nicht
+            erreichbar, ebenso wenig der Veranstalter:innen-Bereich.
+          </p>
+          <p className="mt-2">
+            Wir speichern zu jedem Token seinen Namen, das Erstellungsdatum und den Zeitpunkt der letzten
+            Nutzung - letzteres, damit du erkennst, welches Gerät noch aktiv ist. Der Token selbst wird nur als
+            Hash gespeichert und dir genau einmal im Klartext angezeigt. Du kannst jeden Token jederzeit
+            einzeln widerrufen; dein Konto bleibt davon unberührt. Verwendest du diese Funktion nicht, wird
+            auch nichts davon gespeichert. Bitte beachte, dass eine App, in die du den Token einträgst, damit
+            in deinem Namen antworten kann - gib ihn deshalb nicht weiter.
+          </p>
+        </div>
+
+        <div>
+          <h2 className="font-bold text-lg">12. Cookies</h2>
           <p className="mt-2">
             Wir setzen ausschließlich technisch notwendige Cookies ein (Art. 6 Abs. 1 lit. b/f DSGVO, § 25 Abs. 2 Nr. 2
             TTDSG) - dafür ist keine Einwilligung erforderlich. Es gibt keine Tracking-, Analyse- oder
@@ -206,7 +225,7 @@ export default function DatenschutzPage() {
         </div>
 
         <div>
-          <h2 className="font-bold text-lg">12. Empfänger und Auftragsverarbeiter</h2>
+          <h2 className="font-bold text-lg">13. Empfänger und Auftragsverarbeiter</h2>
           <p className="mt-2">
             <strong>E-Mail-Versand:</strong> Bestätigungs-, Erinnerungs-, Verifizierungs- und Passwort-Reset-E-Mails
             versenden wir über den E-Mail-Server <code>{smtpHost}</code>. Mit dem Betreiber dieses Servers besteht,
@@ -233,7 +252,7 @@ export default function DatenschutzPage() {
         </div>
 
         <div>
-          <h2 className="font-bold text-lg">13. Speicherdauer</h2>
+          <h2 className="font-bold text-lg">14. Speicherdauer</h2>
           <p className="mt-2">
             Deine Daten zu einer Veranstaltung werden spätestens <strong>18 Monate nach dem Veranstaltungsdatum</strong>{' '}
             automatisch vollständig gelöscht - inklusive des Veranstaltungs-Datensatzes selbst, nicht nur deiner
@@ -249,7 +268,8 @@ export default function DatenschutzPage() {
           <p className="mt-2">
             Gespeicherte Push-Abos werden gelöscht, sobald du die Benachrichtigungen deaktivierst, dein Browser das Abo
             beendet (z.B. beim Löschen der Websitedaten) oder die zugehörigen Daten nach den oben genannten Fristen
-            entfallen.
+            entfallen. API-Token (Punkt 11) bleiben bis zu ihrem Widerruf gespeichert und werden zusammen mit dem
+            Konto gelöscht.
           </p>
           <p className="mt-2">
             Unabhängig von diesen automatischen Fristen kannst du deine Daten jederzeit früher über die in Punkt 14
@@ -259,7 +279,7 @@ export default function DatenschutzPage() {
         </div>
 
         <div>
-          <h2 className="font-bold text-lg">14. Deine Rechte</h2>
+          <h2 className="font-bold text-lg">15. Deine Rechte</h2>
           <p className="mt-2">
             Du hast das Recht auf Auskunft (Art. 15 DSGVO), Berichtigung (Art. 16 DSGVO), Löschung (Art. 17 DSGVO),
             Einschränkung der Verarbeitung (Art. 18 DSGVO), Datenübertragbarkeit (Art. 20 DSGVO) und Widerspruch (Art.
@@ -286,7 +306,7 @@ export default function DatenschutzPage() {
         </div>
 
         <div>
-          <h2 className="font-bold text-lg">15. Datensicherheit</h2>
+          <h2 className="font-bold text-lg">16. Datensicherheit</h2>
           <p className="mt-2">
             Die Übertragung erfolgt verschlüsselt (TLS/HTTPS). Login-Cookies sind <code>httpOnly</code> gesetzt und
             damit per JavaScript nicht auslesbar. Passwörter werden ausschließlich als Hash gespeichert, persönliche

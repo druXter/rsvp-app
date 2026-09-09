@@ -3,7 +3,9 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { PrismaClient } from '@prisma/client'
 import { getCurrentGuestUser } from '../../lib/guest-auth'
-import { changeGuestPassword, requestGuestEmailChange, cancelGuestEmailChange, updateConfirmationEmailPreference } from '../actions'
+import { cookies } from 'next/headers'
+import { changeGuestPassword, requestGuestEmailChange, cancelGuestEmailChange, updateConfirmationEmailPreference, createApiToken, revokeApiToken } from '../actions'
+import { NEW_API_TOKEN_COOKIE } from '../../lib/api-auth'
 import SubmitButton from '../../ui/submit-button'
 import DeleteAccountButton from '../delete-account-button'
 
@@ -18,7 +20,7 @@ const prisma = new PrismaClient()
 export default async function GuestAccountPage({
   searchParams
 }: {
-  searchParams: Promise<{ error?: string; passwordChanged?: string; emailChangeRequested?: string; confirmationPrefSaved?: string }>
+  searchParams: Promise<{ error?: string; passwordChanged?: string; emailChangeRequested?: string; confirmationPrefSaved?: string; tokenCreated?: string; tokenRevoked?: string }>
 }) {
   const guestUser = await getCurrentGuestUser()
   if (!guestUser) redirect('/mein-konto/login')
@@ -34,6 +36,17 @@ export default async function GuestAccountPage({
   const hasPushSubscription = (await prisma.participantPushSubscription.count({
     where: { participant: { guestUserId: guestUser.id } }
   })) > 0
+
+  const tokenCreated = params.tokenCreated === '1'
+  const tokenRevoked = params.tokenRevoked === '1'
+  const apiTokens = await prisma.guestApiToken.findMany({
+    where: { guestUserId: guestUser.id },
+    orderBy: { createdAt: 'desc' }
+  })
+  // Klartext des frisch erzeugten Tokens - steht nur die eine Minute im Cookie, die
+  // createApiToken ihm gibt, und ist danach nirgends mehr abrufbar.
+  const newToken = (await cookies()).get(NEW_API_TOKEN_COOKIE)?.value
+  const baseUrl = process.env.BASE_URL || 'https://rsvp.ramonroeser.de'
 
   return (
     <main className="min-h-screen bg-gray-100 py-12 px-4">
@@ -130,6 +143,88 @@ export default async function GuestAccountPage({
             )}
             <SubmitButton>Speichern</SubmitButton>
           </form>
+        </div>
+
+        <div className="bg-white p-6 rounded-lg shadow space-y-3">
+          <h2 className="font-bold text-gray-900">API-Zugang für eigene Apps</h2>
+          <p className="text-sm text-gray-500">
+            Mit einem API-Token kann eine selbstgebaute App (z.B. für die Apple Watch) deine Termine abrufen
+            und für dich zu- oder absagen. Ein Token gilt nur für dein Konto und deine eigenen Antworten -
+            niemals für Gästelisten anderer Personen.
+          </p>
+
+          {tokenRevoked && (
+            <p className="text-sm text-green-700 bg-green-50 p-2 rounded">Token widerrufen. Geräte, die ihn genutzt haben, kommen nicht mehr an deine Daten.</p>
+          )}
+
+          {newToken && tokenCreated && (
+            <div className="bg-yellow-50 border border-yellow-200 p-3 rounded space-y-2">
+              <p className="text-sm text-yellow-800 font-medium">
+                Dein neuer Token - kopiere ihn jetzt, er wird nie wieder angezeigt:
+              </p>
+              <code className="block bg-white border border-yellow-300 p-2 rounded text-xs break-all text-gray-900">{newToken}</code>
+              <p className="text-xs text-yellow-700">
+                Behandle ihn wie ein Passwort. Wenn er abhandenkommt, widerrufe ihn hier - dein Konto bleibt davon unberührt.
+              </p>
+            </div>
+          )}
+
+          {apiTokens.length > 0 && (
+            <ul className="divide-y divide-gray-100 border border-gray-100 rounded">
+              {apiTokens.map(t => (
+                <li key={t.id} className="flex items-center justify-between gap-3 p-2">
+                  <div className="min-w-0">
+                    <p className="text-sm text-gray-800 truncate">{t.name}</p>
+                    <p className="text-xs text-gray-500">
+                      Erstellt am {t.createdAt.toLocaleDateString('de-DE')} ·{' '}
+                      {t.lastUsedAt ? `zuletzt genutzt am ${t.lastUsedAt.toLocaleDateString('de-DE')}` : 'noch nie genutzt'}
+                    </p>
+                  </div>
+                  <form action={revokeApiToken}>
+                    <input type="hidden" name="tokenId" value={t.id} />
+                    <button type="submit" className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded hover:bg-red-200 transition whitespace-nowrap">
+                      Widerrufen
+                    </button>
+                  </form>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <form action={createApiToken} className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">Neuen Token erzeugen</label>
+            <input
+              type="text"
+              name="name"
+              required
+              maxLength={60}
+              placeholder="Wofür? z.B. Apple Watch"
+              className="w-full border border-gray-300 p-2 rounded text-gray-900"
+            />
+            <SubmitButton>Token erzeugen</SubmitButton>
+          </form>
+
+          <details className="text-sm text-gray-600">
+            <summary className="cursor-pointer text-gray-700">So wird der Token benutzt</summary>
+            <div className="mt-2 space-y-2">
+              <p>
+                Jede Anfrage schickt den Token im Header <code className="text-xs">Authorization: Bearer &lt;token&gt;</code>.
+                Basis-Adresse: <code className="text-xs break-all">{baseUrl}/api/v1</code>
+              </p>
+              <ul className="list-disc list-inside space-y-1 text-xs">
+                <li><code>GET /me</code> - dein Profil, zum Prüfen ob der Token gültig ist</li>
+                <li><code>GET /termine</code> - deine Reihen mit allen kommenden Terminen und deiner bisherigen Antwort</li>
+                <li><code>POST /termine/&lt;terminId&gt;/antwort</code> - antworten, JSON-Body z.B. <code>{'{"isAttending": true}'}</code></li>
+              </ul>
+              <p className="text-xs">
+                Beim Antworten sind optional <code>plusOne</code>, <code>plusOneName</code>, <code>bringingItem</code>,{' '}
+                <code>drinksAlcohol</code>, <code>additionalInfo</code>, <code>declineReason</code> und{' '}
+                <code>customAnswers</code> erlaubt. Name und Kontaktdaten kommen immer aus deinem Konto.
+                Die Antwort enthält <code>isOnWaitlist</code> und - bei Terminen mit Einlasskontrolle -{' '}
+                <code>checkinQrCode</code>.
+              </p>
+            </div>
+          </details>
         </div>
 
         <div className="bg-white p-6 rounded-lg shadow border-t-4 border-red-200 space-y-2">
