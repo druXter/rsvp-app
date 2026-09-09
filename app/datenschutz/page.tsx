@@ -105,7 +105,7 @@ export default function DatenschutzPage() {
             - zusätzlich als Push-Benachrichtigung (siehe Punkt 6).
           </p>
           <p className="mt-2">
-            <strong>Bestätigungs-Mails abbestellen:</strong> Hast du ein Nutzer-Konto unter &quot;Mein Konto&quot; und
+            <strong>Bestätigungs-Mails abbestellen:</strong>{' '}Hast du ein Nutzer-Konto unter &quot;Mein Konto&quot; und
             dort Push-Benachrichtigungen aktiviert, kannst du unter &quot;⚙️ Konto-Einstellungen&quot; festlegen, dass
             wir dir keine Bestätigungs-Mails mehr schicken - du erhältst die Bestätigung dann ausschließlich als
             Push-Benachrichtigung. Diese Einstellung lässt sich jederzeit wieder zurücknehmen. Verifizierungs-,
@@ -170,8 +170,8 @@ export default function DatenschutzPage() {
           </p>
           <p className="mt-2">
             Bist du zu diesem Zeitpunkt mit einem bestätigten Nutzer-Konto unter &quot;Mein Konto&quot; angemeldet,
-            übermitteln wir dabei <strong>deine E-Mail-Adresse</strong> in einem kryptographisch signierten,
-            <strong> nur 10 Minuten gültigen</strong> Token an die verlinkte Abstimmung. Das dient ausschließlich dazu,
+            übermitteln wir dabei <strong>deine E-Mail-Adresse</strong> in einem kryptographisch signierten,{' '}
+            <strong>nur 10 Minuten gültigen</strong> Token an die verlinkte Abstimmung. Das dient ausschließlich dazu,
             dich dort als bereits bestätigte Person auszuweisen, damit du nicht erneut eine Verifizierung durchlaufen
             musst. Weitere Angaben (Name, Handynummer, Essenswunsch, Allergien, deine Antworten) werden dabei nicht
             übertragen, ebenso wenig dein Passwort oder deine Sitzung. Bist du nicht angemeldet, führt derselbe Link
