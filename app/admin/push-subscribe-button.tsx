@@ -76,7 +76,7 @@ export default function PushSubscribeButton({ vapidPublicKey }: { vapidPublicKey
       onClick={subscribed ? handleUnsubscribe : handleSubscribe}
       disabled={isLoading}
       className={`px-4 py-2 rounded text-sm font-medium transition disabled:opacity-50 ${
-        subscribed ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+        subscribed ? 'bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-900' : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600'
       }`}
       title={subscribed ? 'Push-Benachrichtigungen für dieses Gerät deaktivieren' : 'Push-Benachrichtigungen für dieses Gerät aktivieren'}
     >

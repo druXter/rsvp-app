@@ -14,10 +14,10 @@ export default async function GuestVerifyPage({ searchParams }: { searchParams: 
 
   if (!token) {
     return (
-      <main className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-        <div className="bg-white p-8 rounded-lg shadow max-w-md text-center">
+      <main className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center p-4">
+        <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow max-w-md text-center">
           <h1 className="text-2xl font-bold text-red-600 mb-4">Fehler</h1>
-          <p className="text-gray-700">Es wurde kein Bestätigungs-Token übergeben.</p>
+          <p className="text-gray-700 dark:text-gray-300">Es wurde kein Bestätigungs-Token übergeben.</p>
         </div>
       </main>
     )
@@ -27,10 +27,10 @@ export default async function GuestVerifyPage({ searchParams }: { searchParams: 
 
   if (!guestUser) {
     return (
-      <main className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-        <div className="bg-white p-8 rounded-lg shadow max-w-md text-center">
+      <main className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center p-4">
+        <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow max-w-md text-center">
           <h1 className="text-2xl font-bold text-red-600 mb-4">Ungültiger Link</h1>
-          <p className="text-gray-700">Dieser Bestätigungslink ist ungültig oder wurde bereits verwendet.</p>
+          <p className="text-gray-700 dark:text-gray-300">Dieser Bestätigungslink ist ungültig oder wurde bereits verwendet.</p>
         </div>
       </main>
     )
@@ -42,10 +42,10 @@ export default async function GuestVerifyPage({ searchParams }: { searchParams: 
   })
 
   return (
-    <main className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-      <div className="bg-white p-8 rounded-lg shadow max-w-md text-center">
+    <main className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center p-4">
+      <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow max-w-md text-center">
         <h1 className="text-2xl font-bold text-green-600 mb-4">Konto bestätigt! 🎉</h1>
-        <p className="text-gray-700 mb-6">Dein Konto ist jetzt aktiv. Du kannst dich ab sofort einloggen.</p>
+        <p className="text-gray-700 dark:text-gray-300 mb-6">Dein Konto ist jetzt aktiv. Du kannst dich ab sofort einloggen.</p>
         <Link href="/mein-konto/login" className="inline-block bg-blue-600 text-white font-bold py-2 px-6 rounded hover:bg-blue-700 transition">
           Jetzt einloggen
         </Link>

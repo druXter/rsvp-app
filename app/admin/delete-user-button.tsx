@@ -15,7 +15,7 @@ export default function DeleteUserButton({ userId, email }: { userId: string; em
       }
     }}>
       <input type="hidden" name="userId" value={userId} />
-      <button type="submit" className="px-2 py-1 bg-red-100 text-red-700 text-xs font-bold rounded hover:bg-red-200 transition">
+      <button type="submit" className="px-2 py-1 bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300 text-xs font-bold rounded hover:bg-red-200 dark:hover:bg-red-900 transition">
         🗑️ Löschen
       </button>
     </form>

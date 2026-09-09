@@ -75,16 +75,16 @@ export default function RsvpForm({
     // Spezieller Screen für Absagen
     if (isAttending === false) {
       return (
-        <div className={`flex flex-col items-center ${isEmbed ? 'py-6 text-red-800' : 'p-6 bg-red-50 text-red-800 rounded-lg shadow'}`}>
+        <div className={`flex flex-col items-center ${isEmbed ? 'py-6 text-red-800 dark:text-red-300' : 'p-6 bg-red-50 text-red-800 rounded-lg shadow dark:bg-red-950 dark:text-red-300'}`}>
           <h3 className="text-xl font-bold mb-2 text-center">Schade, dass du nicht dabei bist!</h3>
           <p className="mb-6 text-center">Deine Absage wurde erfolgreich gespeichert.</p>
           <div className="w-full text-left">
-            <p className="text-xs text-gray-600 mb-1">Dein persönlicher Link (falls du es dir anders überlegst):</p>
+            <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Dein persönlicher Link (falls du es dir anders überlegst):</p>
             <input
               type="text"
               readOnly
               value={personalLink}
-              className="w-full bg-white border border-red-200 rounded p-2 text-sm text-gray-700 outline-none cursor-pointer"
+              className="w-full bg-white border border-red-200 rounded p-2 text-sm text-gray-700 outline-none cursor-pointer dark:bg-gray-800 dark:border-red-800 dark:text-gray-300"
               onClick={(e) => e.currentTarget.select()}
             />
           </div>
@@ -97,10 +97,10 @@ export default function RsvpForm({
 
     if (showVerifyScreen) {
       return (
-        <div className={`flex flex-col items-center ${isEmbed ? 'py-6 text-yellow-800' : 'p-6 bg-yellow-50 text-yellow-800 rounded-lg shadow'}`}>
+        <div className={`flex flex-col items-center ${isEmbed ? 'py-6 text-yellow-800 dark:text-yellow-300' : 'p-6 bg-yellow-50 text-yellow-800 rounded-lg shadow dark:bg-yellow-950 dark:text-yellow-300'}`}>
           <h3 className="text-xl font-bold mb-2 text-center">Fast geschafft! ✉️</h3>
           <p className="mb-6 text-center">Wir haben dir gerade eine E-Mail mit einem Bestätigungslink gesendet.</p>
-          <p className="text-sm text-yellow-700 text-center font-medium bg-yellow-100 p-4 rounded w-full">
+          <p className="text-sm text-yellow-700 text-center font-medium bg-yellow-100 p-4 rounded w-full dark:bg-yellow-900 dark:text-yellow-200">
             Bitte klicke auf den Link in der E-Mail, um deine Anmeldung verbindlich abzuschließen. Erst danach erhältst du deinen Kalendereintrag!
           </p>
           <div className="mt-4">
@@ -113,15 +113,15 @@ export default function RsvpForm({
     // Wenn Warteliste aktiv ist
     if (isOnWaitlist) {
       return (
-        <div className={`flex flex-col items-center ${isEmbed ? 'py-6 text-orange-800' : 'p-6 bg-orange-50 text-orange-800 rounded-lg shadow'}`}>
+        <div className={`flex flex-col items-center ${isEmbed ? 'py-6 text-orange-800 dark:text-orange-300' : 'p-6 bg-orange-50 text-orange-800 rounded-lg shadow dark:bg-orange-950 dark:text-orange-300'}`}>
           <h3 className="text-xl font-bold mb-2 text-center">Du stehst auf der Warteliste! ⏳</h3>
           <p className="mb-6 text-center">Das Event ist leider aktuell ausgebucht. Wir haben deine Anmeldung aber notiert.</p>
-          <p className="text-sm bg-orange-100 p-4 rounded w-full mb-6">
+          <p className="text-sm bg-orange-100 p-4 rounded w-full mb-6 dark:bg-orange-900">
             Sobald jemand abspringt und ein Platz für dich frei wird, rückt dein Platz automatisch nach und wir benachrichtigen dich sofort per E-Mail!
           </p>
           <div className="w-full text-left">
-            <p className="text-xs text-gray-600 mb-1">Dein persönlicher Link (z.B. für Absagen):</p>
-            <input type="text" readOnly value={personalLink} className="w-full bg-white border border-orange-200 rounded p-2 text-sm text-gray-700 outline-none" onClick={(e) => e.currentTarget.select()} />
+            <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Dein persönlicher Link (z.B. für Absagen):</p>
+            <input type="text" readOnly value={personalLink} className="w-full bg-white border border-orange-200 rounded p-2 text-sm text-gray-700 outline-none dark:bg-gray-800 dark:border-orange-800 dark:text-gray-300" onClick={(e) => e.currentTarget.select()} />
           </div>
           <div className="mt-4 flex flex-wrap gap-2 justify-center">
             <PushSubscribeToggle editToken={submittedToken} vapidPublicKey={vapidPublicKey} />
@@ -133,18 +133,18 @@ export default function RsvpForm({
 
     // Der normale "Alles erfolgreich"-Screen
     return (
-      <div className={`flex flex-col items-center ${isEmbed ? 'py-6 text-green-800' : 'p-6 bg-green-50 text-green-800 rounded-lg shadow'}`}>
+      <div className={`flex flex-col items-center ${isEmbed ? 'py-6 text-green-800 dark:text-green-300' : 'p-6 bg-green-50 text-green-800 rounded-lg shadow dark:bg-green-950 dark:text-green-300'}`}>
         <h3 className="text-xl font-bold mb-2 text-center">Danke für deine Anmeldung! 🎉</h3>
         <p className="mb-6 text-center">Deine Rückmeldung wurde erfolgreich gespeichert.</p>
 
-        <div className={`w-full mb-6 ${isEmbed ? 'p-4 border border-green-200 rounded' : 'bg-white p-4 rounded border border-green-200'}`}>
-          <p className="text-sm font-bold mb-2 text-green-900">🔗 Dein persönlicher Bearbeitungs-Link:</p>
-          <p className="text-xs text-gray-600 mb-2">Speichere diesen Link, falls du deine Antwort später noch einmal ändern möchtest.</p>
+        <div className={`w-full mb-6 ${isEmbed ? 'p-4 border border-green-200 rounded dark:border-green-800' : 'bg-white p-4 rounded border border-green-200 dark:bg-gray-800 dark:border-green-800'}`}>
+          <p className="text-sm font-bold mb-2 text-green-900 dark:text-green-300">🔗 Dein persönlicher Bearbeitungs-Link:</p>
+          <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">Speichere diesen Link, falls du deine Antwort später noch einmal ändern möchtest.</p>
           <input
             type="text"
             readOnly
             value={personalLink}
-            className="w-full bg-gray-50 border border-gray-200 rounded p-2 text-sm text-gray-700 outline-none cursor-pointer"
+            className="w-full bg-gray-50 border border-gray-200 rounded p-2 text-sm text-gray-700 outline-none cursor-pointer dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300"
             onClick={(e) => e.currentTarget.select()}
             title="Link zum Kopieren anklicken"
           />
@@ -160,11 +160,11 @@ export default function RsvpForm({
         )}
 
         {qrCode && (
-          <div className={`w-full mt-6 flex flex-col items-center ${isEmbed ? 'p-4 border border-green-200 rounded' : 'bg-white p-4 rounded border border-green-200'}`}>
-            <p className="text-sm font-bold mb-2 text-green-900">🎫 Dein persönlicher Einlass-QR-Code:</p>
+          <div className={`w-full mt-6 flex flex-col items-center ${isEmbed ? 'p-4 border border-green-200 rounded dark:border-green-800' : 'bg-white p-4 rounded border border-green-200 dark:bg-gray-800 dark:border-green-800'}`}>
+            <p className="text-sm font-bold mb-2 text-green-900 dark:text-green-300">🎫 Dein persönlicher Einlass-QR-Code:</p>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={qrCode} alt="Einlass-QR-Code" className="w-48 h-48" />
-            <p className="text-xs text-gray-600 mt-2 text-center">Bitte am Einlass bereithalten (auch per E-Mail an dich verschickt).</p>
+            <p className="text-xs text-gray-600 dark:text-gray-400 mt-2 text-center">Bitte am Einlass bereithalten (auch per E-Mail an dich verschickt).</p>
           </div>
         )}
 
@@ -182,7 +182,7 @@ export default function RsvpForm({
     // verschachtelte Formulare sind ungültiges HTML - der Browser wirft das innere Tag beim
     // Parsen weg, was zu einem Hydration-Mismatch führt und den Lösch-Button vor der
     // Hydration das RSVP-Formular absenden lässt. Im Embed-Modus entfällt die Box-Optik.
-    <div className={`space-y-6 text-gray-900 ${isEmbed ? '' : 'bg-white p-6 rounded-lg shadow'}`}>
+    <div className={`space-y-6 text-gray-900 dark:text-gray-100 ${isEmbed ? '' : 'bg-white p-6 rounded-lg shadow dark:bg-gray-800'}`}>
     <form onSubmit={handleSubmit} className="space-y-6">
       <input type="hidden" name="eventId" value={eventId} />
       {/* Nur mitschicken, wenn der Participant wirklich über einen ?token= aus der URL
@@ -195,14 +195,14 @@ export default function RsvpForm({
       {participant?.editToken && usedUrlToken && <input type="hidden" name="editToken" value={participant.editToken} />}
 
       {isGuestListVisible && (
-        <p className="text-xs bg-blue-50 text-blue-800 p-3 rounded border border-blue-100">
+        <p className="text-xs bg-blue-50 text-blue-800 p-3 rounded border border-blue-100 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
           ℹ️ Für dieses Event ist eine öffentliche Gästeliste aktiv: Dein Name (nicht deine E-Mail, Telefonnummer oder Allergien) ist für andere Gäste sichtbar, sobald du zusagst.
         </p>
       )}
 
       <div>
         <label htmlFor="name" className="block text-sm font-medium mb-1">Dein Name</label>
-        <input id="name" type="text" name="name" defaultValue={participant?.name} required className="w-full border border-gray-300 p-2 rounded" placeholder="Max Mustermann" />
+        <input id="name" type="text" name="name" defaultValue={participant?.name} required className="w-full border border-gray-300 p-2 rounded bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100" placeholder="Max Mustermann" />
       </div>
 
       <fieldset>
@@ -220,11 +220,11 @@ export default function RsvpForm({
       </fieldset>
 
       {isAttending === true && (
-        <div className="space-y-4 pt-4 border-t border-gray-200">
+        <div className="space-y-4 pt-4 border-t border-gray-200 dark:border-gray-700">
 
           {config.askEmail && (
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">E-Mail Adresse</label>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">E-Mail Adresse</label>
               <input
                 id="email"
                 type="email"
@@ -233,7 +233,7 @@ export default function RsvpForm({
                 required
                 // Wenn eine E-Mail existiert und verifiziert ist, wird das Feld gesperrt
                 readOnly={participant?.isVerified ? true : false}
-                className={`w-full border p-2 rounded-md ${participant?.isVerified ? 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed outline-none' : 'border-gray-300'}`}
+                className={`w-full border p-2 rounded-md ${participant?.isVerified ? 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed outline-none dark:bg-gray-700 dark:border-gray-600 dark:text-gray-400' : 'bg-white border-gray-300 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100'}`}
                 placeholder="max@beispiel.de"
               />
               {/* Kleiner visueller Hinweis für den Gast */}
@@ -247,14 +247,14 @@ export default function RsvpForm({
 
           {config.askPhone && (
             <div>
-              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">Handynummer</label>
-              <input id="phone" type="tel" name="phone" defaultValue={participant?.phone || ''} required className="w-full border border-gray-300 p-2 rounded-md" placeholder="0151 12345678" />
+              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Handynummer</label>
+              <input id="phone" type="tel" name="phone" defaultValue={participant?.phone || ''} required className="w-full border border-gray-300 p-2 rounded-md bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100" placeholder="0151 12345678" />
             </div>
           )}
 
           {config.askPlusOne && (
             <fieldset className="space-y-2">
-              <legend className="block text-sm font-medium text-gray-700 mb-1">Bringst du eine Begleitperson mit?</legend>
+              <legend className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Bringst du eine Begleitperson mit?</legend>
               <div className="flex gap-4">
                 <label className="flex items-center gap-2">
                   <input type="radio" name="plusOne" value="true" defaultChecked={rsvp?.plusOne === true} required onChange={() => setHasPlusOne(true)} className="w-4 h-4 text-blue-600" /> Ja
@@ -264,15 +264,15 @@ export default function RsvpForm({
                 </label>
               </div>
               {hasPlusOne && (
-                <input type="text" name="plusOneName" defaultValue={rsvp?.plusOneName || ''} required className="w-full border border-gray-300 p-2 rounded-md mt-2" placeholder="Name der Begleitperson" />
+                <input type="text" name="plusOneName" defaultValue={rsvp?.plusOneName || ''} required className="w-full border border-gray-300 p-2 rounded-md mt-2 bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100" placeholder="Name der Begleitperson" />
               )}
             </fieldset>
           )}
 
           {config.askDiet && (
             <div>
-              <label htmlFor="dietaryOption" className="block text-sm font-medium text-gray-700 mb-1">Essenswunsch</label>
-              <select id="dietaryOption" name="dietaryOption" defaultValue={participant?.dietaryOption || ''} required className="w-full border border-gray-300 p-2 rounded-md bg-white">
+              <label htmlFor="dietaryOption" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Essenswunsch</label>
+              <select id="dietaryOption" name="dietaryOption" defaultValue={participant?.dietaryOption || ''} required className="w-full border border-gray-300 p-2 rounded-md bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100">
                 <option value="">Bitte wählen...</option>
                 <option value="Allesesser">Ich esse alles (Fleisch/Fisch)</option>
                 <option value="Vegetarisch">Vegetarisch</option>
@@ -283,9 +283,9 @@ export default function RsvpForm({
 
           {config.askAllergies && (
             <div>
-              <label htmlFor="allergies" className="block text-sm font-medium text-gray-700 mb-1">Allergien oder Unverträglichkeiten? (Optional)</label>
-              <input id="allergies" type="text" name="allergies" defaultValue={participant?.allergies || ''} className="w-full border border-gray-300 p-2 rounded-md" placeholder="z.B. Laktose, Nüsse, Gluten..." />
-              <p className="text-xs text-gray-500 mt-1">
+              <label htmlFor="allergies" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Allergien oder Unverträglichkeiten? (Optional)</label>
+              <input id="allergies" type="text" name="allergies" defaultValue={participant?.allergies || ''} className="w-full border border-gray-300 p-2 rounded-md bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100" placeholder="z.B. Laktose, Nüsse, Gluten..." />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                 Freiwillige Angabe zur Berücksichtigung bei der Verpflegung. Da dies ggf. ein Gesundheitsdatum ist, verarbeiten wir es nur auf Basis deiner Einwilligung durch das Ausfüllen dieses Feldes - jederzeit widerrufbar, z.B. über deinen persönlichen Link (siehe unsere <Link href="/datenschutz" className="underline">Datenschutzerklärung</Link>).
               </p>
             </div>
@@ -293,7 +293,7 @@ export default function RsvpForm({
 
           {config.askAlcohol && (
             <fieldset>
-              <legend className="block text-sm font-medium text-gray-700 mb-1">Trinkst du Alkohol?</legend>
+              <legend className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Trinkst du Alkohol?</legend>
               <div className="flex gap-4">
                 <label className="flex items-center gap-2">
                   <input type="radio" name="drinksAlcohol" value="true" defaultChecked={rsvp?.drinksAlcohol === true} required className="w-4 h-4 text-blue-600" /> Ja
@@ -307,30 +307,30 @@ export default function RsvpForm({
 
           {config.askBringingItem && (
             <div>
-              <label htmlFor="bringingItem" className="block text-sm font-medium text-gray-700 mb-1">Bringst du etwas mit? (Optional)</label>
-              <input id="bringingItem" type="text" name="bringingItem" defaultValue={rsvp?.bringingItem || ''} className="w-full border border-gray-300 p-2 rounded-md" placeholder="z.B. Nudelsalat, Kasten Bier..." />
+              <label htmlFor="bringingItem" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Bringst du etwas mit? (Optional)</label>
+              <input id="bringingItem" type="text" name="bringingItem" defaultValue={rsvp?.bringingItem || ''} className="w-full border border-gray-300 p-2 rounded-md bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100" placeholder="z.B. Nudelsalat, Kasten Bier..." />
             </div>
           )}
 
           {customQuestions.map((question: string, i: number) => (
             <div key={i}>
-              <label htmlFor={`customAnswer-${i}`} className="block text-sm font-medium text-gray-700 mb-1">{question} (Optional)</label>
-              <input id={`customAnswer-${i}`} type="text" name={`customAnswer_${i}`} defaultValue={existingCustomAnswers[i] || ''} className="w-full border border-gray-300 p-2 rounded-md" />
+              <label htmlFor={`customAnswer-${i}`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{question} (Optional)</label>
+              <input id={`customAnswer-${i}`} type="text" name={`customAnswer_${i}`} defaultValue={existingCustomAnswers[i] || ''} className="w-full border border-gray-300 p-2 rounded-md bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100" />
             </div>
           ))}
 
           <div>
-            <label htmlFor="additionalInfo" className="block text-sm font-medium text-gray-700 mb-1">Sonstige Anmerkungen? (Optional)</label>
-            <textarea id="additionalInfo" name="additionalInfo" defaultValue={rsvp?.additionalInfo || ''} className="w-full border border-gray-300 p-2 rounded-md" rows={3}></textarea>
+            <label htmlFor="additionalInfo" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Sonstige Anmerkungen? (Optional)</label>
+            <textarea id="additionalInfo" name="additionalInfo" defaultValue={rsvp?.additionalInfo || ''} className="w-full border border-gray-300 p-2 rounded-md bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100" rows={3}></textarea>
           </div>
         </div>
       )}
 
       {isAttending === false && (
-        <div className="space-y-4 pt-4 border-t">
+        <div className="space-y-4 pt-4 border-t dark:border-gray-700">
           <div>
             <label htmlFor="declineReason" className="block text-sm font-medium mb-1">Warum klappt es leider nicht? (Optional)</label>
-            <textarea id="declineReason" name="declineReason" defaultValue={rsvp?.declineReason || ''} className="w-full border border-gray-300 p-2 rounded" rows={2} placeholder="z.B. Sind leider im Urlaub..."></textarea>
+            <textarea id="declineReason" name="declineReason" defaultValue={rsvp?.declineReason || ''} className="w-full border border-gray-300 p-2 rounded bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100" rows={2} placeholder="z.B. Sind leider im Urlaub..."></textarea>
           </div>
         </div>
       )}
@@ -339,7 +339,7 @@ export default function RsvpForm({
     </form>
 
     {participant?.editToken && (
-      <div className="pt-4 border-t border-gray-100 flex flex-wrap gap-2 justify-center">
+      <div className="pt-4 border-t border-gray-100 dark:border-gray-700 flex flex-wrap gap-2 justify-center">
         <PushSubscribeToggle editToken={participant.editToken} vapidPublicKey={vapidPublicKey} />
         <DeleteMyDataButton editToken={participant.editToken} eventId={eventId} isSeriesShared={isSeriesShared} />
       </div>

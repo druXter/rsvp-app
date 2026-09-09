@@ -10,10 +10,10 @@ export default async function VerifyPage({ searchParams }: { searchParams: Promi
 
   if (!token) {
     return (
-      <main className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-        <div className="bg-white p-8 rounded-lg shadow max-w-md text-center">
+      <main className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center p-4">
+        <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow max-w-md text-center">
           <h1 className="text-2xl font-bold text-red-600 mb-4">Fehler</h1>
-          <p className="text-gray-700">Es wurde kein Verifizierungs-Token übergeben.</p>
+          <p className="text-gray-700 dark:text-gray-300">Es wurde kein Verifizierungs-Token übergeben.</p>
         </div>
       </main>
     )
@@ -28,10 +28,10 @@ export default async function VerifyPage({ searchParams }: { searchParams: Promi
 
   if (!participant) {
     return (
-      <main className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-        <div className="bg-white p-8 rounded-lg shadow max-w-md text-center">
+      <main className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center p-4">
+        <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow max-w-md text-center">
           <h1 className="text-2xl font-bold text-red-600 mb-4">Ungültiger Link</h1>
-          <p className="text-gray-700">Dieser Bestätigungslink ist ungültig oder wurde bereits verwendet.</p>
+          <p className="text-gray-700 dark:text-gray-300">Dieser Bestätigungslink ist ungültig oder wurde bereits verwendet.</p>
         </div>
       </main>
     )
@@ -91,10 +91,10 @@ export default async function VerifyPage({ searchParams }: { searchParams: Promi
       : `/${r.slug}?token=${verifiedParticipant.editToken}`
 
   return (
-    <main className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-      <div className="bg-white p-8 rounded-lg shadow max-w-md text-center">
+    <main className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center p-4">
+      <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow max-w-md text-center">
         <h1 className="text-2xl font-bold text-green-600 mb-4">Erfolgreich bestätigt! 🎉</h1>
-        <p className="text-gray-700 mb-6">
+        <p className="text-gray-700 dark:text-gray-300 mb-6">
           Deine E-Mail-Adresse wurde verifiziert{results.length === 1 && (
             <> und deine Anmeldung für <strong>{results[0].title}</strong> ist nun gültig</>
           )}.
@@ -103,7 +103,7 @@ export default async function VerifyPage({ searchParams }: { searchParams: Promi
         {results.length > 1 && (
           <div className="text-left mb-6 space-y-2">
             {results.map(r => (
-              <div key={r.slug} className={`text-sm p-3 rounded ${r.isOnWaitlist ? 'bg-orange-50 text-orange-700' : 'bg-gray-50 text-gray-700'}`}>
+              <div key={r.slug} className={`text-sm p-3 rounded ${r.isOnWaitlist ? 'bg-orange-50 text-orange-700 dark:bg-orange-950 dark:text-orange-300' : 'bg-gray-50 text-gray-700 dark:bg-gray-700 dark:text-gray-300'}`}>
                 <strong>{r.title}</strong>: {r.isOnWaitlist ? 'Warteliste' : 'Bestätigt'}
               </div>
             ))}
@@ -111,12 +111,12 @@ export default async function VerifyPage({ searchParams }: { searchParams: Promi
         )}
 
         {results.length === 1 && results[0].isOnWaitlist && (
-          <p className="text-sm text-orange-600 font-bold mb-6 bg-orange-50 p-3 rounded">
+          <p className="text-sm text-orange-600 font-bold mb-6 bg-orange-50 dark:bg-orange-950 dark:text-orange-300 p-3 rounded">
             Du stehst aktuell auf der Warteliste. Wir haben dir dazu eine E-Mail gesendet.
           </p>
         )}
         {results.length === 1 && !results[0].isOnWaitlist && (
-          <p className="text-sm text-gray-500 mb-6">
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
             Wir haben dir soeben die finale Bestätigung inkl. Kalendereintrag per E-Mail gesendet.
           </p>
         )}

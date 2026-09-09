@@ -17,7 +17,7 @@ export default function DeleteButton({ eventId }: { eventId: string }) {
     }}>
       {/* Verstecktes Feld zur Übergabe der Event-ID an die Server-Action */}
       <input type="hidden" name="eventId" value={eventId} />
-      <button type="submit" className="px-3 py-1 bg-red-100 text-red-700 text-sm font-medium rounded hover:bg-red-200 transition">
+      <button type="submit" className="px-3 py-1 bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300 text-sm font-medium rounded hover:bg-red-200 dark:hover:bg-red-900 transition">
         🗑️ Löschen
       </button>
     </form>

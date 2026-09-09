@@ -25,11 +25,11 @@ export default async function CheckinPage({ params }: { params: Promise<{ rsvpId
 
   if (!rsvp) {
     return (
-      <main className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-        <div className="bg-white p-8 rounded-lg shadow max-w-sm w-full text-center">
+      <main className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center p-4">
+        <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow max-w-sm w-full text-center">
           <span className="text-5xl block mb-4">❓</span>
           <h1 className="text-xl font-bold text-red-600">Unbekannter QR-Code</h1>
-          <p className="text-gray-500 mt-2">Diese Antwort existiert nicht (mehr).</p>
+          <p className="text-gray-500 dark:text-gray-400 mt-2">Diese Antwort existiert nicht (mehr).</p>
         </div>
       </main>
     )
@@ -37,11 +37,11 @@ export default async function CheckinPage({ params }: { params: Promise<{ rsvpId
 
   if (!(await hasEventModeratorOrAbove(user, rsvp.event))) {
     return (
-      <main className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-        <div className="bg-white p-8 rounded-lg shadow max-w-sm w-full text-center">
+      <main className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center p-4">
+        <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow max-w-sm w-full text-center">
           <span className="text-5xl block mb-4">🔒</span>
           <h1 className="text-xl font-bold text-red-600">Nicht dein Event</h1>
-          <p className="text-gray-500 mt-2">Dieser QR-Code gehört zu einem Event eines anderen Kontos.</p>
+          <p className="text-gray-500 dark:text-gray-400 mt-2">Dieser QR-Code gehört zu einem Event eines anderen Kontos.</p>
         </div>
       </main>
     )
@@ -55,7 +55,7 @@ export default async function CheckinPage({ params }: { params: Promise<{ rsvpId
   if (!rsvp.event.enableCheckin) {
     statusIcon = '🚫'
     statusTitle = 'Check-in deaktiviert'
-    statusColor = 'text-gray-500'
+    statusColor = 'text-gray-500 dark:text-gray-400'
   } else if (!rsvp.isAttending) {
     statusIcon = '⚠️'
     statusTitle = 'Hat abgesagt'
@@ -74,17 +74,17 @@ export default async function CheckinPage({ params }: { params: Promise<{ rsvpId
   }
 
   return (
-    <main className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-      <div className="bg-white p-8 rounded-lg shadow max-w-sm w-full text-center">
+    <main className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center p-4">
+      <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow max-w-sm w-full text-center">
         <span className="text-6xl block mb-4">{statusIcon}</span>
         <h1 className={`text-2xl font-bold ${statusColor}`}>{statusTitle}</h1>
-        <p className="text-xl font-medium text-gray-900 mt-3">{rsvp.participant.name}</p>
-        <p className="text-gray-500">{rsvp.event.title}</p>
+        <p className="text-xl font-medium text-gray-900 dark:text-gray-100 mt-3">{rsvp.participant.name}</p>
+        <p className="text-gray-500 dark:text-gray-400">{rsvp.event.title}</p>
 
         {canUndo && (
           <form action={toggleAttendance} className="mt-6">
             <input type="hidden" name="rsvpId" value={rsvp.id} />
-            <button type="submit" className="text-sm text-gray-500 hover:text-gray-700 underline">
+            <button type="submit" className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 underline">
               Rückgängig machen
             </button>
           </form>

@@ -27,67 +27,67 @@ export default async function AccountPage({
   const emailChangeRequested = params.emailChangeRequested === '1'
 
   return (
-    <main className="min-h-screen bg-gray-100 py-12 px-4">
+    <main className="min-h-screen bg-gray-100 dark:bg-gray-900 py-12 px-4">
       <div className="max-w-md mx-auto space-y-6">
 
-        <div className="flex justify-between items-center bg-white p-6 rounded-lg shadow">
+        <div className="flex justify-between items-center bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Konto-Einstellungen</h1>
-            <p className="text-sm text-gray-500">{user.email} <span className="text-gray-400">({ROLE_LABELS[user.role]})</span></p>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Konto-Einstellungen</h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400">{user.email} <span className="text-gray-400 dark:text-gray-500">({ROLE_LABELS[user.role]})</span></p>
           </div>
-          <Link href="/admin" className="text-gray-500 hover:text-gray-800 transition text-sm">← Dashboard</Link>
+          <Link href="/admin" className="text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition text-sm">← Dashboard</Link>
         </div>
 
         {passwordChanged && (
-          <div className="p-3 bg-green-50 text-green-700 text-sm rounded">Passwort erfolgreich geändert. Andere angemeldete Geräte wurden abgemeldet.</div>
+          <div className="p-3 bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 text-sm rounded">Passwort erfolgreich geändert. Andere angemeldete Geräte wurden abgemeldet.</div>
         )}
         {wrongPassword && (
-          <div className="p-3 bg-red-50 text-red-700 text-sm rounded">Aktuelles Passwort ist falsch.</div>
+          <div className="p-3 bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 text-sm rounded">Aktuelles Passwort ist falsch.</div>
         )}
         {emailTaken && (
-          <div className="p-3 bg-red-50 text-red-700 text-sm rounded">Für diese E-Mail-Adresse existiert bereits ein Konto.</div>
+          <div className="p-3 bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 text-sm rounded">Für diese E-Mail-Adresse existiert bereits ein Konto.</div>
         )}
         {emailChangeRequested && (
-          <div className="p-3 bg-blue-50 text-blue-700 text-sm rounded">Bestätigungslink an die neue Adresse gesendet. Die Änderung wird erst nach dem Klick darauf wirksam.</div>
+          <div className="p-3 bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 text-sm rounded">Bestätigungslink an die neue Adresse gesendet. Die Änderung wird erst nach dem Klick darauf wirksam.</div>
         )}
 
         {user.pendingEmail && (
-          <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg space-y-2">
-            <p className="text-sm text-yellow-800">
+          <div className="bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 p-4 rounded-lg space-y-2">
+            <p className="text-sm text-yellow-800 dark:text-yellow-300">
               Ausstehende Änderung zu <strong>{user.pendingEmail}</strong> - prüfe dein Postfach für den Bestätigungslink.
             </p>
             <form action={cancelEmailChange}>
-              <button type="submit" className="text-xs text-yellow-700 hover:text-yellow-900 underline">Änderung abbrechen</button>
+              <button type="submit" className="text-xs text-yellow-700 dark:text-yellow-400 hover:text-yellow-900 dark:hover:text-yellow-200 underline">Änderung abbrechen</button>
             </form>
           </div>
         )}
 
-        <div className="bg-white p-6 rounded-lg shadow space-y-4">
-          <h2 className="font-bold text-gray-900">Passwort ändern</h2>
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow space-y-4">
+          <h2 className="font-bold text-gray-900 dark:text-gray-100">Passwort ändern</h2>
           <form action={changePassword} className="space-y-3">
             <div>
-              <label htmlFor="currentPassword" className="block text-sm font-medium mb-1 text-gray-700">Aktuelles Passwort</label>
-              <input id="currentPassword" type="password" name="currentPassword" required className="w-full border border-gray-300 p-2 rounded text-gray-900" />
+              <label htmlFor="currentPassword" className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Aktuelles Passwort</label>
+              <input id="currentPassword" type="password" name="currentPassword" required className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 rounded text-gray-900 dark:text-gray-100" />
             </div>
             <div>
-              <label htmlFor="newPassword" className="block text-sm font-medium mb-1 text-gray-700">Neues Passwort</label>
-              <input id="newPassword" type="password" name="newPassword" required minLength={8} className="w-full border border-gray-300 p-2 rounded text-gray-900" placeholder="Mindestens 8 Zeichen" />
+              <label htmlFor="newPassword" className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Neues Passwort</label>
+              <input id="newPassword" type="password" name="newPassword" required minLength={8} className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 rounded text-gray-900 dark:text-gray-100" placeholder="Mindestens 8 Zeichen" />
             </div>
             <SubmitButton>Passwort ändern</SubmitButton>
           </form>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow space-y-4">
-          <h2 className="font-bold text-gray-900">E-Mail-Adresse ändern</h2>
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow space-y-4">
+          <h2 className="font-bold text-gray-900 dark:text-gray-100">E-Mail-Adresse ändern</h2>
           <form action={requestEmailChange} className="space-y-3">
             <div>
-              <label htmlFor="currentPasswordForEmail" className="block text-sm font-medium mb-1 text-gray-700">Aktuelles Passwort</label>
-              <input id="currentPasswordForEmail" type="password" name="currentPassword" required className="w-full border border-gray-300 p-2 rounded text-gray-900" />
+              <label htmlFor="currentPasswordForEmail" className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Aktuelles Passwort</label>
+              <input id="currentPasswordForEmail" type="password" name="currentPassword" required className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 rounded text-gray-900 dark:text-gray-100" />
             </div>
             <div>
-              <label htmlFor="newEmail" className="block text-sm font-medium mb-1 text-gray-700">Neue E-Mail-Adresse</label>
-              <input id="newEmail" type="email" name="newEmail" required className="w-full border border-gray-300 p-2 rounded text-gray-900" />
-              <p className="text-xs text-gray-500 mt-1">Wird erst nach Bestätigung über einen an diese Adresse geschickten Link wirksam.</p>
+              <label htmlFor="newEmail" className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Neue E-Mail-Adresse</label>
+              <input id="newEmail" type="email" name="newEmail" required className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 rounded text-gray-900 dark:text-gray-100" />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Wird erst nach Bestätigung über einen an diese Adresse geschickten Link wirksam.</p>
             </div>
             <SubmitButton>Bestätigungslink anfordern</SubmitButton>
           </form>

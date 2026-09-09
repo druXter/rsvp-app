@@ -59,7 +59,7 @@ export default async function EventPage({
   // Wenn nicht berechtigt, zeige nur das PIN-Formular
   if (!isAuthorized) {
     return (
-      <main className="min-h-screen bg-gray-50">
+      <main className="min-h-screen bg-gray-50 dark:bg-gray-900">
         <PinForm eventId={event.id} slug={event.slug} title={event.title} />
       </main>
     )
@@ -101,13 +101,13 @@ export default async function EventPage({
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 py-10">
+    <main className="min-h-screen bg-gray-50 dark:bg-gray-900 py-10">
       <div className="max-w-3xl mx-auto px-4">
 
         {event.pollUrl && (
           <a
             href={`/api/poll-link/${event.id}`}
-            className="block mb-4 text-center bg-cyan-50 text-cyan-800 border border-cyan-200 rounded-lg py-3 px-4 font-medium hover:bg-cyan-100 transition"
+            className="block mb-4 text-center bg-cyan-50 text-cyan-800 border border-cyan-200 rounded-lg py-3 px-4 font-medium hover:bg-cyan-100 dark:bg-cyan-950 dark:text-cyan-300 dark:border-cyan-800 dark:hover:bg-cyan-900 transition"
           >
             {event.pollLabel || '🗳️ Zur Abstimmung'}
           </a>
@@ -126,19 +126,19 @@ export default async function EventPage({
 
         {/* Die öffentliche Gästeliste */}
         {event.isGuestListVisible && (
-          <div className="mt-12 bg-white p-6 rounded-lg shadow-sm border border-gray-100">
-            <h3 className="text-xl font-bold mb-4 text-gray-800">Gästeliste</h3>
+          <div className="mt-12 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700">
+            <h3 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">Gästeliste</h3>
 
             {publicRsvps.length === 0 ? (
-              <p className="text-gray-500 italic">Noch keine Rückmeldungen vorhanden.</p>
+              <p className="text-gray-500 dark:text-gray-400 italic">Noch keine Rückmeldungen vorhanden.</p>
             ) : (
               <ul className="space-y-3">
                 {publicRsvps.map((guest) => (
-                  <li key={guest.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-gray-50 rounded border border-gray-100">
+                  <li key={guest.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-100 dark:border-gray-700">
                     <div>
-                      <span className="font-bold text-gray-800">{guest.participant.name}</span>
+                      <span className="font-bold text-gray-800 dark:text-gray-100">{guest.participant.name}</span>
                       {guest.plusOne && guest.plusOneName && (
-                        <span className="text-gray-500 text-sm ml-1">(+ {guest.plusOneName})</span>
+                        <span className="text-gray-500 dark:text-gray-400 text-sm ml-1">(+ {guest.plusOneName})</span>
                       )}
 
                       {/* Mitbringsel anzeigen, falls Zusage */}
@@ -150,7 +150,7 @@ export default async function EventPage({
 
                       {/* Absagegrund anzeigen, falls Absage */}
                       {!guest.isAttending && guest.declineReason && (
-                        <div className="text-sm text-gray-500 mt-1 italic">
+                        <div className="text-sm text-gray-500 dark:text-gray-400 mt-1 italic">
                           &quot;{guest.declineReason}&quot;
                         </div>
                       )}
@@ -159,12 +159,12 @@ export default async function EventPage({
                     <div className="mt-2 sm:mt-0">
                       {guest.isAttending ? (
                         guest.isOnWaitlist ? (
-                          <span className="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded-full font-bold">Warteliste</span>
+                          <span className="bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200 text-xs px-2 py-1 rounded-full font-bold">Warteliste</span>
                         ) : (
-                          <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-bold">Dabei</span>
+                          <span className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-xs px-2 py-1 rounded-full font-bold">Dabei</span>
                         )
                       ) : (
-                        <span className="bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full font-bold">Abgesagt</span>
+                        <span className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 text-xs px-2 py-1 rounded-full font-bold">Abgesagt</span>
                       )}
                     </div>
                   </li>

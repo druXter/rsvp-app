@@ -26,29 +26,29 @@ export default function PinForm({ eventId, seriesId, slug, title }: { eventId?: 
 
   return (
     <div className="min-h-[50vh] flex items-center justify-center p-4">
-      <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full border border-gray-100">
+      <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-md max-w-md w-full border border-gray-100 dark:border-gray-700">
         <div className="text-center mb-6">
           <span className="text-4xl block mb-2">🔒</span>
-          <h2 className="text-2xl font-bold text-gray-800">{title}</h2>
-          <p className="text-gray-500 text-sm mt-2">Dieses Event ist passwortgeschützt.</p>
+          <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">{title}</h2>
+          <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">Dieses Event ist passwortgeschützt.</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {eventId && <input type="hidden" name="eventId" value={eventId} />}
           {seriesId && <input type="hidden" name="seriesId" value={seriesId} />}
           <input type="hidden" name="slug" value={slug} />
-          
+
           <div>
-            <input 
-              type="text" 
-              name="pin" 
-              required 
-              className="w-full border border-gray-300 p-3 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-center text-lg tracking-widest font-mono" 
-              placeholder="Event-PIN eingeben" 
+            <input
+              type="text"
+              name="pin"
+              required
+              className="w-full border border-gray-300 p-3 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-center text-lg tracking-widest font-mono bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100"
+              placeholder="Event-PIN eingeben"
             />
           </div>
 
-          {error && <p className="text-red-500 text-sm text-center font-bold bg-red-50 p-2 rounded">{error}</p>}
+          {error && <p className="text-red-500 text-sm text-center font-bold bg-red-50 dark:bg-red-950 dark:text-red-300 p-2 rounded">{error}</p>}
 
           <SubmitButton disabled={isLoading}>
             {isLoading ? 'Prüfe Code...' : 'Freischalten'}

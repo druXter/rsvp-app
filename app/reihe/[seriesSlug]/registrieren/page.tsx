@@ -37,24 +37,24 @@ export default async function RegisterGuestUserPage({
 
   if (!isAuthorized) {
     return (
-      <main className="min-h-screen bg-gray-50">
+      <main className="min-h-screen bg-gray-50 dark:bg-gray-900">
         <PinForm seriesId={series.id} slug={series.slug} title={series.title} />
       </main>
     )
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 py-10 flex items-center justify-center px-4">
-      <div className="max-w-md w-full bg-white p-8 rounded-lg shadow space-y-6">
+    <main className="min-h-screen bg-gray-50 dark:bg-gray-900 py-10 flex items-center justify-center px-4">
+      <div className="max-w-md w-full bg-white dark:bg-gray-800 p-8 rounded-lg shadow space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Konto für {series.title}</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Konto für {series.title}</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             Einmal einloggen, alle Termine dieser Reihe automatisch sehen - ohne dir einen Link merken oder Angaben erneut eintragen zu müssen.
           </p>
         </div>
 
         {error === 'exists' && (
-          <div className="p-3 bg-red-50 text-red-700 text-sm rounded">
+          <div className="p-3 bg-red-50 text-red-700 text-sm rounded dark:bg-red-950 dark:text-red-300">
             Für diese E-Mail-Adresse existiert bereits ein Konto. <Link href="/mein-konto/login" className="underline font-medium">Hier einloggen</Link>.
           </div>
         )}
@@ -63,24 +63,24 @@ export default async function RegisterGuestUserPage({
           <input type="hidden" name="seriesId" value={series.id} />
 
           <div>
-            <label htmlFor="name" className="block text-sm font-medium mb-1 text-gray-700">Name</label>
-            <input id="name" type="text" name="name" required className="w-full border border-gray-300 p-2 rounded text-gray-900" placeholder="Max Mustermann" />
+            <label htmlFor="name" className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Name</label>
+            <input id="name" type="text" name="name" required className="w-full border border-gray-300 p-2 rounded text-gray-900 bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100" placeholder="Max Mustermann" />
           </div>
 
           <div>
-            <label htmlFor="email" className="block text-sm font-medium mb-1 text-gray-700">E-Mail</label>
-            <input id="email" type="email" name="email" required className="w-full border border-gray-300 p-2 rounded text-gray-900" placeholder="max@beispiel.de" />
+            <label htmlFor="email" className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">E-Mail</label>
+            <input id="email" type="email" name="email" required className="w-full border border-gray-300 p-2 rounded text-gray-900 bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100" placeholder="max@beispiel.de" />
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium mb-1 text-gray-700">Passwort</label>
-            <input id="password" type="password" name="password" required minLength={8} className="w-full border border-gray-300 p-2 rounded text-gray-900" placeholder="Mindestens 8 Zeichen" />
+            <label htmlFor="password" className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Passwort</label>
+            <input id="password" type="password" name="password" required minLength={8} className="w-full border border-gray-300 p-2 rounded text-gray-900 bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100" placeholder="Mindestens 8 Zeichen" />
           </div>
 
           <SubmitButton>Konto erstellen</SubmitButton>
         </form>
 
-        <p className="text-xs text-gray-500 text-center">
+        <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
           Bereits ein Konto? <Link href="/mein-konto/login" className="text-blue-600 hover:underline">Hier einloggen</Link>
         </p>
       </div>

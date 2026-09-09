@@ -36,20 +36,20 @@ export default function EventRsvpCard({
   const customQuestions: string[] = event.formConfig ? (JSON.parse(event.formConfig).customQuestions || []) : []
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow mb-6">
+    <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
       <div className="border-b pb-4 flex justify-between items-start">
         <div className="w-full">
           <div className="flex justify-between items-start">
             <div>
-              <h2 className="text-xl font-bold text-gray-900">{event.title}</h2>
-              <p className="text-sm text-gray-500">URL-Slug: <span className="font-mono bg-gray-100 px-1 py-0.5 rounded">/{event.slug}</span></p>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{event.title}</h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400">URL-Slug: <span className="font-mono bg-gray-100 dark:bg-gray-700 dark:text-gray-300 px-1 py-0.5 rounded">/{event.slug}</span></p>
               {!isOwner && (
-                <span className="inline-block mt-1 px-2 py-0.5 bg-teal-100 text-teal-800 text-[10px] font-bold rounded-full">
+                <span className="inline-block mt-1 px-2 py-0.5 bg-teal-100 dark:bg-teal-950 text-teal-800 dark:text-teal-200 text-[10px] font-bold rounded-full">
                   🔗 Für dich freigegeben{ownerEmail ? ` von ${ownerEmail}` : ''}
                 </span>
               )}
               {isOwner && ownerEmail && (
-                <p className="text-xs text-gray-400 mt-1">Eigentümer: {ownerEmail}</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Eigentümer: {ownerEmail}</p>
               )}
               <div className="mt-2 flex gap-4 text-sm font-semibold">
                 <span className="text-green-600">✅ Zusagen: {attendingCount}</span>
@@ -62,7 +62,7 @@ export default function EventRsvpCard({
 
             {isOwner && (
               <div className="flex gap-2">
-                <Link href={event.seriesId ? `/admin/edit-termin/${event.id}` : `/admin/edit/${event.id}`} className="px-3 py-1 bg-blue-100 text-blue-700 text-sm font-medium rounded hover:bg-blue-200 transition">
+                <Link href={event.seriesId ? `/admin/edit-termin/${event.id}` : `/admin/edit/${event.id}`} className="px-3 py-1 bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 text-sm font-medium rounded hover:bg-blue-200 dark:hover:bg-blue-900 transition">
                   ✏️ Bearbeiten
                 </Link>
                 <DeleteButton eventId={event.id} />
@@ -71,18 +71,18 @@ export default function EventRsvpCard({
           </div>
 
           {isOwner && (
-            <div className="mt-4 pt-4 border-t border-gray-100">
+            <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
               <details className="group">
                 <summary className="cursor-pointer text-sm font-bold text-blue-600 hover:text-blue-800 transition flex items-center gap-1 list-none">
                   <span>📧 Reminder an Zusagen senden</span>
-                  {event.reminderSent && <span className="text-xs text-gray-500 font-normal ml-2">(Erinnerung wurde bereits gesendet)</span>}
+                  {event.reminderSent && <span className="text-xs text-gray-500 dark:text-gray-400 font-normal ml-2">(Erinnerung wurde bereits gesendet)</span>}
                 </summary>
                 <form action={sendReminder} className="mt-3 flex flex-col gap-3">
                   <input type="hidden" name="eventId" value={event.id} />
                   <textarea
                     name="customMessage"
                     rows={2}
-                    className="w-full border border-gray-300 p-2 rounded text-sm text-gray-800"
+                    className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 rounded text-sm text-gray-800 dark:text-gray-100"
                     placeholder="Optionaler Zusatztext (z.B. Infos zum Parken, Treffpunkt...)"
                   ></textarea>
                   <button
@@ -100,10 +100,10 @@ export default function EventRsvpCard({
 
       <div className="pt-4">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="font-bold text-gray-900">Gästeliste & Antworten</h3>
+          <h3 className="font-bold text-gray-900 dark:text-gray-100">Gästeliste & Antworten</h3>
           <a
             href={`/api/export?eventId=${event.id}`}
-            className="px-3 py-1 bg-green-100 text-green-700 text-sm font-bold rounded hover:bg-green-200 transition shadow-sm"
+            className="px-3 py-1 bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-300 text-sm font-bold rounded hover:bg-green-200 dark:hover:bg-green-900 transition shadow-sm"
             download
           >
             📥 CSV Download
@@ -111,12 +111,12 @@ export default function EventRsvpCard({
         </div>
 
         {event.rsvps.length === 0 ? (
-          <p className="text-sm text-gray-500 italic">Bisher noch keine Antworten eingegangen.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 italic">Bisher noch keine Antworten eingegangen.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm min-w-max">
               <thead>
-                <tr className="border-b bg-gray-50 text-gray-700">
+                <tr className="border-b bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
                   <th className="p-2">Name</th>
                   <th className="p-2">Status</th>
                   <th className="p-2">E-Mail</th>
@@ -134,22 +134,22 @@ export default function EventRsvpCard({
               </thead>
               <tbody>
                 {event.rsvps.map(rsvp => (
-                  <tr key={rsvp.id} className="border-b last:border-0 hover:bg-gray-50">
-                    <td className="p-2 font-medium text-gray-900">{rsvp.participant.name}</td>
+                  <tr key={rsvp.id} className="border-b last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700">
+                    <td className="p-2 font-medium text-gray-900 dark:text-gray-100">{rsvp.participant.name}</td>
                     <td className="p-2">
                       {rsvp.isAttending ? (
                         <div className="flex items-center gap-2">
                           <span className="text-green-600 font-bold">Kommt</span>
                           {rsvp.isOnWaitlist && (
                             <div className="flex flex-col gap-1 items-start">
-                              <span className="bg-orange-100 text-orange-800 text-[10px] px-2 py-0.5 rounded-full font-bold">
+                              <span className="bg-orange-100 dark:bg-orange-950 text-orange-800 dark:text-orange-200 text-[10px] px-2 py-0.5 rounded-full font-bold">
                                 Warteliste
                               </span>
                               <form action={promoteFromWaitlist}>
                                 <input type="hidden" name="rsvpId" value={rsvp.id} />
                                 <button
                                   type="submit"
-                                  className="text-[10px] text-green-600 hover:text-green-800 transition flex items-center gap-1 bg-green-50 px-1.5 py-0.5 rounded border border-green-200"
+                                  className="text-[10px] text-green-600 dark:text-green-300 hover:text-green-800 dark:hover:text-green-200 transition flex items-center gap-1 bg-green-50 dark:bg-green-950 px-1.5 py-0.5 rounded border border-green-200 dark:border-green-800"
                                   title="Diesen Gast manuell fest eintragen (ignoriert Limit)"
                                 >
                                   ✅ Zulassen
@@ -163,14 +163,14 @@ export default function EventRsvpCard({
                       )}
                     </td>
 
-                    <td className="p-2 text-gray-600">
+                    <td className="p-2 text-gray-600 dark:text-gray-400">
                       <div className="flex flex-col items-start gap-1">
                         <span>{rsvp.participant.email || '-'}</span>
                         {rsvp.participant.email && (
                           <>
                             {requireVerification && !rsvp.participant.isVerified && (
                               <div className="flex items-center gap-2 mt-1">
-                                <span className="inline-block px-2 py-0.5 bg-yellow-100 text-yellow-800 text-[10px] font-bold rounded-full" title="Wartet auf Klick in der E-Mail">
+                                <span className="inline-block px-2 py-0.5 bg-yellow-100 dark:bg-yellow-950 text-yellow-800 dark:text-yellow-200 text-[10px] font-bold rounded-full" title="Wartet auf Klick in der E-Mail">
                                   🟡 Ausstehend
                                 </span>
                                 <form action={resendVerificationEmail}>
@@ -186,12 +186,12 @@ export default function EventRsvpCard({
                               </div>
                             )}
                             {rsvp.participant.isVerified && (
-                              <span className="inline-block px-2 py-0.5 bg-green-100 text-green-800 text-[10px] font-bold rounded-full" title={rsvp.participant.verifiedAt ? `Bestätigt am ${rsvp.participant.verifiedAt.toLocaleDateString('de-DE')}` : 'Verifiziert'}>
+                              <span className="inline-block px-2 py-0.5 bg-green-100 dark:bg-green-950 text-green-800 dark:text-green-200 text-[10px] font-bold rounded-full" title={rsvp.participant.verifiedAt ? `Bestätigt am ${rsvp.participant.verifiedAt.toLocaleDateString('de-DE')}` : 'Verifiziert'}>
                                 🟢 Verifiziert
                               </span>
                             )}
                             {!requireVerification && !rsvp.participant.isVerified && (
-                              <span className="inline-block px-2 py-0.5 bg-gray-100 text-gray-600 text-[10px] font-bold rounded-full" title="Dieser Termin erfordert keine Verifizierung">
+                              <span className="inline-block px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 text-[10px] font-bold rounded-full" title="Dieser Termin erfordert keine Verifizierung">
                                 ⚪ Ohne Prüfung
                               </span>
                             )}
@@ -200,25 +200,25 @@ export default function EventRsvpCard({
                       </div>
                     </td>
 
-                    <td className="p-2 text-gray-600">{rsvp.participant.phone || '-'}</td>
+                    <td className="p-2 text-gray-600 dark:text-gray-400">{rsvp.participant.phone || '-'}</td>
 
-                    <td className="p-2 text-gray-600">
+                    <td className="p-2 text-gray-600 dark:text-gray-400">
                       {rsvp.plusOne
                         ? `Ja ${rsvp.plusOneName ? '(' + rsvp.plusOneName + ')' : ''}`
                         : '-'}
                     </td>
 
-                    <td className="p-2 text-gray-600">{rsvp.participant.dietaryOption || '-'}</td>
+                    <td className="p-2 text-gray-600 dark:text-gray-400">{rsvp.participant.dietaryOption || '-'}</td>
 
-                    <td className="p-2 text-gray-600">{rsvp.participant.allergies || '-'}</td>
+                    <td className="p-2 text-gray-600 dark:text-gray-400">{rsvp.participant.allergies || '-'}</td>
 
-                    <td className="p-2 text-gray-600">
+                    <td className="p-2 text-gray-600 dark:text-gray-400">
                       {rsvp.drinksAlcohol === true ? 'Ja' : rsvp.drinksAlcohol === false ? 'Nein' : '-'}
                     </td>
 
-                    <td className="p-2 text-gray-600">{rsvp.bringingItem || '-'}</td>
+                    <td className="p-2 text-gray-600 dark:text-gray-400">{rsvp.bringingItem || '-'}</td>
 
-                    <td className="p-2 text-gray-500">
+                    <td className="p-2 text-gray-500 dark:text-gray-400">
                       {rsvp.isAttending
                         ? (rsvp.additionalInfo || '-')
                         : (rsvp.declineReason || '-')}
@@ -226,7 +226,7 @@ export default function EventRsvpCard({
 
                     {customQuestions.map((_, i) => {
                       const answers: string[] = rsvp.customAnswers ? JSON.parse(rsvp.customAnswers) : []
-                      return <td key={i} className="p-2 text-gray-600">{answers[i] || '-'}</td>
+                      return <td key={i} className="p-2 text-gray-600 dark:text-gray-400">{answers[i] || '-'}</td>
                     })}
 
                     {event.enableCheckin && (
@@ -238,8 +238,8 @@ export default function EventRsvpCard({
                               type="submit"
                               className={`text-[10px] px-2 py-0.5 rounded-full font-bold border transition ${
                                 rsvp.hasAttended
-                                  ? 'bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200'
-                                  : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'
+                                  ? 'bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-200 border-blue-200 dark:border-blue-800 hover:bg-blue-200 dark:hover:bg-blue-900'
+                                  : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600'
                               }`}
                               title={rsvp.checkedInAt ? `Eingecheckt am ${rsvp.checkedInAt.toLocaleString('de-DE')}` : 'Noch nicht eingecheckt - hier klicken zum manuellen Einchecken'}
                             >
@@ -247,7 +247,7 @@ export default function EventRsvpCard({
                             </button>
                           </form>
                         ) : (
-                          <span className="text-gray-300">-</span>
+                          <span className="text-gray-300 dark:text-gray-600">-</span>
                         )}
                       </td>
                     )}
@@ -256,7 +256,7 @@ export default function EventRsvpCard({
                       <div className="flex justify-end gap-2">
                         <Link
                           href={`/admin/edit-rsvp/${rsvp.id}`}
-                          className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded hover:bg-blue-200 transition"
+                          className="px-2 py-1 bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 text-xs font-bold rounded hover:bg-blue-200 dark:hover:bg-blue-900 transition"
                           title="Antwort bearbeiten"
                         >
                           ✏️

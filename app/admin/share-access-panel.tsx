@@ -29,7 +29,7 @@ export default function ShareAccessPanel({
       description={`Gibt einem bestehenden Konto Zugriff auf Check-in sowie das Einsehen & Bearbeiten der Gäste- und Warteliste${seriesId ? ' für alle Termine dieser Reihe' : ''}. Das Konto muss bereits existieren (siehe "+ Nutzer anlegen").`}
     >
       {error === 'notfound' && (
-        <div className="p-2 bg-red-50 text-red-700 text-xs rounded">
+        <div className="p-2 bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 text-xs rounded">
           Für diese E-Mail-Adresse existiert kein Konto.
         </div>
       )}
@@ -37,8 +37,8 @@ export default function ShareAccessPanel({
       {shares.length > 0 && (
         <ul className="space-y-1">
           {shares.map(share => (
-            <li key={share.id} className={`flex justify-between items-center bg-white px-3 py-1.5 rounded border ${c.border} text-sm`}>
-              <span className="text-gray-800">{share.email}</span>
+            <li key={share.id} className={`flex justify-between items-center bg-white dark:bg-gray-800 px-3 py-1.5 rounded border ${c.border} text-sm`}>
+              <span className="text-gray-800 dark:text-gray-100">{share.email}</span>
               <form action={unshareResource}>
                 <input type="hidden" name="accessId" value={share.id} />
                 <button type="submit" className="text-red-600 hover:text-red-800 text-xs font-medium transition">
@@ -58,7 +58,7 @@ export default function ShareAccessPanel({
           name="email"
           required
           placeholder="konto@domain.de"
-          className={`flex-1 border ${c.border} p-2 rounded text-sm text-gray-900`}
+          className={`flex-1 border ${c.border} p-2 rounded text-sm text-gray-900 dark:text-gray-100`}
         />
         <button type="submit" className="bg-rose-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-rose-700 transition">
           Teilen

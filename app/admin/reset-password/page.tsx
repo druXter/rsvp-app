@@ -19,16 +19,16 @@ export default async function ResetPasswordPage({ searchParams }: { searchParams
   const isValid = !!user && !!user.resetTokenExpiresAt && user.resetTokenExpiresAt > new Date()
 
   return (
-    <main className="min-h-screen bg-gray-100 flex items-center justify-center px-4">
-      <div className="max-w-md w-full bg-white p-8 rounded-lg shadow space-y-6">
-        <h1 className="text-2xl font-bold text-center text-gray-900">Neues Passwort vergeben</h1>
+    <main className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center px-4">
+      <div className="max-w-md w-full bg-white dark:bg-gray-800 p-8 rounded-lg shadow space-y-6">
+        <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-gray-100">Neues Passwort vergeben</h1>
 
         {(error === 'invalid' || !isValid) ? (
           <>
-            <div className="p-3 bg-red-50 text-red-700 text-sm rounded">
+            <div className="p-3 bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 text-sm rounded">
               Dieser Link ist ungültig oder abgelaufen. Fordere gegebenenfalls einen neuen an.
             </div>
-            <p className="text-sm text-center text-gray-500">
+            <p className="text-sm text-center text-gray-500 dark:text-gray-400">
               <Link href="/admin/forgot-password" className="text-blue-600 hover:underline">Neuen Link anfordern</Link>
             </p>
           </>
@@ -37,14 +37,14 @@ export default async function ResetPasswordPage({ searchParams }: { searchParams
             <input type="hidden" name="token" value={token} />
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium mb-1 text-gray-700">Neues Passwort</label>
+              <label htmlFor="password" className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Neues Passwort</label>
               <input
                 id="password"
                 type="password"
                 name="password"
                 required
                 minLength={8}
-                className="w-full border border-gray-300 p-2 rounded text-gray-900"
+                className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 rounded text-gray-900 dark:text-gray-100"
                 placeholder="Mindestens 8 Zeichen"
               />
             </div>

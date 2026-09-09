@@ -83,7 +83,9 @@ export default function PushSubscribeToggle({ editToken, vapidPublicKey }: { edi
       onClick={subscribed ? handleUnsubscribe : handleSubscribe}
       disabled={isLoading}
       className={`text-sm font-medium px-3 py-1.5 rounded transition disabled:opacity-50 ${
-        subscribed ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+        subscribed
+          ? 'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900 dark:text-green-200 dark:hover:bg-green-800'
+          : 'bg-gray-200 text-gray-800 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
       }`}
       title={subscribed ? 'Push-Benachrichtigungen für dieses Gerät deaktivieren' : 'Erinnerungen und Termin-Änderungen auch als Push-Benachrichtigung auf diesem Gerät erhalten'}
     >

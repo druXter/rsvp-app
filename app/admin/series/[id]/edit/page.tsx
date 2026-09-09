@@ -40,12 +40,12 @@ export default async function EditEventSeriesPage({
   }
 
   return (
-    <main className="min-h-screen bg-gray-100 py-12 px-4">
-      <div className="max-w-2xl mx-auto bg-white p-8 rounded-lg shadow space-y-6 text-gray-900">
+    <main className="min-h-screen bg-gray-100 dark:bg-gray-900 py-12 px-4">
+      <div className="max-w-2xl mx-auto bg-white dark:bg-gray-800 p-8 rounded-lg shadow space-y-6 text-gray-900 dark:text-gray-100">
 
         <div className="flex justify-between items-center border-b pb-4">
           <h1 className="text-2xl font-bold">{isOwner ? 'Reihe bearbeiten' : 'Nutzer-Mitglieder verwalten'}</h1>
-          <Link href={`/admin/series/${series.id}`} className="text-gray-500 hover:text-gray-800 transition">
+          <Link href={`/admin/series/${series.id}`} className="text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition">
             {isOwner ? 'Abbrechen' : '← Zurück'}
           </Link>
         </div>
@@ -56,21 +56,21 @@ export default async function EditEventSeriesPage({
 
           <div>
             <label htmlFor="title" className="block text-sm font-medium mb-1">Titel der Reihe</label>
-            <input id="title" type="text" name="title" defaultValue={series.title} required className="w-full border border-gray-300 p-2 rounded" />
+            <input id="title" type="text" name="title" defaultValue={series.title} required className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded" />
           </div>
 
           <div>
             <label htmlFor="slug" className="block text-sm font-medium mb-1">URL-Wort (Slug)</label>
-            <input id="slug" type="text" name="slug" defaultValue={series.slug} required className="w-full border border-gray-300 p-2 rounded" />
+            <input id="slug" type="text" name="slug" defaultValue={series.slug} required className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded" />
           </div>
 
           <div>
             <label htmlFor="description" className="block text-sm font-medium mb-1">Beschreibung</label>
-            <textarea id="description" name="description" defaultValue={series.description || ''} rows={3} className="w-full border border-gray-300 p-2 rounded"></textarea>
+            <textarea id="description" name="description" defaultValue={series.description || ''} rows={3} className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded"></textarea>
           </div>
 
-          <div className="space-y-3 pt-4 border-t border-gray-200">
-            <h3 className="font-bold text-gray-900">Welche Profil-Felder sollen EINMALIG für die ganze Reihe abgefragt werden?</h3>
+          <div className="space-y-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <h3 className="font-bold text-gray-900 dark:text-gray-100">Welche Profil-Felder sollen EINMALIG für die ganze Reihe abgefragt werden?</h3>
 
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" name="askEmail" defaultChecked={series.askEmail} className="w-4 h-4" />

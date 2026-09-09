@@ -48,7 +48,7 @@ export default function NotifyGuestsToggle({ formId, original }: { formId: strin
 
   const c = themeClasses('amber')
   return (
-    <div className={`space-y-2 pt-4 border-t border-gray-200 ${c.box} p-4 rounded-md`}>
+    <div className={`space-y-2 pt-4 border-t border-gray-200 dark:border-gray-700 ${c.box} p-4 rounded-md`}>
       <label className="flex items-center gap-2 cursor-pointer">
         <input type="checkbox" name="notifyGuests" className={`w-4 h-4 ${c.accent}`} />
         <span className={`text-sm font-medium ${c.heading}`}>⚠️ Teilnehmende über diese Änderung per E-Mail informieren</span>

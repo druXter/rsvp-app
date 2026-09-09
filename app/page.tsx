@@ -15,15 +15,15 @@ export default async function Home() {
   const guestUser = await getCurrentGuestUser()
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
 
       {/* Hauptbereich (Hero Section) */}
       <main className="grow flex items-center justify-center px-4">
         <div className="max-w-2xl text-center space-y-6">
-          <h1 className="text-4xl md:text-6xl font-extrabold text-gray-900 tracking-tight">
+          <h1 className="text-4xl md:text-6xl font-extrabold text-gray-900 dark:text-gray-100 tracking-tight">
             Event-Management <br/> einfach gemacht.
           </h1>
-          <p className="text-lg text-gray-600">
+          <p className="text-lg text-gray-600 dark:text-gray-400">
             Das schlanke RSVP-System für reibungslose Zusagen, Absagen und Gästelisten.
           </p>
           <div className="pt-8 flex flex-wrap gap-4 justify-center">
@@ -35,7 +35,7 @@ export default async function Home() {
             </Link>
             <Link
               href={guestUser ? '/mein-konto' : '/mein-konto/login'}
-              className="inline-block bg-white text-blue-600 font-bold py-3 px-8 rounded-lg hover:bg-gray-100 transition shadow-lg border border-blue-200"
+              className="inline-block bg-white dark:bg-gray-800 text-blue-600 font-bold py-3 px-8 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition shadow-lg border border-blue-200 dark:border-blue-800"
             >
               {guestUser ? `Zu Mein Konto (${guestUser.email})` : 'Mein Konto (Gäste-Login)'}
             </Link>

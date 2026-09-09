@@ -13,43 +13,43 @@ export default async function AdminLoginPage({ searchParams }: { searchParams: P
   const wasReset = params.reset === '1';
 
   return (
-    <main className="min-h-screen bg-gray-100 flex items-center justify-center px-4">
-      <div className="max-w-md w-full bg-white p-8 rounded-lg shadow space-y-6">
-        <h1 className="text-2xl font-bold text-center text-gray-900">Login</h1>
+    <main className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center px-4">
+      <div className="max-w-md w-full bg-white dark:bg-gray-800 p-8 rounded-lg shadow space-y-6">
+        <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-gray-100">Login</h1>
 
         {wasReset && (
-          <div className="p-3 bg-green-50 text-green-700 text-sm rounded">
+          <div className="p-3 bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 text-sm rounded">
             Dein Passwort wurde erfolgreich zurückgesetzt. Du kannst dich jetzt einloggen.
           </div>
         )}
 
         {hasError && (
-          <div className="p-3 bg-red-50 text-red-700 text-sm rounded">
+          <div className="p-3 bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 text-sm rounded">
             E-Mail oder Passwort falsch. Bitte versuche es erneut.
           </div>
         )}
 
         <form action={loginUser} className="space-y-4">
           <div>
-            <label htmlFor="email" className="block text-sm font-medium mb-1 text-gray-700">E-Mail</label>
+            <label htmlFor="email" className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">E-Mail</label>
             <input
               id="email"
               type="email"
               name="email"
               required
-              className="w-full border border-gray-300 p-2 rounded text-gray-900"
+              className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 rounded text-gray-900 dark:text-gray-100"
               placeholder="deine-email@domain.de"
             />
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium mb-1 text-gray-700">Passwort</label>
+            <label htmlFor="password" className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Passwort</label>
             <input
               id="password"
               type="password"
               name="password"
               required
-              className="w-full border border-gray-300 p-2 rounded text-gray-900"
+              className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 rounded text-gray-900 dark:text-gray-100"
               placeholder="Passwort eingeben"
             />
           </div>
@@ -57,11 +57,11 @@ export default async function AdminLoginPage({ searchParams }: { searchParams: P
           <SubmitButton>Einloggen</SubmitButton>
         </form>
 
-        <p className="text-sm text-center text-gray-500">
+        <p className="text-sm text-center text-gray-500 dark:text-gray-400">
           <Link href="/admin/forgot-password" className="text-blue-600 hover:underline">Passwort vergessen?</Link>
         </p>
 
-        <p className="text-xs text-center text-gray-400 border-t pt-4">
+        <p className="text-xs text-center text-gray-400 dark:text-gray-500 border-t dark:border-gray-700 pt-4">
           Nutzer-Konto einer Veranstaltungsreihe? <Link href="/mein-konto/login" className="text-blue-600 hover:underline">Hier einloggen</Link>
         </p>
       </div>

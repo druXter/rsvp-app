@@ -95,36 +95,36 @@ export default async function AdminDashboard() {
   const sharedEvents = isAdmin ? [] : await getSharedEvents(user.id, sharedSeries.map(s => s.id))
 
   return (
-    <main className="min-h-screen bg-gray-100 py-12 px-4">
+    <main className="min-h-screen bg-gray-100 dark:bg-gray-900 py-12 px-4">
       <div className="max-w-4xl mx-auto space-y-8">
 
-        <div className="flex justify-between items-center bg-white p-6 rounded-lg shadow flex-wrap gap-4">
+        <div className="flex justify-between items-center bg-white dark:bg-gray-800 p-6 rounded-lg shadow flex-wrap gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">RSVP Admin-Dashboard</h1>
-            <p className="text-sm text-gray-500">Eingeloggt als {user.email} <span className="text-gray-400">({ROLE_LABELS[user.role]})</span></p>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">RSVP Admin-Dashboard</h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Eingeloggt als {user.email} <span className="text-gray-400 dark:text-gray-500">({ROLE_LABELS[user.role]})</span></p>
           </div>
           <div className="flex gap-4 flex-wrap">
             <PushSubscribeButton vapidPublicKey={process.env.VAPID_PUBLIC_KEY || null} />
-            <Link href="/admin/account" className="bg-gray-100 text-gray-700 px-4 py-2 rounded hover:bg-gray-200 transition text-sm font-medium flex items-center">
+            <Link href="/admin/account" className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition text-sm font-medium flex items-center">
               ⚙️ Konto-Einstellungen
             </Link>
             {guestUser && (
-              <Link href="/mein-konto" className="bg-emerald-100 text-emerald-700 px-4 py-2 rounded hover:bg-emerald-200 transition text-sm font-medium flex items-center">
+              <Link href="/mein-konto" className="bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 px-4 py-2 rounded hover:bg-emerald-200 dark:hover:bg-emerald-900 transition text-sm font-medium flex items-center">
                 🔀 Mein Konto ({guestUser.email})
               </Link>
             )}
             {isAdmin && (
-              <Link href="/admin/users" className="bg-gray-100 text-gray-700 px-4 py-2 rounded hover:bg-gray-200 transition text-sm font-medium flex items-center">
+              <Link href="/admin/users" className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition text-sm font-medium flex items-center">
                 👥 Nutzerverwaltung
               </Link>
             )}
             {!isModerator && (
-              <Link href="/admin/create-user" className="bg-gray-100 text-gray-700 px-4 py-2 rounded hover:bg-gray-200 transition text-sm font-medium flex items-center">
+              <Link href="/admin/create-user" className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition text-sm font-medium flex items-center">
                 + Nutzer anlegen
               </Link>
             )}
             {!isModerator && (
-              <Link href="/admin/series/create" className="bg-purple-100 text-purple-700 px-4 py-2 rounded hover:bg-purple-200 transition text-sm font-medium flex items-center">
+              <Link href="/admin/series/create" className="bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 px-4 py-2 rounded hover:bg-purple-200 dark:hover:bg-purple-900 transition text-sm font-medium flex items-center">
                 + Neue Reihe
               </Link>
             )}
@@ -134,7 +134,7 @@ export default async function AdminDashboard() {
               </Link>
             )}
             <form action={logoutUser}>
-              <button type="submit" className="bg-gray-200 text-gray-800 px-4 py-2 rounded hover:bg-gray-300 transition text-sm font-medium">
+              <button type="submit" className="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-4 py-2 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition text-sm font-medium">
                 Abmelden
               </button>
             </form>
@@ -142,7 +142,7 @@ export default async function AdminDashboard() {
         </div>
 
         {events.length === 0 && series.length === 0 && sharedSeries.length === 0 && sharedEvents.length === 0 && (
-          <p className="text-center text-gray-500 italic bg-white p-6 rounded-lg shadow">
+          <p className="text-center text-gray-500 dark:text-gray-400 italic bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
             {isModerator
               ? 'Dir wurde noch kein Event oder keine Reihe freigegeben.'
               : 'Noch keine Events oder Reihen. Leg oben dein erstes Event an.'}
@@ -161,32 +161,32 @@ export default async function AdminDashboard() {
 
         {series.length > 0 && (
           <div className="space-y-6">
-            <h2 className="text-lg font-bold text-gray-700 border-b border-gray-300 pb-2">
+            <h2 className="text-lg font-bold text-gray-700 dark:text-gray-300 border-b border-gray-300 dark:border-gray-700 pb-2">
               {isAdmin ? 'Veranstaltungsreihen (alle Konten)' : 'Veranstaltungsreihen'}
             </h2>
 
             {series.map(s => (
-              <div key={s.id} className="bg-purple-50 border border-purple-200 rounded-lg p-4 space-y-4">
-                <div className="flex justify-between items-start bg-white p-4 rounded-lg shadow-sm">
+              <div key={s.id} className="bg-purple-50 dark:bg-purple-950 border border-purple-200 dark:border-purple-800 rounded-lg p-4 space-y-4">
+                <div className="flex justify-between items-start bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm">
                   <div>
-                    <h3 className="text-lg font-bold text-purple-900">{s.title}</h3>
-                    <p className="text-sm text-gray-500">Reihen-Slug: <span className="font-mono bg-gray-100 px-1 py-0.5 rounded">/reihe/{s.slug}</span></p>
+                    <h3 className="text-lg font-bold text-purple-900 dark:text-purple-300">{s.title}</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Reihen-Slug: <span className="font-mono bg-gray-100 dark:bg-gray-700 px-1 py-0.5 rounded">/reihe/{s.slug}</span></p>
                     {isAdmin && s.owner.email !== user.email && (
-                      <p className="text-xs text-gray-400 mt-1">Eigentümer: {s.owner.email}</p>
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Eigentümer: {s.owner.email}</p>
                     )}
-                    {s.description && <p className="text-sm text-gray-600 mt-1">{s.description}</p>}
+                    {s.description && <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">{s.description}</p>}
                   </div>
                   <div className="flex gap-2 flex-wrap justify-end">
-                    <Link href={`/admin/series/${s.id}`} className="px-3 py-1 bg-purple-100 text-purple-700 text-sm font-medium rounded hover:bg-purple-200 transition">
+                    <Link href={`/admin/series/${s.id}`} className="px-3 py-1 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 text-sm font-medium rounded hover:bg-purple-200 dark:hover:bg-purple-800 transition">
                       ⚙️ Verwalten
                     </Link>
                     <DeleteSeriesButton seriesId={s.id} />
                   </div>
                 </div>
 
-                <div className="pl-4 border-l-4 border-purple-200 space-y-6">
+                <div className="pl-4 border-l-4 border-purple-200 dark:border-purple-800 space-y-6">
                   {s.events.length === 0 ? (
-                    <p className="text-sm text-purple-700 italic">Noch keine Termine in dieser Reihe.</p>
+                    <p className="text-sm text-purple-700 dark:text-purple-300 italic">Noch keine Termine in dieser Reihe.</p>
                   ) : (
                     s.events.map(event => (
                       <EventRsvpCard key={event.id} event={event} requireVerification={s.requireVerification} access="owner" />
@@ -200,20 +200,20 @@ export default async function AdminDashboard() {
 
         {sharedSeries.length > 0 && (
           <div className="space-y-6">
-            <h2 className="text-lg font-bold text-gray-700 border-b border-gray-300 pb-2">Für dich freigegebene Reihen</h2>
+            <h2 className="text-lg font-bold text-gray-700 dark:text-gray-300 border-b border-gray-300 dark:border-gray-700 pb-2">Für dich freigegebene Reihen</h2>
 
             {sharedSeries.map(s => (
-              <div key={s.id} className="bg-teal-50 border border-teal-200 rounded-lg p-4 space-y-4">
-                <div className="bg-white p-4 rounded-lg shadow-sm">
-                  <h3 className="text-lg font-bold text-teal-900">{s.title}</h3>
-                  <p className="text-sm text-gray-500">Reihen-Slug: <span className="font-mono bg-gray-100 px-1 py-0.5 rounded">/reihe/{s.slug}</span></p>
-                  <p className="text-xs text-gray-400 mt-1">Eigentümer: {s.owner.email}</p>
-                  {s.description && <p className="text-sm text-gray-600 mt-1">{s.description}</p>}
+              <div key={s.id} className="bg-teal-50 dark:bg-teal-950 border border-teal-200 dark:border-teal-800 rounded-lg p-4 space-y-4">
+                <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm">
+                  <h3 className="text-lg font-bold text-teal-900 dark:text-teal-300">{s.title}</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Reihen-Slug: <span className="font-mono bg-gray-100 dark:bg-gray-700 px-1 py-0.5 rounded">/reihe/{s.slug}</span></p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Eigentümer: {s.owner.email}</p>
+                  {s.description && <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">{s.description}</p>}
                 </div>
 
-                <div className="pl-4 border-l-4 border-teal-200 space-y-6">
+                <div className="pl-4 border-l-4 border-teal-200 dark:border-teal-800 space-y-6">
                   {s.events.length === 0 ? (
-                    <p className="text-sm text-teal-700 italic">Noch keine Termine in dieser Reihe.</p>
+                    <p className="text-sm text-teal-700 dark:text-teal-300 italic">Noch keine Termine in dieser Reihe.</p>
                   ) : (
                     s.events.map(event => (
                       <EventRsvpCard key={event.id} event={event} requireVerification={s.requireVerification} access="moderator" />
@@ -227,7 +227,7 @@ export default async function AdminDashboard() {
 
         {sharedEvents.length > 0 && (
           <div className="space-y-6">
-            <h2 className="text-lg font-bold text-gray-700 border-b border-gray-300 pb-2">Für dich freigegebene Events</h2>
+            <h2 className="text-lg font-bold text-gray-700 dark:text-gray-300 border-b border-gray-300 dark:border-gray-700 pb-2">Für dich freigegebene Events</h2>
 
             {sharedEvents.map(event => (
               <EventRsvpCard
