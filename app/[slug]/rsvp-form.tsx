@@ -172,8 +172,13 @@ export default function RsvpForm({
   }
 
   return (
-    // Dynamische Klassen für das eigentliche Formular. Im Embed-Modus entfernen wir die Box-Optik komplett.
-    <form onSubmit={handleSubmit} className={`space-y-6 text-gray-900 ${isEmbed ? '' : 'bg-white p-6 rounded-lg shadow'}`}>
+    // Die Box-Optik sitzt bewusst auf einem umschließenden <div>, nicht auf dem <form> selbst:
+    // der Lösch-Block unten bringt mit DeleteMyDataButton ein eigenes <form> mit, und
+    // verschachtelte Formulare sind ungültiges HTML - der Browser wirft das innere Tag beim
+    // Parsen weg, was zu einem Hydration-Mismatch führt und den Lösch-Button vor der
+    // Hydration das RSVP-Formular absenden lässt. Im Embed-Modus entfällt die Box-Optik.
+    <div className={`space-y-6 text-gray-900 ${isEmbed ? '' : 'bg-white p-6 rounded-lg shadow'}`}>
+    <form onSubmit={handleSubmit} className="space-y-6">
       <input type="hidden" name="eventId" value={eventId} />
       {/* Nur mitschicken, wenn der Participant wirklich über einen ?token= aus der URL
           aufgelöst wurde (anonymer Bearbeitungs-Link) - sonst würde submitRsvp die
@@ -325,13 +330,14 @@ export default function RsvpForm({
       )}
 
       <SubmitButton>{rsvp ? "Änderungen speichern" : "Antwort absenden"}</SubmitButton>
-
-      {participant?.editToken && (
-        <div className="pt-4 border-t border-gray-100 flex flex-wrap gap-2 justify-center">
-          <PushSubscribeToggle editToken={participant.editToken} vapidPublicKey={vapidPublicKey} />
-          <DeleteMyDataButton editToken={participant.editToken} eventId={eventId} isSeriesShared={isSeriesShared} />
-        </div>
-      )}
     </form>
+
+    {participant?.editToken && (
+      <div className="pt-4 border-t border-gray-100 flex flex-wrap gap-2 justify-center">
+        <PushSubscribeToggle editToken={participant.editToken} vapidPublicKey={vapidPublicKey} />
+        <DeleteMyDataButton editToken={participant.editToken} eventId={eventId} isSeriesShared={isSeriesShared} />
+      </div>
+    )}
+    </div>
   )
 }
