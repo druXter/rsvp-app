@@ -3,6 +3,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import type { Participant, Rsvp } from '@prisma/client'
 import { submitRsvp } from '../actions'
 import SubmitButton from '../ui/submit-button'
 import DeleteMyDataButton from './delete-my-data-button'
@@ -21,8 +22,12 @@ export default function RsvpForm({
 }: {
   eventId: string;
   formConfig: string | null;
-  participant?: any;
-  rsvp?: any;
+  // Partial statt Participant: für den ersten, noch-Rsvp-losen Termin eines eingeloggten
+  // Reihen-Gasts wird hier ein aus dem zentralen GuestUser-Profil zusammengesetztes,
+  // unvollständiges Objekt übergeben (siehe app/reihe/.../page.tsx) statt einer echten
+  // Participant-Zeile.
+  participant?: Partial<Participant> | null;
+  rsvp?: Rsvp | null;
   isEmbed?: boolean;
   isGuestListVisible?: boolean;
   isSeriesShared?: boolean;
@@ -200,11 +205,11 @@ export default function RsvpForm({
         <input id="name" type="text" name="name" defaultValue={participant?.name} required className="w-full border border-gray-300 p-2 rounded" placeholder="Max Mustermann" />
       </div>
 
-      <div>
-        <label htmlFor="isAttending-true" className="block text-sm font-medium mb-1">Bist du dabei?</label>
+      <fieldset>
+        <legend className="block text-sm font-medium mb-1">Bist du dabei?</legend>
         <div className="flex gap-4">
           <label className="flex items-center gap-2 cursor-pointer">
-            <input id="isAttending-true" type="radio" name="isAttending" value="true" defaultChecked={rsvp?.isAttending === true} required onChange={() => setIsAttending(true)} />
+            <input type="radio" name="isAttending" value="true" defaultChecked={rsvp?.isAttending === true} required onChange={() => setIsAttending(true)} />
             Ja, ich komme
           </label>
           <label className="flex items-center gap-2 cursor-pointer">
@@ -212,7 +217,7 @@ export default function RsvpForm({
             Nein, leider nicht
           </label>
         </div>
-      </div>
+      </fieldset>
 
       {isAttending === true && (
         <div className="space-y-4 pt-4 border-t border-gray-200">
@@ -248,11 +253,11 @@ export default function RsvpForm({
           )}
 
           {config.askPlusOne && (
-            <div className="space-y-2">
-              <label htmlFor="plusOne-true" className="block text-sm font-medium text-gray-700 mb-1">Bringst du eine Begleitperson mit?</label>
+            <fieldset className="space-y-2">
+              <legend className="block text-sm font-medium text-gray-700 mb-1">Bringst du eine Begleitperson mit?</legend>
               <div className="flex gap-4">
                 <label className="flex items-center gap-2">
-                  <input id="plusOne-true" type="radio" name="plusOne" value="true" defaultChecked={rsvp?.plusOne === true} required onChange={() => setHasPlusOne(true)} className="w-4 h-4 text-blue-600" /> Ja
+                  <input type="radio" name="plusOne" value="true" defaultChecked={rsvp?.plusOne === true} required onChange={() => setHasPlusOne(true)} className="w-4 h-4 text-blue-600" /> Ja
                 </label>
                 <label className="flex items-center gap-2">
                   <input type="radio" name="plusOne" value="false" defaultChecked={rsvp?.plusOne === false} required onChange={() => setHasPlusOne(false)} className="w-4 h-4 text-blue-600" /> Nein
@@ -261,7 +266,7 @@ export default function RsvpForm({
               {hasPlusOne && (
                 <input type="text" name="plusOneName" defaultValue={rsvp?.plusOneName || ''} required className="w-full border border-gray-300 p-2 rounded-md mt-2" placeholder="Name der Begleitperson" />
               )}
-            </div>
+            </fieldset>
           )}
 
           {config.askDiet && (
@@ -287,17 +292,17 @@ export default function RsvpForm({
           )}
 
           {config.askAlcohol && (
-            <div>
-              <label htmlFor="drinksAlcohol-true" className="block text-sm font-medium text-gray-700 mb-1">Trinkst du Alkohol?</label>
+            <fieldset>
+              <legend className="block text-sm font-medium text-gray-700 mb-1">Trinkst du Alkohol?</legend>
               <div className="flex gap-4">
                 <label className="flex items-center gap-2">
-                  <input id="drinksAlcohol-true" type="radio" name="drinksAlcohol" value="true" defaultChecked={rsvp?.drinksAlcohol === true} required className="w-4 h-4 text-blue-600" /> Ja
+                  <input type="radio" name="drinksAlcohol" value="true" defaultChecked={rsvp?.drinksAlcohol === true} required className="w-4 h-4 text-blue-600" /> Ja
                 </label>
                 <label className="flex items-center gap-2">
                   <input type="radio" name="drinksAlcohol" value="false" defaultChecked={rsvp?.drinksAlcohol === false} required className="w-4 h-4 text-blue-600" /> Nein (nur alkoholfrei)
                 </label>
               </div>
-            </div>
+            </fieldset>
           )}
 
           {config.askBringingItem && (

@@ -12,6 +12,15 @@ const eslintConfig = defineConfig([
   // spread here - core-web-vitals already registers the jsx-a11y plugin itself, and flat
   // config errors ("Cannot redefine plugin") if it's registered a second time.
   { rules: jsxA11y.flatConfigs.recommended.rules },
+  // Die Bootstrap-Skripte im Repo-Root sind bewusst klassische CommonJS-Node-Skripte
+  // (per `node create-user.js` etc. ausgeführt, siehe CLAUDE.md) statt Teil der
+  // TypeScript/Next.js-App - require() ist hier die korrekte, keine zu ersetzende Syntax.
+  {
+    files: ["create-user.js", "seed.js", "set-role.js"],
+    rules: {
+      "@typescript-eslint/no-require-imports": "off",
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:

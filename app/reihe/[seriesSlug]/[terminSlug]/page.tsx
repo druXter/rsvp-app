@@ -1,5 +1,5 @@
 // app/reihe/[seriesSlug]/[terminSlug]/page.tsx
-import { PrismaClient } from '@prisma/client'
+import { Prisma, PrismaClient } from '@prisma/client'
 import { notFound } from 'next/navigation'
 import { cookies } from 'next/headers'
 import Link from 'next/link'
@@ -8,6 +8,20 @@ import PinForm from '../../../[slug]/pin-form'
 import { getCurrentGuestUser } from '../../../lib/guest-auth'
 
 const prisma = new PrismaClient()
+
+type PublicRsvp = Prisma.RsvpGetPayload<{
+  select: {
+    id: true
+    isAttending: true
+    isOnWaitlist: true
+    plusOne: true
+    plusOneName: true
+    bringingItem: true
+    declineReason: true
+    createdAt: true
+    participant: { select: { name: true } }
+  }
+}>
 
 export default async function SeriesEventPage({
   params,
@@ -93,7 +107,7 @@ export default async function SeriesEventPage({
   })
 
   // Öffentliche Gästeliste - EXTREM WICHTIG: Nur ungefährliche Felder abfragen!
-  let publicRsvps: any[] = []
+  let publicRsvps: PublicRsvp[] = []
   if (series.isGuestListVisible) {
     publicRsvps = await prisma.rsvp.findMany({
       where: { eventId: event.id },
@@ -164,7 +178,7 @@ export default async function SeriesEventPage({
 
                       {!guest.isAttending && guest.declineReason && (
                         <div className="text-sm text-gray-500 mt-1 italic">
-                          "{guest.declineReason}"
+                          &quot;{guest.declineReason}&quot;
                         </div>
                       )}
                     </div>
