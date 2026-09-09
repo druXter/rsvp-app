@@ -48,39 +48,39 @@ export default async function EditSeriesTerminPage({ params }: { params: Promise
           <input type="hidden" name="eventId" value={event.id} />
 
           <div>
-            <label className="block text-sm font-medium mb-1">Termin-Titel</label>
-            <input type="text" name="title" defaultValue={event.title} required className="w-full border border-gray-300 p-2 rounded" />
+            <label htmlFor="title" className="block text-sm font-medium mb-1">Termin-Titel</label>
+            <input id="title" type="text" name="title" defaultValue={event.title} required className="w-full border border-gray-300 p-2 rounded" />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">URL-Wort (Slug)</label>
-            <input type="text" name="slug" defaultValue={event.slug} required className="w-full border border-gray-300 p-2 rounded" />
+            <label htmlFor="slug" className="block text-sm font-medium mb-1">URL-Wort (Slug)</label>
+            <input id="slug" type="text" name="slug" defaultValue={event.slug} required className="w-full border border-gray-300 p-2 rounded" />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Datum & Uhrzeit</label>
-            <input type="datetime-local" name="date" defaultValue={formattedDate} required className="w-full border border-gray-300 p-2 rounded" />
+            <label htmlFor="date" className="block text-sm font-medium mb-1">Datum & Uhrzeit</label>
+            <input id="date" type="datetime-local" name="date" defaultValue={formattedDate} required className="w-full border border-gray-300 p-2 rounded" />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Dauer (in Stunden)</label>
-            <input type="number" name="duration" min="1" max="72" defaultValue={event.duration} required className="w-full border border-gray-300 p-2 rounded" />
+            <label htmlFor="duration" className="block text-sm font-medium mb-1">Dauer (in Stunden)</label>
+            <input id="duration" type="number" name="duration" min="1" max="72" defaultValue={event.duration} required className="w-full border border-gray-300 p-2 rounded" />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Ort</label>
-            <input type="text" name="location" defaultValue={event.location || ''} className="w-full border border-gray-300 p-2 rounded" />
+            <label htmlFor="location" className="block text-sm font-medium mb-1">Ort</label>
+            <input id="location" type="text" name="location" defaultValue={event.location || ''} className="w-full border border-gray-300 p-2 rounded" />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Maximale Teilnehmerzahl (optional)</label>
-            <input type="number" name="maxCapacity" min="1" defaultValue={event.maxCapacity || ''} className="w-full border border-gray-300 p-2 rounded" placeholder="z.B. 50 (leer lassen für unbegrenzt)" />
+            <label htmlFor="maxCapacity" className="block text-sm font-medium mb-1">Maximale Teilnehmerzahl (optional)</label>
+            <input id="maxCapacity" type="number" name="maxCapacity" min="1" defaultValue={event.maxCapacity || ''} className="w-full border border-gray-300 p-2 rounded" placeholder="z.B. 50 (leer lassen für unbegrenzt)" />
             <p className="text-xs text-gray-500 mt-1">Gäste landen automatisch auf der Warteliste, wenn dieses Limit erreicht ist.</p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Beschreibung / Einladungstext</label>
-            <textarea name="description" defaultValue={event.description || ''} rows={4} className="w-full border border-gray-300 p-2 rounded"></textarea>
+            <label htmlFor="description" className="block text-sm font-medium mb-1">Beschreibung / Einladungstext</label>
+            <textarea id="description" name="description" defaultValue={event.description || ''} rows={4} className="w-full border border-gray-300 p-2 rounded"></textarea>
           </div>
 
           <div className="space-y-3 pt-4 border-t border-gray-200">
@@ -116,8 +116,8 @@ export default async function EditSeriesTerminPage({ params }: { params: Promise
             </label>
 
             <div>
-              <label className={`block text-sm font-medium mb-1 ${themeClasses('sky').heading}`}>Wie viele Tage vor dem Termin?</label>
-              <input type="number" name="reminderDays" min="1" max="30" defaultValue={event.reminderDays} className="w-full border border-gray-300 p-2 rounded" />
+              <label htmlFor="reminderDays" className={`block text-sm font-medium mb-1 ${themeClasses('sky').heading}`}>Wie viele Tage vor dem Termin?</label>
+              <input id="reminderDays" type="number" name="reminderDays" min="1" max="30" defaultValue={event.reminderDays} className="w-full border border-gray-300 p-2 rounded" />
             </div>
           </ThemeSection>
 
@@ -130,12 +130,12 @@ export default async function EditSeriesTerminPage({ params }: { params: Promise
 
           <ThemeSection color="cyan" title="Externe Abstimmung" description="Verlinkt z.B. auf eine Restaurant-Wahl im separaten Abstimmungstool. Ein eingeloggter, verifizierter Nutzer wird dabei automatisch für diese Abstimmung erkannt (falls die Abstimmung das nutzt) - alle anderen können trotzdem ganz normal darüber abstimmen.">
             <div>
-              <label className={`block text-sm font-medium mb-1 ${themeClasses('cyan').heading}`}>Link zur Abstimmung (Optional)</label>
-              <input type="url" name="pollUrl" defaultValue={event.pollUrl || ''} className={`w-full border ${themeClasses('cyan').border} p-2 rounded outline-none ${themeClasses('cyan').borderFocus}`} placeholder="https://abstimmung.example.de/xyz" />
+              <label htmlFor="pollUrl" className={`block text-sm font-medium mb-1 ${themeClasses('cyan').heading}`}>Link zur Abstimmung (Optional)</label>
+              <input id="pollUrl" type="url" name="pollUrl" defaultValue={event.pollUrl || ''} className={`w-full border ${themeClasses('cyan').border} p-2 rounded outline-none ${themeClasses('cyan').borderFocus}`} placeholder="https://abstimmung.example.de/xyz" />
             </div>
             <div>
-              <label className={`block text-sm font-medium mb-1 ${themeClasses('cyan').heading}`}>Beschriftung des Buttons (Optional)</label>
-              <input type="text" name="pollLabel" defaultValue={event.pollLabel || ''} className={`w-full border ${themeClasses('cyan').border} p-2 rounded outline-none ${themeClasses('cyan').borderFocus}`} placeholder="z.B. Restaurant für diesen Termin wählen" />
+              <label htmlFor="pollLabel" className={`block text-sm font-medium mb-1 ${themeClasses('cyan').heading}`}>Beschriftung des Buttons (Optional)</label>
+              <input id="pollLabel" type="text" name="pollLabel" defaultValue={event.pollLabel || ''} className={`w-full border ${themeClasses('cyan').border} p-2 rounded outline-none ${themeClasses('cyan').borderFocus}`} placeholder="z.B. Restaurant für diesen Termin wählen" />
             </div>
           </ThemeSection>
 

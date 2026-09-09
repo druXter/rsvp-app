@@ -63,18 +63,18 @@ export default async function RegisterGuestUserPage({
           <input type="hidden" name="seriesId" value={series.id} />
 
           <div>
-            <label className="block text-sm font-medium mb-1 text-gray-700">Name</label>
-            <input type="text" name="name" required className="w-full border border-gray-300 p-2 rounded text-gray-900" placeholder="Max Mustermann" />
+            <label htmlFor="name" className="block text-sm font-medium mb-1 text-gray-700">Name</label>
+            <input id="name" type="text" name="name" required className="w-full border border-gray-300 p-2 rounded text-gray-900" placeholder="Max Mustermann" />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1 text-gray-700">E-Mail</label>
-            <input type="email" name="email" required className="w-full border border-gray-300 p-2 rounded text-gray-900" placeholder="max@beispiel.de" />
+            <label htmlFor="email" className="block text-sm font-medium mb-1 text-gray-700">E-Mail</label>
+            <input id="email" type="email" name="email" required className="w-full border border-gray-300 p-2 rounded text-gray-900" placeholder="max@beispiel.de" />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1 text-gray-700">Passwort</label>
-            <input type="password" name="password" required minLength={8} className="w-full border border-gray-300 p-2 rounded text-gray-900" placeholder="Mindestens 8 Zeichen" />
+            <label htmlFor="password" className="block text-sm font-medium mb-1 text-gray-700">Passwort</label>
+            <input id="password" type="password" name="password" required minLength={8} className="w-full border border-gray-300 p-2 rounded text-gray-900" placeholder="Mindestens 8 Zeichen" />
           </div>
 
           <SubmitButton>Konto erstellen</SubmitButton>

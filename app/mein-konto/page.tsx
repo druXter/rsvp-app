@@ -137,16 +137,16 @@ export default async function MeinKontoPage() {
           <p className="text-xs text-gray-500 mt-1 mb-4">Gilt automatisch für alle Termine all deiner Reihen - einmal ändern, überall aktuell.</p>
           <form action={updateGuestProfile} className="space-y-3">
             <div>
-              <label className="block text-sm font-medium mb-1 text-gray-700">Name</label>
-              <input type="text" name="name" defaultValue={guestUser.name} required className="w-full border border-gray-300 p-2 rounded text-gray-900" />
+              <label htmlFor="name" className="block text-sm font-medium mb-1 text-gray-700">Name</label>
+              <input id="name" type="text" name="name" defaultValue={guestUser.name} required className="w-full border border-gray-300 p-2 rounded text-gray-900" />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1 text-gray-700">Handynummer</label>
-              <input type="tel" name="phone" defaultValue={guestUser.phone || ''} className="w-full border border-gray-300 p-2 rounded text-gray-900" />
+              <label htmlFor="phone" className="block text-sm font-medium mb-1 text-gray-700">Handynummer</label>
+              <input id="phone" type="tel" name="phone" defaultValue={guestUser.phone || ''} className="w-full border border-gray-300 p-2 rounded text-gray-900" />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1 text-gray-700">Essenswunsch</label>
-              <select name="dietaryOption" defaultValue={guestUser.dietaryOption || ''} className="w-full border border-gray-300 p-2 rounded text-gray-900 bg-white">
+              <label htmlFor="dietaryOption" className="block text-sm font-medium mb-1 text-gray-700">Essenswunsch</label>
+              <select id="dietaryOption" name="dietaryOption" defaultValue={guestUser.dietaryOption || ''} className="w-full border border-gray-300 p-2 rounded text-gray-900 bg-white">
                 <option value="">Keine Angabe</option>
                 <option value="Allesesser">Ich esse alles (Fleisch/Fisch)</option>
                 <option value="Vegetarisch">Vegetarisch</option>
@@ -154,8 +154,8 @@ export default async function MeinKontoPage() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1 text-gray-700">Allergien</label>
-              <input type="text" name="allergies" defaultValue={guestUser.allergies || ''} className="w-full border border-gray-300 p-2 rounded text-gray-900" placeholder="z.B. Laktose, Nüsse, Gluten..." />
+              <label htmlFor="allergies" className="block text-sm font-medium mb-1 text-gray-700">Allergien</label>
+              <input id="allergies" type="text" name="allergies" defaultValue={guestUser.allergies || ''} className="w-full border border-gray-300 p-2 rounded text-gray-900" placeholder="z.B. Laktose, Nüsse, Gluten..." />
             </div>
             <button type="submit" className="bg-blue-600 text-white font-bold py-2 px-4 rounded hover:bg-blue-700 transition text-sm">
               Speichern

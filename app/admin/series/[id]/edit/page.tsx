@@ -55,18 +55,18 @@ export default async function EditEventSeriesPage({
           <input type="hidden" name="seriesId" value={series.id} />
 
           <div>
-            <label className="block text-sm font-medium mb-1">Titel der Reihe</label>
-            <input type="text" name="title" defaultValue={series.title} required className="w-full border border-gray-300 p-2 rounded" />
+            <label htmlFor="title" className="block text-sm font-medium mb-1">Titel der Reihe</label>
+            <input id="title" type="text" name="title" defaultValue={series.title} required className="w-full border border-gray-300 p-2 rounded" />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">URL-Wort (Slug)</label>
-            <input type="text" name="slug" defaultValue={series.slug} required className="w-full border border-gray-300 p-2 rounded" />
+            <label htmlFor="slug" className="block text-sm font-medium mb-1">URL-Wort (Slug)</label>
+            <input id="slug" type="text" name="slug" defaultValue={series.slug} required className="w-full border border-gray-300 p-2 rounded" />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Beschreibung</label>
-            <textarea name="description" defaultValue={series.description || ''} rows={3} className="w-full border border-gray-300 p-2 rounded"></textarea>
+            <label htmlFor="description" className="block text-sm font-medium mb-1">Beschreibung</label>
+            <textarea id="description" name="description" defaultValue={series.description || ''} rows={3} className="w-full border border-gray-300 p-2 rounded"></textarea>
           </div>
 
           <div className="space-y-3 pt-4 border-t border-gray-200">
@@ -107,8 +107,8 @@ export default async function EditEventSeriesPage({
             </label>
 
             <div>
-              <label className={`block text-sm font-medium mb-1 ${themeClasses('indigo').heading}`}>Reihen-PIN / Passwort (Optional)</label>
-              <input type="text" name="eventPin" defaultValue={series.eventPin || ''} className={`w-full border ${themeClasses('indigo').border} p-2 rounded outline-none ${themeClasses('indigo').borderFocus}`} placeholder="leer lassen für öffentliche Reihe" />
+              <label htmlFor="eventPin" className={`block text-sm font-medium mb-1 ${themeClasses('indigo').heading}`}>Reihen-PIN / Passwort (Optional)</label>
+              <input id="eventPin" type="text" name="eventPin" defaultValue={series.eventPin || ''} className={`w-full border ${themeClasses('indigo').border} p-2 rounded outline-none ${themeClasses('indigo').borderFocus}`} placeholder="leer lassen für öffentliche Reihe" />
             </div>
           </ThemeSection>
 

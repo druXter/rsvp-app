@@ -30,19 +30,19 @@ export default async function CreateEventSeriesPage() {
 
         <form action={createEventSeries} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1">Titel der Reihe</label>
-            <input type="text" name="title" required className="w-full border border-gray-300 p-2 rounded" placeholder="z.B. Stammtisch 2026" />
+            <label htmlFor="title" className="block text-sm font-medium mb-1">Titel der Reihe</label>
+            <input id="title" type="text" name="title" required className="w-full border border-gray-300 p-2 rounded" placeholder="z.B. Stammtisch 2026" />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">URL-Wort (Slug)</label>
-            <input type="text" name="slug" required className="w-full border border-gray-300 p-2 rounded" placeholder="z.B. stammtisch" />
+            <label htmlFor="slug" className="block text-sm font-medium mb-1">URL-Wort (Slug)</label>
+            <input id="slug" type="text" name="slug" required className="w-full border border-gray-300 p-2 rounded" placeholder="z.B. stammtisch" />
             <p className="text-xs text-gray-500 mt-1">Die Reihe ist dann unter domain.de/reihe/slug erreichbar.</p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Beschreibung</label>
-            <textarea name="description" rows={3} className="w-full border border-gray-300 p-2 rounded" placeholder="Kurze Beschreibung der Reihe..."></textarea>
+            <label htmlFor="description" className="block text-sm font-medium mb-1">Beschreibung</label>
+            <textarea id="description" name="description" rows={3} className="w-full border border-gray-300 p-2 rounded" placeholder="Kurze Beschreibung der Reihe..."></textarea>
           </div>
 
           <div className="space-y-3 pt-4 border-t border-gray-200">
@@ -83,8 +83,8 @@ export default async function CreateEventSeriesPage() {
             </label>
 
             <div>
-              <label className={`block text-sm font-medium mb-1 ${themeClasses('indigo').heading}`}>Reihen-PIN / Passwort (Optional)</label>
-              <input type="text" name="eventPin" className={`w-full border ${themeClasses('indigo').border} p-2 rounded outline-none ${themeClasses('indigo').borderFocus}`} placeholder="z.B. Sommer26 (leer lassen für öffentliche Reihe)" />
+              <label htmlFor="eventPin" className={`block text-sm font-medium mb-1 ${themeClasses('indigo').heading}`}>Reihen-PIN / Passwort (Optional)</label>
+              <input id="eventPin" type="text" name="eventPin" className={`w-full border ${themeClasses('indigo').border} p-2 rounded outline-none ${themeClasses('indigo').borderFocus}`} placeholder="z.B. Sommer26 (leer lassen für öffentliche Reihe)" />
               <p className={`text-xs ${themeClasses('indigo').text} mt-1`}>Gäste müssen diesen Code eingeben, bevor sie die Reihe oder einen ihrer Termine sehen können.</p>
             </div>
           </ThemeSection>

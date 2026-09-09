@@ -35,8 +35,9 @@ export default async function GuestForgotPasswordPage({ searchParams }: { search
 
             <form action={requestGuestPasswordReset} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1 text-gray-700">E-Mail</label>
+                <label htmlFor="email" className="block text-sm font-medium mb-1 text-gray-700">E-Mail</label>
                 <input
+                  id="email"
                   type="email"
                   name="email"
                   required

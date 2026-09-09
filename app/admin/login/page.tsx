@@ -31,8 +31,9 @@ export default async function AdminLoginPage({ searchParams }: { searchParams: P
 
         <form action={loginUser} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1 text-gray-700">E-Mail</label>
+            <label htmlFor="email" className="block text-sm font-medium mb-1 text-gray-700">E-Mail</label>
             <input
+              id="email"
               type="email"
               name="email"
               required
@@ -42,8 +43,9 @@ export default async function AdminLoginPage({ searchParams }: { searchParams: P
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1 text-gray-700">Passwort</label>
+            <label htmlFor="password" className="block text-sm font-medium mb-1 text-gray-700">Passwort</label>
             <input
+              id="password"
               type="password"
               name="password"
               required

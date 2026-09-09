@@ -36,8 +36,9 @@ export default async function GuestResetPasswordPage({ searchParams }: { searchP
             <input type="hidden" name="token" value={token} />
 
             <div>
-              <label className="block text-sm font-medium mb-1 text-gray-700">Neues Passwort</label>
+              <label htmlFor="password" className="block text-sm font-medium mb-1 text-gray-700">Neues Passwort</label>
               <input
+                id="password"
                 type="password"
                 name="password"
                 required

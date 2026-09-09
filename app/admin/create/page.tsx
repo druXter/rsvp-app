@@ -24,40 +24,40 @@ export default async function CreateEventPage() {
 
         <form action={createEvent} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1">Event-Titel</label>
-            <input type="text" name="title" required className="w-full border border-gray-300 p-2 rounded" placeholder="z.B. Sommerfest 2026" />
+            <label htmlFor="title" className="block text-sm font-medium mb-1">Event-Titel</label>
+            <input id="title" type="text" name="title" required className="w-full border border-gray-300 p-2 rounded" placeholder="z.B. Sommerfest 2026" />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">URL-Wort (Slug)</label>
-            <input type="text" name="slug" required className="w-full border border-gray-300 p-2 rounded" placeholder="z.B. sommerfest" />
+            <label htmlFor="slug" className="block text-sm font-medium mb-1">URL-Wort (Slug)</label>
+            <input id="slug" type="text" name="slug" required className="w-full border border-gray-300 p-2 rounded" placeholder="z.B. sommerfest" />
             <p className="text-xs text-gray-500 mt-1">Das Event ist dann unter domain.de/slug erreichbar.</p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Datum & Uhrzeit</label>
-            <input type="datetime-local" name="date" required className="w-full border border-gray-300 p-2 rounded" />
+            <label htmlFor="date" className="block text-sm font-medium mb-1">Datum & Uhrzeit</label>
+            <input id="date" type="datetime-local" name="date" required className="w-full border border-gray-300 p-2 rounded" />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Dauer (in Stunden)</label>
-            <input type="number" name="duration" min="1" max="72" defaultValue={4} required className="w-full border border-gray-300 p-2 rounded" />
+            <label htmlFor="duration" className="block text-sm font-medium mb-1">Dauer (in Stunden)</label>
+            <input id="duration" type="number" name="duration" min="1" max="72" defaultValue={4} required className="w-full border border-gray-300 p-2 rounded" />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Ort</label>
-            <input type="text" name="location" className="w-full border border-gray-300 p-2 rounded" placeholder="z.B. Hauptcampus / Aula" />
+            <label htmlFor="location" className="block text-sm font-medium mb-1">Ort</label>
+            <input id="location" type="text" name="location" className="w-full border border-gray-300 p-2 rounded" placeholder="z.B. Hauptcampus / Aula" />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Maximale Teilnehmerzahl (optional)</label>
-            <input type="number" name="maxCapacity" min="1" className="w-full border border-gray-300 p-2 rounded" placeholder="z.B. 50 (leer lassen für unbegrenzt)" />
+            <label htmlFor="maxCapacity" className="block text-sm font-medium mb-1">Maximale Teilnehmerzahl (optional)</label>
+            <input id="maxCapacity" type="number" name="maxCapacity" min="1" className="w-full border border-gray-300 p-2 rounded" placeholder="z.B. 50 (leer lassen für unbegrenzt)" />
             <p className="text-xs text-gray-500 mt-1">Gäste landen automatisch auf der Warteliste, wenn dieses Limit erreicht ist.</p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Beschreibung / Einladungstext</label>
-            <textarea name="description" rows={4} className="w-full border border-gray-300 p-2 rounded" placeholder="Wir laden euch herzlich ein..."></textarea>
+            <label htmlFor="description" className="block text-sm font-medium mb-1">Beschreibung / Einladungstext</label>
+            <textarea id="description" name="description" rows={4} className="w-full border border-gray-300 p-2 rounded" placeholder="Wir laden euch herzlich ein..."></textarea>
           </div>
 
           <div className="space-y-3 pt-4 border-t border-gray-200">
@@ -115,8 +115,8 @@ export default async function CreateEventPage() {
             </label>
 
             <div>
-              <label className={`block text-sm font-medium mb-1 ${themeClasses('sky').heading}`}>Wie viele Tage vor dem Event?</label>
-              <input type="number" name="reminderDays" min="1" max="30" defaultValue={7} className="w-full border border-gray-300 p-2 rounded" />
+              <label htmlFor="reminderDays" className={`block text-sm font-medium mb-1 ${themeClasses('sky').heading}`}>Wie viele Tage vor dem Event?</label>
+              <input id="reminderDays" type="number" name="reminderDays" min="1" max="30" defaultValue={7} className="w-full border border-gray-300 p-2 rounded" />
             </div>
           </ThemeSection>
 
@@ -141,20 +141,20 @@ export default async function CreateEventPage() {
             </label>
 
             <div>
-              <label className={`block text-sm font-medium mb-1 ${themeClasses('indigo').heading}`}>Event-PIN / Passwort (Optional)</label>
-              <input type="text" name="eventPin" className={`w-full border ${themeClasses('indigo').border} p-2 rounded outline-none ${themeClasses('indigo').borderFocus}`} placeholder="z.B. Sommer26 (leer lassen für öffentliches Event)" />
+              <label htmlFor="eventPin" className={`block text-sm font-medium mb-1 ${themeClasses('indigo').heading}`}>Event-PIN / Passwort (Optional)</label>
+              <input id="eventPin" type="text" name="eventPin" className={`w-full border ${themeClasses('indigo').border} p-2 rounded outline-none ${themeClasses('indigo').borderFocus}`} placeholder="z.B. Sommer26 (leer lassen für öffentliches Event)" />
               <p className={`text-xs ${themeClasses('indigo').text} mt-1`}>Gäste müssen diesen Code eingeben, bevor sie das Formular oder die Gästeliste sehen können.</p>
             </div>
           </ThemeSection>
 
           <ThemeSection color="cyan" title="Externe Abstimmung" description="Verlinkt z.B. auf eine Restaurant-Wahl im separaten Abstimmungstool. Ein eingeloggter, verifizierter Nutzer wird dabei automatisch für diese Abstimmung erkannt (falls die Abstimmung das nutzt) - alle anderen können trotzdem ganz normal darüber abstimmen.">
             <div>
-              <label className={`block text-sm font-medium mb-1 ${themeClasses('cyan').heading}`}>Link zur Abstimmung (Optional)</label>
-              <input type="url" name="pollUrl" className={`w-full border ${themeClasses('cyan').border} p-2 rounded outline-none ${themeClasses('cyan').borderFocus}`} placeholder="https://abstimmung.example.de/xyz" />
+              <label htmlFor="pollUrl" className={`block text-sm font-medium mb-1 ${themeClasses('cyan').heading}`}>Link zur Abstimmung (Optional)</label>
+              <input id="pollUrl" type="url" name="pollUrl" className={`w-full border ${themeClasses('cyan').border} p-2 rounded outline-none ${themeClasses('cyan').borderFocus}`} placeholder="https://abstimmung.example.de/xyz" />
             </div>
             <div>
-              <label className={`block text-sm font-medium mb-1 ${themeClasses('cyan').heading}`}>Beschriftung des Buttons (Optional)</label>
-              <input type="text" name="pollLabel" className={`w-full border ${themeClasses('cyan').border} p-2 rounded outline-none ${themeClasses('cyan').borderFocus}`} placeholder="z.B. Restaurant für diesen Termin wählen" />
+              <label htmlFor="pollLabel" className={`block text-sm font-medium mb-1 ${themeClasses('cyan').heading}`}>Beschriftung des Buttons (Optional)</label>
+              <input id="pollLabel" type="text" name="pollLabel" className={`w-full border ${themeClasses('cyan').border} p-2 rounded outline-none ${themeClasses('cyan').borderFocus}`} placeholder="z.B. Restaurant für diesen Termin wählen" />
             </div>
           </ThemeSection>
 

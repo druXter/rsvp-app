@@ -196,15 +196,15 @@ export default function RsvpForm({
       )}
 
       <div>
-        <label className="block text-sm font-medium mb-1">Dein Name</label>
-        <input type="text" name="name" defaultValue={participant?.name} required className="w-full border border-gray-300 p-2 rounded" placeholder="Max Mustermann" />
+        <label htmlFor="name" className="block text-sm font-medium mb-1">Dein Name</label>
+        <input id="name" type="text" name="name" defaultValue={participant?.name} required className="w-full border border-gray-300 p-2 rounded" placeholder="Max Mustermann" />
       </div>
 
       <div>
-        <label className="block text-sm font-medium mb-1">Bist du dabei?</label>
+        <label htmlFor="isAttending-true" className="block text-sm font-medium mb-1">Bist du dabei?</label>
         <div className="flex gap-4">
           <label className="flex items-center gap-2 cursor-pointer">
-            <input type="radio" name="isAttending" value="true" defaultChecked={rsvp?.isAttending === true} required onChange={() => setIsAttending(true)} />
+            <input id="isAttending-true" type="radio" name="isAttending" value="true" defaultChecked={rsvp?.isAttending === true} required onChange={() => setIsAttending(true)} />
             Ja, ich komme
           </label>
           <label className="flex items-center gap-2 cursor-pointer">
@@ -219,8 +219,9 @@ export default function RsvpForm({
 
           {config.askEmail && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">E-Mail Adresse</label>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">E-Mail Adresse</label>
               <input
+                id="email"
                 type="email"
                 name="email"
                 defaultValue={participant?.email || ''}
@@ -241,17 +242,17 @@ export default function RsvpForm({
 
           {config.askPhone && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Handynummer</label>
-              <input type="tel" name="phone" defaultValue={participant?.phone || ''} required className="w-full border border-gray-300 p-2 rounded-md" placeholder="0151 12345678" />
+              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">Handynummer</label>
+              <input id="phone" type="tel" name="phone" defaultValue={participant?.phone || ''} required className="w-full border border-gray-300 p-2 rounded-md" placeholder="0151 12345678" />
             </div>
           )}
 
           {config.askPlusOne && (
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Bringst du eine Begleitperson mit?</label>
+              <label htmlFor="plusOne-true" className="block text-sm font-medium text-gray-700 mb-1">Bringst du eine Begleitperson mit?</label>
               <div className="flex gap-4">
                 <label className="flex items-center gap-2">
-                  <input type="radio" name="plusOne" value="true" defaultChecked={rsvp?.plusOne === true} required onChange={() => setHasPlusOne(true)} className="w-4 h-4 text-blue-600" /> Ja
+                  <input id="plusOne-true" type="radio" name="plusOne" value="true" defaultChecked={rsvp?.plusOne === true} required onChange={() => setHasPlusOne(true)} className="w-4 h-4 text-blue-600" /> Ja
                 </label>
                 <label className="flex items-center gap-2">
                   <input type="radio" name="plusOne" value="false" defaultChecked={rsvp?.plusOne === false} required onChange={() => setHasPlusOne(false)} className="w-4 h-4 text-blue-600" /> Nein
@@ -265,8 +266,8 @@ export default function RsvpForm({
 
           {config.askDiet && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Essenswunsch</label>
-              <select name="dietaryOption" defaultValue={participant?.dietaryOption || ''} required className="w-full border border-gray-300 p-2 rounded-md bg-white">
+              <label htmlFor="dietaryOption" className="block text-sm font-medium text-gray-700 mb-1">Essenswunsch</label>
+              <select id="dietaryOption" name="dietaryOption" defaultValue={participant?.dietaryOption || ''} required className="w-full border border-gray-300 p-2 rounded-md bg-white">
                 <option value="">Bitte wählen...</option>
                 <option value="Allesesser">Ich esse alles (Fleisch/Fisch)</option>
                 <option value="Vegetarisch">Vegetarisch</option>
@@ -277,8 +278,8 @@ export default function RsvpForm({
 
           {config.askAllergies && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Allergien oder Unverträglichkeiten? (Optional)</label>
-              <input type="text" name="allergies" defaultValue={participant?.allergies || ''} className="w-full border border-gray-300 p-2 rounded-md" placeholder="z.B. Laktose, Nüsse, Gluten..." />
+              <label htmlFor="allergies" className="block text-sm font-medium text-gray-700 mb-1">Allergien oder Unverträglichkeiten? (Optional)</label>
+              <input id="allergies" type="text" name="allergies" defaultValue={participant?.allergies || ''} className="w-full border border-gray-300 p-2 rounded-md" placeholder="z.B. Laktose, Nüsse, Gluten..." />
               <p className="text-xs text-gray-500 mt-1">
                 Freiwillige Angabe zur Berücksichtigung bei der Verpflegung. Da dies ggf. ein Gesundheitsdatum ist, verarbeiten wir es nur auf Basis deiner Einwilligung durch das Ausfüllen dieses Feldes - jederzeit widerrufbar, z.B. über deinen persönlichen Link (siehe unsere <Link href="/datenschutz" className="underline">Datenschutzerklärung</Link>).
               </p>
@@ -287,10 +288,10 @@ export default function RsvpForm({
 
           {config.askAlcohol && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Trinkst du Alkohol?</label>
+              <label htmlFor="drinksAlcohol-true" className="block text-sm font-medium text-gray-700 mb-1">Trinkst du Alkohol?</label>
               <div className="flex gap-4">
                 <label className="flex items-center gap-2">
-                  <input type="radio" name="drinksAlcohol" value="true" defaultChecked={rsvp?.drinksAlcohol === true} required className="w-4 h-4 text-blue-600" /> Ja
+                  <input id="drinksAlcohol-true" type="radio" name="drinksAlcohol" value="true" defaultChecked={rsvp?.drinksAlcohol === true} required className="w-4 h-4 text-blue-600" /> Ja
                 </label>
                 <label className="flex items-center gap-2">
                   <input type="radio" name="drinksAlcohol" value="false" defaultChecked={rsvp?.drinksAlcohol === false} required className="w-4 h-4 text-blue-600" /> Nein (nur alkoholfrei)
@@ -301,21 +302,21 @@ export default function RsvpForm({
 
           {config.askBringingItem && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Bringst du etwas mit? (Optional)</label>
-              <input type="text" name="bringingItem" defaultValue={rsvp?.bringingItem || ''} className="w-full border border-gray-300 p-2 rounded-md" placeholder="z.B. Nudelsalat, Kasten Bier..." />
+              <label htmlFor="bringingItem" className="block text-sm font-medium text-gray-700 mb-1">Bringst du etwas mit? (Optional)</label>
+              <input id="bringingItem" type="text" name="bringingItem" defaultValue={rsvp?.bringingItem || ''} className="w-full border border-gray-300 p-2 rounded-md" placeholder="z.B. Nudelsalat, Kasten Bier..." />
             </div>
           )}
 
           {customQuestions.map((question: string, i: number) => (
             <div key={i}>
-              <label className="block text-sm font-medium text-gray-700 mb-1">{question} (Optional)</label>
-              <input type="text" name={`customAnswer_${i}`} defaultValue={existingCustomAnswers[i] || ''} className="w-full border border-gray-300 p-2 rounded-md" />
+              <label htmlFor={`customAnswer-${i}`} className="block text-sm font-medium text-gray-700 mb-1">{question} (Optional)</label>
+              <input id={`customAnswer-${i}`} type="text" name={`customAnswer_${i}`} defaultValue={existingCustomAnswers[i] || ''} className="w-full border border-gray-300 p-2 rounded-md" />
             </div>
           ))}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Sonstige Anmerkungen? (Optional)</label>
-            <textarea name="additionalInfo" defaultValue={rsvp?.additionalInfo || ''} className="w-full border border-gray-300 p-2 rounded-md" rows={3}></textarea>
+            <label htmlFor="additionalInfo" className="block text-sm font-medium text-gray-700 mb-1">Sonstige Anmerkungen? (Optional)</label>
+            <textarea id="additionalInfo" name="additionalInfo" defaultValue={rsvp?.additionalInfo || ''} className="w-full border border-gray-300 p-2 rounded-md" rows={3}></textarea>
           </div>
         </div>
       )}
@@ -323,8 +324,8 @@ export default function RsvpForm({
       {isAttending === false && (
         <div className="space-y-4 pt-4 border-t">
           <div>
-            <label className="block text-sm font-medium mb-1">Warum klappt es leider nicht? (Optional)</label>
-            <textarea name="declineReason" defaultValue={rsvp?.declineReason || ''} className="w-full border border-gray-300 p-2 rounded" rows={2} placeholder="z.B. Sind leider im Urlaub..."></textarea>
+            <label htmlFor="declineReason" className="block text-sm font-medium mb-1">Warum klappt es leider nicht? (Optional)</label>
+            <textarea id="declineReason" name="declineReason" defaultValue={rsvp?.declineReason || ''} className="w-full border border-gray-300 p-2 rounded" rows={2} placeholder="z.B. Sind leider im Urlaub..."></textarea>
           </div>
         </div>
       )}

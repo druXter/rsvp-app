@@ -78,39 +78,39 @@ export default async function SeriesDetailPage({ params }: { params: Promise<{ i
                 <input type="hidden" name="seriesId" value={series.id} />
 
                 <div>
-                  <label className="block text-sm font-medium mb-1">Termin-Titel</label>
-                  <input type="text" name="title" required className="w-full border border-gray-300 p-2 rounded" placeholder={`z.B. ${series.title} - Januar`} />
+                  <label htmlFor="title" className="block text-sm font-medium mb-1">Termin-Titel</label>
+                  <input id="title" type="text" name="title" required className="w-full border border-gray-300 p-2 rounded" placeholder={`z.B. ${series.title} - Januar`} />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium mb-1">URL-Wort (Slug)</label>
-                  <input type="text" name="slug" required className="w-full border border-gray-300 p-2 rounded" placeholder="z.B. januar" />
+                  <label htmlFor="slug" className="block text-sm font-medium mb-1">URL-Wort (Slug)</label>
+                  <input id="slug" type="text" name="slug" required className="w-full border border-gray-300 p-2 rounded" placeholder="z.B. januar" />
                   <p className="text-xs text-gray-500 mt-1">Erreichbar unter domain.de/reihe/{series.slug}/slug</p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium mb-1">Datum & Uhrzeit</label>
-                  <input type="datetime-local" name="date" required className="w-full border border-gray-300 p-2 rounded" />
+                  <label htmlFor="date" className="block text-sm font-medium mb-1">Datum & Uhrzeit</label>
+                  <input id="date" type="datetime-local" name="date" required className="w-full border border-gray-300 p-2 rounded" />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium mb-1">Dauer (in Stunden)</label>
-                  <input type="number" name="duration" min="1" max="72" defaultValue={4} required className="w-full border border-gray-300 p-2 rounded" />
+                  <label htmlFor="duration" className="block text-sm font-medium mb-1">Dauer (in Stunden)</label>
+                  <input id="duration" type="number" name="duration" min="1" max="72" defaultValue={4} required className="w-full border border-gray-300 p-2 rounded" />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium mb-1">Ort</label>
-                  <input type="text" name="location" className="w-full border border-gray-300 p-2 rounded" />
+                  <label htmlFor="location" className="block text-sm font-medium mb-1">Ort</label>
+                  <input id="location" type="text" name="location" className="w-full border border-gray-300 p-2 rounded" />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium mb-1">Maximale Teilnehmerzahl (optional)</label>
-                  <input type="number" name="maxCapacity" min="1" className="w-full border border-gray-300 p-2 rounded" placeholder="leer lassen für unbegrenzt" />
+                  <label htmlFor="maxCapacity" className="block text-sm font-medium mb-1">Maximale Teilnehmerzahl (optional)</label>
+                  <input id="maxCapacity" type="number" name="maxCapacity" min="1" className="w-full border border-gray-300 p-2 rounded" placeholder="leer lassen für unbegrenzt" />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium mb-1">Beschreibung / Einladungstext</label>
-                  <textarea name="description" rows={3} className="w-full border border-gray-300 p-2 rounded"></textarea>
+                  <label htmlFor="description" className="block text-sm font-medium mb-1">Beschreibung / Einladungstext</label>
+                  <textarea id="description" name="description" rows={3} className="w-full border border-gray-300 p-2 rounded"></textarea>
                 </div>
 
                 <div className="space-y-2 pt-2 border-t border-purple-200">
@@ -142,8 +142,8 @@ export default async function SeriesDetailPage({ params }: { params: Promise<{ i
                     <span className="text-sm font-medium">Automatische Erinnerung aktivieren</span>
                   </label>
                   <div>
-                    <label className="block text-sm font-medium mb-1">Wie viele Tage vor dem Termin?</label>
-                    <input type="number" name="reminderDays" min="1" max="30" defaultValue={7} className="w-full border border-gray-300 p-2 rounded" />
+                    <label htmlFor="reminderDays" className="block text-sm font-medium mb-1">Wie viele Tage vor dem Termin?</label>
+                    <input id="reminderDays" type="number" name="reminderDays" min="1" max="30" defaultValue={7} className="w-full border border-gray-300 p-2 rounded" />
                   </div>
                 </div>
 

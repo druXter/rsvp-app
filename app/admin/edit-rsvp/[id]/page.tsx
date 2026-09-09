@@ -40,12 +40,12 @@ export default async function EditRsvpPage({ params }: { params: Promise<{ id: s
           {/* Raster-Layout (Grid) für eine kompaktere Darstellung der Eingabefelder */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1">Name</label>
-              <input type="text" name="name" defaultValue={participant.name} required className="w-full border border-gray-300 p-2 rounded" />
+              <label htmlFor="name" className="block text-sm font-medium mb-1">Name</label>
+              <input id="name" type="text" name="name" defaultValue={participant.name} required className="w-full border border-gray-300 p-2 rounded" />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Status</label>
-              <select name="isAttending" defaultValue={rsvp.isAttending ? 'true' : 'false'} className="w-full border border-gray-300 p-2 rounded bg-white">
+              <label htmlFor="isAttending" className="block text-sm font-medium mb-1">Status</label>
+              <select id="isAttending" name="isAttending" defaultValue={rsvp.isAttending ? 'true' : 'false'} className="w-full border border-gray-300 p-2 rounded bg-white">
                 <option value="true">Zusage</option>
                 <option value="false">Absage</option>
               </select>
@@ -54,33 +54,33 @@ export default async function EditRsvpPage({ params }: { params: Promise<{ id: s
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1">E-Mail</label>
-              <input type="email" name="email" defaultValue={participant.email || ''} className="w-full border border-gray-300 p-2 rounded" />
+              <label htmlFor="email" className="block text-sm font-medium mb-1">E-Mail</label>
+              <input id="email" type="email" name="email" defaultValue={participant.email || ''} className="w-full border border-gray-300 p-2 rounded" />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Handy</label>
-              <input type="tel" name="phone" defaultValue={participant.phone || ''} className="w-full border border-gray-300 p-2 rounded" />
+              <label htmlFor="phone" className="block text-sm font-medium mb-1">Handy</label>
+              <input id="phone" type="tel" name="phone" defaultValue={participant.phone || ''} className="w-full border border-gray-300 p-2 rounded" />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4 pt-4 border-t">
             <div>
-              <label className="block text-sm font-medium mb-1">Begleitung (+1)?</label>
-              <select name="plusOne" defaultValue={rsvp.plusOne ? 'true' : 'false'} className="w-full border border-gray-300 p-2 rounded bg-white">
+              <label htmlFor="plusOne" className="block text-sm font-medium mb-1">Begleitung (+1)?</label>
+              <select id="plusOne" name="plusOne" defaultValue={rsvp.plusOne ? 'true' : 'false'} className="w-full border border-gray-300 p-2 rounded bg-white">
                 <option value="true">Ja</option>
                 <option value="false">Nein</option>
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Name d. Begleitung</label>
-              <input type="text" name="plusOneName" defaultValue={rsvp.plusOneName || ''} className="w-full border border-gray-300 p-2 rounded" />
+              <label htmlFor="plusOneName" className="block text-sm font-medium mb-1">Name d. Begleitung</label>
+              <input id="plusOneName" type="text" name="plusOneName" defaultValue={rsvp.plusOneName || ''} className="w-full border border-gray-300 p-2 rounded" />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1">Essen</label>
-              <select name="dietaryOption" defaultValue={participant.dietaryOption || ''} className="w-full border border-gray-300 p-2 rounded bg-white">
+              <label htmlFor="dietaryOption" className="block text-sm font-medium mb-1">Essen</label>
+              <select id="dietaryOption" name="dietaryOption" defaultValue={participant.dietaryOption || ''} className="w-full border border-gray-300 p-2 rounded bg-white">
                 <option value="">Keine Angabe</option>
                 <option value="Allesesser">Allesesser</option>
                 <option value="Vegetarisch">Vegetarisch</option>
@@ -88,8 +88,8 @@ export default async function EditRsvpPage({ params }: { params: Promise<{ id: s
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Alkohol?</label>
-              <select name="drinksAlcohol" defaultValue={rsvp.drinksAlcohol === true ? 'true' : rsvp.drinksAlcohol === false ? 'false' : ''} className="w-full border border-gray-300 p-2 rounded bg-white">
+              <label htmlFor="drinksAlcohol" className="block text-sm font-medium mb-1">Alkohol?</label>
+              <select id="drinksAlcohol" name="drinksAlcohol" defaultValue={rsvp.drinksAlcohol === true ? 'true' : rsvp.drinksAlcohol === false ? 'false' : ''} className="w-full border border-gray-300 p-2 rounded bg-white">
                 <option value="">Keine Angabe</option>
                 <option value="true">Ja</option>
                 <option value="false">Nein</option>
@@ -98,23 +98,24 @@ export default async function EditRsvpPage({ params }: { params: Promise<{ id: s
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Allergien</label>
-            <input type="text" name="allergies" defaultValue={participant.allergies || ''} className="w-full border border-gray-300 p-2 rounded" />
+            <label htmlFor="allergies" className="block text-sm font-medium mb-1">Allergien</label>
+            <input id="allergies" type="text" name="allergies" defaultValue={participant.allergies || ''} className="w-full border border-gray-300 p-2 rounded" />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Mitbringsel</label>
-            <input type="text" name="bringingItem" defaultValue={rsvp.bringingItem || ''} className="w-full border border-gray-300 p-2 rounded" />
+            <label htmlFor="bringingItem" className="block text-sm font-medium mb-1">Mitbringsel</label>
+            <input id="bringingItem" type="text" name="bringingItem" defaultValue={rsvp.bringingItem || ''} className="w-full border border-gray-300 p-2 rounded" />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Anmerkungen (bei Zusage) / Grund (bei Absage)</label>
-            {/* 
-              Dynamische Zuordnung des Feldes: 
+            <label htmlFor="additionalInfoOrDeclineReason" className="block text-sm font-medium mb-1">Anmerkungen (bei Zusage) / Grund (bei Absage)</label>
+            {/*
+              Dynamische Zuordnung des Feldes:
               Das Datenbankfeld (additionalInfo oder declineReason) variiert je nach Teilnahmestatus.
             */}
-            <textarea 
-              name={rsvp.isAttending ? 'additionalInfo' : 'declineReason'} 
+            <textarea
+              id="additionalInfoOrDeclineReason"
+              name={rsvp.isAttending ? 'additionalInfo' : 'declineReason'}
               defaultValue={rsvp.isAttending ? (rsvp.additionalInfo || '') : (rsvp.declineReason || '')} 
               rows={3} 
               className="w-full border border-gray-300 p-2 rounded"

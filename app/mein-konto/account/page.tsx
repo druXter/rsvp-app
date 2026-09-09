@@ -94,12 +94,12 @@ export default async function GuestAccountPage({
           <h2 className="font-bold text-gray-900">Passwort ändern</h2>
           <form action={changeGuestPassword} className="space-y-3">
             <div>
-              <label className="block text-sm font-medium mb-1 text-gray-700">Aktuelles Passwort</label>
-              <input type="password" name="currentPassword" required className="w-full border border-gray-300 p-2 rounded text-gray-900" />
+              <label htmlFor="currentPassword" className="block text-sm font-medium mb-1 text-gray-700">Aktuelles Passwort</label>
+              <input id="currentPassword" type="password" name="currentPassword" required className="w-full border border-gray-300 p-2 rounded text-gray-900" />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1 text-gray-700">Neues Passwort</label>
-              <input type="password" name="newPassword" required minLength={8} className="w-full border border-gray-300 p-2 rounded text-gray-900" placeholder="Mindestens 8 Zeichen" />
+              <label htmlFor="newPassword" className="block text-sm font-medium mb-1 text-gray-700">Neues Passwort</label>
+              <input id="newPassword" type="password" name="newPassword" required minLength={8} className="w-full border border-gray-300 p-2 rounded text-gray-900" placeholder="Mindestens 8 Zeichen" />
             </div>
             <SubmitButton>Passwort ändern</SubmitButton>
           </form>
@@ -109,12 +109,12 @@ export default async function GuestAccountPage({
           <h2 className="font-bold text-gray-900">E-Mail-Adresse ändern</h2>
           <form action={requestGuestEmailChange} className="space-y-3">
             <div>
-              <label className="block text-sm font-medium mb-1 text-gray-700">Aktuelles Passwort</label>
-              <input type="password" name="currentPassword" required className="w-full border border-gray-300 p-2 rounded text-gray-900" />
+              <label htmlFor="currentPasswordForEmail" className="block text-sm font-medium mb-1 text-gray-700">Aktuelles Passwort</label>
+              <input id="currentPasswordForEmail" type="password" name="currentPassword" required className="w-full border border-gray-300 p-2 rounded text-gray-900" />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1 text-gray-700">Neue E-Mail-Adresse</label>
-              <input type="email" name="newEmail" required className="w-full border border-gray-300 p-2 rounded text-gray-900" />
+              <label htmlFor="newEmail" className="block text-sm font-medium mb-1 text-gray-700">Neue E-Mail-Adresse</label>
+              <input id="newEmail" type="email" name="newEmail" required className="w-full border border-gray-300 p-2 rounded text-gray-900" />
               <p className="text-xs text-gray-500 mt-1">Wird erst nach Bestätigung über einen an diese Adresse geschickten Link wirksam.</p>
             </div>
             <SubmitButton>Bestätigungslink anfordern</SubmitButton>
@@ -192,8 +192,9 @@ export default async function GuestAccountPage({
           )}
 
           <form action={createApiToken} className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">Neuen Token erzeugen</label>
+            <label htmlFor="tokenName" className="block text-sm font-medium text-gray-700">Neuen Token erzeugen</label>
             <input
+              id="tokenName"
               type="text"
               name="name"
               required

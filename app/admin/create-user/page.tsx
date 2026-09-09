@@ -45,19 +45,19 @@ export default async function CreateUserPage({ searchParams }: { searchParams: P
 
         <form action={createUser} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1 text-gray-700">E-Mail</label>
-            <input type="email" name="email" required className="w-full border border-gray-300 p-2 rounded text-gray-900" placeholder="referat@domain.de" />
+            <label htmlFor="email" className="block text-sm font-medium mb-1 text-gray-700">E-Mail</label>
+            <input id="email" type="email" name="email" required className="w-full border border-gray-300 p-2 rounded text-gray-900" placeholder="referat@domain.de" />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1 text-gray-700">Passwort</label>
-            <input type="password" name="password" required minLength={8} className="w-full border border-gray-300 p-2 rounded text-gray-900" placeholder="Mindestens 8 Zeichen" />
+            <label htmlFor="password" className="block text-sm font-medium mb-1 text-gray-700">Passwort</label>
+            <input id="password" type="password" name="password" required minLength={8} className="w-full border border-gray-300 p-2 rounded text-gray-900" placeholder="Mindestens 8 Zeichen" />
           </div>
 
           {isAdmin ? (
             <div>
-              <label className="block text-sm font-medium mb-1 text-gray-700">Rolle</label>
-              <select name="role" defaultValue="MODERATOR" className="w-full border border-gray-300 p-2 rounded text-gray-900 bg-white">
+              <label htmlFor="role" className="block text-sm font-medium mb-1 text-gray-700">Rolle</label>
+              <select id="role" name="role" defaultValue="MODERATOR" className="w-full border border-gray-300 p-2 rounded text-gray-900 bg-white">
                 <option value="CREATOR">Creator (eigenständiges Konto mit eigenen Events/Reihen)</option>
                 <option value="MODERATOR">Moderator (nur mit dir geteilter Zugriff)</option>
                 <option value="ADMIN">Admin (voller Zugriff auf alles)</option>
