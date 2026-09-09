@@ -119,6 +119,19 @@ model Event {
   // erkennen statt einen Duplikat-Eintrag anzulegen (siehe app/lib/mail.ts).
   icsSequence Int @default(0)
 
+  // Optionaler Link zu einer externen Abstimmung für GENAU diesen Termin (z.B. im
+  // separaten "abstimmungstool" - eigenständiges Tool, siehe dessen README). Rein
+  // additiv: ohne pollUrl ändert sich nichts. Ist pollUrl gesetzt, verlinkt die
+  // Event-Seite nicht direkt darauf, sondern über /api/poll-link/[eventId] (siehe
+  // dort) - der Redirect hängt für einen eingeloggten, verifizierten GuestUser einen
+  // signierten Verifizierungs-Token an (siehe app/lib/poll-verification.ts), damit
+  // eine dort passend markierte Abstimmung Mehrfachabstimmen ausschließen kann. Für
+  // jeden anderen Aufrufer (nicht eingeloggt, unverifiziert) führt derselbe Link
+  // einfach ohne Token zur Abstimmung - das Abstimmungstool selbst entscheidet, ob
+  // das für diese eine Abstimmung reicht oder nicht.
+  pollUrl   String?
+  pollLabel String?
+
   ownerId String
   owner   User   @relation(fields: [ownerId], references: [id])
 

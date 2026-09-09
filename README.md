@@ -90,6 +90,13 @@ IMPRESSUM_PHONE=Optional
 VAPID_PUBLIC_KEY=...
 VAPID_PRIVATE_KEY=...
 VAPID_SUBJECT=mailto:deine-email@domain.de
+
+# Gemeinsames Secret mit dem separaten "abstimmungstool" (eigenständiges Projekt) -
+# nur relevant, wenn ein Event/Termin einen Abstimmungs-Link (pollUrl) hat. Ohne
+# dieses Secret wird der Link trotzdem angezeigt, nur eben ohne automatische
+# Übernahme der Nutzer-Verifizierung. MUSS exakt mit RSVP_VERIFICATION_SECRET in
+# der .env des abstimmungstools übereinstimmen.
+POLL_VERIFICATION_SECRET=...
 ```
 
 > **Impressum-Platzhalter:** Die Impressum-Seite (`app/impressum/page.tsx`) liest ihre Angaben zur Laufzeit aus `IMPRESSUM_NAME`/`IMPRESSUM_STREET`/`IMPRESSUM_ZIP`/`IMPRESSUM_CITY`/`IMPRESSUM_EMAIL`/`IMPRESSUM_PHONE`. Sind diese Variablen nicht gesetzt, zeigt die Seite generische Platzhalter (`[Dein Vorname] [Dein Nachname]` etc.) statt echter Daten an. So bleibt das Repository frei von personenbezogenen Daten - trag deine echten Angaben ausschließlich in deine eigene, nicht versionierte `.env` ein (lokal wie auf dem Server).

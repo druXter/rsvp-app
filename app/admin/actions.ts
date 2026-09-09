@@ -29,6 +29,20 @@ function readCustomQuestions(formData: FormData): string[] {
 }
 
 /**
+ * Liest die optionalen Felder für einen externen Abstimmungs-Link (Event.pollUrl/
+ * pollLabel, siehe schema.prisma und app/api/poll-link/[eventId]/route.ts) - leere
+ * Felder werden zu null statt leerem String, gleiche Konvention wie eventPin.
+ */
+function readPollLink(formData: FormData): { pollUrl: string | null; pollLabel: string | null } {
+  const pollUrlInput = (formData.get('pollUrl') as string || '').trim()
+  const pollLabelInput = (formData.get('pollLabel') as string || '').trim()
+  return {
+    pollUrl: pollUrlInput || null,
+    pollLabel: pollLabelInput || null
+  }
+}
+
+/**
  * Vergleicht die für Gäste relevanten Termin-Felder (Titel/Datum/Dauer/Ort/Beschreibung)
  * vor und nach einer Bearbeitung. Gemeinsam genutzt von updateEvent und
  * updateSeriesTermin, damit "was zählt als dringende Änderung" an genau einer Stelle
@@ -332,6 +346,7 @@ export async function createEvent(formData: FormData) {
   const reminderDays = parseInt(formData.get('reminderDays') as string) || 7
   const requireVerification = formData.get('requireVerification') === 'on'
   const enableCheckin = formData.get('enableCheckin') === 'on'
+  const { pollUrl, pollLabel } = readPollLink(formData)
 
   // Abfrage-Optionen für die Gäste als JSON-String speichern
   const formConfig = JSON.stringify({
@@ -364,7 +379,9 @@ export async function createEvent(formData: FormData) {
       maxCapacity,
       isGuestListVisible,
       eventPin,
-      enableCheckin
+      enableCheckin,
+      pollUrl,
+      pollLabel
     }
   })
 
@@ -429,6 +446,7 @@ export async function updateEvent(formData: FormData) {
   const requireVerification = formData.get('requireVerification') === 'on'
   const enableCheckin = formData.get('enableCheckin') === 'on'
   const notifyGuests = formData.get('notifyGuests') === 'on'
+  const { pollUrl, pollLabel } = readPollLink(formData)
 
   const formConfig = JSON.stringify({
     askEmail: formData.get('askEmail') === 'on',
@@ -465,6 +483,8 @@ export async function updateEvent(formData: FormData) {
       isGuestListVisible,
       eventPin,
       enableCheckin,
+      pollUrl,
+      pollLabel,
       ...(changes.length > 0 ? { icsSequence: { increment: 1 } } : {})
     }
   })
@@ -872,6 +892,7 @@ export async function updateSeriesTermin(formData: FormData) {
   const reminderDays = parseInt(formData.get('reminderDays') as string) || 7
   const enableCheckin = formData.get('enableCheckin') === 'on'
   const notifyGuests = formData.get('notifyGuests') === 'on'
+  const { pollUrl, pollLabel } = readPollLink(formData)
 
   const formConfig = JSON.stringify({
     askEmail: false,
@@ -893,6 +914,7 @@ export async function updateSeriesTermin(formData: FormData) {
     where: { id },
     data: {
       title, slug, date, location, description, duration, formConfig, autoReminder, reminderDays, maxCapacity, enableCheckin,
+      pollUrl, pollLabel,
       ...(changes.length > 0 ? { icsSequence: { increment: 1 } } : {})
     }
   })

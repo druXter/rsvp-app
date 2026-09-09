@@ -8,7 +8,7 @@
  * müssen hier als Literale stehen (nicht z.B. `bg-${color}-50` zusammengebaut), damit
  * Tailwinds Build-Scan sie findet.
  */
-export type ThemeColor = 'yellow' | 'sky' | 'teal' | 'indigo' | 'rose' | 'emerald' | 'purple' | 'gray' | 'amber'
+export type ThemeColor = 'yellow' | 'sky' | 'teal' | 'indigo' | 'rose' | 'emerald' | 'purple' | 'gray' | 'amber' | 'cyan'
 
 const THEME_CLASSES: Record<ThemeColor, {
   box: string
@@ -27,6 +27,7 @@ const THEME_CLASSES: Record<ThemeColor, {
   purple:  { box: 'bg-purple-50',  heading: 'text-purple-900',  text: 'text-purple-700',  accent: 'text-purple-600',  border: 'border-purple-300',  borderFocus: 'focus:border-purple-500' },
   gray:    { box: 'bg-gray-50',    heading: 'text-gray-900',    text: 'text-gray-700',    accent: 'text-gray-600',    border: 'border-gray-300',    borderFocus: 'focus:border-gray-500' },
   amber:   { box: 'bg-amber-50',   heading: 'text-amber-900',   text: 'text-amber-700',   accent: 'text-amber-600',   border: 'border-amber-300',   borderFocus: 'focus:border-amber-500' },
+  cyan:    { box: 'bg-cyan-50',    heading: 'text-cyan-900',    text: 'text-cyan-700',    accent: 'text-cyan-600',    border: 'border-cyan-300',    borderFocus: 'focus:border-cyan-500' },
 }
 
 /**

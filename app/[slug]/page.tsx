@@ -90,6 +90,15 @@ export default async function EventPage({
     <main className="min-h-screen bg-gray-50 py-10">
       <div className="max-w-3xl mx-auto px-4">
 
+        {event.pollUrl && (
+          <a
+            href={`/api/poll-link/${event.id}`}
+            className="block mb-4 text-center bg-cyan-50 text-cyan-800 border border-cyan-200 rounded-lg py-3 px-4 font-medium hover:bg-cyan-100 transition"
+          >
+            {event.pollLabel || '🗳️ Zur Abstimmung'}
+          </a>
+        )}
+
         {/* Das eigentliche Formular */}
         <RsvpForm
           eventId={event.id}

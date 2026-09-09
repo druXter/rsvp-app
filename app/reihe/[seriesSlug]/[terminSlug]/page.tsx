@@ -120,6 +120,15 @@ export default async function SeriesEventPage({
           ← Alle Termine von {series.title}
         </Link>
 
+        {event.pollUrl && (
+          <a
+            href={`/api/poll-link/${event.id}`}
+            className="block text-center bg-cyan-50 text-cyan-800 border border-cyan-200 rounded-lg py-3 px-4 font-medium hover:bg-cyan-100 transition"
+          >
+            {event.pollLabel || '🗳️ Zur Abstimmung'}
+          </a>
+        )}
+
         <RsvpForm
           eventId={event.id}
           formConfig={mergedConfig}

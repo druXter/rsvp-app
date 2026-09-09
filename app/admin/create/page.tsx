@@ -147,6 +147,17 @@ export default async function CreateEventPage() {
             </div>
           </ThemeSection>
 
+          <ThemeSection color="cyan" title="Externe Abstimmung" description="Verlinkt z.B. auf eine Restaurant-Wahl im separaten Abstimmungstool. Ein eingeloggter, verifizierter Nutzer wird dabei automatisch für diese Abstimmung erkannt (falls die Abstimmung das nutzt) - alle anderen können trotzdem ganz normal darüber abstimmen.">
+            <div>
+              <label className={`block text-sm font-medium mb-1 ${themeClasses('cyan').heading}`}>Link zur Abstimmung (Optional)</label>
+              <input type="url" name="pollUrl" className={`w-full border ${themeClasses('cyan').border} p-2 rounded outline-none ${themeClasses('cyan').borderFocus}`} placeholder="https://abstimmung.example.de/xyz" />
+            </div>
+            <div>
+              <label className={`block text-sm font-medium mb-1 ${themeClasses('cyan').heading}`}>Beschriftung des Buttons (Optional)</label>
+              <input type="text" name="pollLabel" className={`w-full border ${themeClasses('cyan').border} p-2 rounded outline-none ${themeClasses('cyan').borderFocus}`} placeholder="z.B. Restaurant für diesen Termin wählen" />
+            </div>
+          </ThemeSection>
+
           <SubmitButton>Event speichern</SubmitButton>
         </form>
 
