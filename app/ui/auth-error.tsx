@@ -3,6 +3,7 @@
 const MESSAGES: Record<string, string> = {
   locked: 'Zu viele Versuche. Bitte warte etwa 15 Minuten und versuche es dann erneut.',
   throttled: 'Zu viele Anfragen von dieser Adresse. Bitte versuche es in einer Stunde erneut.',
+  pin: 'Für diese Veranstaltung ist ein Zugangscode nötig. Öffne die Veranstaltungsseite und gib ihn dort zuerst ein.',
   weak: 'Das Passwort ist zu schwach: mindestens 10 Zeichen, nicht zu naheliegend und nicht deine E-Mail-Adresse.',
   email: 'Bitte gib eine gültige E-Mail-Adresse ein.',
   invalidemail: 'Bitte gib eine gültige E-Mail-Adresse ein.',

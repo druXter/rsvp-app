@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client'
 import { NextResponse } from 'next/server'
 import { getCurrentGuestUser } from '../../../lib/guest-auth'
 import { signPollVerificationToken } from '../../../lib/poll-verification'
+import { hasEventPinAccess } from '../../../lib/pin'
 
 const prisma = new PrismaClient()
 
@@ -47,10 +48,12 @@ export async function GET(
   { params }: { params: Promise<{ eventId: string }> }
 ) {
   const { eventId } = await params
-  const event = await prisma.event.findUnique({ where: { id: eventId } })
+  const event = await prisma.event.findUnique({ where: { id: eventId }, include: { series: true } })
 
-  if (!event || !event.pollUrl) {
-    return NextResponse.redirect(new URL('/', request.url))
+  // Die Abstimmungs-URL eines PIN-geschützten Events wird ohne PIN nicht herausgegeben.
+  if (!event || !event.pollUrl || !(await hasEventPinAccess(event))) {
+    // BASE_URL statt request.url: Hinter einem Reverse Proxy zeigt request.url auf die interne Adresse des Containers.
+    return NextResponse.redirect(new URL('/', process.env.BASE_URL || request.url))
   }
 
   const guestUser = await getCurrentGuestUser()

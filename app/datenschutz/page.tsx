@@ -72,8 +72,8 @@ export default function DatenschutzPage() {
           </p>
           <p className="mt-2">
             <strong>Schutz vor Missbrauch (Anmelde-Drosselung):</strong> Um das Erraten von Passwörtern und das
-            massenhafte Auslösen von Mails (Passwort-Reset, Registrierung) zu verhindern, zählen wir Anmelde- und
-            Mail-Anfragen. Dazu wird deine <strong>IP-Adresse</strong> ausgelesen und zusammen mit der eingegebenen
+            massenhafte Auslösen von Mails (Passwort-Reset, Registrierung) sowie das Durchprobieren von
+            Event-PINs zu verhindern, zählen wir Anmelde-, Mail- und PIN-Anfragen. Dazu wird deine <strong>IP-Adresse</strong> ausgelesen und zusammen mit der eingegebenen
             E-Mail-Adresse <strong>nur als nicht umkehrbarer Hash</strong> für ein kurzes Zeitfenster (15 Minuten
             bzw. 1 Stunde) gespeichert; veraltete Zähler werden nach spätestens 24 Stunden entfernt. Rechtsgrundlage
             ist unser berechtigtes Interesse an der Sicherheit der Anwendung (Art. 6 Abs. 1 lit. f DSGVO).

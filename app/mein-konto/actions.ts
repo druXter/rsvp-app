@@ -11,6 +11,7 @@ import { requireGuestUser, createGuestSession, destroyGuestSession, GUEST_SESSIO
 import { generateToken, hashToken } from '../lib/tokens'
 import { hashPassword, validatePassword, verifyAgainstDummy, verifyPassword } from '../lib/password'
 import { formPassword } from '../lib/form'
+import { hasEventPinAccess, hasSeriesPinAccess } from '../lib/pin'
 import { clearFailures, clientIp, loginRules, passwordChangeRule, refund, registerRules, reserve, resetRules } from '../lib/throttle'
 import { generateApiToken, hashApiToken, NEW_API_TOKEN_COOKIE } from '../lib/api-auth'
 
@@ -51,11 +52,17 @@ export async function registerGuestUser(formData: FormData) {
   const password = formPassword(formData, 'password')
 
   const series = seriesId ? await prisma.eventSeries.findUnique({ where: { id: seriesId } }) : null
-  const event = eventId ? await prisma.event.findUnique({ where: { id: eventId } }) : null
+  const event = eventId ? await prisma.event.findUnique({ where: { id: eventId }, include: { series: true } }) : null
   if (!series && !event) return
 
   const contextTitle = series ? series.title : event!.title
   const registerPath = series ? `/reihe/${series.slug}/registrieren` : `/${event!.slug}/registrieren`
+
+  // Bei PIN-geschützter Reihe/Event nur MIT PIN-Freischaltung: Sonst wäre die Registrierung ein Weg an der
+  // PIN vorbei - die Mitgliedschaft in der Reihe erlaubt später sogar Antworten über die Client-API.
+  if (!(series ? await hasSeriesPinAccess(series) : await hasEventPinAccess(event!))) {
+    redirect(`${registerPath}?error=pin${nextParam}`)
+  }
 
   // Die Registrierung ist öffentlich und löst eine Mail an eine beliebige Adresse aus - jede Anfrage
   // zählt, damit niemand über dieses Formular fremde Postfächer mit Bestätigungs-Mails flutet.

@@ -55,6 +55,7 @@ export async function POST(
     {
       eventId,
       editToken: null,
+      skipPinCheck: true, // Mitgliedschaft (GuestUserSeries) wurde oben geprüft
       name: guestUser.name,
       isAttending: body.isAttending,
       phone: guestUser.phone,

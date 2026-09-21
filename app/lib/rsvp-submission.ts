@@ -6,6 +6,7 @@ import { sendConfirmationEmail, sendVerificationEmail, sendWaitlistPromotedEmail
 import { generateCheckinQrDataUrl } from './qrcode'
 import { sendPushToUser, sendConfirmationPush } from './push'
 import { notifyPollOfAttendanceChange } from './poll-notify'
+import { hasEventPinAccess } from './pin'
 
 const prisma = new PrismaClient()
 
@@ -30,6 +31,12 @@ export type RsvpSubmissionInput = {
   plusOneName?: string | null
   bringingItem?: string | null
   customAnswers?: string[]
+  /**
+   * NUR für die Client-API (app/api/v1/): Der Aufrufer ist dort per API-Token ein Mitglied der Reihe
+   * (GuestUserSeries, wird vor dem Aufruf geprüft), das die Reihe über die PIN-geschützte Registrierung
+   * bzw. durch einen Creator betreten hat. Das Web-Formular setzt das NIE.
+   */
+  skipPinCheck?: boolean
 }
 
 /**
@@ -76,6 +83,12 @@ export async function performRsvpSubmission(
     include: { rsvps: true, series: true }
   })
   if (!event) throw new Error('Event nicht gefunden')
+
+  // Die PIN wurde früher nur beim Rendern der Seite geprüft - jeder, der die Event-ID kannte, konnte
+  // die Server Action direkt aufrufen und die PIN umgehen (siehe app/lib/pin.ts).
+  if (!input.skipPinCheck && !(await hasEventPinAccess(event))) {
+    throw new Error('Für dieses Event/diese Reihe ist ein Zugangscode erforderlich. Bitte öffne die Seite und gib ihn ein.')
+  }
 
   // Ist der Termin Teil einer Reihe, gelten die Profil-/Zugangs-Einstellungen der Reihe
   const requireVerification = event.series ? event.series.requireVerification : event.requireVerification

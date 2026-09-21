@@ -7,6 +7,8 @@ import { redirect } from 'next/navigation'
 import { getCurrentGuestUser } from './lib/guest-auth'
 import { performRsvpSubmission } from './lib/rsvp-submission'
 import { cookies } from 'next/headers'
+import { clientIp, pinRules, refund, reserve } from './lib/throttle'
+import { safeEqual } from './lib/tokens'
 
 const prisma = new PrismaClient()
 
@@ -55,9 +57,18 @@ export async function verifyEventPin(formData: FormData) {
 
   const cookieStore = await cookies()
 
+  // Drosselung VOR dem Vergleich (atomar reserviert, siehe app/lib/throttle.ts): PINs sind oft kurz und
+  // ließen sich sonst in Minuten durchprobieren. Wer die PIN kennt, wird dadurch nicht behindert.
+  const rules = pinRules(await clientIp(), (seriesId || eventId || 'unbekannt'))
+  if (!(await reserve(rules))) {
+    return { success: false, error: 'Zu viele Versuche. Bitte warte etwa 15 Minuten.' }
+  }
+  const matches = (expected: string | null | undefined) => !!expected && typeof pin === 'string' && safeEqual(pin, expected)
+
   if (seriesId) {
     const series = await prisma.eventSeries.findUnique({ where: { id: seriesId } })
-    if (series && series.eventPin === pin) {
+    if (series && matches(series.eventPin)) {
+      await refund(rules[0])
       cookieStore.set(`series_pin_${seriesId}`, pin, { maxAge: 60 * 60 * 24 * 30, httpOnly: true })
       revalidatePath(`/reihe/${slug}`)
       return { success: true }
@@ -66,7 +77,8 @@ export async function verifyEventPin(formData: FormData) {
   }
 
   const event = await prisma.event.findUnique({ where: { id: eventId! } })
-  if (event && event.eventPin === pin) {
+  if (event && matches(event.eventPin)) {
+    await refund(rules[0])
     // Cookie für 30 Tage setzen.
     cookieStore.set(`event_pin_${eventId}`, pin, { maxAge: 60 * 60 * 24 * 30, httpOnly: true })
 

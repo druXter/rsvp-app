@@ -140,3 +140,16 @@ export function registerRules(ip: string, email: string): ThrottleRule[] {
 export function passwordChangeRule(userId: string): ThrottleRule {
   return { scope: 'pwchange:user', identifier: userId, limit: 10, windowMs: LOGIN_WINDOW_MS }
 }
+
+/**
+ * Regeln fürs Raten einer Event-/Reihen-PIN. Pro IP UND Ziel begrenzt (jemand, der bei einem Event
+ * herumprobiert, blockiert nicht die anderen Events), dazu eine grobe Obergrenze pro Ziel gegen
+ * verteiltes Raten von vielen Adressen. PINs sind oft kurz (4 Ziffern = 10.000 Möglichkeiten) und
+ * ließen sich ohne Drosselung in Minuten durchprobieren.
+ */
+export function pinRules(ip: string, targetId: string): ThrottleRule[] {
+  return [
+    { scope: 'pin:ip', identifier: `${ip}:${targetId}`, limit: 10, windowMs: LOGIN_WINDOW_MS },
+    { scope: 'pin:target', identifier: targetId, limit: 100, windowMs: LOGIN_WINDOW_MS }
+  ]
+}

@@ -2,6 +2,7 @@
 import { PrismaClient } from '@prisma/client'
 import { NextResponse } from 'next/server'
 import { createEvent, DateArray } from 'ics'
+import { hasEventPinAccess, tokenBelongsToEvent } from '../../../lib/pin'
 
 const prisma = new PrismaClient()
 
@@ -16,7 +17,7 @@ export async function GET(
   const { id } = await params;
   
   // Das Event anhand der ID aus der Datenbank holen
-  const event = await prisma.event.findUnique({ where: { id } })
+  const event = await prisma.event.findUnique({ where: { id }, include: { series: true } })
 
   if (!event) {
     return new NextResponse('Event nicht gefunden', { status: 404 })
@@ -24,6 +25,13 @@ export async function GET(
 
   const { searchParams } = new URL(request.url)
   const token = searchParams.get('token')
+
+  // Titel, Ort, Beschreibung und Datum eines PIN-geschützten Events gehören zu dem, was die PIN schützt.
+  // Die Event-ID steht als verstecktes Feld sogar im PIN-Formular. Erlaubt ist die Datei mit PIN-Cookie
+  // ODER mit dem gültigen persönlichen Token dieses Termins (Link aus der Bestätigungs-Mail).
+  if (!(await hasEventPinAccess(event)) && !(await tokenBelongsToEvent(token, event))) {
+    return new NextResponse('Für dieses Event ist ein Zugangscode erforderlich.', { status: 403 })
+  }
 
   // FIX: Wir nutzen die feste URL aus der .env-Datei (falls vorhanden), 
   // ansonsten fallen wir auf die Request-URL zurück (für lokale Entwicklung)

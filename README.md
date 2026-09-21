@@ -187,6 +187,7 @@ Gilt für Admin-Konten (`/admin/login`) **und** Nutzer-Konten (`/mein-konto`):
 * **Header** (`next.config.ts`): `nosniff`, `Referrer-Policy`, HSTS. **Event-Seiten bleiben bewusst einbettbar**
   (`frame-ancestors *`, sie laufen als iFrame in einem CMS), Login, Konto und Verwaltung (`/admin`, `/mein-konto`) und die
   Föderations-Endpunkte dagegen nicht (Clickjacking).
+* **Event-/Reihen-PIN** wird überall durchgesetzt, wo ein Event über seine ID erreichbar ist (`app/lib/pin.ts`) - Antworten, Kalenderdatei (`/api/ical`), Abstimmungs-Link und Konto-Registrierung für die Reihe, nicht nur die Anzeige der Seite. Der persönliche Link aus der Bestätigungs-Mail funktioniert weiter (gültiger Token dieses Termins). Das Raten der PIN ist gedrosselt (10 Versuche pro IP und Event, 100 pro Event, jeweils 15 Minuten).
 * **Cron-Endpunkte** (`/api/cron/*`) lehnen ein leeres oder fehlendes `CRON_SECRET` ab - vorher schaltete `?secret=`
   (leer) den Endpunkt bei einem leeren Platzhalter-Secret frei.
 
