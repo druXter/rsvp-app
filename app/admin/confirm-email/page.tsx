@@ -1,6 +1,7 @@
 // app/admin/confirm-email/page.tsx
 import { PrismaClient } from '@prisma/client'
 import Link from 'next/link'
+import { hashToken } from '../../lib/tokens'
 
 const prisma = new PrismaClient()
 
@@ -24,7 +25,7 @@ export default async function ConfirmEmailPage({ searchParams }: { searchParams:
     )
   }
 
-  const user = await prisma.user.findUnique({ where: { emailChangeToken: token } })
+  const user = await prisma.user.findUnique({ where: { emailChangeToken: hashToken(token) } })
 
   if (!user || !user.pendingEmail || !user.emailChangeTokenExpiresAt || user.emailChangeTokenExpiresAt < new Date()) {
     return (

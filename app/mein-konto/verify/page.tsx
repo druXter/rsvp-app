@@ -1,6 +1,7 @@
 // app/mein-konto/verify/page.tsx
 import { PrismaClient } from '@prisma/client'
 import Link from 'next/link'
+import { hashToken } from '../../lib/tokens'
 
 const prisma = new PrismaClient()
 
@@ -24,7 +25,7 @@ export default async function GuestVerifyPage({ searchParams }: { searchParams: 
     )
   }
 
-  const guestUser = await prisma.guestUser.findUnique({ where: { verifyToken: token } })
+  const guestUser = await prisma.guestUser.findUnique({ where: { verifyToken: hashToken(token) } })
 
   if (!guestUser) {
     return (

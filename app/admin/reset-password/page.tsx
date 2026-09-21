@@ -3,6 +3,8 @@ import { PrismaClient } from '@prisma/client'
 import Link from 'next/link'
 import { resetPassword } from '../actions'
 import SubmitButton from '../../ui/submit-button'
+import AuthError from '../../ui/auth-error'
+import { hashToken } from '../../lib/tokens'
 
 const prisma = new PrismaClient()
 
@@ -15,7 +17,7 @@ const prisma = new PrismaClient()
 export default async function ResetPasswordPage({ searchParams }: { searchParams: Promise<{ token?: string; error?: string }> }) {
   const { token, error } = await searchParams
 
-  const user = token ? await prisma.user.findUnique({ where: { resetToken: token } }) : null
+  const user = token ? await prisma.user.findUnique({ where: { resetToken: hashToken(token) } }) : null
   const isValid = !!user && !!user.resetTokenExpiresAt && user.resetTokenExpiresAt > new Date()
 
   return (
@@ -33,6 +35,8 @@ export default async function ResetPasswordPage({ searchParams }: { searchParams
             </p>
           </>
         ) : (
+          <>
+          <AuthError code={error} />
           <form action={resetPassword} className="space-y-4">
             <input type="hidden" name="token" value={token} />
 
@@ -43,14 +47,15 @@ export default async function ResetPasswordPage({ searchParams }: { searchParams
                 type="password"
                 name="password"
                 required
-                minLength={8}
+                minLength={10}
                 className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 rounded text-gray-900 dark:text-gray-100"
-                placeholder="Mindestens 8 Zeichen"
+                placeholder="Mindestens 10 Zeichen"
               />
             </div>
 
             <SubmitButton>Passwort speichern</SubmitButton>
           </form>
+          </>
         )}
       </div>
     </main>

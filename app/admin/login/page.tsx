@@ -2,15 +2,20 @@
 import Link from 'next/link'
 import { loginUser } from '../actions'
 import SubmitButton from '../../ui/submit-button'
+import AuthError from '../../ui/auth-error'
+import { sanitizeNextPath } from 'suite-kit'
+import { getIdps, idpLabel } from '../../lib/suite'
 
 /**
  * Login-Seite. Stellt ein Formular für E-Mail + Passwort bereit und fängt Fehler
  * über URL-Parameter ab.
  */
-export default async function AdminLoginPage({ searchParams }: { searchParams: Promise<{ error?: string; reset?: string }> }) {
+export default async function AdminLoginPage({ searchParams }: { searchParams: Promise<{ error?: string; reset?: string; next?: string }> }) {
   const params = await searchParams;
   const hasError = params.error === '1';
   const wasReset = params.reset === '1';
+  const next = sanitizeNextPath(params.next, '/admin');
+  const idps = getIdps();
 
   return (
     <main className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center px-4">
@@ -29,7 +34,10 @@ export default async function AdminLoginPage({ searchParams }: { searchParams: P
           </div>
         )}
 
+        <AuthError code={params.error} />
+
         <form action={loginUser} className="space-y-4">
+          <input type="hidden" name="next" value={next} />
           <div>
             <label htmlFor="email" className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">E-Mail</label>
             <input
@@ -56,6 +64,22 @@ export default async function AdminLoginPage({ searchParams }: { searchParams: P
 
           <SubmitButton>Einloggen</SubmitButton>
         </form>
+
+        {idps.length > 0 && (
+          <div className="border-t dark:border-gray-700 pt-4 space-y-2">
+            <p className="text-xs text-gray-500 dark:text-gray-400 text-center">Oder mit einem Konto aus einem anderen Tool:</p>
+            {idps.map(idp => (
+              // Bewusst <a> statt <Link>: ein Route Handler, der nicht vorab geladen werden soll.
+              <a
+                key={idp.issuer}
+                href={`/api/suite/login?idp=${encodeURIComponent(idp.issuer)}&next=${encodeURIComponent(next)}`}
+                className="block w-full text-center border border-gray-300 dark:border-gray-600 rounded py-2 text-sm font-medium text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+              >
+                Mit {idpLabel(idp)} anmelden
+              </a>
+            ))}
+          </div>
+        )}
 
         <p className="text-sm text-center text-gray-500 dark:text-gray-400">
           <Link href="/admin/forgot-password" className="text-blue-600 hover:underline">Passwort vergessen?</Link>

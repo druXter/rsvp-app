@@ -2,6 +2,7 @@
 import Link from 'next/link'
 import { loginGuestUser } from '../actions'
 import SubmitButton from '../../ui/submit-button'
+import AuthError from '../../ui/auth-error'
 
 /**
  * Login-Seite für Gast-Konten ("Nutzer", siehe #12) - strikt getrennt vom Admin-Login
@@ -41,6 +42,7 @@ export default async function GuestLoginPage({ searchParams }: { searchParams: P
           </div>
         )}
 
+        <AuthError code={params.error} />
         <form action={loginGuestUser} className="space-y-4">
           {next && <input type="hidden" name="next" value={next} />}
           <div>

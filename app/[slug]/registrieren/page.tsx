@@ -6,6 +6,7 @@ import Link from 'next/link'
 import PinForm from '../pin-form'
 import { registerGuestUser } from '../../mein-konto/actions'
 import SubmitButton from '../../ui/submit-button'
+import AuthError from '../../ui/auth-error'
 
 const prisma = new PrismaClient()
 
@@ -62,6 +63,7 @@ export default async function RegisterGuestUserForEventPage({
           </div>
         )}
 
+        <AuthError code={error} />
         <form action={registerGuestUser} className="space-y-4">
           <input type="hidden" name="eventId" value={event.id} />
           {next && <input type="hidden" name="next" value={next} />}
@@ -78,7 +80,7 @@ export default async function RegisterGuestUserForEventPage({
 
           <div>
             <label htmlFor="password" className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Passwort</label>
-            <input id="password" type="password" name="password" required minLength={8} className="w-full border border-gray-300 p-2 rounded text-gray-900 bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100" placeholder="Mindestens 8 Zeichen" />
+            <input id="password" type="password" name="password" required minLength={10} className="w-full border border-gray-300 p-2 rounded text-gray-900 bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100" placeholder="Mindestens 10 Zeichen" />
           </div>
 
           <SubmitButton>Konto erstellen</SubmitButton>

@@ -304,8 +304,8 @@ export async function sendVerificationEmail(
  * Klick auf den Mail-Link nicht auf dem allgemeinen /mein-konto-Dashboard, sondern direkt
  * wieder dort, wo er teilnehmen wollte.
  */
-export async function sendGuestVerificationEmail(guestUser: GuestUser, contextTitle: string, next?: string | null) {
-  const verifyLink = `${baseUrl()}/mein-konto/verify?token=${guestUser.verifyToken}${next ? `&next=${encodeURIComponent(next)}` : ''}`
+export async function sendGuestVerificationEmail(guestUser: GuestUser, contextTitle: string, next: string | null | undefined, token: string) {
+  const verifyLink = `${baseUrl()}/mein-konto/verify?token=${token}${next ? `&next=${encodeURIComponent(next)}` : ''}`
 
   const mailOptions = {
     from: process.env.SMTP_FROM,
@@ -341,8 +341,8 @@ export async function sendGuestVerificationEmail(guestUser: GuestUser, contextTi
  * requestGuestPasswordReset in app/mein-konto/actions.ts). Getrennt von
  * sendPasswordResetEmail, da es sich um ein eigenständiges Login-System handelt.
  */
-export async function sendGuestPasswordResetEmail(guestUser: GuestUser) {
-  const resetLink = `${baseUrl()}/mein-konto/reset-password?token=${guestUser.resetToken}`
+export async function sendGuestPasswordResetEmail(guestUser: GuestUser, token: string) {
+  const resetLink = `${baseUrl()}/mein-konto/reset-password?token=${token}`
 
   const mailOptions = {
     from: process.env.SMTP_FROM,
@@ -379,8 +379,8 @@ export async function sendGuestPasswordResetEmail(guestUser: GuestUser) {
  * ADMIN) aufgerufen - dort bleibt ein Reset ausschließlich über direkten Server-Zugriff
  * möglich (create-user.js/set-role.js).
  */
-export async function sendPasswordResetEmail(user: User) {
-  const resetLink = `${baseUrl()}/admin/reset-password?token=${user.resetToken}`
+export async function sendPasswordResetEmail(user: User, token: string) {
+  const resetLink = `${baseUrl()}/admin/reset-password?token=${token}`
 
   const mailOptions = {
     from: process.env.SMTP_FROM,
@@ -419,8 +419,8 @@ export async function sendPasswordResetEmail(user: User) {
  * Vorgang bereits mit einer aktiven Session UND dem aktuellen Passwort ausgelöst, ein
  * kompromittiertes ALTES Postfach reicht dafür nicht aus.
  */
-export async function sendEmailChangeConfirmation(user: User) {
-  const confirmLink = `${baseUrl()}/admin/confirm-email?token=${user.emailChangeToken}`
+export async function sendEmailChangeConfirmation(user: User, token: string) {
+  const confirmLink = `${baseUrl()}/admin/confirm-email?token=${token}`
 
   const mailOptions = {
     from: process.env.SMTP_FROM,
@@ -456,8 +456,8 @@ export async function sendEmailChangeConfirmation(user: User) {
  * siehe requestGuestEmailChange in app/mein-konto/actions.ts) - gleiches Prinzip wie
  * sendEmailChangeConfirmation, nur für das andere Login-System.
  */
-export async function sendGuestEmailChangeConfirmation(guestUser: GuestUser) {
-  const confirmLink = `${baseUrl()}/mein-konto/confirm-email?token=${guestUser.emailChangeToken}`
+export async function sendGuestEmailChangeConfirmation(guestUser: GuestUser, token: string) {
+  const confirmLink = `${baseUrl()}/mein-konto/confirm-email?token=${token}`
 
   const mailOptions = {
     from: process.env.SMTP_FROM,

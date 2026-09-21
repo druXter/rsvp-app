@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { getCurrentUser } from '../../lib/auth'
 import { createUser } from '../actions'
 import SubmitButton from '../../ui/submit-button'
+import AuthError from '../../ui/auth-error'
 
 /**
  * Legt ein weiteres Benutzerkonto an (z.B. für ein anderes Referat, einen Freund
@@ -43,6 +44,7 @@ export default async function CreateUserPage({ searchParams }: { searchParams: P
           </div>
         )}
 
+        <AuthError code={params.error} />
         <form action={createUser} className="space-y-4">
           <div>
             <label htmlFor="email" className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">E-Mail</label>
@@ -51,7 +53,7 @@ export default async function CreateUserPage({ searchParams }: { searchParams: P
 
           <div>
             <label htmlFor="password" className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Passwort</label>
-            <input id="password" type="password" name="password" required minLength={8} className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 rounded text-gray-900 dark:text-gray-100" placeholder="Mindestens 8 Zeichen" />
+            <input id="password" type="password" name="password" required minLength={10} className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 rounded text-gray-900 dark:text-gray-100" placeholder="Mindestens 10 Zeichen" />
           </div>
 
           {isAdmin ? (

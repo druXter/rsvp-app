@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client'
 import { NextResponse } from 'next/server'
 import { sendReminderEmail } from '../../../lib/mail'
 import { sendReminderPush } from '../../../lib/push'
+import { safeEqual } from '../../../lib/tokens'
 
 const prisma = new PrismaClient()
 
@@ -15,7 +16,10 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const secret = searchParams.get('secret')
   
-  if (secret !== process.env.CRON_SECRET) {
+  // Ein leeres/fehlendes CRON_SECRET (z.B. der Platzhalter aus .env.example) darf den Endpunkt NICHT
+  // freischalten - sonst würde "?secret=" (ebenfalls leer) den Vergleich bestehen.
+  const expected = process.env.CRON_SECRET
+  if (!expected || !secret || !safeEqual(secret, expected)) {
     return new NextResponse('Unauthorized', { status: 401 })
   }
 

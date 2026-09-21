@@ -5,10 +5,14 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { PrismaClient, Role } from '@prisma/client'
-import { randomUUID, randomBytes } from 'crypto'
-import bcrypt from 'bcryptjs'
+import { randomUUID } from 'crypto'
+import { sanitizeNextPath } from 'suite-kit'
 import { sendReminderEmail, sendWaitlistPromotedEmail, sendConfirmationEmail, sendVerificationEmail, sendPasswordResetEmail, sendEmailChangeConfirmation, sendEventUpdatedEmail } from '../lib/mail'
-import { requireUser, SESSION_COOKIE, SESSION_DURATION_MS } from '../lib/auth'
+import { requireUser, createSession, destroySession, SESSION_COOKIE } from '../lib/auth'
+import { generateToken, hashToken } from '../lib/tokens'
+import { hashPassword, validatePassword, verifyAgainstDummy, verifyPassword } from '../lib/password'
+import { formPassword, formString } from '../lib/form'
+import { clearFailures, clientIp, loginRules, passwordChangeRule, refund, reserve, resetRules } from '../lib/throttle'
 import { isOwnerOrAdmin, hasEventModeratorOrAbove, hasSeriesModeratorOrAbove } from '../lib/permissions'
 import { sendReminderPush, sendEventChangedPush } from '../lib/push'
 
@@ -114,44 +118,63 @@ async function notifyAttendeesOfChange(eventId: string, changes: { label: string
 }
 
 /**
- * Prüft E-Mail/Passwort gegen die Datenbank und erstellt bei Erfolg eine
- * server-seitige Session (Cookie enthält nur den opaken Token, siehe app/lib/auth.ts).
+ * Prüft E-Mail/Passwort gegen die Datenbank und erstellt bei Erfolg eine server-seitige Session
+ * (Cookie enthält nur den opaken Token, siehe app/lib/auth.ts). Sicherheitsverhalten, das hier
+ * bewusst so ist:
+ * - Drosselung nach IP UND nach Ziel-E-Mail (siehe app/lib/throttle.ts). Der Versuch wird VOR der
+ *   Passwortprüfung atomar reserviert - so lässt sich das Limit auch mit vielen gleichzeitigen
+ *   Anfragen nicht umgehen, und ein gesperrter Versuch kostet keine Rechenlast.
+ * - Bei unbekannter E-Mail (oder einem Konto ohne Passwort, das nur über ein anderes Tool
+ *   angemeldet wird) rechnet eine gleich teure Prüfung gegen einen Wegwerf-Hash und dieselbe
+ *   Fehlermeldung erscheint - weder Antwortzeit noch Text verraten, welche Adressen ein Konto haben.
+ * - Nach dem Login gilt immer eine NEUE Session (siehe issueSession).
  */
 export async function loginUser(formData: FormData) {
-  const email = (formData.get('email') as string || '').trim().toLowerCase()
-  const password = formData.get('password') as string
+  const email = formString(formData, 'email', 254).toLowerCase()
+  const password = formPassword(formData, 'password')
+  const next = sanitizeNextPath(formString(formData, 'next', 1000), '/admin')
+  const nextParam = next !== '/admin' ? `&next=${encodeURIComponent(next)}` : ''
 
-  const user = await prisma.user.findUnique({ where: { email } })
-  const passwordMatches = user ? await bcrypt.compare(password, user.passwordHash) : false
-
-  if (!user || !passwordMatches) {
-    redirect('/admin/login?error=1')
+  const rules = loginRules(await clientIp(), email)
+  if (!(await reserve([rules.ip, rules.email]))) {
+    redirect(`/admin/login?error=locked${nextParam}`)
   }
 
-  const token = randomBytes(32).toString('hex')
-  const expiresAt = new Date(Date.now() + SESSION_DURATION_MS)
-  await prisma.session.create({ data: { token, userId: user.id, expiresAt } })
+  const user = email ? await prisma.user.findUnique({ where: { email } }) : null
 
-  const cookieStore = await cookies()
-  cookieStore.set(SESSION_COOKIE, token, {
-    httpOnly: true, // Schützt vor Cross-Site-Scripting (XSS)
-    secure: process.env.NODE_ENV === 'production', // Überträgt Cookies in Produktion nur über HTTPS
-    maxAge: SESSION_DURATION_MS / 1000,
-    path: '/',
-  })
-  redirect('/admin')
+  let userId: string | null = null
+  if (user?.passwordHash) {
+    const check = await verifyPassword(password, user.passwordHash)
+    if (check.ok) {
+      userId = user.id
+      // Ältere, schwächere Hashes (bcrypt-Kosten 10) beim erfolgreichen Login automatisch erneuern.
+      if (check.needsRehash) {
+        await prisma.user.update({ where: { id: user.id }, data: { passwordHash: await hashPassword(password) } })
+      }
+    }
+  } else {
+    await verifyAgainstDummy(password)
+  }
+
+  // Fehlversuch: der Versuch ist bereits mitgezählt (reserve), hier bleibt nur die Meldung.
+  if (!userId) redirect(`/admin/login?error=1${nextParam}`)
+
+  // Erfolg: Der Versuch wird zurückgegeben (IP-Zähler) bzw. der Zähler zurückgesetzt (E-Mail).
+  await refund(rules.ip)
+  await clearFailures([rules.email])
+  await createSession(userId)
+
+  // Geht der Login im Anbieter-Ablauf für ein anderes Tool weiter, braucht es einen echten
+  // Seitenwechsel statt eines Client-Router-Übergangs (siehe app/admin/login/weiter).
+  if (next.startsWith('/api/suite/authorize?')) redirect(`/admin/login/weiter?to=${encodeURIComponent(next)}`)
+  redirect(next)
 }
 
 /**
  * Beendet die Sitzung: löscht die Session in der Datenbank und das Cookie.
  */
 export async function logoutUser() {
-  const cookieStore = await cookies()
-  const token = cookieStore.get(SESSION_COOKIE)?.value
-  if (token) {
-    await prisma.session.delete({ where: { token } }).catch(() => {})
-  }
-  cookieStore.set(SESSION_COOKIE, '', { maxAge: 0, path: '/' })
+  await destroySession()
   redirect('/admin/login')
 }
 
@@ -160,24 +183,30 @@ const RESET_TOKEN_DURATION_MS = 1000 * 60 * 60 // 1 Stunde
 /**
  * Fordert einen Passwort-Reset per E-Mail an. Zeigt IMMER dieselbe neutrale Bestätigung
  * (Weiterleitung zu ?sent=1) - unabhängig davon, ob die E-Mail überhaupt zu einem Konto
- * gehört oder ob es sich um ein Admin-Konto handelt, damit weder die Existenz eines
- * Kontos noch dessen Admin-Status über das Antwortverhalten verraten wird. Für
- * Admin-Konten wird bewusst NIE ein Reset-Token vergeben (siehe #13/#5) - dort bleibt
- * ein Reset ausschließlich über direkten Server-Zugriff (create-user.js/set-role.js)
- * möglich, damit ein kompromittiertes Admin-Postfach nicht automatisch vollen Zugriff gibt.
+ * gehört, ob es ein Admin-Konto ist oder ob die Anfrage gedrosselt wurde, damit weder die
+ * Existenz eines Kontos noch dessen Admin-Status über das Antwortverhalten verraten wird. Für
+ * Admin-Konten wird bewusst NIE ein Reset-Token vergeben (siehe #13/#5) - dort bleibt ein Reset
+ * ausschließlich über direkten Server-Zugriff (create-user.js/set-role.js) möglich, damit ein
+ * kompromittiertes Admin-Postfach nicht automatisch vollen Zugriff gibt. Konten ohne Passwort
+ * (nur über ein anderes Tool angemeldet) haben nichts zurückzusetzen.
  */
 export async function requestPasswordReset(formData: FormData) {
-  const email = (formData.get('email') as string || '').trim().toLowerCase()
-  const user = await prisma.user.findUnique({ where: { email } })
+  const email = formString(formData, 'email', 254).toLowerCase()
 
-  if (user && user.role !== 'ADMIN') {
-    const resetToken = randomBytes(32).toString('hex')
-    const resetTokenExpiresAt = new Date(Date.now() + RESET_TOKEN_DURATION_MS)
-    const updated = await prisma.user.update({ where: { id: user.id }, data: { resetToken, resetTokenExpiresAt } })
-    try {
-      await sendPasswordResetEmail(updated)
-    } catch (error) {
-      console.error('Fehler beim Senden der Passwort-Reset-Mail:', error)
+  if (email) {
+    // Jede Anfrage zählt (auch für unbekannte Adressen) - sonst ließe sich über die Drosselung
+    // erkennen, welche Adressen ein Konto haben - und niemand kann fremde Postfächer mit Mails fluten.
+    if (await reserve(resetRules(await clientIp(), email))) {
+      const user = await prisma.user.findUnique({ where: { email } })
+      if (user && user.passwordHash && user.role !== 'ADMIN') {
+        const token = generateToken()
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { resetToken: hashToken(token), resetTokenExpiresAt: new Date(Date.now() + RESET_TOKEN_DURATION_MS) }
+        })
+        // Nicht abwarten: Sonst wäre die Antwort bei existierender Adresse merklich langsamer.
+        sendPasswordResetEmail(user, token).catch(error => console.error('Fehler beim Senden der Passwort-Reset-Mail:', error))
+      }
     }
   }
 
@@ -190,18 +219,21 @@ export async function requestPasswordReset(formData: FormData) {
  * durch einen Dritten kompromittiert wurde) und macht den Token unbrauchbar.
  */
 export async function resetPassword(formData: FormData) {
-  const token = formData.get('token') as string
-  const password = formData.get('password') as string
+  const token = formString(formData, 'token', 200)
+  const password = formPassword(formData, 'password')
 
-  const user = token ? await prisma.user.findUnique({ where: { resetToken: token } }) : null
+  const user = token ? await prisma.user.findUnique({ where: { resetToken: hashToken(token) } }) : null
   if (!user || !user.resetTokenExpiresAt || user.resetTokenExpiresAt < new Date()) {
     redirect('/admin/reset-password?error=invalid')
   }
 
-  const passwordHash = await bcrypt.hash(password, 10)
+  if (validatePassword(password, user.email)) {
+    redirect(`/admin/reset-password?token=${encodeURIComponent(token)}&error=weak`)
+  }
+
   await prisma.user.update({
     where: { id: user.id },
-    data: { passwordHash, resetToken: null, resetTokenExpiresAt: null }
+    data: { passwordHash: await hashPassword(password), resetToken: null, resetTokenExpiresAt: null }
   })
   await prisma.session.deleteMany({ where: { userId: user.id } })
 
@@ -213,64 +245,74 @@ export async function resetPassword(formData: FormData) {
  * erfordert das aktuelle Passwort statt eines Mail-Links. Anders als der Reset per
  * Mail-Link (siehe requestPasswordReset, für Admin-Konten ausgeschlossen) reicht dafür
  * ein kompromittiertes Postfach nicht aus - es braucht zusätzlich eine aktive Session,
- * daher ist das auch für Admin-Konten sicher. Invalidiert alle ANDEREN Sessions dieses
- * Kontos, damit ein evtl. gestohlenes altes Passwort keinen dauerhaften Zugriff behält,
- * meldet die aktuelle Sitzung aber nicht ab.
+ * daher ist das auch für Admin-Konten sicher. Die Abfrage des aktuellen Passworts ist gedrosselt
+ * (Schutz gegen eine gekaperte Sitzung). Invalidiert alle ANDEREN Sessions dieses Kontos, damit
+ * ein evtl. gestohlenes altes Passwort keinen dauerhaften Zugriff behält, meldet die aktuelle
+ * Sitzung aber nicht ab.
  */
 export async function changePassword(formData: FormData) {
   const user = await requireUser()
 
-  const currentPassword = formData.get('currentPassword') as string
-  const newPassword = formData.get('newPassword') as string
+  const rule = passwordChangeRule(user.id)
+  if (!(await reserve([rule]))) redirect('/admin/account?error=locked')
+  if (!user.passwordHash) redirect('/admin/account?error=nopassword')
 
-  const matches = await bcrypt.compare(currentPassword, user.passwordHash)
-  if (!matches) {
-    redirect('/admin/account?error=wrongpassword')
-  }
+  const check = await verifyPassword(formPassword(formData, 'currentPassword'), user.passwordHash)
+  if (!check.ok) redirect('/admin/account?error=wrongpassword') // bereits mitgezählt (reserve)
 
-  const passwordHash = await bcrypt.hash(newPassword, 10)
-  await prisma.user.update({ where: { id: user.id }, data: { passwordHash } })
+  const newPassword = formPassword(formData, 'newPassword')
+  if (validatePassword(newPassword, user.email)) redirect('/admin/account?error=weak')
 
-  const cookieStore = await cookies()
-  const currentToken = cookieStore.get(SESSION_COOKIE)?.value
-  await prisma.session.deleteMany({ where: { userId: user.id, token: { not: currentToken } } })
+  await prisma.user.update({ where: { id: user.id }, data: { passwordHash: await hashPassword(newPassword) } })
+
+  const currentToken = (await cookies()).get(SESSION_COOKIE)?.value
+  await prisma.session.deleteMany({
+    where: { userId: user.id, ...(currentToken ? { token: { not: hashToken(currentToken) } } : {}) }
+  })
+  await clearFailures([rule])
 
   redirect('/admin/account?passwordChanged=1')
 }
 
 /**
- * Fordert eine E-Mail-Änderung an - erfordert das aktuelle Passwort. Die neue Adresse
- * wird erst nach Klick auf den an SIE (nicht an die alte Adresse) verschickten
- * Bestätigungslink wirksam (siehe /admin/confirm-email). Für jede Rolle inkl. Admin
- * verfügbar, siehe changePassword für die Begründung.
+ * Fordert eine E-Mail-Änderung an - erfordert das aktuelle Passwort (gedrosselt wie bei
+ * changePassword). Die neue Adresse wird erst nach Klick auf den an SIE (nicht an die alte
+ * Adresse) verschickten Bestätigungslink wirksam (siehe /admin/confirm-email). Für jede Rolle
+ * inkl. Admin verfügbar, siehe changePassword für die Begründung. Konten ohne Passwort (nur über
+ * ein anderes Tool angemeldet) übernehmen ihre Adresse von dort.
  */
 export async function requestEmailChange(formData: FormData) {
   const user = await requireUser()
 
-  const currentPassword = formData.get('currentPassword') as string
-  const newEmail = (formData.get('newEmail') as string || '').trim().toLowerCase()
+  const rule = passwordChangeRule(user.id)
+  if (!(await reserve([rule]))) redirect('/admin/account?error=locked')
+  if (!user.passwordHash) redirect('/admin/account?error=nopassword')
 
-  const matches = await bcrypt.compare(currentPassword, user.passwordHash)
-  if (!matches) {
-    redirect('/admin/account?error=wrongpassword')
-  }
+  const check = await verifyPassword(formPassword(formData, 'currentPassword'), user.passwordHash)
+  if (!check.ok) redirect('/admin/account?error=wrongpassword')
 
+  const newEmail = formString(formData, 'newEmail', 254).toLowerCase()
   if (newEmail === user.email) return
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) redirect('/admin/account?error=invalidemail')
 
   const existing = await prisma.user.findUnique({ where: { email: newEmail } })
   if (existing) {
     redirect('/admin/account?error=emailtaken')
   }
 
-  const emailChangeToken = randomBytes(32).toString('hex')
-  const emailChangeTokenExpiresAt = new Date(Date.now() + RESET_TOKEN_DURATION_MS)
+  const token = generateToken()
   const updated = await prisma.user.update({
     where: { id: user.id },
-    data: { pendingEmail: newEmail, emailChangeToken, emailChangeTokenExpiresAt }
+    data: {
+      pendingEmail: newEmail,
+      emailChangeToken: hashToken(token),
+      emailChangeTokenExpiresAt: new Date(Date.now() + RESET_TOKEN_DURATION_MS)
+    }
   })
+  await clearFailures([rule])
 
   try {
-    await sendEmailChangeConfirmation(updated)
+    await sendEmailChangeConfirmation(updated, token)
   } catch (error) {
     console.error('Fehler beim Senden der E-Mail-Änderungs-Bestätigung:', error)
   }
@@ -291,31 +333,51 @@ export async function cancelEmailChange() {
 }
 
 /**
+ * Entfernt die Verknüpfung mit einem Konto aus einem anderen Tool. Mindestens eine Anmeldemöglichkeit
+ * (Passwort oder eine andere Verknüpfung) muss übrig bleiben, sonst sperrt sich die Person selbst aus.
+ */
+export async function unlinkIdentity(formData: FormData) {
+  const user = await requireUser()
+
+  const identity = await prisma.externalIdentity.findUnique({ where: { id: formString(formData, 'identityId', 50) } })
+  if (!identity || identity.userId !== user.id) return
+
+  const others = await prisma.externalIdentity.count({ where: { userId: user.id, id: { not: identity.id } } })
+  if (!user.passwordHash && others === 0) redirect('/admin/account?error=lastlogin')
+
+  await prisma.externalIdentity.delete({ where: { id: identity.id } })
+  redirect('/admin/account?unlinked=1')
+}
+
+/**
  * Legt ein neues Benutzerkonto an (z.B. für ein anderes Referat, einen Freund oder
  * einen Moderator). Es gibt keine öffentliche Registrierung - nur bereits eingeloggte
  * Nutzer (außer Moderatoren) können weitere Konten anlegen. Nur Admins dürfen dabei
  * die Rolle CREATOR oder ADMIN vergeben - alle anderen Anfragen werden auf MODERATOR
  * heruntergestuft, damit nicht jeder Creator beliebig neue eigenständige Mandanten
- * (Creator-Konten) erzeugen kann.
+ * (Creator-Konten) erzeugen kann. Das Passwort muss der Passwort-Regel entsprechen (siehe
+ * app/lib/password.ts).
  */
 export async function createUser(formData: FormData) {
   const user = await requireUser()
   if (user.role === 'MODERATOR') return
 
-  const email = (formData.get('email') as string || '').trim().toLowerCase()
-  const password = formData.get('password') as string
-  const requestedRole = formData.get('role') as Role
+  const email = formString(formData, 'email', 254).toLowerCase()
+  const password = formPassword(formData, 'password')
+  const requestedRole = formString(formData, 'role', 20) as Role
   const role: Role = (user.role === 'ADMIN' && (requestedRole === 'CREATOR' || requestedRole === 'ADMIN'))
     ? requestedRole
     : 'MODERATOR'
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) redirect('/admin/create-user?error=email')
+  if (validatePassword(password, email)) redirect('/admin/create-user?error=weak')
 
   const existing = await prisma.user.findUnique({ where: { email } })
   if (existing) {
     redirect('/admin/create-user?error=exists')
   }
 
-  const passwordHash = await bcrypt.hash(password, 10)
-  await prisma.user.create({ data: { email, passwordHash, role } })
+  await prisma.user.create({ data: { email, passwordHash: await hashPassword(password), role } })
 
   revalidatePath('/admin')
   redirect('/admin')

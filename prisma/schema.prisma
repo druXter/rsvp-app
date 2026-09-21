@@ -26,13 +26,17 @@ enum Role {
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
-  passwordHash String
+  // null bei Konten, die nur über ein anderes Tool der Suite angemeldet werden (siehe
+  // ExternalIdentity und README "Konten-Verbund") - sie können sich nicht per Passwort anmelden.
+  passwordHash String?
   role         Role     @default(CREATOR)
   createdAt    DateTime @default(now())
 
   // Self-Service-Passwort-Reset (siehe #13) - ausdrücklich NIE für ADMIN-Konten vergeben,
   // dort bleibt ein Reset nur über direkten Server-Zugriff (set-role.js/create-user.js)
   // möglich, damit ein kompromittiertes Admin-Postfach nicht automatisch vollen Zugriff gibt.
+  // Reset-/E-Mail-Änderungs-Tokens werden NUR als SHA-256-Hash gespeichert (der Klartext steht
+  // nur im Mail-Link), siehe app/lib/tokens.ts - ein Datenbank-Leak ergibt so keine gültigen Links.
   resetToken          String?   @unique
   resetTokenExpiresAt DateTime?
 
@@ -50,6 +54,7 @@ model User {
   pushSubscriptions PushSubscription[]
   sessions          Session[]
   resourceAccess    ResourceAccess[]
+  identities        ExternalIdentity[]
 }
 
 // Server-seitige Session: das Cookie trägt nur den opaken, unratbaren `token` -
@@ -57,6 +62,8 @@ model User {
 // Cookie-Inhalt selbst (verhindert Session-Fälschung durch Cookie-Manipulation).
 model Session {
   id        String   @id @default(cuid())
+  // SHA-256-Hash des Cookie-Tokens, nicht der Token selbst (siehe app/lib/tokens.ts): Eine Kopie
+  // der Datenbank ergibt so keine übernehmbaren Sitzungen.
   token     String   @unique
   userId    String
   user      User     @relation(fields: [userId], references: [id])
@@ -346,6 +353,7 @@ model GuestUserSeries {
 // das Cookie nur den opaken Token, nie eine Kontoidentität direkt.
 model GuestSession {
   id          String    @id @default(cuid())
+  // SHA-256-Hash des Cookie-Tokens (siehe Session.token).
   token       String    @unique
   guestUserId String
   guestUser   GuestUser @relation(fields: [guestUserId], references: [id])
@@ -370,4 +378,28 @@ model GuestApiToken {
   guestUser   GuestUser @relation(fields: [guestUserId], references: [id])
   lastUsedAt  DateTime?
   createdAt   DateTime  @default(now())
+}
+
+// Verknüpfung eines Admin-Kontos (User) mit einem Konto in einem anderen Tool der Suite (siehe
+// suite-kit). Identität ist (issuer, subject) - NIE die E-Mail, die sich beim Anbieter ändern
+// lässt. issuer = Origin des Anbieter-Tools, subject = dessen Konto-ID.
+model ExternalIdentity {
+  id        String   @id @default(cuid())
+  issuer    String
+  subject   String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([issuer, subject])
+  @@index([userId])
+}
+
+// Zähler gegen Passwort-Raten und Mail-Flut (siehe app/lib/throttle.ts). `key` ist ein SHA-256-Hash
+// aus Bereich + Kennung (E-Mail bzw. IP-Adresse) - es werden weder Adressen noch IPs im Klartext
+// gespeichert. Veraltete Zeilen werden bei Gelegenheit gelöscht.
+model LoginThrottle {
+  key         String   @id
+  count       Int
+  windowStart DateTime
 }

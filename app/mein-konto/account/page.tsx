@@ -7,6 +7,7 @@ import { cookies } from 'next/headers'
 import { changeGuestPassword, requestGuestEmailChange, cancelGuestEmailChange, updateConfirmationEmailPreference, createApiToken, revokeApiToken } from '../actions'
 import { NEW_API_TOKEN_COOKIE } from '../../lib/api-auth'
 import SubmitButton from '../../ui/submit-button'
+import AuthError from '../../ui/auth-error'
 import DeleteAccountButton from '../delete-account-button'
 
 const prisma = new PrismaClient()
@@ -84,6 +85,7 @@ export default async function GuestAccountPage({
             <p className="text-sm text-yellow-800 dark:text-yellow-300">
               Ausstehende Änderung zu <strong>{guestUser.pendingEmail}</strong> - prüfe dein Postfach für den Bestätigungslink.
             </p>
+            <AuthError code={params.error} />
             <form action={cancelGuestEmailChange}>
               <button type="submit" className="text-xs text-yellow-700 dark:text-yellow-300 hover:text-yellow-900 dark:hover:text-yellow-100 underline">Änderung abbrechen</button>
             </form>
@@ -99,7 +101,7 @@ export default async function GuestAccountPage({
             </div>
             <div>
               <label htmlFor="newPassword" className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Neues Passwort</label>
-              <input id="newPassword" type="password" name="newPassword" required minLength={8} className="w-full border border-gray-300 p-2 rounded text-gray-900 bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-500" placeholder="Mindestens 8 Zeichen" />
+              <input id="newPassword" type="password" name="newPassword" required minLength={10} className="w-full border border-gray-300 p-2 rounded text-gray-900 bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-500" placeholder="Mindestens 10 Zeichen" />
             </div>
             <SubmitButton>Passwort ändern</SubmitButton>
           </form>

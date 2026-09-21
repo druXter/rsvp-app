@@ -63,6 +63,32 @@ export default function DatenschutzPage() {
             wir außerdem den Zeitpunkt deines letzten Logins, um das Konto nach längerer Inaktivität automatisch
             löschen zu können (siehe Punkt 13).
           </p>
+          <p className="mt-2">
+            <strong>Sicherer Umgang mit Zugangsdaten:</strong> Passwörter werden mit bcrypt gehasht. Auch
+            Sitzungs-Tokens sowie die Einmal-Links für Passwort-Reset, E-Mail-Änderung und die Bestätigung eines
+            Nutzer-Kontos speichern wir in der Datenbank <strong>nur als Hash</strong> - der Klartext steht allein
+            in deinem Cookie bzw. in der Mail an dich. Eine Kopie der Datenbank ermöglicht damit weder die
+            Übernahme einer Sitzung noch das Einlösen eines Links.
+          </p>
+          <p className="mt-2">
+            <strong>Schutz vor Missbrauch (Anmelde-Drosselung):</strong> Um das Erraten von Passwörtern und das
+            massenhafte Auslösen von Mails (Passwort-Reset, Registrierung) zu verhindern, zählen wir Anmelde- und
+            Mail-Anfragen. Dazu wird deine <strong>IP-Adresse</strong> ausgelesen und zusammen mit der eingegebenen
+            E-Mail-Adresse <strong>nur als nicht umkehrbarer Hash</strong> für ein kurzes Zeitfenster (15 Minuten
+            bzw. 1 Stunde) gespeichert; veraltete Zähler werden nach spätestens 24 Stunden entfernt. Rechtsgrundlage
+            ist unser berechtigtes Interesse an der Sicherheit der Anwendung (Art. 6 Abs. 1 lit. f DSGVO).
+          </p>
+          <p className="mt-2">
+            <strong>Anmeldung mit dem Konto eines anderen Tools (optional, nur Admin-Konten):</strong> Ist dies vom
+            Betreiber eingerichtet, kannst du dich hier mit einem Konto eines verbundenen Tools anmelden (z.B. dem
+            Abstimmungstool), und umgekehrt kann man sich dort mit einem Konto von hier anmelden. Das geschieht{' '}
+            <strong>nur, wenn du es aktiv anstößt</strong>, und nur zwischen Tools, die der Betreiber ausdrücklich
+            freigegeben hat. Dabei übermittelt das Tool, bei dem du angemeldet bist, an das andere eine etwa eine
+            Minute gültige, digital signierte Bestätigung mit <strong>deiner Konto-Kennung, E-Mail-Adresse und
+            Rolle</strong> - niemals dein Passwort oder deine Sitzung. Die Verknüpfung speichern wir und du kannst
+            sie unter &quot;⚙️ Konto-Einstellungen&quot; jederzeit entfernen. Nutzer-Konten für Veranstaltungsreihen
+            (&quot;Mein Konto&quot;) nehmen daran nicht teil.
+          </p>
         </div>
 
         <div>
@@ -218,8 +244,9 @@ export default function DatenschutzPage() {
             Marketing-Cookies.
           </p>
           <ul className="list-disc list-inside mt-2 space-y-1 text-sm">
-            <li><code>session_token</code> - Login-Sitzung im Admin-Bereich (30 Tage)</li>
-            <li><code>guest_session_token</code> - Login-Sitzung in &quot;Mein Konto&quot; (30 Tage)</li>
+            <li><code>__Host-session</code> - Login-Sitzung im Admin-Bereich (30 Tage)</li>
+            <li><code>__Host-guest-session</code> - Login-Sitzung in &quot;Mein Konto&quot; (30 Tage)</li>
+            <li><code>__Host-suite-state</code> - nur während der Anmeldung über ein anderes Tool (10 Minuten)</li>
             <li><code>event_pin_&lt;id&gt;</code> / <code>series_pin_&lt;id&gt;</code> - Freischaltung passwortgeschützter Veranstaltungen (30 Tage)</li>
           </ul>
         </div>
@@ -245,6 +272,11 @@ export default function DatenschutzPage() {
             E-Mail-Adresse an die verlinkte Anwendung übermittelt werden - die Einzelheiten dazu stehen in Punkt 9.
           </p>
           <p className="mt-2">
+            <strong>Verbundene Tools:</strong> Die in Punkt 3 beschriebene Anmeldung mit Konten anderer Tools
+            überträgt Konto-Kennung, E-Mail-Adresse und Rolle nur an Tools, die der Betreiber selbst betreibt und
+            freigegeben hat.
+          </p>
+          <p className="mt-2">
             <strong>Hosting:</strong> Diese Anwendung wird auf einem vom Verantwortlichen selbst betriebenen und
             administrierten Server gehostet. Es findet keine Weitergabe der Rohdaten an einen externen
             Hosting-Anbieter statt.
@@ -264,6 +296,11 @@ export default function DatenschutzPage() {
             Ein Nutzer-Konto unter &quot;Mein Konto&quot; wird automatisch vollständig gelöscht, wenn du dich{' '}
             <strong>2 Jahre</strong> lang nicht mehr eingeloggt hast - inklusive aller Reihen-Zuordnungen und
             Antworten. Admin-Konten (Veranstalter:innen) sind von dieser automatischen Löschung ausgenommen.
+          </p>
+          <p className="mt-2">
+            Sitzungen laufen nach 30 Tagen ab, Passwort-Reset- und E-Mail-Änderungs-Links nach 1 Stunde; abgelaufene
+            Sitzungen werden bei der nächsten Anmeldung entfernt. Die Zähler der Anmelde-Drosselung (Punkt 3) werden
+            nach spätestens 24 Stunden gelöscht.
           </p>
           <p className="mt-2">
             Gespeicherte Push-Abos werden gelöscht, sobald du die Benachrichtigungen deaktivierst, dein Browser das Abo
@@ -309,8 +346,10 @@ export default function DatenschutzPage() {
           <h2 className="font-bold text-lg">16. Datensicherheit</h2>
           <p className="mt-2">
             Die Übertragung erfolgt verschlüsselt (TLS/HTTPS). Login-Cookies sind <code>httpOnly</code> gesetzt und
-            damit per JavaScript nicht auslesbar. Passwörter werden ausschließlich als Hash gespeichert, persönliche
-            Bearbeitungslinks und Sitzungs-Tokens werden kryptographisch sicher zufällig erzeugt.
+            damit per JavaScript nicht auslesbar. Passwörter, Sitzungs-Tokens und Einmal-Links werden ausschließlich als Hash
+            gespeichert (eine Kopie der Datenbank ermöglicht keinen Zugang zu Konten), persönliche Bearbeitungslinks
+            und Sitzungs-Tokens werden kryptographisch sicher zufällig erzeugt, und wiederholte Fehlversuche bei der
+            Anmeldung werden gebremst.
           </p>
         </div>
 
