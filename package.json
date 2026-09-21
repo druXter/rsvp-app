@@ -13,7 +13,7 @@
     "bcryptjs": "^3.0.3",
     "cookie": "^1.1.1",
     "ics": "^3.12.0",
-    "next": "16.2.11",
+    "next": "16.3.5",
     "nodemailer": "^9.0.3",
     "qrcode": "^1.5.4",
     "react": "19.2.4",
@@ -33,11 +33,14 @@
     "@types/web-push": "^3.6.4",
     "autoprefixer": "^10.5.4",
     "eslint": "^9",
-    "eslint-config-next": "16.2.11",
+    "eslint-config-next": "16.3.5",
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "postcss": "^8.5.23",
     "prisma": "^6.19.3",
     "tailwindcss": "^4.3.3",
     "typescript": "^5"
+  },
+  "overrides": {
+    "deepmerge-ts": "^8.0.2"
   }
 }

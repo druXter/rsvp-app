@@ -48,6 +48,8 @@ async function shouldSuppressConfirmationEmail(participant: { guestUserId: strin
   return guestUser?.disableConfirmationEmails ?? false
 }
 
+const ACCOUNT_REQUIRED_MESSAGE = 'Für dieses Event/diese Reihe ist ein Nutzer-Konto erforderlich. Bitte logge dich unter /mein-konto ein oder registriere dich zuerst.'
+
 /**
  * Die eigentliche Antwort-Logik (Identität auflösen, Kapazität/Warteliste, Verifizierung,
  * E-Mails und Push) - EINMAL vorhanden, damit Web-Formular und Client-API sich niemals
@@ -94,7 +96,7 @@ export async function performRsvpSubmission(
   // umgestellten Reihe (siehe requireGuestUser-Kommentar in schema.prisma) schon vorher
   // anonym teilgenommen hat und diesen Zugang nicht verlieren soll.
   if (requireGuestUser && !editToken && !guestUser) {
-    throw new Error('Für dieses Event/diese Reihe ist ein Nutzer-Konto erforderlich. Bitte logge dich unter /mein-konto ein oder registriere dich zuerst.')
+    throw new Error(ACCOUNT_REQUIRED_MESSAGE)
   }
 
   const existingParticipant = editToken
@@ -118,6 +120,17 @@ export async function performRsvpSubmission(
         where: { eventId_participantId: { eventId, participantId: existingParticipant.id } }
       })
     : null
+
+  // Ein editToken hebelt den Konto-Zwang nur aus, wenn er zu DIESEM Termin bzw. dieser Reihe
+  // gehört (jemand, der hier schon vorher teilgenommen hat). Ohne diese Prüfung reichte ein
+  // beliebiger nicht-leerer Wert - oder der Token eines ANDEREN, offenen Termins -, um die Sperre
+  // zu umgehen, einen neuen Participant anzulegen und sich samt Einlass-QR-Code einzutragen.
+  if (requireGuestUser && !guestUser) {
+    const tokenBelongsHere = !!existingParticipant && (
+      event.seriesId ? existingParticipant.seriesId === event.seriesId : !!existingRsvp
+    )
+    if (!tokenBelongsHere) throw new Error(ACCOUNT_REQUIRED_MESSAGE)
+  }
 
   // Einmal verifizierte E-Mails sind gesperrt (siehe rsvp-form.tsx: Feld wird readOnly).
   // Bei einer Absage behalten wir eine evtl. vorhandene (auch unverifizierte) E-Mail,
