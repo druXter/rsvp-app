@@ -5,6 +5,8 @@ import { cookies } from 'next/headers'
 import Link from 'next/link'
 import RsvpForm from '../../../[slug]/rsvp-form'
 import PinForm from '../../../[slug]/pin-form'
+import GuestRequiredGate from '../../../[slug]/guest-required-gate'
+import PollResultBanner from '../../../ui/poll-result-banner'
 import { getCurrentGuestUser } from '../../../lib/guest-auth'
 
 const prisma = new PrismaClient()
@@ -73,6 +75,23 @@ export default async function SeriesEventPage({
     // Ohne Token: eingeloggten Gast (Nutzer-Konto, siehe #12) über die Session auflösen -
     // so kann ein eingeloggter Nutzer ohne Link direkt aus "Mein Konto" antworten.
     const guestUser = await getCurrentGuestUser()
+
+    // "Nur registrierte Teilnehmer": ohne editToken MUSS eine eingeloggte Gast-Session
+    // vorliegen, sonst wird statt des Formulars nur das Login/Registrieren-Gate gezeigt
+    // (siehe performRsvpSubmission für die serverseitige Absicherung derselben Regel).
+    if (series.requireGuestUser && !guestUser) {
+      const nextPath = `/reihe/${series.slug}/${event.slug}`
+      return (
+        <main className="min-h-screen bg-gray-50 dark:bg-gray-900">
+          <GuestRequiredGate
+            title={series.title}
+            loginHref={`/mein-konto/login?next=${encodeURIComponent(nextPath)}`}
+            registerHref={`/reihe/${series.slug}/registrieren?next=${encodeURIComponent(nextPath)}`}
+          />
+        </main>
+      )
+    }
+
     if (guestUser) {
       const guestParticipant = await prisma.participant.findFirst({ where: { seriesId: series.id, guestUserId: guestUser.id } })
       if (guestParticipant) {
@@ -133,6 +152,8 @@ export default async function SeriesEventPage({
         <Link href={`/reihe/${series.slug}${token ? `?token=${token}` : ''}`} className="inline-block text-sm text-blue-600 hover:underline">
           ← Alle Termine von {series.title}
         </Link>
+
+        <PollResultBanner pollResult={event.pollResult} />
 
         {event.pollUrl && (
           <a

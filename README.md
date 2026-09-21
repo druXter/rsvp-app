@@ -97,6 +97,11 @@ VAPID_SUBJECT=mailto:deine-email@domain.de
 # Übernahme der Nutzer-Verifizierung. MUSS exakt mit RSVP_VERIFICATION_SECRET in
 # der .env des abstimmungstools übereinstimmen.
 POLL_VERIFICATION_SECRET=...
+
+# Basis-URL des abstimmungstools, damit diese App bei einer Zu-/Absage-Änderung
+# aktiv Bescheid geben kann (siehe app/lib/poll-notify.ts) - nur relevant zusammen
+# mit POLL_VERIFICATION_SECRET und einem gesetzten pollUrl.
+ABSTIMMUNGSTOOL_BASE_URL=https://vote.deine-domain.de
 ```
 
 > **Impressum-Platzhalter:** Die Impressum-Seite (`app/impressum/page.tsx`) liest ihre Angaben zur Laufzeit aus `IMPRESSUM_NAME`/`IMPRESSUM_STREET`/`IMPRESSUM_ZIP`/`IMPRESSUM_CITY`/`IMPRESSUM_EMAIL`/`IMPRESSUM_PHONE`. Sind diese Variablen nicht gesetzt, zeigt die Seite generische Platzhalter (`[Dein Vorname] [Dein Nachname]` etc.) statt echter Daten an. So bleibt das Repository frei von personenbezogenen Daten - trag deine echten Angaben ausschließlich in deine eigene, nicht versionierte `.env` ein (lokal wie auf dem Server).
@@ -143,6 +148,16 @@ Um automatische E-Mail-Erinnerungen für Events zu versenden, muss der folgende 
 Zur Umsetzung der Speicherbegrenzung nach DSGVO gibt es einen zweiten, unabhängigen Endpoint, der ebenfalls regelmäßig aufgerufen werden sollte (hier reicht z.B. einmal täglich statt stündlich). Er löscht automatisch Events (inkl. Datensatz) 18 Monate nach dem Veranstaltungsdatum sowie Nutzer-Konten ("Mein Konto"), die seit 2 Jahren nicht mehr eingeloggt wurden - siehe `/datenschutz` Punkt 10 für die genauen Regeln:
 
 `GET https://rsvp.deine-domain.de/api/cron/cleanup?secret=DeinSehrGeheimesPasswort123`
+
+## 🗳️ Verknüpfung mit dem separaten "abstimmungstool"
+
+Ein Event/Termin kann optional auf eine Abstimmung im separaten `abstimmungstool`-Projekt verlinken (`Event.pollUrl`/`pollLabel`, gesetzt beim Anlegen/Bearbeiten). Ist dort zusätzlich `requireRsvpVerification` für diese Abstimmung aktiviert, greift eine tiefere Kopplung:
+
+* **Nur Zusagende können abstimmen, Absagen werden direkt blockiert:** Der Verifizierungs-Token, der beim Klick auf den Abstimmungs-Link mitgeschickt wird, trägt neben der E-Mail auch den *aktuellen* RSVP-Status für diesen Termin (`app/lib/poll-verification.ts`, `app/api/poll-link/[eventId]/route.ts`) - bei jedem Klick frisch ermittelt. Eine nachträglich erteilte Zusage schaltet sich dadurch beim nächsten Linkaufruf von selbst wieder frei.
+* **Nachträgliche Absage entfernt eine bereits abgegebene Stimme:** Bei jeder Zu-/Absage-Änderung wird zusätzlich aktiv ein signierter Webhook ans abstimmungstool geschickt (`app/lib/poll-notify.ts`, aufgerufen aus `performRsvpSubmission`) - unabhängig davon, ob die Person die Abstimmung danach nochmal aufruft. Best-effort mit 5s-Timeout, ein nicht erreichbares abstimmungstool blockiert niemals die eigentliche RSVP-Abgabe.
+* **Ergebnis-Anzeige nach Schließung:** Schließt sich die verknüpfte Abstimmung (manuell oder automatisch), meldet abstimmungstool das Ergebnis zurück (`app/api/poll-result-webhook/route.ts`), gespeichert auf `Event.pollResult` und angezeigt als Banner auf der Event-Seite (`app/ui/poll-result-banner.tsx`).
+
+Alle drei Punkte sind rein additiv und benötigen `POLL_VERIFICATION_SECRET` + `ABSTIMMUNGSTOOL_BASE_URL` (siehe oben) - ohne beide bleibt nur der einfache, unverifizierte Link übrig, wie er schon vorher existierte.
 
 ## 🔒 Sicherheitshinweise
 

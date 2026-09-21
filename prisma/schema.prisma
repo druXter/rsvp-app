@@ -86,6 +86,15 @@ model EventSeries {
   isGuestListVisible Boolean @default(false)
   eventPin           String?
 
+  // Erzwingt, dass nur eingeloggte Nutzer-Konten (GuestUser) an Terminen dieser Reihe
+  // teilnehmen dürfen (siehe requireGuestUser-Auflösung in performRsvpSubmission). Kann NUR
+  // beim Anlegen der Reihe gesetzt werden (siehe createEventSeries) und ist danach bewusst
+  // nicht mehr änderbar (kein Feld in updateEventSeries) - eine nachträgliche Aktivierung auf
+  // einer bereits laufenden Reihe mit anonymen Teilnehmenden wäre ein verwirrender Zustand
+  // (bestehende Anmeldungen plötzlich ohne Konto). Eine bestehende Reihe umzustellen geht nur
+  // per direktem DB-Zugriff (z.B. Prisma Studio), ausdrücklich analog zu set-role.js.
+  requireGuestUser Boolean @default(false)
+
   createdAt    DateTime          @default(now())
   events       Event[]
   participants Participant[]
@@ -113,6 +122,13 @@ model Event {
   eventPin            String?
   enableCheckin       Boolean  @default(false)
 
+  // Wie EventSeries.requireGuestUser, nur für ein Einzel-Event - nur beim Anlegen setzbar
+  // (createEvent), danach bewusst unveränderlich (kein Feld in updateEvent). Gehört das Event
+  // zu einer Reihe, ist dieses Feld bedeutungslos - dann gilt ausschließlich der gleichnamige
+  // Wert der EventSeries (siehe die requireVerification/isGuestListVisible/eventPin-Kommentare
+  // weiter unten bei seriesId).
+  requireGuestUser Boolean @default(false)
+
   // Wird bei jeder inhaltlichen Änderung (Titel/Datum/Dauer/Ort/Beschreibung, siehe
   // diffEventFields in app/admin/actions.ts) um 1 erhöht - dient als ICS-SEQUENCE, damit
   // Kalender-Apps eine neu verschickte .ics-Datei als Update des bestehenden Eintrags
@@ -131,6 +147,13 @@ model Event {
   // das für diese eine Abstimmung reicht oder nicht.
   pollUrl   String?
   pollLabel String?
+  // Zwischengespeichertes Ergebnis einer verknüpften Abstimmung, gesetzt vom eingehenden
+  // Webhook aus abstimmungstool sobald die Abstimmung schließt (siehe
+  // app/api/poll-result-webhook/route.ts) - JSON-String `{pollTitle, winners: [{label,
+  // votes}], closedAt}`. Bleibt null, solange keine verknüpfte Abstimmung existiert oder
+  // noch nicht geschlossen wurde. Rein additiv, rendert nur zusätzlich neben dem
+  // bestehenden pollUrl-Link (siehe app/[slug]/page.tsx), ändert an dessen Verhalten nichts.
+  pollResult String?
 
   ownerId String
   owner   User   @relation(fields: [ownerId], references: [id])

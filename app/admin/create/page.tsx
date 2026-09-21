@@ -147,6 +147,13 @@ export default async function CreateEventPage() {
             </div>
           </ThemeSection>
 
+          <ThemeSection color="violet" title="Nur registrierte Teilnehmer" description="Nur Gäste mit eingeloggtem Nutzer-Konto (/mein-konto) dürfen teilnehmen - anonyme Anmeldungen sind dann nicht mehr möglich. Kann später NICHT mehr geändert werden, deshalb jetzt bewusst entscheiden.">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" name="requireGuestUser" className={`w-4 h-4 ${themeClasses('violet').accent}`} />
+              <span className={`text-sm font-medium ${themeClasses('violet').heading}`}>Nur registrierte Teilnehmer zulassen</span>
+            </label>
+          </ThemeSection>
+
           <ThemeSection color="cyan" title="Externe Abstimmung" description="Verlinkt z.B. auf eine Restaurant-Wahl im separaten Abstimmungstool. Ein eingeloggter, verifizierter Nutzer wird dabei automatisch für diese Abstimmung erkannt (falls die Abstimmung das nutzt) - alle anderen können trotzdem ganz normal darüber abstimmen.">
             <div>
               <label htmlFor="pollUrl" className={`block text-sm font-medium mb-1 ${themeClasses('cyan').heading}`}>Link zur Abstimmung (Optional)</label>

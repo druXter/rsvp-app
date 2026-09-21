@@ -346,6 +346,9 @@ export async function createEvent(formData: FormData) {
   const reminderDays = parseInt(formData.get('reminderDays') as string) || 7
   const requireVerification = formData.get('requireVerification') === 'on'
   const enableCheckin = formData.get('enableCheckin') === 'on'
+  // Nur beim Anlegen abgefragt - siehe requireGuestUser-Kommentar in schema.prisma, kommt
+  // deshalb bewusst NICHT in updateEvent vor.
+  const requireGuestUser = formData.get('requireGuestUser') === 'on'
   const { pollUrl, pollLabel } = readPollLink(formData)
 
   // Abfrage-Optionen für die Gäste als JSON-String speichern
@@ -380,6 +383,7 @@ export async function createEvent(formData: FormData) {
       isGuestListVisible,
       eventPin,
       enableCheckin,
+      requireGuestUser,
       pollUrl,
       pollLabel
     }
@@ -738,11 +742,14 @@ export async function createEventSeries(formData: FormData) {
   const isGuestListVisible = formData.get('isGuestListVisible') === 'on'
   const eventPinInput = formData.get('eventPin') as string
   const eventPin = eventPinInput ? eventPinInput.trim() : null
+  // Nur beim Anlegen abgefragt - siehe requireGuestUser-Kommentar in schema.prisma, kommt
+  // deshalb bewusst NICHT in updateEventSeries vor.
+  const requireGuestUser = formData.get('requireGuestUser') === 'on'
 
   const slug = slugInput.toLowerCase().replace(/[^a-z0-9-]/g, '-')
 
   const series = await prisma.eventSeries.create({
-    data: { ownerId: user.id, title, slug, description, askEmail, askPhone, askDiet, askAllergies, requireVerification, isGuestListVisible, eventPin }
+    data: { ownerId: user.id, title, slug, description, askEmail, askPhone, askDiet, askAllergies, requireVerification, isGuestListVisible, eventPin, requireGuestUser }
   })
 
   revalidatePath('/admin')

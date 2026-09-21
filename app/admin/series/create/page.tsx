@@ -89,6 +89,13 @@ export default async function CreateEventSeriesPage() {
             </div>
           </ThemeSection>
 
+          <ThemeSection color="violet" title="Nur registrierte Teilnehmer" description="Nur Gäste mit eingeloggtem Nutzer-Konto (/mein-konto) dürfen an Terminen dieser Reihe teilnehmen - anonyme Anmeldungen sind dann nicht mehr möglich. Gilt für alle Termine der Reihe und kann später NICHT mehr geändert werden, deshalb jetzt bewusst entscheiden.">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" name="requireGuestUser" className={`w-4 h-4 ${themeClasses('violet').accent}`} />
+              <span className={`text-sm font-medium ${themeClasses('violet').heading}`}>Nur registrierte Teilnehmer zulassen</span>
+            </label>
+          </ThemeSection>
+
           <SubmitButton>Reihe speichern</SubmitButton>
         </form>
 

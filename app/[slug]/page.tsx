@@ -3,6 +3,9 @@ import { notFound, redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
 import RsvpForm from './rsvp-form'
 import PinForm from './pin-form'
+import GuestRequiredGate from './guest-required-gate'
+import PollResultBanner from '../ui/poll-result-banner'
+import { getCurrentGuestUser } from '../lib/guest-auth'
 
 const prisma = new PrismaClient()
 
@@ -77,6 +80,44 @@ export default async function EventPage({
         where: { eventId_participantId: { eventId: event.id, participantId: participant.id } }
       })
     }
+  } else if (event.requireGuestUser) {
+    // "Nur registrierte Teilnehmer": ohne editToken MUSS eine eingeloggte Gast-Session
+    // vorliegen, sonst wird statt des Formulars nur das Login/Registrieren-Gate gezeigt
+    // (siehe performRsvpSubmission für die serverseitige Absicherung derselben Regel).
+    const guestUser = await getCurrentGuestUser()
+    if (!guestUser) {
+      const nextPath = `/${event.slug}`
+      return (
+        <main className="min-h-screen bg-gray-50 dark:bg-gray-900">
+          <GuestRequiredGate
+            title={event.title}
+            loginHref={`/mein-konto/login?next=${encodeURIComponent(nextPath)}`}
+            registerHref={`/${event.slug}/registrieren?next=${encodeURIComponent(nextPath)}`}
+          />
+        </main>
+      )
+    }
+
+    const guestParticipant = await prisma.participant.findFirst({
+      where: { guestUserId: guestUser.id, rsvps: { some: { eventId: event.id } } }
+    })
+    if (guestParticipant) {
+      participant = guestParticipant
+      existingRsvp = await prisma.rsvp.findUnique({
+        where: { eventId_participantId: { eventId: event.id, participantId: guestParticipant.id } }
+      })
+    } else {
+      // Erste Antwort dieses Kontos zu diesem Event - Formular aus dem zentralen Profil vorausfüllen
+      participant = {
+        name: guestUser.name,
+        email: guestUser.email,
+        phone: guestUser.phone,
+        dietaryOption: guestUser.dietaryOption,
+        allergies: guestUser.allergies,
+        isVerified: guestUser.isVerified,
+        editToken: undefined
+      }
+    }
   }
 
   // 3. Gästeliste laden (Issue #8) - EXTREM WICHTIG: Nur ungefährliche Felder abfragen!
@@ -103,6 +144,8 @@ export default async function EventPage({
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-gray-900 py-10">
       <div className="max-w-3xl mx-auto px-4">
+
+        <PollResultBanner pollResult={event.pollResult} />
 
         {event.pollUrl && (
           <a

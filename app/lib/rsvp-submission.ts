@@ -5,6 +5,7 @@ import { randomUUID } from 'crypto'
 import { sendConfirmationEmail, sendVerificationEmail, sendWaitlistPromotedEmail, sendWaitlistEmail } from './mail'
 import { generateCheckinQrDataUrl } from './qrcode'
 import { sendPushToUser, sendConfirmationPush } from './push'
+import { notifyPollOfAttendanceChange } from './poll-notify'
 
 const prisma = new PrismaClient()
 
@@ -76,16 +77,38 @@ export async function performRsvpSubmission(
 
   // Ist der Termin Teil einer Reihe, gelten die Profil-/Zugangs-Einstellungen der Reihe
   const requireVerification = event.series ? event.series.requireVerification : event.requireVerification
+  const requireGuestUser = event.series ? event.series.requireGuestUser : event.requireGuestUser
 
   // Der Participant trägt die reihenweit (bzw. bei Einzel-Events: einmalig) geteilte Identität.
   // Ohne editToken wird bei einem Reihen-Termin zusätzlich versucht, die Identität über eine
   // eingeloggte Gast-Session (Nutzer-Konto, siehe #12) aufzulösen - so muss ein eingeloggter
-  // Nutzer keinen Link mehr kennen, um seine reihenweite Identität wiederzufinden.
-  const guestUser = !editToken && event.seriesId ? guestUserCandidate : null
+  // Nutzer keinen Link mehr kennen, um seine reihenweite Identität wiederzufinden. Ist
+  // requireGuestUser gesetzt, gilt das ausnahmsweise auch für ein Einzel-Event ohne Reihe,
+  // da eine Anmeldung dort ausschließlich über ein Nutzer-Konto möglich sein soll.
+  const guestUser = !editToken && (event.seriesId || requireGuestUser) ? guestUserCandidate : null
+
+  // "Nur registrierte Teilnehmer"-Sperre: ohne editToken (also nicht über einen bereits
+  // bestehenden persönlichen Link) MUSS eine eingeloggte Gast-Session vorliegen. Ein bereits
+  // bestehender editToken bleibt bewusst immer gültig - er kann nur besitzen, wer den
+  // Termin schon einmal (zwingend eingeloggt) beantwortet hat, bzw. bei einer nachträglich
+  // umgestellten Reihe (siehe requireGuestUser-Kommentar in schema.prisma) schon vorher
+  // anonym teilgenommen hat und diesen Zugang nicht verlieren soll.
+  if (requireGuestUser && !editToken && !guestUser) {
+    throw new Error('Für dieses Event/diese Reihe ist ein Nutzer-Konto erforderlich. Bitte logge dich unter /mein-konto ein oder registriere dich zuerst.')
+  }
+
   const existingParticipant = editToken
     ? await prisma.participant.findUnique({ where: { editToken } })
     : guestUser
-      ? await prisma.participant.findFirst({ where: { seriesId: event.seriesId, guestUserId: guestUser.id } })
+      ? await prisma.participant.findFirst({
+          where: event.seriesId
+            ? { seriesId: event.seriesId, guestUserId: guestUser.id }
+            // Bei einem Einzel-Event gibt es keine reihenweite Identität - der Participant
+            // dieses eingeloggten Kontos muss hier zusätzlich auf GENAU dieses Event
+            // eingegrenzt werden, sonst würde fälschlich der Participant eines anderen
+            // Einzel-Events desselben Kontos gefunden.
+            : { guestUserId: guestUser.id, rsvps: { some: { eventId } } }
+        })
       : null
 
   // Die Antwort zu GENAU DIESEM Termin - kann fehlen, auch wenn der Participant schon existiert
@@ -278,6 +301,15 @@ export async function performRsvpSubmission(
         }
       }
     }
+  }
+
+  // Verknüpfte Abstimmung (falls vorhanden) über die neue Zu-/Absage informieren -
+  // siehe poll-notify.ts. Läuft für jede Antwort (nicht nur neue), damit eine
+  // nachträgliche Absage auch dann durchschlägt, wenn schon vorher geantwortet wurde.
+  try {
+    await notifyPollOfAttendanceChange(event, participant.email, savedRsvp.isAttending)
+  } catch (error) {
+    console.error("Fehler bei der Abstimmungs-Benachrichtigung:", error)
   }
 
   // E-Mail Logik für den GAST

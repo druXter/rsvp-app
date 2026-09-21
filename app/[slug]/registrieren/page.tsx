@@ -1,45 +1,47 @@
-// app/reihe/[seriesSlug]/registrieren/page.tsx
+// app/[slug]/registrieren/page.tsx
 import { PrismaClient } from '@prisma/client'
 import { notFound } from 'next/navigation'
 import { cookies } from 'next/headers'
 import Link from 'next/link'
-import PinForm from '../../../[slug]/pin-form'
-import { registerGuestUser } from '../../../mein-konto/actions'
-import SubmitButton from '../../../ui/submit-button'
+import PinForm from '../pin-form'
+import { registerGuestUser } from '../../mein-konto/actions'
+import SubmitButton from '../../ui/submit-button'
 
 const prisma = new PrismaClient()
 
 /**
- * Selbstregistrierung für ein Nutzer-Konto, gebunden an EINE Reihe (die Reihen-Slug in
- * der URL). Hinter derselben Reihen-PIN wie der Rest der Reihe - wer die Termine schon
- * sehen darf, darf sich hier auch registrieren. Weitere Reihen kommen später über
- * addGuestUserToSeries (Creator/Moderator) oder automatisch beim Beantworten hinzu.
+ * Selbstregistrierung für ein Nutzer-Konto, gebunden an EIN Einzel-Event (die Event-Slug in
+ * der URL) - das Gegenstück zu app/reihe/[seriesSlug]/registrieren/page.tsx für ein Event
+ * ohne Reihe. Hinter derselben Event-PIN wie der Rest des Events. Anders als bei einer Reihe
+ * entsteht hier keine Mitgliedschaft (kein GuestUserSeries-Äquivalent für Einzel-Events) -
+ * das Konto verknüpft sich erst über performRsvpSubmission mit einem Participant, sobald
+ * tatsächlich geantwortet wird.
  */
-export default async function RegisterGuestUserPage({
+export default async function RegisterGuestUserForEventPage({
   params,
   searchParams
 }: {
-  params: Promise<{ seriesSlug: string }>
+  params: Promise<{ slug: string }>
   searchParams: Promise<{ error?: string; next?: string }>
 }) {
-  const { seriesSlug } = await params
+  const { slug } = await params
   const { error, next } = await searchParams
   const loginHref = `/mein-konto/login${next ? `?next=${encodeURIComponent(next)}` : ''}`
 
-  const series = await prisma.eventSeries.findUnique({ where: { slug: seriesSlug } })
-  if (!series) notFound()
+  const event = await prisma.event.findUnique({ where: { slug } })
+  if (!event) notFound()
 
   let isAuthorized = true
-  if (series.eventPin) {
+  if (event.eventPin) {
     const cookieStore = await cookies()
-    const pinCookie = cookieStore.get(`series_pin_${series.id}`)
-    if (pinCookie?.value !== series.eventPin) isAuthorized = false
+    const pinCookie = cookieStore.get(`event_pin_${event.id}`)
+    if (pinCookie?.value !== event.eventPin) isAuthorized = false
   }
 
   if (!isAuthorized) {
     return (
       <main className="min-h-screen bg-gray-50 dark:bg-gray-900">
-        <PinForm seriesId={series.id} slug={series.slug} title={series.title} />
+        <PinForm eventId={event.id} slug={event.slug} title={event.title} />
       </main>
     )
   }
@@ -48,9 +50,9 @@ export default async function RegisterGuestUserPage({
     <main className="min-h-screen bg-gray-50 dark:bg-gray-900 py-10 flex items-center justify-center px-4">
       <div className="max-w-md w-full bg-white dark:bg-gray-800 p-8 rounded-lg shadow space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Konto für {series.title}</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Konto für {event.title}</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Einmal einloggen, alle Termine dieser Reihe automatisch sehen - ohne dir einen Link merken oder Angaben erneut eintragen zu müssen.
+            Für dieses Event ist ein Nutzer-Konto erforderlich, um teilzunehmen.
           </p>
         </div>
 
@@ -61,7 +63,7 @@ export default async function RegisterGuestUserPage({
         )}
 
         <form action={registerGuestUser} className="space-y-4">
-          <input type="hidden" name="seriesId" value={series.id} />
+          <input type="hidden" name="eventId" value={event.id} />
           {next && <input type="hidden" name="next" value={next} />}
 
           <div>

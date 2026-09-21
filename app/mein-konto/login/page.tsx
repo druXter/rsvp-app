@@ -7,12 +7,13 @@ import SubmitButton from '../../ui/submit-button'
  * Login-Seite für Gast-Konten ("Nutzer", siehe #12) - strikt getrennt vom Admin-Login
  * unter /admin/login (eigenes Cookie/Session-Modell, siehe app/lib/guest-auth.ts).
  */
-export default async function GuestLoginPage({ searchParams }: { searchParams: Promise<{ error?: string; registered?: string; reset?: string }> }) {
+export default async function GuestLoginPage({ searchParams }: { searchParams: Promise<{ error?: string; registered?: string; reset?: string; next?: string }> }) {
   const params = await searchParams
   const hasError = params.error === '1'
   const unverified = params.error === 'unverified'
   const justRegistered = params.registered === '1'
   const wasReset = params.reset === '1'
+  const next = params.next || ''
 
   return (
     <main className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center px-4">
@@ -41,6 +42,7 @@ export default async function GuestLoginPage({ searchParams }: { searchParams: P
         )}
 
         <form action={loginGuestUser} className="space-y-4">
+          {next && <input type="hidden" name="next" value={next} />}
           <div>
             <label htmlFor="email" className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">E-Mail</label>
             <input

@@ -9,8 +9,9 @@ const prisma = new PrismaClient()
  * bewusst schon beim Aufruf per GET (gleiches Muster wie app/verify/page.tsx und der
  * QR-Checkin), damit ein Klick reicht.
  */
-export default async function GuestVerifyPage({ searchParams }: { searchParams: Promise<{ token?: string }> }) {
-  const { token } = await searchParams
+export default async function GuestVerifyPage({ searchParams }: { searchParams: Promise<{ token?: string; next?: string }> }) {
+  const { token, next } = await searchParams
+  const loginHref = `/mein-konto/login${next ? `?next=${encodeURIComponent(next)}` : ''}`
 
   if (!token) {
     return (
@@ -46,7 +47,7 @@ export default async function GuestVerifyPage({ searchParams }: { searchParams: 
       <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow max-w-md text-center">
         <h1 className="text-2xl font-bold text-green-600 mb-4">Konto bestätigt! 🎉</h1>
         <p className="text-gray-700 dark:text-gray-300 mb-6">Dein Konto ist jetzt aktiv. Du kannst dich ab sofort einloggen.</p>
-        <Link href="/mein-konto/login" className="inline-block bg-blue-600 text-white font-bold py-2 px-6 rounded hover:bg-blue-700 transition">
+        <Link href={loginHref} className="inline-block bg-blue-600 text-white font-bold py-2 px-6 rounded hover:bg-blue-700 transition">
           Jetzt einloggen
         </Link>
       </div>

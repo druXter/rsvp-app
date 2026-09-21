@@ -294,19 +294,29 @@ export async function sendVerificationEmail(
  * es hier um das Login-Konto selbst geht, nicht um die Verifizierung einer einzelnen
  * Anmeldung/Participant.
  */
-export async function sendGuestVerificationEmail(guestUser: GuestUser, series: EventSeries) {
-  const verifyLink = `${baseUrl()}/mein-konto/verify?token=${guestUser.verifyToken}`
+/**
+ * `contextTitle` ist entweder der Titel der Reihe oder (bei der Registrierung für ein
+ * Einzel-Event mit requireGuestUser) der Titel des Events - beide Registrierungsformulare
+ * (app/reihe/[seriesSlug]/registrieren, app/[slug]/registrieren) teilen sich diese Mail,
+ * deshalb bewusst nur der Titel als String statt eines EventSeries-Objekts. `next` (optional)
+ * ist der Pfad, zu dem die "Jetzt einloggen"-Seite nach dem Bestätigen weiterleiten soll -
+ * damit landet ein Gast, der sich von einem konkreten Termin aus registriert hat, nach dem
+ * Klick auf den Mail-Link nicht auf dem allgemeinen /mein-konto-Dashboard, sondern direkt
+ * wieder dort, wo er teilnehmen wollte.
+ */
+export async function sendGuestVerificationEmail(guestUser: GuestUser, contextTitle: string, next?: string | null) {
+  const verifyLink = `${baseUrl()}/mein-konto/verify?token=${guestUser.verifyToken}${next ? `&next=${encodeURIComponent(next)}` : ''}`
 
   const mailOptions = {
     from: process.env.SMTP_FROM,
     to: guestUser.email,
-    subject: `Bitte bestätige dein Konto für ${series.title}`,
-    text: `Hallo ${guestUser.name},\n\ndu hast dir gerade ein Konto für die Reihe "${series.title}" angelegt. Bitte klicke auf den folgenden Link, um dein Konto zu bestätigen - danach kannst du dich einloggen und siehst automatisch alle Termine dieser (und weiterer, dir zugeordneter) Reihen:\n\n${verifyLink}`,
+    subject: `Bitte bestätige dein Konto für ${contextTitle}`,
+    text: `Hallo ${guestUser.name},\n\ndu hast dir gerade ein Konto für "${contextTitle}" angelegt. Bitte klicke auf den folgenden Link, um dein Konto zu bestätigen - danach kannst du dich einloggen:\n\n${verifyLink}`,
     html: `
       <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
         <h2>Fast geschafft, ${guestUser.name}! ✉️</h2>
-        <p>Du hast dir gerade ein Konto für die Reihe <strong>${series.title}</strong> angelegt.</p>
-        <p>Bitte bestätige dein Konto über den folgenden Button - danach kannst du dich einloggen und siehst automatisch alle Termine dieser (und weiterer, dir zugeordneter) Reihen, ohne dir Links merken oder Angaben erneut eintragen zu müssen.</p>
+        <p>Du hast dir gerade ein Konto für <strong>${contextTitle}</strong> angelegt.</p>
+        <p>Bitte bestätige dein Konto über den folgenden Button - danach kannst du dich einloggen und siehst automatisch alle Termine deiner Reihen, ohne dir Links merken oder Angaben erneut eintragen zu müssen.</p>
 
         <p style="text-align: center; margin: 30px 0;">
           <a href="${verifyLink}" style="display: inline-block; padding: 12px 24px; background-color: #10b981; color: #fff; text-decoration: none; border-radius: 5px; font-weight: bold;">Konto bestätigen</a>

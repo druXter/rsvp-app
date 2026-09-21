@@ -50,6 +50,12 @@ export default async function EditEventSeriesPage({
           </Link>
         </div>
 
+        {series.requireGuestUser && (
+          <p className="text-xs bg-violet-50 dark:bg-violet-950 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800 rounded p-2">
+            🔒 Nur registrierte Teilnehmer erlaubt - das wurde beim Anlegen festgelegt und kann hier nicht mehr geändert werden.
+          </p>
+        )}
+
         {isOwner && (
         <form id="edit-series-form" action={updateEventSeries} className="space-y-4">
           <input type="hidden" name="seriesId" value={series.id} />

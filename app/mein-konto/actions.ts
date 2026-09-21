@@ -14,24 +14,49 @@ import { generateApiToken, hashApiToken, NEW_API_TOKEN_COOKIE } from '../lib/api
 const prisma = new PrismaClient()
 
 /**
- * Selbstregistrierung eines Gastes für eine bestimmte Reihe (Formular auf
- * /reihe/[seriesSlug]/registrieren, hinter derselben Reihen-PIN wie der Rest der Reihe).
- * Legt sofort die Mitgliedschaft für diese Reihe an; weitere Reihen kommen entweder über
- * addGuestUserToSeries (Creator/Moderator) oder automatisch beim ersten Beantworten eines
- * Termins einer anderen Reihe über die Gast-Session hinzu (siehe submitRsvp).
+ * `next` kommt aus einem Formularfeld/Query-Parameter, den ein Angreifer frei befüllen
+ * könnte - lässt nur einen internen, mit genau einem "/" beginnenden Pfad durch (kein
+ * "//evil.com" oder "https://evil.com"), damit loginGuestUser damit niemals auf eine externe
+ * Seite weiterleitet (Open-Redirect).
+ */
+function safeNextPath(next: string | null): string | null {
+  if (!next || !next.startsWith('/') || next.startsWith('//')) return null
+  return next
+}
+
+/**
+ * Selbstregistrierung eines Gastes - entweder für eine bestimmte Reihe (Formular auf
+ * /reihe/[seriesSlug]/registrieren, hinter derselben Reihen-PIN wie der Rest der Reihe) oder
+ * für ein einzelnes Event mit requireGuestUser (Formular auf /[slug]/registrieren, hinter
+ * derselben Event-PIN). Nur bei einer Reihe entsteht sofort eine Mitgliedschaft
+ * (GuestUserSeries) - ein Einzel-Event kennt dieses Konzept nicht, dort verknüpft sich das
+ * Konto erst über performRsvpSubmission mit einem Participant, sobald tatsächlich geantwortet
+ * wird. Weitere Reihen kommen entweder über addGuestUserToSeries (Creator/Moderator) oder
+ * automatisch beim ersten Beantworten eines Termins einer anderen Reihe über die
+ * Gast-Session hinzu (siehe submitRsvp). `next` (optional, aus dem Registrierungs-Formular)
+ * ist der Pfad des Termins, von dem aus registriert wurde - wird an die
+ * Verifizierungs-Mail und die Weiterleitungen durchgereicht, damit der Gast nach dem
+ * Bestätigen/Einloggen direkt dort landet, statt auf dem allgemeinen Dashboard.
  */
 export async function registerGuestUser(formData: FormData) {
-  const seriesId = formData.get('seriesId') as string
+  const seriesId = formData.get('seriesId') as string || null
+  const eventId = formData.get('eventId') as string || null
+  const next = safeNextPath(formData.get('next') as string || null)
+  const nextParam = next ? `&next=${encodeURIComponent(next)}` : ''
   const name = (formData.get('name') as string || '').trim()
   const email = (formData.get('email') as string || '').trim().toLowerCase()
   const password = formData.get('password') as string
 
-  const series = await prisma.eventSeries.findUnique({ where: { id: seriesId } })
-  if (!series) return
+  const series = seriesId ? await prisma.eventSeries.findUnique({ where: { id: seriesId } }) : null
+  const event = eventId ? await prisma.event.findUnique({ where: { id: eventId } }) : null
+  if (!series && !event) return
+
+  const contextTitle = series ? series.title : event!.title
+  const registerPath = series ? `/reihe/${series.slug}/registrieren` : `/${event!.slug}/registrieren`
 
   const existing = await prisma.guestUser.findUnique({ where: { email } })
   if (existing) {
-    redirect(`/reihe/${series.slug}/registrieren?error=exists`)
+    redirect(`${registerPath}?error=exists${nextParam}`)
   }
 
   const passwordHash = await bcrypt.hash(password, 10)
@@ -39,15 +64,17 @@ export async function registerGuestUser(formData: FormData) {
   const guestUser = await prisma.guestUser.create({
     data: { email, passwordHash, name, verifyToken, isVerified: false }
   })
-  await prisma.guestUserSeries.create({ data: { guestUserId: guestUser.id, seriesId } })
+  if (series) {
+    await prisma.guestUserSeries.create({ data: { guestUserId: guestUser.id, seriesId: series.id } })
+  }
 
   try {
-    await sendGuestVerificationEmail(guestUser, series)
+    await sendGuestVerificationEmail(guestUser, contextTitle, next)
   } catch (error) {
     console.error('Fehler beim Senden der Nutzer-Verifizierungs-Mail:', error)
   }
 
-  redirect('/mein-konto/login?registered=1')
+  redirect(`/mein-konto/login?registered=1${nextParam}`)
 }
 
 /**
@@ -58,15 +85,21 @@ export async function registerGuestUser(formData: FormData) {
 export async function loginGuestUser(formData: FormData) {
   const email = (formData.get('email') as string || '').trim().toLowerCase()
   const password = formData.get('password') as string
+  // Pfad eines Termins, von dem aus zum Login verlinkt wurde (siehe GuestRequiredGate) -
+  // nach erfolgreichem Login geht es dorthin statt zum allgemeinen /mein-konto-Dashboard,
+  // damit ein Gast, der wegen requireGuestUser zum Login geschickt wurde, direkt wieder bei
+  // seinem Termin landet (das Dashboard listet Einzel-Events ohnehin nicht auf).
+  const next = safeNextPath(formData.get('next') as string || null)
+  const nextParam = next ? `&next=${encodeURIComponent(next)}` : ''
 
   const guestUser = await prisma.guestUser.findUnique({ where: { email } })
   const passwordMatches = guestUser ? await bcrypt.compare(password, guestUser.passwordHash) : false
 
   if (!guestUser || !passwordMatches) {
-    redirect('/mein-konto/login?error=1')
+    redirect(`/mein-konto/login?error=1${nextParam}`)
   }
   if (!guestUser.isVerified) {
-    redirect('/mein-konto/login?error=unverified')
+    redirect(`/mein-konto/login?error=unverified${nextParam}`)
   }
 
   const token = randomBytes(32).toString('hex')
@@ -83,7 +116,7 @@ export async function loginGuestUser(formData: FormData) {
     maxAge: GUEST_SESSION_DURATION_MS / 1000,
     path: '/',
   })
-  redirect('/mein-konto')
+  redirect(next || '/mein-konto')
 }
 
 export async function logoutGuestUser() {
