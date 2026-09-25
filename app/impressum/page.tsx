@@ -21,7 +21,7 @@ export default function ImpressumPage() {
         <h1 className="text-3xl font-bold border-b dark:border-gray-700 pb-4">Impressum</h1>
 
         <div>
-          <h2 className="font-bold text-lg">Angaben gemäß § 5 TMG</h2>
+          <h2 className="font-bold text-lg">Angaben gemäß § 5 DDG</h2>
           <p className="mt-2">
             {name}<br />
             {street}<br />

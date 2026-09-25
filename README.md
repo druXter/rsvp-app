@@ -211,6 +211,32 @@ Anbieter und Empfänger, und jedes bleibt mit eigenen Konten vollständig allein
 * Konten ohne Passwort (nur über ein anderes Tool angemeldet) können sich nicht per Passwort anmelden und bestätigen selbst
   keine Anmeldung für weitere Tools (keine Ketten).
 
+## 🧪 Tests
+
+```bash
+npm test            # Unit-Tests (vitest): Passwort, Tokens, Drossel-IP und -Regeln, Rechte, PIN, Abstimmungs-Kopplung, Cron-Secret
+npm run test:e2e    # Playwright gegen eine frisch gebaute Instanz auf http://127.0.0.1:3105
+```
+
+Die E2E-Tests löschen und erzeugen bei jedem Lauf ihre eigene Datenbank `prisma/test.db` (nie die Entwicklungs- oder
+Produktivdatenbank), bauen mit `next build` und starten `next start` – sie prüfen also das, was auch in Produktion läuft.
+Alles, was nach außen wirken würde (Mailversand, Push, Meldungen ans Abstimmungstool, Konten-Verbund), ist dabei per
+Umgebungsvariable abgeschaltet – auch wenn die lokale `.env` echte Werte enthält. Fehlermeldungen zum Mailversand im
+Testprotokoll (`ECONNREFUSED …:587`) sind deshalb erwartet.
+
+Geprüft werden u. a.: Sicherheits-Header je Pfadgruppe (Event-Slugs inkl. `/sw.js` einbettbar, `/admin`, `/mein-konto` und
+`/api/suite/*` nicht), Session-Cookie und Hash in der Datenbank für beide Logins, Session-Fixation, Open Redirect, gleiche
+Meldung und Antwortzeit bei unbekannten Adressen, Sperre beim 11. Versuch pro E-Mail und 21. pro IP, erfundene
+`X-Forwarded-For`-Einträge, 30 gleichzeitige Versuche, PIN-Drosselung, Reset-Links (einmalig, GET verbraucht nichts),
+Cron-Secrets, Rechte je Stufe (Owner/Admin, Moderator*in per Event- oder Reihen-Freigabe, fremdes Konto) für Export,
+Check-in, Löschen und Weitergeben, Konto-Zwang per fremdem `editToken`, PIN-Durchsetzung außerhalb der Seite, das
+Ersetzen einer Antwort samt Warteliste sowie die signierte Kopplung mit dem Abstimmungstool (manipulierte Signatur,
+abgelaufene Meldung, Klick-Token) – jeder Angriffsfall **mit Positivkontrolle**, dass derselbe Aufruf mit Berechtigung
+wirkt.
+
+Voraussetzung: Chromium für Playwright (`npx playwright install chromium`, einmalig). `next build` schreibt nach `.next/` –
+nicht gleichzeitig mit `npm run dev` laufen lassen.
+
 ## 🔒 Sicherheitshinweise
 
 Die Datenbankdatei (`*.db`) und deine `.env`-Datei sind vom Tracking ausgeschlossen. Stelle sicher, dass du niemals echte Passwörter oder Nutzerdaten in das Git-Repository hochlädst.

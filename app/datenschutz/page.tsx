@@ -240,7 +240,7 @@ export default function DatenschutzPage() {
           <h2 className="font-bold text-lg">12. Cookies</h2>
           <p className="mt-2">
             Wir setzen ausschließlich technisch notwendige Cookies ein (Art. 6 Abs. 1 lit. b/f DSGVO, § 25 Abs. 2 Nr. 2
-            TTDSG) - dafür ist keine Einwilligung erforderlich. Es gibt keine Tracking-, Analyse- oder
+            TDDDG) - dafür ist keine Einwilligung erforderlich. Es gibt keine Tracking-, Analyse- oder
             Marketing-Cookies.
           </p>
           <ul className="list-disc list-inside mt-2 space-y-1 text-sm">
