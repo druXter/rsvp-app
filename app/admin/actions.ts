@@ -17,6 +17,7 @@ import { isOwnerOrAdmin, hasEventModeratorOrAbove, hasSeriesModeratorOrAbove } f
 import { sendReminderPush, sendEventChangedPush } from '../lib/push'
 import { allowedSeatingOrigin, parseSeatingUrl } from '../lib/seating'
 import { notifySeatingBeforeDelete, notifySeatingOfRsvps } from '../lib/seating-notify'
+import { deleteOrphanedParticipants } from '../lib/participants'
 
 const prisma = new PrismaClient()
 
@@ -495,9 +496,9 @@ export async function createEvent(formData: FormData) {
 }
 
 /**
- * Löscht ein Event mitsamt aller zugehörigen Antworten aus der Datenbank.
- * Gehört das Event zu einer Reihe, bleiben die Participants (ihr Profil gilt
- * ggf. noch für andere Termine der Reihe) unangetastet.
+ * Löscht ein Event mitsamt aller zugehörigen Antworten aus der Datenbank. Participants, die
+ * dadurch keine Antwort mehr haben, werden sofort mitgelöscht (deleteOrphanedParticipants) -
+ * wer bei einer Reihe noch zu einem anderen Termin geantwortet hat, bleibt erhalten.
  */
 export async function deleteEvent(formData: FormData) {
   const user = await requireUser()
@@ -508,6 +509,7 @@ export async function deleteEvent(formData: FormData) {
 
   // Seating (falls verknüpft) erfährt, dass diese Zusagen wegfallen - vor dem Löschen gelesen
   await notifySeatingBeforeDelete({ eventId: id })
+  const affectedParticipants = await prisma.rsvp.findMany({ where: { eventId: id }, select: { participantId: true } })
 
   // 1. Zuerst alle verknüpften Antworten (Gäste) und geteilten Zugriffsrechte löschen,
   // um Fremdschlüssel-Konflikte zu vermeiden
@@ -522,6 +524,9 @@ export async function deleteEvent(formData: FormData) {
   await prisma.event.delete({
     where: { id }
   })
+
+  // 3. Gäste ohne weitere Antwort nicht bis zum nächsten Cron-Lauf liegen lassen
+  await deleteOrphanedParticipants(affectedParticipants.map(r => r.participantId))
 
   revalidatePath('/admin')
 }
@@ -612,7 +617,8 @@ export async function updateEvent(formData: FormData) {
 
 /**
  * Löscht eine spezifische Antwort (RSVP) eines Gastes zu einem Termin.
- * Der Participant (das Profil) bleibt bestehen, falls er noch andere Antworten hat.
+ * Der Participant (das Profil) bleibt nur bestehen, falls er noch andere Antworten hat -
+ * sonst wird er sofort mitgelöscht (deleteOrphanedParticipants).
  */
 export async function deleteRsvp(formData: FormData) {
   const user = await requireUser()
@@ -625,6 +631,7 @@ export async function deleteRsvp(formData: FormData) {
   await prisma.rsvp.delete({
     where: { id }
   })
+  await deleteOrphanedParticipants([rsvpToDelete.participantId])
 
   if (rsvpToDelete.isAttending && !rsvpToDelete.isOnWaitlist) {
     await triggerWaitlistPromotion(rsvpToDelete.eventId)
@@ -1244,6 +1251,7 @@ export async function deleteUser(formData: FormData) {
   const eventIds = ownEvents.map(e => e.id)
 
   await notifySeatingBeforeDelete({ eventId: { in: eventIds } })
+  const affectedParticipants = await prisma.rsvp.findMany({ where: { eventId: { in: eventIds } }, select: { participantId: true } })
   await prisma.rsvp.deleteMany({ where: { eventId: { in: eventIds } } })
   await prisma.resourceAccess.deleteMany({
     where: { OR: [{ userId: targetId }, { eventId: { in: eventIds } }, { seriesId: { in: seriesIds } }] }
@@ -1251,6 +1259,8 @@ export async function deleteUser(formData: FormData) {
   await prisma.event.deleteMany({ where: { id: { in: eventIds } } })
   await prisma.participantPushSubscription.deleteMany({ where: { participant: { seriesId: { in: seriesIds } } } })
   await prisma.participant.deleteMany({ where: { seriesId: { in: seriesIds } } })
+  // Gäste der Einzel-Events dieses Kontos (die Reihen-Participants sind oben schon weg)
+  await deleteOrphanedParticipants(affectedParticipants.map(r => r.participantId))
   await prisma.eventSeries.deleteMany({ where: { id: { in: seriesIds } } })
   await prisma.pushSubscription.deleteMany({ where: { userId: targetId } })
   await prisma.session.deleteMany({ where: { userId: targetId } })

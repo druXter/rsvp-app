@@ -331,6 +331,11 @@ export default function DatenschutzPage() {
             Termine der Reihe älter als 18 Monate, wird auch dieses Profil automatisch gelöscht.
           </p>
           <p className="mt-2">
+            Löschen Veranstalter:innen einen Termin oder deine Antwort schon vorher, werden deine Angaben dazu{' '}
+            <strong>sofort</strong> gelöscht (samt Push-Abo und persönlichem Link). Ein Reihen-Profil bleibt nur, solange
+            du noch zu einem anderen Termin derselben Reihe geantwortet hast.
+          </p>
+          <p className="mt-2">
             Ein Nutzer-Konto unter &quot;Mein Konto&quot; wird automatisch vollständig gelöscht, wenn du dich{' '}
             <strong>2 Jahre</strong> lang nicht mehr eingeloggt hast - inklusive aller Reihen-Zuordnungen und
             Antworten. Admin-Konten (Veranstalter:innen) sind von dieser automatischen Löschung ausgenommen.

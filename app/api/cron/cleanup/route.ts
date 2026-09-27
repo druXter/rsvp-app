@@ -2,6 +2,7 @@
 import { PrismaClient } from '@prisma/client'
 import { NextResponse } from 'next/server'
 import { safeEqual } from '../../../lib/tokens'
+import { deleteOrphanedParticipants } from '../../../lib/participants'
 
 const prisma = new PrismaClient()
 
@@ -20,9 +21,10 @@ const GUEST_ACCOUNT_INACTIVITY_YEARS = 2
  *    im AStA-Kontext bei wiederkehrenden Jahres-Events genug Vorlaufzeit bleibt, um vor
  *    dem nächsten Durchlauf noch chronische No-Show-Gäste im Vorjahresvergleich zu sehen.
  * 2. Räumt danach verwaiste Participant-Zeilen auf (keine Rsvp mehr übrig) - das betrifft
- *    sowohl gerade dadurch verwaiste Reihen-Participants (deren Rsvp zu EINEM Termin
- *    gelöscht wurde, während andere Termine der Reihe noch jünger sind, bleiben dagegen
- *    unangetastet) als auch länger bestehende Altlasten (siehe CLAUDE.md "Deleting").
+ *    gerade dadurch verwaiste Participants (Reihen-Participants mit einer Antwort zu einem
+ *    jüngeren Termin bleiben dagegen unangetastet) sowie Altlasten aus der Zeit, bevor
+ *    deleteEvent/deleteRsvp/deleteUser selbst aufgeräumt haben (deleteOrphanedParticipants,
+ *    app/lib/participants.ts - dieselbe Funktion, hier ohne Einschränkung auf bestimmte IDs).
  * 3. Löscht Nutzer-Konten (GuestUser), die seit GUEST_ACCOUNT_INACTIVITY_YEARS nicht mehr
  *    eingeloggt waren, vollständig inkl. aller Reihen-Zuordnungen und Antworten - bewusst
  *    NICHT für Admin-Konten (User), da die eine fortlaufende Vereins-/Referats-Identität
@@ -52,13 +54,7 @@ export async function GET(request: Request) {
   await prisma.resourceAccess.deleteMany({ where: { eventId: { in: oldEventIds } } })
   await prisma.event.deleteMany({ where: { id: { in: oldEventIds } } })
 
-  const orphanedParticipants = await prisma.participant.findMany({
-    where: { rsvps: { none: {} } },
-    select: { id: true }
-  })
-  const orphanedParticipantIds = orphanedParticipants.map(p => p.id)
-  await prisma.participantPushSubscription.deleteMany({ where: { participantId: { in: orphanedParticipantIds } } })
-  await prisma.participant.deleteMany({ where: { id: { in: orphanedParticipantIds } } })
+  const deletedOrphanedParticipants = await deleteOrphanedParticipants()
 
   const inactivityCutoff = new Date()
   inactivityCutoff.setFullYear(inactivityCutoff.getFullYear() - GUEST_ACCOUNT_INACTIVITY_YEARS)
@@ -80,7 +76,7 @@ export async function GET(request: Request) {
   return NextResponse.json({
     success: true,
     deletedEvents: oldEventIds.length,
-    deletedOrphanedParticipants: orphanedParticipants.length,
+    deletedOrphanedParticipants,
     deletedInactiveGuestUsers: inactiveGuestUserIds.length
   })
 }

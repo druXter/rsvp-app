@@ -153,7 +153,7 @@ Um automatische E-Mail-Erinnerungen für Events zu versenden, muss der folgende 
 
 ## 🗑️ Automatische Datenlöschung (Cronjob / Uptime Kuma)
 
-Zur Umsetzung der Speicherbegrenzung nach DSGVO gibt es einen zweiten, unabhängigen Endpoint, der ebenfalls regelmäßig aufgerufen werden sollte (hier reicht z.B. einmal täglich statt stündlich). Er löscht automatisch Events (inkl. Datensatz) 18 Monate nach dem Veranstaltungsdatum sowie Nutzer-Konten ("Mein Konto"), die seit 2 Jahren nicht mehr eingeloggt wurden - siehe `/datenschutz` Punkt 15 für die genauen Regeln:
+Zur Umsetzung der Speicherbegrenzung nach DSGVO gibt es einen zweiten, unabhängigen Endpoint, der ebenfalls regelmäßig aufgerufen werden sollte (hier reicht z.B. einmal täglich statt stündlich). Er löscht automatisch Events (inkl. Datensatz) 18 Monate nach dem Veranstaltungsdatum sowie Nutzer-Konten ("Mein Konto"), die seit 2 Jahren nicht mehr eingeloggt wurden - siehe `/datenschutz` Punkt 15 für die genauen Regeln. Löscht jemand vorher einen Termin, eine einzelne Antwort oder ein Konto im Dashboard, verschwinden die dadurch verwaisten Gastprofile (Name, Kontaktdaten, Ernährung, Allergien, persönlicher Link, Push-Abos) sofort mit (`app/lib/participants.ts`); Gäste mit einer Antwort zu einem anderen Termin behalten ihr Profil. Der Cron räumt nur noch Altlasten auf:
 
 `GET https://rsvp.deine-domain.de/api/cron/cleanup?secret=DeinSehrGeheimesPasswort123`
 
