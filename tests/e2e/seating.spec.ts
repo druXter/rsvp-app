@@ -245,7 +245,9 @@ test.describe('Platzierungen (/api/seating/placements)', () => {
     // Angriffe ändern nichts
     expect((await post(request, '/api/seating/placements', placements(event, seatingEventId, [{ rsvpId: a.rsvp.id, label: 'X' }], { aud: TEST_SEATING_BASE_URL }))).status()).toBe(401)
     expect((await post(request, '/api/seating/placements', placements(event, seatingId(), [{ rsvpId: a.rsvp.id, label: 'X' }]))).status()).toBe(404)
-    expect((await post(request, '/api/seating/placements', placements(event, seatingEventId, [{ rsvpId: a.rsvp.id, label: 'X' }]).replace(/.$/, 'Q'))).status()).toBe(401)
+    // Letztes Zeichen garantiert ändern (bei einer HMAC in base64url gibt es dort nur 16 mögliche Zeichen)
+    const tampered = placements(event, seatingEventId, [{ rsvpId: a.rsvp.id, label: 'X' }]).replace(/.$/, last => (last === 'A' ? 'B' : 'A'))
+    expect((await post(request, '/api/seating/placements', tampered)).status()).toBe(401)
     expect(await labelOf(a.rsvp.id)).toBeNull()
 
     // Setzen (die fremde rsvpId eines anderen Events wird ignoriert)
