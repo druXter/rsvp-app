@@ -29,6 +29,21 @@ export default function manifest(): MetadataRoute.Manifest {
         sizes: '512x512',
         type: 'image/png',
       },
+      // Android legt seine eigene Form über das Icon - ohne "maskable"-Variante bliebe um den
+      // blauen Kreis ein Rand aus Hintergrund stehen. Diese Variante füllt die ganze Fläche,
+      // das Motiv liegt in der Schutzzone (Quelle: public/icons/icon-maskable.svg).
+      {
+        src: '/icons/icon-maskable-192.png',
+        sizes: '192x192',
+        type: 'image/png',
+        purpose: 'maskable',
+      },
+      {
+        src: '/icons/icon-maskable-512.png',
+        sizes: '512x512',
+        type: 'image/png',
+        purpose: 'maskable',
+      },
     ],
     // Erlaubt auf unterstützten Plattformen (z.B. Android/Chrome per Icon-Long-Press)
     // einen direkten Sprung in einen der beiden Bereiche, ohne erst über die neutrale

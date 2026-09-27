@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!--
+  Maskierbare Variante von app/icon.svg für Android/PWA (Manifest: purpose "maskable").
+  Android legt seine eigene Form (Kreis, Squircle, ...) über das Icon - deshalb füllt der
+  Hintergrund hier die GANZE Fläche statt eines Kreises mit transparenten Ecken, und das
+  Motiv liegt vollständig in der Schutzzone (Kreis mit 40 % der Kantenlänge als Radius um
+  die Mitte, hier 204.8 px; das Motiv reicht bis etwa 183 px). Motiv identisch zu
+  app/icon.svg - bei einer Änderung am Icon beide Dateien und die PNGs gemeinsam erneuern.
+-->
+<svg
+   width="512"
+   height="512"
+   viewBox="0 0 512 512"
+   fill="none"
+   version="1.1"
+   xmlns="http://www.w3.org/2000/svg">
+  <!-- 1. Blauer Hintergrund, vollflächig -->
+  <rect width="512" height="512" fill="#3B82F6" />
+  <!-- 2. Kalender-Körper -->
+  <rect x="146" y="176" width="220" height="200" rx="24" fill="#3B82F6" stroke="white" stroke-width="28" />
+  <!-- 3. Kalender-Bindung (Ringe) -->
+  <rect x="190" y="130" width="28" height="60" rx="14" fill="white" />
+  <rect x="294" y="130" width="28" height="60" rx="14" fill="white" />
+  <!-- 4. Haken -->
+  <path
+     d="m 196,280 44,44 85.08516,-96.29684"
+     stroke="#ffffff"
+     stroke-width="32"
+     stroke-linecap="round"
+     stroke-linejoin="round" />
+</svg>
