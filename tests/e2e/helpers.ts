@@ -2,9 +2,9 @@ import { createHash, createHmac, randomBytes } from 'node:crypto'
 import { PrismaClient, type Event, type EventSeries, type GuestUser, type Role, type User } from '@prisma/client'
 import { expect, type APIResponse, type BrowserContext, type Page } from '@playwright/test'
 import { hashPassword } from '../../app/lib/password'
-import { BASE_URL, TEST_POLL_SECRET } from '../../playwright.config'
+import { BASE_URL, SEATING_PORT, TEST_POLL_SECRET, TEST_SEATING_BASE_URL, TEST_SEATING_SECRET } from '../../playwright.config'
 
-export { BASE_URL, TEST_POLL_SECRET }
+export { BASE_URL, SEATING_PORT, TEST_POLL_SECRET, TEST_SEATING_BASE_URL, TEST_SEATING_SECRET }
 
 export const prisma = new PrismaClient()
 

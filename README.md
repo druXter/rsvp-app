@@ -29,6 +29,7 @@ Ein schlankes, anpassbares und leistungsstarkes Event-Management-System, gebaut 
   * Manueller Versand aus dem Dashboard an alle Zusagen (inkl. optionaler Zusatzinfos für die Gäste).
   * Vollautomatischer Versand X Tage vor dem Event (gesicherter Endpoint für Uptime Kuma oder Cronjobs).
 * **QR-Code Einlasskontrolle (optional, standardmäßig aus):** Pro Event/Termin zuschaltbar für Veranstaltungen mit echtem Einlass. Bestätigte Gäste bekommen einen persönlichen QR-Code (Bestätigungsmail & Erfolgsseite), der beim Scannen automatisch als "anwesend" markiert wird. Das Admin-Dashboard zeigt eine Live-Statistik ("🎫 Eingecheckt: 25/50") und erlaubt auch manuelles Ein-/Auschecken ohne Scan. Für die meisten privaten Feiern ohne Einlasskontrolle bleibt diese Option einfach deaktiviert.
+* **Sitzplätze über Seating (optional):** Pro Termin mit einem Event im Sitzplatz-Tool Seating verknüpfbar. Zugesagte Gäste bekommen „Sitzplatz wählen“ (Seite, Erfolgsseite, Bestätigungsmail), Änderungen an Zusagen gehen automatisch an Seating, und der zugewiesene Platz erscheint als „Dein Platz: …“, beim Einlass und im CSV-Export - siehe [Verknüpfung mit Seating](#-verknüpfung-mit-seating-sitzplätze).
 * **Web-Push-Benachrichtigungen (PWA):** Sowohl das Admin-Dashboard als auch die Gast-Seiten sind als installierbare PWA konfiguriert. Admins können sich pro Gerät anmelden und werden sofort informiert, sobald ein Gast eine neue Zu- oder Absage abgibt. Gäste können sich direkt auf ihrer Antwort-Seite ("🔕 Push-Benachrichtigungen aktivieren"-Button) anmelden - ganz ohne eigenes Konto - und bekommen dann Erinnerungen sowie kurzfristige Termin-Änderungen (Uhrzeit/Ort/Titel/Beschreibung) auch als Push, nicht nur per Mail.
 * **Admin Dashboard:** 
   * Volle Übersicht über alle Zu- und Absagen sowie Wartelistenplätze.
@@ -102,6 +103,12 @@ POLL_VERIFICATION_SECRET=...
 # aktiv Bescheid geben kann (siehe app/lib/poll-notify.ts) - nur relevant zusammen
 # mit POLL_VERIFICATION_SECRET und einem gesetzten pollUrl.
 ABSTIMMUNGSTOOL_BASE_URL=https://vote.deine-domain.de
+
+# Anbindung an Seating (Sitzplatz-Tool, eigenständiges Projekt) - siehe Abschnitt
+# "Verknüpfung mit Seating" unten. Secret identisch zu RSVP_SEATING_SECRET in Seating,
+# mind. 32 Zeichen, nie das POLL_VERIFICATION_SECRET.
+SEATING_SECRET=...
+SEATING_BASE_URL=https://plaetze.deine-domain.de
 ```
 
 > **Impressum-Platzhalter:** Die Impressum-Seite (`app/impressum/page.tsx`) liest ihre Angaben zur Laufzeit aus `IMPRESSUM_NAME`/`IMPRESSUM_STREET`/`IMPRESSUM_ZIP`/`IMPRESSUM_CITY`/`IMPRESSUM_EMAIL`/`IMPRESSUM_PHONE`. Sind diese Variablen nicht gesetzt, zeigt die Seite generische Platzhalter (`[Dein Vorname] [Dein Nachname]` etc.) statt echter Daten an. So bleibt das Repository frei von personenbezogenen Daten - trag deine echten Angaben ausschließlich in deine eigene, nicht versionierte `.env` ein (lokal wie auf dem Server).
@@ -146,7 +153,7 @@ Um automatische E-Mail-Erinnerungen für Events zu versenden, muss der folgende 
 
 ## 🗑️ Automatische Datenlöschung (Cronjob / Uptime Kuma)
 
-Zur Umsetzung der Speicherbegrenzung nach DSGVO gibt es einen zweiten, unabhängigen Endpoint, der ebenfalls regelmäßig aufgerufen werden sollte (hier reicht z.B. einmal täglich statt stündlich). Er löscht automatisch Events (inkl. Datensatz) 18 Monate nach dem Veranstaltungsdatum sowie Nutzer-Konten ("Mein Konto"), die seit 2 Jahren nicht mehr eingeloggt wurden - siehe `/datenschutz` Punkt 10 für die genauen Regeln:
+Zur Umsetzung der Speicherbegrenzung nach DSGVO gibt es einen zweiten, unabhängigen Endpoint, der ebenfalls regelmäßig aufgerufen werden sollte (hier reicht z.B. einmal täglich statt stündlich). Er löscht automatisch Events (inkl. Datensatz) 18 Monate nach dem Veranstaltungsdatum sowie Nutzer-Konten ("Mein Konto"), die seit 2 Jahren nicht mehr eingeloggt wurden - siehe `/datenschutz` Punkt 15 für die genauen Regeln:
 
 `GET https://rsvp.deine-domain.de/api/cron/cleanup?secret=DeinSehrGeheimesPasswort123`
 
@@ -159,6 +166,34 @@ Ein Event/Termin kann optional auf eine Abstimmung im separaten `abstimmungstool
 * **Ergebnis-Anzeige nach Schließung:** Schließt sich die verknüpfte Abstimmung (manuell oder automatisch), meldet abstimmungstool das Ergebnis zurück (`app/api/poll-result-webhook/route.ts`), gespeichert auf `Event.pollResult` und angezeigt als Banner auf der Event-Seite (`app/ui/poll-result-banner.tsx`).
 
 Alle drei Punkte sind rein additiv und benötigen `POLL_VERIFICATION_SECRET` + `ABSTIMMUNGSTOOL_BASE_URL` (siehe oben) - ohne beide bleibt nur der einfache, unverifizierte Link übrig, wie er schon vorher existierte.
+
+## 🪑 Verknüpfung mit Seating (Sitzplätze)
+
+Ein Termin (Einzel-Event oder Reihen-Termin) kann optional mit einem Event im separaten Sitzplatz-Tool **Seating** verknüpft werden - für Tischbuchung/Platzwahl durch die Gäste oder eine Sitzordnung, die die Veranstalter\*innen in Seating selbst erstellen. Rein additiv: Ohne Sitzplatz-Link ändert sich nichts.
+
+**Einrichtung**
+
+1. In beiden `.env`-Dateien dasselbe Secret eintragen: hier `SEATING_SECRET`, in Seating `RSVP_SEATING_SECRET` (mind. 32 Zeichen, z.B. `openssl rand -hex 32`, **nicht** das `POLL_VERIFICATION_SECRET`). Dazu hier `SEATING_BASE_URL` (Adresse von Seating) und in Seating `RSVP_APP_BASE_URL` (Adresse dieser App, also `BASE_URL`).
+2. **Beide Seiten stimmen zu:** In Seating in den Event-Einstellungen die ID des Termins eintragen (steht beim Bearbeiten des Termins im Abschnitt „Sitzplätze (Seating)“). Seating zeigt dann den Sitzplatz-Link `https://…/rsvp/<seating-event-id>` an, den Owner oder Admin hier beim Termin einträgt (nur `createEvent`/`updateEvent`/`updateSeriesTermin`, nicht im Schnell-Anlegen von Reihen-Terminen). Erst mit beiden Einträgen gilt die Verknüpfung. Links mit einem anderen Origin als `SEATING_BASE_URL` oder anderer Form werden beim Speichern abgelehnt.
+
+**Was passiert**
+
+* **„Sitzplatz wählen“** erscheint auf der Gästeseite, auf der Erfolgsseite und in der Bestätigungsmail - nur für eine Zusage, die zählt (zugesagt, nicht auf der Warteliste, bei Double-Opt-In verifiziert). Der Link zeigt auf `/api/seating-link/[eventId]` (`app/api/seating-link/[eventId]/route.ts`), das die Person selbst nachweist (editToken einer Zusage genau dieses Termins **oder** aktive, verifizierte Gast-Session), die PIN beachtet und bei jedem Klick einen frischen, 15 Minuten gültigen `seat-link` ausstellt, bevor es auf `<seatingUrl>?t=…` weiterleitet.
+* **Webhook bei jeder Änderung einer Zusage** (neu, geändert, abgesagt, Warteliste, nachgerückt, verifiziert, Name/Begleitung geändert, gelöscht - auch über die Admin-Aktionen und beim Löschen ganzer Events/Reihen/Konten): `POST <Seating>/api/rsvp-webhook` mit `rsvp-change` (`app/lib/seating-notify.ts`). Läuft über `after()` erst nach der Antwort, mit 5 s Timeout - ein nicht erreichbares Seating verzögert oder blockiert nie eine RSVP-Abgabe. Verlorene Meldungen heilt Seatings Abgleich.
+* **Gästeliste für Seating:** `POST /api/seating/guest-list` beantwortet eine signierte `guest-list-request` mit allen zählenden Zusagen (`rsvpId`, Name, E-Mail oder null, Begleitungen).
+* **Platzierungen von Seating:** `POST /api/seating/placements` nimmt den vollständigen Stand `[{ rsvpId, label }]` entgegen, setzt `Rsvp.seatingLabel` für die genannten Zusagen und leert alle übrigen dieses Termins; eine ältere Meldung (`iat`) als die zuletzt angewandte wird ignoriert. Angezeigt als „Dein Platz: …“ auf der Gästeseite, groß beim Einlass (`/admin/checkin/[rsvpId]`) und als Spalte „Sitzplatz“ im CSV-Export. Das Label verschwindet mit der Rsvp; ein geänderter oder entfernter Sitzplatz-Link leert alle Labels des Termins.
+
+**Vertrag** (`app/lib/seating.ts`, Gegenstück in Seating `app/lib/rsvp/token.ts`): `base64url(JSON).base64url(HMAC-SHA256(payloadPart, SEATING_SECRET))`. Jede Nachricht trägt `typ`, `aud` (Origin des Empfängers), `iat`/`exp` (Unix-Sekunden, höchstens 1 Stunde gültig), `seatingEventId` und `rsvpEventId` (= `Event.id` hier). Identität eines Gasts ist die `Rsvp.id`, nie die E-Mail.
+
+| `typ` | Richtung | Weg | Inhalt |
+| --- | --- | --- | --- |
+| `seat-link` | rsvp-app → Seating | Browser: Redirect auf `<seatingUrl>?t=…` | `rsvpId`, `name`, `email` (oder null), `companions` |
+| `rsvp-change` | rsvp-app → Seating | `POST <Seating>/api/rsvp-webhook`, `text/plain` | `rsvpId`, `attending`, `name`, `email`, `companions` |
+| `guest-list-request` | Seating → rsvp-app | `POST /api/seating/guest-list`, `text/plain` | – |
+| `guest-list` | rsvp-app → Seating | Antwort darauf, `text/plain` | `guests` |
+| `placements` | Seating → rsvp-app | `POST /api/seating/placements`, `text/plain` | `placements`: vollständiger Stand `{ rsvpId, label }` |
+
+`companions` ist heute höchstens ein Eintrag (Begleitung, Name oder null). Die Endpunkte antworten mit 401 bei ungültiger Signatur, falscher Art, falschem Empfänger oder Ablauf, mit 404, wenn das Event nicht existiert oder seine `seatingUrl` nicht genau auf die anfragende `seatingEventId` zeigt, und mit 413 bei zu großem Body (20 KB bzw. 2 MB).
 
 ## 🔐 Konto-Sicherheit
 

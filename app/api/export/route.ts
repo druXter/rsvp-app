@@ -29,6 +29,8 @@ export async function GET(request: Request) {
 
   const requireVerification = event.series ? event.series.requireVerification : event.requireVerification
   const customQuestions: string[] = event.formConfig ? (JSON.parse(event.formConfig).customQuestions || []) : []
+  // Platz aus Seating nur als Spalte, wenn der Termin verknüpft ist (siehe app/api/seating/placements)
+  const withSeating = !!event.seatingUrl
 
   // CSV-Kopfzeile definieren (NEU: Spalte 'Verifizierung' hinzugefügt)
   const rows = [
@@ -46,6 +48,7 @@ export async function GET(request: Request) {
       "Mitbringsel",
       "Anmerkungen / Grund",
       "Datum",
+      ...(withSeating ? ["Sitzplatz"] : []),
       ...customQuestions
     ]
   ]
@@ -80,6 +83,8 @@ export async function GET(request: Request) {
       rsvp.isAttending ? (rsvp.additionalInfo || "") : (rsvp.declineReason || ""),
 
       rsvp.createdAt.toISOString().split('T')[0],
+
+      ...(withSeating ? [rsvp.seatingLabel || ""] : []),
 
       ...customQuestions.map((_, i) => {
         const answers: string[] = rsvp.customAnswers ? JSON.parse(rsvp.customAnswers) : []

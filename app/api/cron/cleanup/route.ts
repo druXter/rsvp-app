@@ -10,7 +10,7 @@ const GUEST_ACCOUNT_INACTIVITY_YEARS = 2
 
 /**
  * Automatischer Cron-Endpoint für Uptime Kuma (Speicherbegrenzung, Art. 5 Abs. 1 lit. e
- * DSGVO - siehe Datenschutzerklärung Punkt 10). Läuft idempotent und unabhängig von den
+ * DSGVO - siehe Datenschutzerklärung Punkt 15). Läuft idempotent und unabhängig von den
  * Erinnerungs-Mails in app/api/cron/reminders/route.ts, daher ein eigener Endpoint mit
  * eigenem Uptime-Kuma-Monitor (z.B. einmal täglich statt stündlich reicht hier völlig).
  *

@@ -63,6 +63,18 @@ const nextConfig: NextConfig = {
           { key: 'Referrer-Policy', value: 'no-referrer' },
         ],
       },
+      {
+        // Kopplung mit Seating (app/lib/seating.ts): Gästeliste/Platzierungen (Server zu Server)
+        // und "Sitzplatz wählen" (Weiterleitung mit editToken in der URL und signiertem Link im
+        // Ziel) - nie einbetten, nie cachen, nie per Referer weiterreichen.
+        source: '/api/:area(seating|seating-link)/:path*',
+        headers: [
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
+          { key: 'Referrer-Policy', value: 'no-referrer' },
+          { key: 'Cache-Control', value: 'no-store' },
+        ],
+      },
     ];
   },
 };

@@ -12,6 +12,12 @@ export const TEST_CRON_SECRET = 'e2e-cron-secret'
 // Gemeinsames HMAC-Geheimnis mit dem Abstimmungstool (POLL_VERIFICATION_SECRET) - hier ein
 // reiner Testwert, damit die Tests Ergebnis-Meldungen signieren und Klick-Tokens prüfen können.
 export const TEST_POLL_SECRET = 'e2e-poll-verification-secret'
+// Kopplung mit Seating (app/lib/seating.ts): eigenes Secret (mind. 32 Zeichen, nie das
+// Abstimmungs-Secret) und ein Origin, unter dem tests/e2e/seating.spec.ts ein kleines
+// Schein-Seating startet, das die Webhooks mitschreibt.
+export const TEST_SEATING_SECRET = 'e2e-seating-secret-0123456789abcdef0123'
+export const SEATING_PORT = 3106
+export const TEST_SEATING_BASE_URL = `http://127.0.0.1:${SEATING_PORT}`
 
 // Gilt für den Server UND für die Testprozesse (tests/e2e/helpers.ts greift direkt auf die
 // Datenbank zu). Relative SQLite-Pfade löst Prisma relativ zu prisma/schema.prisma auf.
@@ -60,6 +66,8 @@ export default defineConfig({
       VAPID_SUBJECT: '',
       POLL_VERIFICATION_SECRET: TEST_POLL_SECRET,
       ABSTIMMUNGSTOOL_BASE_URL: '',
+      SEATING_SECRET: TEST_SEATING_SECRET,
+      SEATING_BASE_URL: TEST_SEATING_BASE_URL,
       SUITE_SIGNING_KEY: '',
       SUITE_IDPS: '',
       SUITE_TRUSTED_APPS: '',

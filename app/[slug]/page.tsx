@@ -6,6 +6,7 @@ import PinForm from './pin-form'
 import GuestRequiredGate from './guest-required-gate'
 import PollResultBanner from '../ui/poll-result-banner'
 import { getCurrentGuestUser } from '../lib/guest-auth'
+import { isSeatingConfirmed, seatingLinkOf } from '../lib/seating'
 
 const prisma = new PrismaClient()
 
@@ -158,6 +159,8 @@ export default async function EventPage({
 
         {/* Das eigentliche Formular */}
         <RsvpForm
+          canChooseSeat={!!seatingLinkOf(event) && !!existingRsvp && isSeatingConfirmed(existingRsvp, { isVerified: !!participant?.isVerified }, event.requireVerification)}
+          seatingLabel={existingRsvp?.seatingLabel ?? null}
           eventId={event.id}
           formConfig={event.formConfig}
           participant={participant}

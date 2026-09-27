@@ -9,6 +9,7 @@ import { performRsvpSubmission } from './lib/rsvp-submission'
 import { cookies } from 'next/headers'
 import { clientIp, pinRules, refund, reserve } from './lib/throttle'
 import { safeEqual } from './lib/tokens'
+import { notifySeatingBeforeDelete } from './lib/seating-notify'
 
 const prisma = new PrismaClient()
 
@@ -109,6 +110,7 @@ export async function deleteMyParticipantData(formData: FormData) {
 
   const event = await prisma.event.findUnique({ where: { id: eventId }, include: { series: true } })
 
+  await notifySeatingBeforeDelete({ participantId: participant.id })
   await prisma.rsvp.deleteMany({ where: { participantId: participant.id } })
   await prisma.participantPushSubscription.deleteMany({ where: { participantId: participant.id } })
   await prisma.participant.delete({ where: { id: participant.id } })

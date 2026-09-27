@@ -8,6 +8,7 @@ import PinForm from '../../../[slug]/pin-form'
 import GuestRequiredGate from '../../../[slug]/guest-required-gate'
 import PollResultBanner from '../../../ui/poll-result-banner'
 import { getCurrentGuestUser } from '../../../lib/guest-auth'
+import { isSeatingConfirmed, seatingLinkOf } from '../../../lib/seating'
 
 const prisma = new PrismaClient()
 
@@ -169,6 +170,8 @@ export default async function SeriesEventPage({
           formConfig={mergedConfig}
           participant={participant}
           rsvp={existingRsvp}
+          canChooseSeat={!!seatingLinkOf(event) && !!existingRsvp && isSeatingConfirmed(existingRsvp, { isVerified: !!participant?.isVerified }, series.requireVerification)}
+          seatingLabel={existingRsvp?.seatingLabel ?? null}
           isGuestListVisible={series.isGuestListVisible}
           isSeriesShared={true}
           usedUrlToken={!!token}

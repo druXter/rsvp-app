@@ -81,6 +81,14 @@ export default async function CheckinPage({ params }: { params: Promise<{ rsvpId
         <p className="text-xl font-medium text-gray-900 dark:text-gray-100 mt-3">{rsvp.participant.name}</p>
         <p className="text-gray-500 dark:text-gray-400">{rsvp.event.title}</p>
 
+        {/* Platz aus Seating (app/api/seating/placements) - groß, damit man ihn am Einlass sofort ansagen kann */}
+        {rsvp.seatingLabel && rsvp.isAttending && !rsvp.isOnWaitlist && (
+          <div className="mt-5 p-4 rounded-lg border border-lime-300 bg-lime-50 dark:bg-lime-950 dark:border-lime-800">
+            <p className="text-sm text-lime-700 dark:text-lime-300">Sitzplatz</p>
+            <p className="text-3xl font-bold text-lime-900 dark:text-lime-100" data-testid="seating-label">{rsvp.seatingLabel}</p>
+          </div>
+        )}
+
         {canUndo && (
           <form action={toggleAttendance} className="mt-6">
             <input type="hidden" name="rsvpId" value={rsvp.id} />

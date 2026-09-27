@@ -162,6 +162,15 @@ model Event {
   // bestehenden pollUrl-Link (siehe app/[slug]/page.tsx), ändert an dessen Verhalten nichts.
   pollResult String?
 
+  // Optionaler Sitzplatz-Link zu Seating (Sitzplatz-Tool der Suite, eigenes Repo/Deployment -
+  // siehe app/lib/seating.ts und dessen README "Anbindung an rsvp-app"), Form
+  // `<Seating-Origin>/rsvp/<seatingEventId>`, pro Termin wie pollUrl. Der Origin muss
+  // SEATING_BASE_URL sein. Rein additiv: ohne seatingUrl ändert sich nichts.
+  seatingUrl String?
+  // iat der zuletzt angewandten Platzierungs-Meldung aus Seating - eine ältere Meldung, die
+  // erst später ankommt, überschreibt so keinen neueren Stand (app/api/seating/placements).
+  seatingPlacementsAt DateTime?
+
   ownerId String
   owner   User   @relation(fields: [ownerId], references: [id])
 
@@ -242,6 +251,9 @@ model Rsvp {
   isOnWaitlist   Boolean   @default(false)
   hasAttended    Boolean   @default(false)
   checkedInAt    DateTime?
+  // Platz aus Seating ("Tisch 7, Plätze 3, 4"), gesetzt über /api/seating/placements - nur
+  // Anzeige (Gästeseite, Einlass, CSV), verschwindet mit der Rsvp.
+  seatingLabel   String?
   createdAt      DateTime  @default(now())
 
   @@unique([eventId, participantId])

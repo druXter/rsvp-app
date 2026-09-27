@@ -8,6 +8,7 @@ import { submitRsvp } from '../actions'
 import SubmitButton from '../ui/submit-button'
 import DeleteMyDataButton from './delete-my-data-button'
 import PushSubscribeToggle from './push-subscribe-toggle'
+import SeatingBox from '../ui/seating-box'
 
 export default function RsvpForm({
   eventId,
@@ -18,7 +19,9 @@ export default function RsvpForm({
   isGuestListVisible = false,
   isSeriesShared = false,
   usedUrlToken = true,
-  vapidPublicKey = null
+  vapidPublicKey = null,
+  canChooseSeat = false,
+  seatingLabel = null
 }: {
   eventId: string;
   formConfig: string | null;
@@ -33,6 +36,10 @@ export default function RsvpForm({
   isSeriesShared?: boolean;
   usedUrlToken?: boolean;
   vapidPublicKey?: string | null;
+  // "Sitzplatz wählen" (Seating) für die bestehende Antwort - serverseitig berechnet: Termin mit
+  // gültigem Sitzplatz-Link UND eine Zusage, die dort zählt (siehe isSeatingConfirmed).
+  canChooseSeat?: boolean;
+  seatingLabel?: string | null;
 }) {
   const [isAttending, setIsAttending] = useState<boolean | null>(rsvp ? rsvp.isAttending : null)
   const [hasPlusOne, setHasPlusOne] = useState<boolean>(rsvp ? rsvp.plusOne : false)
@@ -42,6 +49,7 @@ export default function RsvpForm({
 
   const [isOnWaitlist, setIsOnWaitlist] = useState<boolean>(rsvp ? rsvp.isOnWaitlist : false)
   const [qrCode, setQrCode] = useState<string | null>(null)
+  const [seatAfterSubmit, setSeatAfterSubmit] = useState<boolean>(false)
 
   const config = formConfig
     ? JSON.parse(formConfig)
@@ -67,6 +75,7 @@ export default function RsvpForm({
     if (result.qrCode) {
       setQrCode(result.qrCode)
     }
+    setSeatAfterSubmit(result.canChooseSeat)
   }
 
   if (submittedToken) {
@@ -159,6 +168,8 @@ export default function RsvpForm({
           </a>
         )}
 
+        {seatAfterSubmit && <SeatingBox eventId={eventId} editToken={submittedToken} seatingLabel={seatingLabel} />}
+
         {qrCode && (
           <div className={`w-full mt-6 flex flex-col items-center ${isEmbed ? 'p-4 border border-green-200 rounded dark:border-green-800' : 'bg-white p-4 rounded border border-green-200 dark:bg-gray-800 dark:border-green-800'}`}>
             <p className="text-sm font-bold mb-2 text-green-900 dark:text-green-300">🎫 Dein persönlicher Einlass-QR-Code:</p>
@@ -183,6 +194,8 @@ export default function RsvpForm({
     // Parsen weg, was zu einem Hydration-Mismatch führt und den Lösch-Button vor der
     // Hydration das RSVP-Formular absenden lässt. Im Embed-Modus entfällt die Box-Optik.
     <div className={`space-y-6 text-gray-900 dark:text-gray-100 ${isEmbed ? '' : 'bg-white p-6 rounded-lg shadow dark:bg-gray-800'}`}>
+    {/* Ohne ?token= kam der Participant über die Gast-Session - die Route löst ihn dann ebenfalls darüber auf */}
+    {canChooseSeat && <SeatingBox eventId={eventId} editToken={usedUrlToken ? participant?.editToken : null} seatingLabel={seatingLabel} />}
     <form onSubmit={handleSubmit} className="space-y-6">
       <input type="hidden" name="eventId" value={eventId} />
       {/* Nur mitschicken, wenn der Participant wirklich über einen ?token= aus der URL

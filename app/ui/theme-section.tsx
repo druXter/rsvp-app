@@ -8,7 +8,7 @@
  * müssen hier als Literale stehen (nicht z.B. `bg-${color}-50` zusammengebaut), damit
  * Tailwinds Build-Scan sie findet.
  */
-export type ThemeColor = 'yellow' | 'sky' | 'teal' | 'indigo' | 'rose' | 'emerald' | 'purple' | 'gray' | 'amber' | 'cyan' | 'violet'
+export type ThemeColor = 'yellow' | 'sky' | 'teal' | 'indigo' | 'rose' | 'emerald' | 'purple' | 'gray' | 'amber' | 'cyan' | 'violet' | 'lime'
 
 const THEME_CLASSES: Record<ThemeColor, {
   box: string
@@ -29,6 +29,7 @@ const THEME_CLASSES: Record<ThemeColor, {
   amber:   { box: 'bg-amber-50 dark:bg-amber-950',     heading: 'text-amber-900 dark:text-amber-100',     text: 'text-amber-700 dark:text-amber-300',     accent: 'text-amber-600 dark:text-amber-400',     border: 'border-amber-300 dark:border-amber-800',     borderFocus: 'focus:border-amber-500 dark:focus:border-amber-500' },
   cyan:    { box: 'bg-cyan-50 dark:bg-cyan-950',       heading: 'text-cyan-900 dark:text-cyan-100',       text: 'text-cyan-700 dark:text-cyan-300',       accent: 'text-cyan-600 dark:text-cyan-400',       border: 'border-cyan-300 dark:border-cyan-800',       borderFocus: 'focus:border-cyan-500 dark:focus:border-cyan-500' },
   violet:  { box: 'bg-violet-50 dark:bg-violet-950',   heading: 'text-violet-900 dark:text-violet-100',   text: 'text-violet-700 dark:text-violet-300',   accent: 'text-violet-600 dark:text-violet-400',   border: 'border-violet-300 dark:border-violet-800',   borderFocus: 'focus:border-violet-500 dark:focus:border-violet-500' },
+  lime:    { box: 'bg-lime-50 dark:bg-lime-950',       heading: 'text-lime-900 dark:text-lime-100',       text: 'text-lime-700 dark:text-lime-300',       accent: 'text-lime-600 dark:text-lime-400',       border: 'border-lime-300 dark:border-lime-800',       borderFocus: 'focus:border-lime-500 dark:focus:border-lime-500' },
 }
 
 /**

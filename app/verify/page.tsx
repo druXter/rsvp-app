@@ -2,6 +2,7 @@
 import { PrismaClient } from '@prisma/client'
 import Link from 'next/link'
 import { sendWaitlistEmail, sendConfirmationEmail } from '../lib/mail'
+import { notifySeatingOfRsvps } from '../lib/seating-notify'
 
 const prisma = new PrismaClient()
 
@@ -47,6 +48,9 @@ export default async function VerifyPage({ searchParams }: { searchParams: Promi
     where: { participantId: participant.id, isAttending: true },
     include: { event: { include: { series: true } } }
   })
+
+  // Nach der Verifizierung zählen diese Zusagen bei einem verknüpften Seating (erst jetzt bestätigt)
+  notifySeatingOfRsvps(pendingRsvps.map(r => r.id))
 
   const results: { title: string; slug: string; seriesSlug: string | null; isOnWaitlist: boolean }[] = []
 

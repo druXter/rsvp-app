@@ -6,6 +6,8 @@ import { sendConfirmationEmail, sendVerificationEmail, sendWaitlistPromotedEmail
 import { generateCheckinQrDataUrl } from './qrcode'
 import { sendPushToUser, sendConfirmationPush } from './push'
 import { notifyPollOfAttendanceChange } from './poll-notify'
+import { notifySeatingOfRsvps } from './seating-notify'
+import { isSeatingConfirmed, seatingLinkOf } from './seating'
 import { hasEventPinAccess } from './pin'
 
 const prisma = new PrismaClient()
@@ -291,6 +293,7 @@ export async function performRsvpSubmission(
   }
 
   // Nachrück-Automatik, wenn man von "Kommt" auf "Kommt nicht" wechselt
+  let promotedRsvpId: string | null = null
   if (existingRsvp && existingRsvp.isAttending && !existingRsvp.isOnWaitlist && !isAttending) {
     if (event.maxCapacity !== null) {
       const nextInLine = await prisma.rsvp.findFirst({
@@ -309,6 +312,7 @@ export async function performRsvpSubmission(
           where: { id: nextInLine.id },
           data: { isOnWaitlist: false }
         })
+        promotedRsvpId = promotedRsvp.id
         if (nextInLine.participant.email) {
           // Fehlgeschlagener Versand (z.B. unzustellbare Adresse des Nachrückers) darf die
           // Absage der absagenden Person nicht scheitern lassen - gespeichert und
@@ -337,6 +341,10 @@ export async function performRsvpSubmission(
   } catch (error) {
     console.error("Fehler bei der Abstimmungs-Benachrichtigung:", error)
   }
+
+  // Verknüpftes Seating (falls vorhanden) über die Änderung informieren - diese Zusage und
+  // einen evtl. Nachrücker. Läuft erst nach der Antwort (siehe seating-notify.ts).
+  notifySeatingOfRsvps([savedRsvp.id, promotedRsvpId])
 
   // E-Mail Logik für den GAST
   if (participant.email && savedRsvp.isAttending) {
@@ -380,9 +388,13 @@ export async function performRsvpSubmission(
     ? await generateCheckinQrDataUrl(savedRsvp.id)
     : null
 
+  // "Sitzplatz wählen" auf der Erfolgsseite - nur für eine Zusage, die bei Seating zählt
+  const canChooseSeat = !!seatingLinkOf(event) && isSeatingConfirmed(savedRsvp, participant, requireVerification)
+
   return {
     editToken: participant.editToken,
     needsVerification,
     isOnWaitlist: savedRsvp.isOnWaitlist,
-    qrCode
+    qrCode,
+    canChooseSeat
   }}

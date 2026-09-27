@@ -3,6 +3,7 @@ import nodemailer from 'nodemailer'
 import { createEvent, DateArray } from 'ics'
 import { Event, EventSeries, GuestUser, Participant, Rsvp, User } from '@prisma/client'
 import { generateCheckinQrBuffer } from './qrcode'
+import { seatingLinkOf } from './seating'
 
 // Den Mail-Transporter mit den Daten aus der .env initialisieren
 const transporter = nodemailer.createTransport({
@@ -128,6 +129,12 @@ export async function sendConfirmationEmail(participant: Participant, rsvp: Rsvp
     ? { filename: 'einlass-qrcode.png', content: await generateCheckinQrBuffer(rsvp.id), cid: 'checkinqr', contentType: 'image/png' }
     : null
 
+  // "Sitzplatz wählen" (Seating): frisch ausgestellt erst beim Klick, siehe
+  // app/api/seating-link/[eventId]/route.ts - die Mail trägt nur den persönlichen editToken.
+  const seatLink = rsvp.isAttending && !rsvp.isOnWaitlist && seatingLinkOf(event)
+    ? `${baseUrl()}/api/seating-link/${event.id}?token=${encodeURIComponent(participant.editToken)}`
+    : null
+
   // Betreff und Text je nach Zusage oder Absage anpassen
   const subject = rsvp.isAttending
     ? `Zusage bestätigt: ${event.title}`
@@ -141,7 +148,7 @@ ${rsvp.isAttending
   ? 'Wir freuen uns sehr, dass du dabei bist! Im Anhang findest du eine Kalenderdatei (.ics), damit du dir den Termin direkt abspeichern kannst, sowie deinen persönlichen Einlass-QR-Code - bitte am Einlass bereithalten.'
   : 'Schade, dass du nicht dabei sein kannst. Falls sich deine Pläne doch noch ändern sollten, kannst du deine Antwort jederzeit anpassen.'}
 
-Du kannst deine Antwort und alle optionalen Angaben jederzeit über diesen persönlichen Link bearbeiten:
+${seatLink ? `Deinen Sitzplatz kannst du hier wählen:\n${seatLink}\n\n` : ''}Du kannst deine Antwort und alle optionalen Angaben jederzeit über diesen persönlichen Link bearbeiten:
 ${personalLink}${seriesHintText(event, participant)}
 
 Viele Grüße,
@@ -159,6 +166,11 @@ Dein Event-Team`
           <img src="cid:checkinqr" alt="Einlass-QR-Code" style="width: 220px; height: 220px;" />
           <br>
           <span style="font-size: 13px; color: #666;">Dein persönlicher Einlass-QR-Code - bitte am Einlass bereithalten.</span>
+        </p>
+      ` : ''}
+      ${seatLink ? `
+        <p style="text-align: center; margin: 24px 0;">
+          <a href="${seatLink}" style="display: inline-block; background: #65a30d; color: #fff; font-weight: bold; padding: 10px 24px; border-radius: 6px; text-decoration: none;">🪑 Sitzplatz wählen</a>
         </p>
       ` : ''}
       <p>Du kannst deine Antwort und alle optionalen Angaben jederzeit über diesen persönlichen Link bearbeiten:</p>
