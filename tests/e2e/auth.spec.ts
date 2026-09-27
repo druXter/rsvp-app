@@ -270,3 +270,34 @@ test.describe('Nutzer-Login (Mein Konto)', () => {
     await expect(page).toHaveURL(`${BASE_URL}/mein-konto`)
   })
 })
+
+test.describe('Konten-Verbund: Fehler beim Verknüpfen', () => {
+  // Das state-Cookie des Empfängers (app/lib/suite-flow.ts) - ein falscher `state` lässt den Callback
+  // sofort mit "sso" scheitern, ganz ohne echten Anbieter. Geprüft wird nur, WOHIN der Fehler führt.
+  const STATE_COOKIE = '__Host-suite-state'
+  const flowCookie = (mode: 'login' | 'link') =>
+    `${STATE_COOKIE}=${encodeURIComponent(JSON.stringify({ state: 'richtig', issuer: 'https://anderes-tool.example.test', next: '/admin/account', mode }))}`
+
+  async function callback(page: import('@playwright/test').Page, mode: 'login' | 'link', withSession: boolean) {
+    const session = withSession ? (await page.context().cookies()).find(c => c.name === SESSION_COOKIE) : undefined
+    const cookie = [flowCookie(mode), session ? `${SESSION_COOKIE}=${session.value}` : ''].filter(Boolean).join('; ')
+    const response = await page.request.get('/api/suite/callback?assertion=x&state=falsch', { headers: { cookie }, maxRedirects: 0 })
+    expect(response.status()).toBe(303)
+    return new URL(response.headers()['location'], BASE_URL)
+  }
+
+  test('eingeloggt beim Verknüpfen: Meldung auf der Konto-Seite statt auf der Login-Seite', async ({ page }) => {
+    const user = await createAccount('CREATOR')
+    await login(page, user.email)
+
+    const target = await callback(page, 'link', true)
+    expect(`${target.pathname}${target.search}`).toBe('/admin/account?error=sso')
+    await page.goto(`${target.pathname}${target.search}`)
+    await expect(pageAlert(page)).toContainText('Die Anmeldung über das andere Tool ist fehlgeschlagen')
+
+    // Kontrollen: ein normaler Login-Versuch und ein Verknüpfen ohne Sitzung landen weiter auf der Login-Seite.
+    expect(`${(await callback(page, 'login', true)).pathname}`).toBe('/admin/login')
+    const withoutSession = await callback(page, 'link', false)
+    expect(`${withoutSession.pathname}${withoutSession.search}`).toBe('/admin/login?error=sso')
+  })
+})

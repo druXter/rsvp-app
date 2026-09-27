@@ -31,6 +31,9 @@ async function loadDiscoveryForVerification(issuer: string, force: boolean): Pro
  * konfiguriert, Signatur gültig, `aud` = dieses Tool, `nonce` = `state`, nicht abgelaufen.
  * Das state-Cookie wird in JEDEM Fall gelöscht - eine Bestätigung ist nur einmal nutzbar.
  * Fehler sehen Nutzende nur als allgemeine Meldung, der genaue Grund steht im Server-Log.
+ * Beim Verknüpfen (mode "link") landen Fehler auf der Konto-Seite, nicht auf der Login-Seite:
+ * Die Person ist dann eingeloggt, /admin/login leitet sie sofort weiter und die Meldung
+ * (z.B. linked-other) erschiene nie. Ohne Sitzung bleibt es bei der Login-Seite.
  */
 export async function GET(request: NextRequest) {
   const origin = selfOrigin()
@@ -40,12 +43,14 @@ export async function GET(request: NextRequest) {
     response.cookies.set(SUITE_STATE_COOKIE, '', { ...sessionCookieOptions(0), maxAge: 0 })
     return response
   }
-  const fail = (code: string, detail?: string): NextResponse => {
+  const flow = parseFlow(request.cookies.get(SUITE_STATE_COOKIE)?.value)
+
+  const fail = async (code: string, detail?: string): Promise<NextResponse> => {
     if (detail) console.warn(`[suite] Anmeldung abgelehnt (${code}): ${detail}`)
-    return finish(redirectResponse(`/admin/login?error=${code}`, requestOrigin))
+    const toAccount = flow?.mode === 'link' && !!(await getCurrentUser())
+    return finish(redirectResponse(`${toAccount ? '/admin/account' : '/admin/login'}?error=${code}`, requestOrigin))
   }
 
-  const flow = parseFlow(request.cookies.get(SUITE_STATE_COOKIE)?.value)
   const assertion = request.nextUrl.searchParams.get('assertion')
   const stateParam = request.nextUrl.searchParams.get('state')
   if (!origin || !flow || !assertion || !stateParam || !safeEqual(stateParam, flow.state)) {
