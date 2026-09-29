@@ -3,7 +3,8 @@ import { createHmac, timingSafeEqual } from 'crypto'
 
 /**
  * Verknüpfte Tools ("Anbindungen"): andere, eigenständige Anwendungen der Suite, mit denen ein
- * Termin verknüpft werden kann - heute Seating (Sitzplätze), vorbereitet für das Zeitplan-Tool.
+ * Termin verknüpft werden kann - Seating (Sitzplätze, app/lib/seating.ts) und das Zeitplan-Tool
+ * (Ablauf des Events, app/lib/timeline.ts).
  *
  * Jedes Tool steht einmal in TOOL_DEFINITIONS und hat
  * - eine eigene Adresse (<PREFIX>_BASE_URL): nur Links mit genau diesem Origin werden
@@ -55,8 +56,7 @@ export type ToolDefinition = {
 }
 
 /**
- * Alle Tools, die hier angebunden werden können. Ein neues Tool (Phase 7b: "timeline") bekommt
- * hier einen Eintrag - der Typ ToolType wächst damit automatisch mit, und TypeScript verlangt
+ * Alle Tools, die hier angebunden werden können. Ein neues Tool bekommt hier einen Eintrag - der Typ ToolType wächst damit automatisch mit, und TypeScript verlangt
  * dann überall, wo es pro Typ eine Implementierung braucht (Webhook-Inhalt in
  * app/lib/linked-tools-notify.ts, Aufräumen beim Neu-Verknüpfen in app/lib/linked-tools-store.ts),
  * eine für das neue Tool.
@@ -71,6 +71,18 @@ const DEFINITIONS = {
     formField: 'seatingUrl',
     linkSegment: 'rsvp',
     remoteIdField: 'seatingEventId',
+    webhookPath: '/api/rsvp-webhook'
+  },
+  // Zeitplan (eigenes Repo, dort app/lib/rsvp/token.ts): nur Kennungen und "diese Zusage gilt"
+  timeline: {
+    type: 'timeline',
+    label: 'Zeitplan',
+    linkLabel: 'Zeitplan-Link',
+    secretEnv: 'TIMELINE_SECRET',
+    baseUrlEnv: 'TIMELINE_BASE_URL',
+    formField: 'timelineUrl',
+    linkSegment: 'rsvp',
+    remoteIdField: 'timelineEventId',
     webhookPath: '/api/rsvp-webhook'
   }
 } as const satisfies Record<string, ToolDefinition>
@@ -167,6 +179,21 @@ export function configuredTool(type: ToolType): ConfiguredTool | null {
 /** Alle eingerichteten Tools - leer, wenn keine Anbindung konfiguriert ist. */
 export function configuredTools(): ConfiguredTool[] {
   return TOOL_DEFINITIONS.map(d => resolveConfiguredTool(d)).filter((t): t is ConfiguredTool => t !== null)
+}
+
+// --- Zusagen -------------------------------------------------------------------------------
+
+/**
+ * Die eine Regel, wann eine Zusage bei einem verknüpften Tool zählt: zugesagt, nicht auf der
+ * Warteliste und - bei aktiver Double-Opt-In-Pflicht (effektiver Wert, bei Reihen der der Reihe) -
+ * verifiziert. Gilt für alle Tools gleich (Button, Weiterleitung, Webhook-Feld attending).
+ */
+export function isConfirmedRsvp(
+  rsvp: { isAttending: boolean; isOnWaitlist: boolean },
+  participant: { isVerified: boolean },
+  requireVerification: boolean
+): boolean {
+  return rsvp.isAttending && !rsvp.isOnWaitlist && (!requireVerification || participant.isVerified)
 }
 
 // --- Links ----------------------------------------------------------------------------------

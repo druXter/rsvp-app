@@ -20,7 +20,7 @@
  */
 
 import {
-  REMOTE_ID, configuredTool, createSignedMessage, isRecord, parseToolUrl, resolveToolOrigin, resolveToolSecret, toolDefinition, toolLinkOf, verifyEnvelope, type ConfiguredTool, type StoredToolLink, type ToolLink
+  REMOTE_ID, configuredTool, createSignedMessage, isConfirmedRsvp, isRecord, parseToolUrl, resolveToolOrigin, resolveToolSecret, toolDefinition, toolLinkOf, verifyEnvelope, type ConfiguredTool, type StoredToolLink, type ToolLink
 } from './linked-tools'
 
 // Allgemeiner Teil (Format, Signatur, Konfiguration, Links) steht in app/lib/linked-tools.ts und
@@ -127,16 +127,10 @@ export function guestOf(
 }
 
 /**
- * Die eine Regel, wer bei Seating als zugesagt gilt: zugesagt, nicht auf der Warteliste und - bei
- * aktiver Double-Opt-In-Pflicht (effektiver Wert, bei Reihen der der Reihe) - verifiziert.
+ * Wer bei Seating als zugesagt gilt - dieselbe Regel wie für alle verknüpften Tools
+ * (isConfirmedRsvp in app/lib/linked-tools.ts): zugesagt, nicht Warteliste, ggf. verifiziert.
  */
-export function isSeatingConfirmed(
-  rsvp: { isAttending: boolean; isOnWaitlist: boolean },
-  participant: { isVerified: boolean },
-  requireVerification: boolean
-): boolean {
-  return rsvp.isAttending && !rsvp.isOnWaitlist && (!requireVerification || participant.isVerified)
-}
+export const isSeatingConfirmed = isConfirmedRsvp
 
 // --- Prüfen und Ausstellen -------------------------------------------------------------------
 

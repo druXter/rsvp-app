@@ -8,6 +8,7 @@ import { sendPushToUser, sendConfirmationPush } from './push'
 import { notifyPollOfAttendanceChange } from './poll-notify'
 import { notifyLinkedToolsOfRsvps } from './linked-tools-notify'
 import { TOOL_LINKS } from './linked-tools-store'
+import { isTimelineConfirmed, timelineLinkOf } from './timeline'
 import { isSeatingConfirmed, seatingLinkOf } from './seating'
 import { hasEventPinAccess } from './pin'
 
@@ -391,11 +392,14 @@ export async function performRsvpSubmission(
 
   // "Sitzplatz wählen" auf der Erfolgsseite - nur für eine Zusage, die bei Seating zählt
   const canChooseSeat = !!seatingLinkOf(event) && isSeatingConfirmed(savedRsvp, participant, requireVerification)
+  // "Zeitplan" ebenso - nur für eine Zusage, die dort zählt
+  const canOpenTimeline = !!timelineLinkOf(event) && isTimelineConfirmed(savedRsvp, participant, requireVerification)
 
   return {
     editToken: participant.editToken,
     needsVerification,
     isOnWaitlist: savedRsvp.isOnWaitlist,
     qrCode,
-    canChooseSeat
+    canChooseSeat,
+    canOpenTimeline
   }}

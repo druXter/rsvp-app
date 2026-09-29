@@ -134,6 +134,10 @@ export async function sendConfirmationEmail(participant: Participant, rsvp: Rsvp
   const seatLink = rsvp.isAttending && !rsvp.isOnWaitlist && await findToolLink(event.id, 'seating')
     ? `${baseUrl()}/api/seating-link/${event.id}?token=${encodeURIComponent(participant.editToken)}`
     : null
+  // "Zeitplan" (Zeitplan-Tool) genauso: nur die Weiterleitung, nie das signierte Token selbst
+  const timelineLink = rsvp.isAttending && !rsvp.isOnWaitlist && await findToolLink(event.id, 'timeline')
+    ? `${baseUrl()}/api/timeline-link/${event.id}?token=${encodeURIComponent(participant.editToken)}`
+    : null
 
   // Betreff und Text je nach Zusage oder Absage anpassen
   const subject = rsvp.isAttending
@@ -148,7 +152,7 @@ ${rsvp.isAttending
   ? 'Wir freuen uns sehr, dass du dabei bist! Im Anhang findest du eine Kalenderdatei (.ics), damit du dir den Termin direkt abspeichern kannst, sowie deinen persönlichen Einlass-QR-Code - bitte am Einlass bereithalten.'
   : 'Schade, dass du nicht dabei sein kannst. Falls sich deine Pläne doch noch ändern sollten, kannst du deine Antwort jederzeit anpassen.'}
 
-${seatLink ? `Deinen Sitzplatz kannst du hier wählen:\n${seatLink}\n\n` : ''}Du kannst deine Antwort und alle optionalen Angaben jederzeit über diesen persönlichen Link bearbeiten:
+${seatLink ? `Deinen Sitzplatz kannst du hier wählen:\n${seatLink}\n\n` : ''}${timelineLink ? `Den Ablauf des Events findest du im Zeitplan:\n${timelineLink}\n\n` : ''}Du kannst deine Antwort und alle optionalen Angaben jederzeit über diesen persönlichen Link bearbeiten:
 ${personalLink}${seriesHintText(event, participant)}
 
 Viele Grüße,
@@ -171,6 +175,11 @@ Dein Event-Team`
       ${seatLink ? `
         <p style="text-align: center; margin: 24px 0;">
           <a href="${seatLink}" style="display: inline-block; background: #65a30d; color: #fff; font-weight: bold; padding: 10px 24px; border-radius: 6px; text-decoration: none;">🪑 Sitzplatz wählen</a>
+        </p>
+      ` : ''}
+      ${timelineLink ? `
+        <p style="text-align: center; margin: 24px 0;">
+          <a href="${timelineLink}" style="display: inline-block; background: #c026d3; color: #fff; font-weight: bold; padding: 10px 24px; border-radius: 6px; text-decoration: none;">🕒 Zeitplan</a>
         </p>
       ` : ''}
       <p>Du kannst deine Antwort und alle optionalen Angaben jederzeit über diesen persönlichen Link bearbeiten:</p>

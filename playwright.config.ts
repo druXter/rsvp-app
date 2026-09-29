@@ -18,6 +18,13 @@ export const TEST_POLL_SECRET = 'e2e-poll-verification-secret'
 export const TEST_SEATING_SECRET = 'e2e-seating-secret-0123456789abcdef0123'
 export const SEATING_PORT = 3106
 export const TEST_SEATING_BASE_URL = `http://127.0.0.1:${SEATING_PORT}`
+// Kopplung mit dem Zeitplan-Tool (app/lib/timeline.ts): wieder ein EIGENES Secret und ein Origin,
+// unter dem tests/e2e/timeline.spec.ts ein Schein-Zeitplan startet.
+export const TEST_TIMELINE_SECRET = 'e2e-timeline-secret-0123456789abcdef012'
+export const TIMELINE_PORT = 3107
+export const TEST_TIMELINE_BASE_URL = `http://127.0.0.1:${TIMELINE_PORT}`
+// Ein Origin, der zu keinem eingerichteten Tool gehört - für die Fälle "fremde Adresse".
+export const FOREIGN_TOOL_BASE_URL = 'http://127.0.0.1:3199'
 
 // Gilt für den Server UND für die Testprozesse (tests/e2e/helpers.ts greift direkt auf die
 // Datenbank zu). Relative SQLite-Pfade löst Prisma relativ zu prisma/schema.prisma auf.
@@ -68,6 +75,8 @@ export default defineConfig({
       ABSTIMMUNGSTOOL_BASE_URL: '',
       SEATING_SECRET: TEST_SEATING_SECRET,
       SEATING_BASE_URL: TEST_SEATING_BASE_URL,
+      TIMELINE_SECRET: TEST_TIMELINE_SECRET,
+      TIMELINE_BASE_URL: TEST_TIMELINE_BASE_URL,
       SUITE_SIGNING_KEY: '',
       SUITE_IDPS: '',
       SUITE_TRUSTED_APPS: '',

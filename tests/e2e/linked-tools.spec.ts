@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto'
 import { createServer, type Server } from 'node:http'
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
 import {
-  BASE_URL, SEATING_PORT, TEST_SEATING_BASE_URL, TEST_SEATING_SECRET, createAccount, createEvent, createRsvp,
+  BASE_URL, FOREIGN_TOOL_BASE_URL, SEATING_PORT, TEST_SEATING_BASE_URL, TEST_SEATING_SECRET, createAccount, createEvent, createRsvp,
   decodeCouplingToken, linkTool, locationOf, login, prisma, readForm, signCouplingToken, submitForm
 } from './helpers'
 import { copyLegacySeatingLinks } from '../../migrate-tool-links.js'
@@ -88,10 +88,10 @@ test('Webhook geht nur an gültig verknüpfte, eingerichtete Tools', async ({ pa
   const owner = await createAccount('CREATOR')
   // Unbekannter Tool-Typ, dessen Link sogar auf das (Schein-)Seating zeigt: kein eingerichtetes Tool -> nichts
   const unknownType = await createEvent(owner)
-  await linkTool(unknownType, 'timeline', seatingUrlFor(seatingId()))
+  await linkTool(unknownType, 'unbekannt', seatingUrlFor(seatingId()))
   // Seating-Zeile mit fremdem Origin (am Formular vorbei in die DB geschrieben): gilt nie -> nichts
   const foreignOrigin = await createEvent(owner)
-  await linkTool(foreignOrigin, 'seating', `http://127.0.0.1:${SEATING_PORT + 1}/rsvp/${seatingId()}`)
+  await linkTool(foreignOrigin, 'seating', `${FOREIGN_TOOL_BASE_URL}/rsvp/${seatingId()}`)
   // Termin ohne Verknüpfung -> nichts
   const unlinked = await createEvent(owner)
   // Positivkontrolle: gültig mit Seating verknüpft
@@ -123,7 +123,7 @@ test('Termin-Formular: Verknüpfung speichern, ändern, entfernen - fremder Orig
   const save = async (url: string) => submitForm(page, await readForm(page, 'form:has(input[name="seatingUrl"])'), { seatingUrl: url })
 
   // Fremder Origin (SSRF-Schutz) und falsche Form: nichts gespeichert
-  await save(`http://127.0.0.1:${SEATING_PORT + 1}/rsvp/${seatingId()}`)
+  await save(`${FOREIGN_TOOL_BASE_URL}/rsvp/${seatingId()}`)
   await save(`${TEST_SEATING_BASE_URL}/admin/${seatingId()}`)
   expect(await linkOf()).toBeNull()
 

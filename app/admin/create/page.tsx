@@ -6,10 +6,13 @@ import { getCurrentUser } from '../../lib/auth'
 import SubmitButton from '../../ui/submit-button'
 import ThemeSection, { themeClasses } from '../../ui/theme-section'
 import { allowedSeatingOrigin } from '../../lib/seating'
+import { allowedTimelineOrigin } from '../../lib/timeline'
 
 export default async function CreateEventPage() {
   // Das Sitzplatz-Feld erscheint nur, wenn die Anbindung an Seating eingerichtet ist (SEATING_BASE_URL)
   const seatingOrigin = allowedSeatingOrigin()
+  // ebenso das Zeitplan-Feld (TIMELINE_BASE_URL)
+  const timelineOrigin = allowedTimelineOrigin()
   const user = await getCurrentUser()
   if (!user) redirect('/admin/login')
   if (user.role === 'MODERATOR') redirect('/admin')
@@ -174,6 +177,16 @@ export default async function CreateEventPage() {
                 <label htmlFor="seatingUrl" className={`block text-sm font-medium mb-1 ${themeClasses('lime').heading}`}>Sitzplatz-Link (Seating, optional)</label>
                 <input id="seatingUrl" type="url" name="seatingUrl" className={`w-full border ${themeClasses('lime').border} bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded outline-none ${themeClasses('lime').borderFocus}`} placeholder={`${seatingOrigin}/rsvp/…`} />
                 <p className={`text-xs ${themeClasses('lime').text} mt-1`}>Die ID für Seating gibt es erst nach dem Anlegen - den Link kannst du auch später beim Bearbeiten eintragen.</p>
+              </div>
+            </ThemeSection>
+          )}
+
+          {timelineOrigin && (
+            <ThemeSection color="fuchsia" title="Zeitplan" description="Verknüpft diesen Termin mit einem Event im Zeitplan-Tool (Ablauf des Events). Den Link zeigt der Zeitplan in den Event-Einstellungen an, sobald dort die ID dieses Termins eingetragen ist - erst mit beiden Einträgen gilt die Verknüpfung. Zugesagte Gäste sehen dann „Zeitplan“; an den Zeitplan gehen nur Kennungen und ob die Zusage gilt, keine Namen oder Adressen.">
+              <div>
+                <label htmlFor="timelineUrl" className={`block text-sm font-medium mb-1 ${themeClasses('fuchsia').heading}`}>Zeitplan-Link (optional)</label>
+                <input id="timelineUrl" type="url" name="timelineUrl" className={`w-full border ${themeClasses('fuchsia').border} bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded outline-none ${themeClasses('fuchsia').borderFocus}`} placeholder={`${timelineOrigin}/rsvp/…`} />
+                <p className={`text-xs ${themeClasses('fuchsia').text} mt-1`}>Die ID für den Zeitplan gibt es erst nach dem Anlegen - den Link kannst du auch später beim Bearbeiten eintragen.</p>
               </div>
             </ThemeSection>
           )}

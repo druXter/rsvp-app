@@ -64,10 +64,10 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        // Kopplung mit Seating (app/lib/seating.ts): Gästeliste/Platzierungen (Server zu Server)
-        // und "Sitzplatz wählen" (Weiterleitung mit editToken in der URL und signiertem Link im
-        // Ziel) - nie einbetten, nie cachen, nie per Referer weiterreichen.
-        source: '/api/:area(seating|seating-link)/:path*',
+        // Verknüpfte Tools (app/lib/linked-tools.ts): Seatings Gästeliste/Platzierungen (Server zu
+        // Server) und die Weiterleitungen "Sitzplatz wählen" bzw. "Zeitplan" (editToken in der URL,
+        // signierter Link im Ziel) - nie einbetten, nie cachen, nie per Referer weiterreichen.
+        source: '/api/:area(seating|seating-link|timeline-link)/:path*',
         headers: [
           { key: 'X-Frame-Options', value: 'DENY' },
           { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },

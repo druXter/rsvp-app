@@ -8,6 +8,7 @@ import PollResultBanner from '../ui/poll-result-banner'
 import { getCurrentGuestUser } from '../lib/guest-auth'
 import { isSeatingConfirmed, seatingLinkOf } from '../lib/seating'
 import { TOOL_LINKS } from '../lib/linked-tools-store'
+import { isTimelineConfirmed, timelineLinkOf } from '../lib/timeline'
 
 const prisma = new PrismaClient()
 
@@ -162,6 +163,7 @@ export default async function EventPage({
         <RsvpForm
           canChooseSeat={!!seatingLinkOf(event) && !!existingRsvp && isSeatingConfirmed(existingRsvp, { isVerified: !!participant?.isVerified }, event.requireVerification)}
           seatingLabel={existingRsvp?.seatingLabel ?? null}
+          canOpenTimeline={!!timelineLinkOf(event) && !!existingRsvp && isTimelineConfirmed(existingRsvp, { isVerified: !!participant?.isVerified }, event.requireVerification)}
           eventId={event.id}
           formConfig={event.formConfig}
           participant={participant}

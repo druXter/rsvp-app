@@ -9,6 +9,7 @@ import SubmitButton from '../ui/submit-button'
 import DeleteMyDataButton from './delete-my-data-button'
 import PushSubscribeToggle from './push-subscribe-toggle'
 import SeatingBox from '../ui/seating-box'
+import TimelineBox from '../ui/timeline-box'
 
 export default function RsvpForm({
   eventId,
@@ -21,7 +22,8 @@ export default function RsvpForm({
   usedUrlToken = true,
   vapidPublicKey = null,
   canChooseSeat = false,
-  seatingLabel = null
+  seatingLabel = null,
+  canOpenTimeline = false
 }: {
   eventId: string;
   formConfig: string | null;
@@ -40,6 +42,9 @@ export default function RsvpForm({
   // gültigem Sitzplatz-Link UND eine Zusage, die dort zählt (siehe isSeatingConfirmed).
   canChooseSeat?: boolean;
   seatingLabel?: string | null;
+  // "Zeitplan" (Zeitplan-Tool) - wie canChooseSeat: Termin mit gültigem Zeitplan-Link UND eine
+  // Zusage, die zählt (siehe isConfirmedRsvp in app/lib/linked-tools.ts).
+  canOpenTimeline?: boolean;
 }) {
   const [isAttending, setIsAttending] = useState<boolean | null>(rsvp ? rsvp.isAttending : null)
   const [hasPlusOne, setHasPlusOne] = useState<boolean>(rsvp ? rsvp.plusOne : false)
@@ -50,6 +55,7 @@ export default function RsvpForm({
   const [isOnWaitlist, setIsOnWaitlist] = useState<boolean>(rsvp ? rsvp.isOnWaitlist : false)
   const [qrCode, setQrCode] = useState<string | null>(null)
   const [seatAfterSubmit, setSeatAfterSubmit] = useState<boolean>(false)
+  const [timelineAfterSubmit, setTimelineAfterSubmit] = useState<boolean>(false)
 
   const config = formConfig
     ? JSON.parse(formConfig)
@@ -76,6 +82,7 @@ export default function RsvpForm({
       setQrCode(result.qrCode)
     }
     setSeatAfterSubmit(result.canChooseSeat)
+    setTimelineAfterSubmit(result.canOpenTimeline)
   }
 
   if (submittedToken) {
@@ -169,6 +176,7 @@ export default function RsvpForm({
         )}
 
         {seatAfterSubmit && <SeatingBox eventId={eventId} editToken={submittedToken} seatingLabel={seatingLabel} />}
+        {timelineAfterSubmit && <TimelineBox eventId={eventId} editToken={submittedToken} />}
 
         {qrCode && (
           <div className={`w-full mt-6 flex flex-col items-center ${isEmbed ? 'p-4 border border-green-200 rounded dark:border-green-800' : 'bg-white p-4 rounded border border-green-200 dark:bg-gray-800 dark:border-green-800'}`}>
@@ -196,6 +204,7 @@ export default function RsvpForm({
     <div className={`space-y-6 text-gray-900 dark:text-gray-100 ${isEmbed ? '' : 'bg-white p-6 rounded-lg shadow dark:bg-gray-800'}`}>
     {/* Ohne ?token= kam der Participant über die Gast-Session - die Route löst ihn dann ebenfalls darüber auf */}
     {canChooseSeat && <SeatingBox eventId={eventId} editToken={usedUrlToken ? participant?.editToken : null} seatingLabel={seatingLabel} />}
+    {canOpenTimeline && <TimelineBox eventId={eventId} editToken={usedUrlToken ? participant?.editToken : null} />}
     <form onSubmit={handleSubmit} className="space-y-6">
       <input type="hidden" name="eventId" value={eventId} />
       {/* Nur mitschicken, wenn der Participant wirklich über einen ?token= aus der URL

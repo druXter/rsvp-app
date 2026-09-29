@@ -1,6 +1,7 @@
 // app/datenschutz/page.tsx
 import Link from 'next/link'
 import { allowedSeatingOrigin } from '../lib/seating'
+import { allowedTimelineOrigin } from '../lib/timeline'
 
 // Liest Verantwortlichen- und Infrastruktur-Angaben zur Laufzeit aus der (nicht
 // versionierten) .env, analog zu app/impressum/page.tsx - siehe dort für die
@@ -18,6 +19,8 @@ export default function DatenschutzPage() {
   const smtpHost = process.env.SMTP_HOST || '[E-Mail-Server noch nicht konfiguriert]'
   // Die einzige Adresse, an die Angaben für die Sitzplatzwahl gehen dürfen (siehe app/lib/seating.ts)
   const seatingHost = allowedSeatingOrigin() ?? '[Sitzplatz-Anwendung nicht eingerichtet]'
+  // Ebenso die einzige Adresse des Zeitplan-Tools (siehe app/lib/timeline.ts)
+  const timelineHost = allowedTimelineOrigin() ?? '[Zeitplan-Anwendung nicht eingerichtet]'
 
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12 px-4">
@@ -61,10 +64,10 @@ export default function DatenschutzPage() {
             Für Veranstalter:innen (E-Mail, Passwort-Hash) und für Gäste, die sich freiwillig ein Nutzer-Konto unter
             &quot;Mein Konto&quot; anlegen (E-Mail, Passwort-Hash, Name, optional Handynummer/Essenswunsch/Allergien),
             speichern wir Login-Daten. Passwörter werden ausschließlich als Hash (bcrypt) gespeichert, niemals im
-            Klartext. Die Anmeldung erfolgt über ein zufällig erzeugtes Sitzungs-Token in einem Cookie (siehe Punkt 13)
+            Klartext. Die Anmeldung erfolgt über ein zufällig erzeugtes Sitzungs-Token in einem Cookie (siehe Punkt 14)
             - niemals über deinen Namen oder deine E-Mail-Adresse direkt im Cookie. Bei einem Nutzer-Konto speichern
             wir außerdem den Zeitpunkt deines letzten Logins, um das Konto nach längerer Inaktivität automatisch
-            löschen zu können (siehe Punkt 14).
+            löschen zu können (siehe Punkt 15).
           </p>
           <p className="mt-2">
             <strong>Sicherer Umgang mit Zugangsdaten:</strong> Passwörter werden mit bcrypt gehasht. Auch
@@ -100,7 +103,7 @@ export default function DatenschutzPage() {
             Je nach Konfiguration der jeweiligen Veranstaltung fragen wir Name (Pflichtfeld), E-Mail-Adresse,
             Handynummer, Essenswunsch, Begleitperson, Alkohol-Präferenz, Mitbringsel und freie Zusatzfragen ab. Diese
             Angaben verwenden wir ausschließlich zur Organisation und Durchführung der jeweiligen Veranstaltung. Wir
-            geben deine Daten nicht an Dritte außerhalb der in Punkt 14 genannten Auftragsverarbeiter weiter.
+            geben deine Daten nicht an Dritte außerhalb der in Punkt 15 genannten Auftragsverarbeiter weiter.
           </p>
           <p className="mt-2">
             <strong>Allergien/Unverträglichkeiten:</strong> Dieses Feld ist stets freiwillig und optional. Da
@@ -108,7 +111,7 @@ export default function DatenschutzPage() {
             verarbeiten wir sie ausschließlich auf Basis deiner ausdrücklichen Einwilligung, die du durch das
             freiwillige Ausfüllen dieses Feldes erteilst (Art. 9 Abs. 2 lit. a DSGVO). Du kannst diese Einwilligung
             jederzeit mit Wirkung für die Zukunft widerrufen, z.B. indem du deine Angabe über deinen persönlichen Link
-            entfernst oder deine Daten vollständig löschst (siehe Punkt 16).
+            entfernst oder deine Daten vollständig löschst (siehe Punkt 17).
           </p>
           <p className="mt-2">
             <strong>Veranstaltungsreihen:</strong> Gehört ein Termin zu einer Reihe, werden deine Kontakt- und
@@ -164,7 +167,7 @@ export default function DatenschutzPage() {
           <p className="mt-2">
             Für die Zustellung speichern wir die technische Abo-Adresse (Endpoint-URL) und die Verschlüsselungs-Keys
             deines Browsers. Die Auslieferung erfolgt technisch über den Push-Dienst deines Browser-Herstellers - die
-            damit verbundene Datenübermittlung ist in Punkt 14 beschrieben. Du kannst die Benachrichtigungen jederzeit
+            damit verbundene Datenübermittlung ist in Punkt 15 beschrieben. Du kannst die Benachrichtigungen jederzeit
             an derselben Stelle wieder deaktivieren oder die Erlaubnis in den Einstellungen deines Browsers entziehen;
             das gespeicherte Abo wird dann gelöscht.
           </p>
@@ -239,7 +242,32 @@ export default function DatenschutzPage() {
         </div>
 
         <div>
-          <h2 className="font-bold text-lg">11. Zugriff durch Veranstalter:innen und Moderator:innen</h2>
+          <h2 className="font-bold text-lg">11. Zeitplan</h2>
+          <p className="mt-2">
+            Veranstalter:innen können einen Termin mit einem Event in der separaten Zeitplan-Anwendung unter{' '}
+            <code>{timelineHost}</code> verknüpfen, die den Ablauf der Veranstaltung zeigt (z.B. wann was beginnt).
+            Die Zeitplan-Anwendung ist ein eigenständiges Angebot mit einer eigenen Datenschutzerklärung. Ist ein Termin
+            nicht verknüpft, geht nichts an sie.
+          </p>
+          <p className="mt-2">
+            Für eine <strong>bestätigte Zusage</strong> (nicht auf der Warteliste und, falls der Termin eine
+            E-Mail-Bestätigung verlangt, bestätigt) übermitteln wir an die Zeitplan-Anwendung ausschließlich{' '}
+            <strong>Kennungen</strong> - die deiner Antwort, die des Termins und die des verknüpften Zeitplans - und{' '}
+            <strong>ob deine Zusage gilt</strong>. Dein Name, deine E-Mail-Adresse, deine Begleitung und alle übrigen
+            Angaben werden nie übertragen. Das geschieht
+          </p>
+          <ul className="list-disc ml-6 mt-2 space-y-1">
+            <li>wenn du auf &quot;Zeitplan&quot; klickst, in einem kryptographisch signierten, nur 10 Minuten gültigen Link - die Zeitplan-Anwendung richtet damit in deinem Browser einen Zugang für diese Veranstaltung ein (Einzelheiten in ihrer Datenschutzerklärung);</li>
+            <li>wenn sich deine Antwort ändert (Zusage, Absage, Warteliste, Nachrücken, Löschung), als direkte Meldung von Server zu Server - bei einer Absage, auf der Warteliste oder nach einer Löschung beendet die Zeitplan-Anwendung damit deinen Zugang.</li>
+          </ul>
+          <p className="mt-2">
+            Die Zeitplan-Anwendung meldet uns nichts zurück. Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO
+            (Organisation der Veranstaltung, zu der auch ihr Ablauf gehört).
+          </p>
+        </div>
+
+        <div>
+          <h2 className="font-bold text-lg">12. Zugriff durch Veranstalter:innen und Moderator:innen</h2>
           <p className="mt-2">
             Deine Angaben zu einer Veranstaltung (einschließlich E-Mail-Adresse, Handynummer, Essenswunsch und
             Allergien) sind für die Veranstalter:in einsehbar, die diese Veranstaltung angelegt hat, und können von ihr
@@ -251,7 +279,7 @@ export default function DatenschutzPage() {
         </div>
 
         <div>
-          <h2 className="font-bold text-lg">12. API-Zugang für eigene Apps</h2>
+          <h2 className="font-bold text-lg">13. API-Zugang für eigene Apps</h2>
           <p className="mt-2">
             Du kannst dir in den Konto-Einstellungen einen API-Token erzeugen, um mit einer selbst
             entwickelten App (z.B. auf einer Smartwatch) deine Termine abzurufen und zu- oder abzusagen. Ein
@@ -270,7 +298,7 @@ export default function DatenschutzPage() {
         </div>
 
         <div>
-          <h2 className="font-bold text-lg">13. Cookies</h2>
+          <h2 className="font-bold text-lg">14. Cookies</h2>
           <p className="mt-2">
             Wir setzen ausschließlich technisch notwendige Cookies ein (Art. 6 Abs. 1 lit. b/f DSGVO, § 25 Abs. 2 Nr. 2
             TDDDG) - dafür ist keine Einwilligung erforderlich. Es gibt keine Tracking-, Analyse- oder
@@ -285,7 +313,7 @@ export default function DatenschutzPage() {
         </div>
 
         <div>
-          <h2 className="font-bold text-lg">14. Empfänger und Auftragsverarbeiter</h2>
+          <h2 className="font-bold text-lg">15. Empfänger und Auftragsverarbeiter</h2>
           <p className="mt-2">
             <strong>E-Mail-Versand:</strong> Bestätigungs-, Erinnerungs-, Verifizierungs- und Passwort-Reset-E-Mails
             versenden wir über den E-Mail-Server <code>{smtpHost}</code>. Mit dem Betreiber dieses Servers besteht,
@@ -310,6 +338,11 @@ export default function DatenschutzPage() {
             die Einzelheiten dazu stehen in Punkt 10.
           </p>
           <p className="mt-2">
+            <strong>Zeitplan-Anwendung:</strong> Für Termine, die mit der Zeitplan-Anwendung
+            (<code>{timelineHost}</code>) verknüpft sind, gehen nur Kennungen einer bestätigten Zusage und ob sie gilt
+            dorthin, keine Namen oder Adressen - die Einzelheiten dazu stehen in Punkt 11.
+          </p>
+          <p className="mt-2">
             <strong>Verbundene Tools:</strong> Die in Punkt 3 beschriebene Anmeldung mit Konten anderer Tools
             überträgt Konto-Kennung, E-Mail-Adresse und Rolle nur an Tools, die der Betreiber selbst betreibt und
             freigegeben hat.
@@ -322,7 +355,7 @@ export default function DatenschutzPage() {
         </div>
 
         <div>
-          <h2 className="font-bold text-lg">15. Speicherdauer</h2>
+          <h2 className="font-bold text-lg">16. Speicherdauer</h2>
           <p className="mt-2">
             Deine Daten zu einer Veranstaltung werden spätestens <strong>18 Monate nach dem Veranstaltungsdatum</strong>{' '}
             automatisch vollständig gelöscht - inklusive des Veranstaltungs-Datensatzes selbst, nicht nur deiner
@@ -348,18 +381,18 @@ export default function DatenschutzPage() {
           <p className="mt-2">
             Gespeicherte Push-Abos werden gelöscht, sobald du die Benachrichtigungen deaktivierst, dein Browser das Abo
             beendet (z.B. beim Löschen der Websitedaten) oder die zugehörigen Daten nach den oben genannten Fristen
-            entfallen. API-Token (Punkt 12) bleiben bis zu ihrem Widerruf gespeichert und werden zusammen mit dem
+            entfallen. API-Token (Punkt 13) bleiben bis zu ihrem Widerruf gespeichert und werden zusammen mit dem
             Konto gelöscht.
           </p>
           <p className="mt-2">
-            Unabhängig von diesen automatischen Fristen kannst du deine Daten jederzeit früher über die in Punkt 16
+            Unabhängig von diesen automatischen Fristen kannst du deine Daten jederzeit früher über die in Punkt 17
             beschriebenen Selbstbedienungs-Funktionen löschen oder uns unter der oben genannten Kontaktadresse um
             frühere Löschung bitten.
           </p>
         </div>
 
         <div>
-          <h2 className="font-bold text-lg">16. Deine Rechte</h2>
+          <h2 className="font-bold text-lg">17. Deine Rechte</h2>
           <p className="mt-2">
             Du hast das Recht auf Auskunft (Art. 15 DSGVO), Berichtigung (Art. 16 DSGVO), Löschung (Art. 17 DSGVO),
             Einschränkung der Verarbeitung (Art. 18 DSGVO), Datenübertragbarkeit (Art. 20 DSGVO) und Widerspruch (Art.
@@ -386,7 +419,7 @@ export default function DatenschutzPage() {
         </div>
 
         <div>
-          <h2 className="font-bold text-lg">17. Datensicherheit</h2>
+          <h2 className="font-bold text-lg">18. Datensicherheit</h2>
           <p className="mt-2">
             Die Übertragung erfolgt verschlüsselt (TLS/HTTPS). Login-Cookies sind <code>httpOnly</code> gesetzt und
             damit per JavaScript nicht auslesbar. Passwörter, Sitzungs-Tokens und Einmal-Links werden ausschließlich als Hash

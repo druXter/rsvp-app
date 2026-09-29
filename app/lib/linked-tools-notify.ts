@@ -4,6 +4,7 @@ import type { Prisma } from '@prisma/client'
 import { prisma } from './prisma'
 import { configuredTools, linkedToolsOf, type ConfiguredTool, type StoredToolLink, type ToolLink, type ToolType } from './linked-tools'
 import { seatingRsvpChange } from './seating'
+import { timelineRsvpChange } from './timeline'
 import { TOOL_LINKS } from './linked-tools-store'
 
 /**
@@ -56,7 +57,8 @@ type ChangeInput = {
 
 /** Inhalt des Webhooks je Tool - Vertrag des jeweiligen Tools. */
 const RSVP_CHANGE: Record<ToolType, (input: ChangeInput) => string> = {
-  seating: seatingRsvpChange
+  seating: seatingRsvpChange,
+  timeline: timelineRsvpChange
 }
 
 export type Delivery = { url: string; body: string }

@@ -30,6 +30,7 @@ Ein schlankes, anpassbares und leistungsstarkes Event-Management-System, gebaut 
   * Vollautomatischer Versand X Tage vor dem Event (gesicherter Endpoint für Uptime Kuma oder Cronjobs).
 * **QR-Code Einlasskontrolle (optional, standardmäßig aus):** Pro Event/Termin zuschaltbar für Veranstaltungen mit echtem Einlass. Bestätigte Gäste bekommen einen persönlichen QR-Code (Bestätigungsmail & Erfolgsseite), der beim Scannen automatisch als "anwesend" markiert wird. Das Admin-Dashboard zeigt eine Live-Statistik ("🎫 Eingecheckt: 25/50") und erlaubt auch manuelles Ein-/Auschecken ohne Scan. Für die meisten privaten Feiern ohne Einlasskontrolle bleibt diese Option einfach deaktiviert.
 * **Sitzplätze über Seating (optional):** Pro Termin mit einem Event im Sitzplatz-Tool Seating verknüpfbar. Zugesagte Gäste bekommen „Sitzplatz wählen“ (Seite, Erfolgsseite, Bestätigungsmail), Änderungen an Zusagen gehen automatisch an Seating, und der zugewiesene Platz erscheint als „Dein Platz: …“, beim Einlass und im CSV-Export - siehe [Verknüpfung mit Seating](#-verknüpfung-mit-seating-sitzplätze).
+* **Zeitplan (optional):** Pro Termin mit einem Event im Zeitplan-Tool (Ablauf großer Events) verknüpfbar. Zugesagte Gäste bekommen „Zeitplan“ (Seite, Erfolgsseite, Bestätigungsmail) und sehen damit den aktuellen Ablauf; bei Absage oder Löschung endet ihr Zugang dort automatisch. An den Zeitplan gehen nur Kennungen, keine Namen oder Adressen - siehe [Verknüpfung mit Zeitplan](#-verknüpfung-mit-zeitplan).
 * **Web-Push-Benachrichtigungen (PWA):** Sowohl das Admin-Dashboard als auch die Gast-Seiten sind als installierbare PWA konfiguriert. Admins können sich pro Gerät anmelden und werden sofort informiert, sobald ein Gast eine neue Zu- oder Absage abgibt. Gäste können sich direkt auf ihrer Antwort-Seite ("🔕 Push-Benachrichtigungen aktivieren"-Button) anmelden - ganz ohne eigenes Konto - und bekommen dann Erinnerungen sowie kurzfristige Termin-Änderungen (Uhrzeit/Ort/Titel/Beschreibung) auch als Push, nicht nur per Mail.
 * **Admin Dashboard:** 
   * Volle Übersicht über alle Zu- und Absagen sowie Wartelistenplätze.
@@ -109,6 +110,11 @@ ABSTIMMUNGSTOOL_BASE_URL=https://vote.deine-domain.de
 # RSVP_SEATING_SECRET in Seating, mind. 32 Zeichen, nie das Secret einer anderen Anbindung.
 SEATING_SECRET=...
 SEATING_BASE_URL=https://plaetze.deine-domain.de
+
+# Anbindung an das Zeitplan-Tool (eigenständiges Projekt) - siehe "Verknüpfung mit Zeitplan"
+# unten. Secret identisch zu RSVP_TIMELINE_SECRET im Zeitplan, mind. 32 Zeichen, eigenes Secret.
+TIMELINE_SECRET=...
+TIMELINE_BASE_URL=https://zeitplan.deine-domain.de
 ```
 
 > **Impressum-Platzhalter:** Die Impressum-Seite (`app/impressum/page.tsx`) liest ihre Angaben zur Laufzeit aus `IMPRESSUM_NAME`/`IMPRESSUM_STREET`/`IMPRESSUM_ZIP`/`IMPRESSUM_CITY`/`IMPRESSUM_EMAIL`/`IMPRESSUM_PHONE`. Sind diese Variablen nicht gesetzt, zeigt die Seite generische Platzhalter (`[Dein Vorname] [Dein Nachname]` etc.) statt echter Daten an. So bleibt das Repository frei von personenbezogenen Daten - trag deine echten Angaben ausschließlich in deine eigene, nicht versionierte `.env` ein (lokal wie auf dem Server).
@@ -169,8 +175,8 @@ Alle drei Punkte sind rein additiv und benötigen `POLL_VERIFICATION_SECRET` + `
 
 ## 🔌 Verknüpfte Tools (Anbindungen)
 
-Ein Termin kann mit Events in anderen, eigenständigen Tools der Suite verknüpft werden - heute **Seating** (Sitzplätze,
-siehe unten), vorbereitet für das **Zeitplan-Tool**. Alles Gemeinsame steht in `app/lib/linked-tools.ts`:
+Ein Termin kann mit Events in anderen, eigenständigen Tools der Suite verknüpft werden - **Seating** (Sitzplätze,
+siehe unten) und das **Zeitplan-Tool** (Ablauf des Events, siehe unten). Alles Gemeinsame steht in `app/lib/linked-tools.ts`:
 
 * **Liste der Tools** (`DEFINITIONS`): pro Tool-Typ die Env-Variablen für Adresse und Secret, die Form des Links auf ein
   Event dort (`<Adresse>/<Segment>/<Event-ID>`), der Name des ID-Felds in den Nachrichten und der Webhook-Pfad. Ein neues
@@ -187,7 +193,7 @@ siehe unten), vorbereitet für das **Zeitplan-Tool**. Alles Gemeinsame steht in 
 * **Webhook `rsvp-change`** bei jeder Änderung einer Zusage an **alle** gültig verknüpften Tools des Termins, jeweils mit
   eigenem Inhalt, Secret und Empfänger; nicht verknüpfte, nicht eingerichtete oder unbekannte Tools bekommen nichts. Pro
   Tool in Reihenfolge, verschiedene Tools parallel, 5 s Timeout, erst nach der Antwort (`after()`).
-* **Weiterleitungs-Routen** („Sitzplatz wählen“, später „Zeitplan“) prüfen über `app/lib/linked-tools-access.ts`, wer
+* **Weiterleitungs-Routen** („Sitzplatz wählen“, „Zeitplan“) prüfen über `app/lib/linked-tools-access.ts`, wer
   weitergeleitet werden darf (editToken genau dieses Termins oder verifizierte Gast-Session, PIN, Zusage zählt), und
   stellen dann bei jedem Klick einen frischen, kurz gültigen Link nach dem Vertrag des Tools aus.
 
@@ -229,6 +235,46 @@ Ein Termin (Einzel-Event oder Reihen-Termin) kann optional mit einem Event im se
 | `placements` | Seating → rsvp-app | `POST /api/seating/placements`, `text/plain` | `placements`: vollständiger Stand `{ rsvpId, label }` |
 
 `companions` ist heute höchstens ein Eintrag (Begleitung, Name oder null). Die Endpunkte antworten mit 401 bei ungültiger Signatur, falscher Art, falschem Empfänger oder Ablauf, mit 404, wenn das Event nicht existiert oder seine Seating-Verknüpfung nicht genau auf die anfragende `seatingEventId` zeigt, und mit 413 bei zu großem Body (20 KB bzw. 2 MB).
+
+## 🕒 Verknüpfung mit Zeitplan
+
+Ein Termin kann optional mit einem Event im separaten **Zeitplan-Tool** verknüpft werden, das den Ablauf großer Events
+(z.B. einer Hochzeit) mit Prognose zeigt. Im Zeitplan heißt der passende Zugang „Nur mit Zusage in rsvp-app“: Gäste
+kommen dann nur mit einer gültigen Zusage hinein. Rein additiv: Ohne Zeitplan-Link ändert sich nichts.
+
+**Einrichtung**
+
+1. In beiden `.env`-Dateien dasselbe, **eigene** Secret eintragen: hier `TIMELINE_SECRET`, im Zeitplan
+   `RSVP_TIMELINE_SECRET` (mind. 32 Zeichen, z.B. `openssl rand -hex 32`, **nie** das Secret von Seating oder dem
+   Abstimmungstool - bei gleichem Wert gelten beide Anbindungen als nicht eingerichtet). Dazu hier `TIMELINE_BASE_URL`
+   (Adresse des Zeitplans).
+2. **Beide Seiten stimmen zu:** Im Zeitplan unter „Zugang für Gäste“ „Nur mit Zusage in rsvp-app“ wählen und die ID des
+   Termins eintragen (steht hier beim Bearbeiten des Termins im Abschnitt „Zeitplan“). Der Zeitplan zeigt dann den
+   Zeitplan-Link `https://…/rsvp/<zeitplan-event-id>` an, den Owner oder Admin hier beim Termin einträgt. Erst mit beiden
+   Einträgen gilt die Verknüpfung. Links mit einem anderen Origin als `TIMELINE_BASE_URL` oder anderer Form werden beim
+   Speichern abgelehnt. Gespeichert als `EventToolLink` vom Typ `timeline`.
+
+**Was passiert**
+
+* **„Zeitplan“** erscheint auf der Gästeseite, auf der Erfolgsseite und in der Bestätigungsmail - nur für eine Zusage,
+  die zählt (zugesagt, nicht auf der Warteliste, bei Double-Opt-In verifiziert; dieselbe Regel wie bei Seating). Der
+  Link zeigt auf `/api/timeline-link/[eventId]`, das die Person wie bei „Sitzplatz wählen“ nachweist (editToken genau
+  dieses Termins oder verifizierte Gast-Session, PIN) und bei **jedem Klick** einen frischen, 10 Minuten gültigen
+  `timeline-link` ausstellt, bevor es per `303` (`no-store`, `no-referrer`) auf `<Zeitplan-Link>?t=…` weiterleitet.
+  Mails verlinken nur auf diese Weiterleitung, nie auf das Token.
+* **Webhook bei jeder Änderung einer Zusage** an `POST <Zeitplan>/api/rsvp-webhook` (`rsvp-change`, gleiche Auslöser
+  wie bei Seating). `attending: false` (Absage, Warteliste, fehlende Verifizierung, Löschung) beendet im Zeitplan die
+  Gast-Sitzungen dieser Zusage.
+* Der Zeitplan meldet nichts zurück.
+
+**Vertrag** (`app/lib/timeline.ts`, Gegenstück im Zeitplan `app/lib/rsvp/token.ts`): Format wie bei allen verknüpften
+Tools, `base64url(JSON).base64url(HMAC-SHA256(payloadPart, TIMELINE_SECRET))`, höchstens 1 Stunde gültig. **Keine
+Namen, E-Mail-Adressen oder Begleitungen** - der Zeitplan braucht nur „diese Zusage gilt“.
+
+| `typ` | Richtung | Weg | Inhalt |
+| --- | --- | --- | --- |
+| `timeline-link` | rsvp-app → Zeitplan | Browser: `303` auf `<Zeitplan-Link>?t=…` | `aud`, `timelineEventId`, `rsvpEventId`, `rsvpId`, `iat`, `exp` |
+| `rsvp-change` | rsvp-app → Zeitplan | `POST <Zeitplan>/api/rsvp-webhook`, `text/plain` | wie oben plus `attending` |
 
 ## 🔐 Konto-Sicherheit
 
@@ -284,7 +330,7 @@ Anbieter und Empfänger, und jedes bleibt mit eigenen Konten vollständig allein
 ## 🧪 Tests
 
 ```bash
-npm test            # Unit-Tests (vitest): Passwort, Tokens, Drossel-IP und -Regeln, Rechte, PIN, Abstimmungs-Kopplung, Seating-Vertrag, verknüpfte Tools, Migrationen, Cron-Secret
+npm test            # Unit-Tests (vitest): Passwort, Tokens, Drossel-IP und -Regeln, Rechte, PIN, Abstimmungs-Kopplung, Seating- und Zeitplan-Vertrag, verknüpfte Tools, Migrationen, Cron-Secret
 npm run test:e2e    # Playwright gegen eine frisch gebaute Instanz auf http://127.0.0.1:3105
 ```
 
@@ -301,7 +347,8 @@ Meldung und Antwortzeit bei unbekannten Adressen, Sperre beim 11. Versuch pro E-
 Cron-Secrets, Rechte je Stufe (Owner/Admin, Moderator*in per Event- oder Reihen-Freigabe, fremdes Konto) für Export,
 Check-in, Löschen und Weitergeben, Konto-Zwang per fremdem `editToken`, PIN-Durchsetzung außerhalb der Seite, das
 Ersetzen einer Antwort samt Warteliste, die signierte Kopplung mit dem Abstimmungstool (manipulierte Signatur,
-abgelaufene Meldung, Klick-Token) sowie mit Seating und die verknüpften Tools allgemein (Übernahme alter Sitzplatz-Links,
+abgelaufene Meldung, Klick-Token) sowie mit Seating und Zeitplan (Link nur für die eigene gültige Zusage, Signatur mit
+dem eigenen Secret, Webhook nur an das verknüpfte Tool, keine Namen an den Zeitplan) und die verknüpften Tools allgemein (Übernahme alter Sitzplatz-Links,
 Webhook nur an gültig verknüpfte Tools, fremde Adressen im Termin-Formular) – jeder Angriffsfall **mit Positivkontrolle**, dass derselbe Aufruf mit Berechtigung
 wirkt.
 
