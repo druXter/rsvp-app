@@ -1,6 +1,4 @@
 // app/lib/seating.ts
-import { createHmac, timingSafeEqual } from 'crypto'
-
 /**
  * Vertrag mit Seating (Sitzplatz-Tool der Suite, eigenes Repo und Deployment - dort
  * app/lib/rsvp/token.ts und README "Anbindung an rsvp-app"). Format wie bei der Kopplung mit
@@ -21,16 +19,24 @@ import { createHmac, timingSafeEqual } from 'crypto'
  * jedem Problem null zurück statt zu werfen - "nicht gültig" ist ein normaler Zustand.
  */
 
-export const MAX_TOKEN_AGE_SECONDS = 60 * 60
-const CLOCK_SKEW_SECONDS = 60
-const MIN_SECRET_LENGTH = 32
+import {
+  REMOTE_ID, configuredTool, createSignedMessage, isRecord, parseToolUrl, resolveToolOrigin, resolveToolSecret, toolDefinition, toolLinkOf, verifyEnvelope, type ConfiguredTool, type StoredToolLink, type ToolLink
+} from './linked-tools'
+
+// Allgemeiner Teil (Format, Signatur, Konfiguration, Links) steht in app/lib/linked-tools.ts und
+// gilt für alle verknüpften Tools - hier nur, was Seating betrifft. Die Exporte unten bleiben
+// unter ihren bisherigen Namen erhalten (Vertrag und Tests beziehen sich darauf).
+export { MAX_TOKEN_AGE_SECONDS, openMessage, originOf, ownOrigin, readLimitedText, signMessage } from './linked-tools'
+
 /** Format der ids auf beiden Seiten (cuid) - identisch zur Prüfung in Seating. */
-export const SEATING_ID = /^[a-z0-9]{10,40}$/
+export const SEATING_ID = REMOTE_ID
 /** Obergrenzen wie in Seatings Schema: sonst lehnt Seating die ganze Nachricht ab. */
 const MAX_NAME = 100
 const MAX_EMAIL = 254
 const MAX_LABEL = 500
 const MAX_ENTRIES = 5000
+
+const SEATING = toolDefinition('seating')
 
 export type SeatingMessageType = 'seat-link' | 'rsvp-change' | 'guest-list-request' | 'guest-list' | 'placements'
 
@@ -50,48 +56,36 @@ export type SeatingPlacement = { rsvpId: string; label: string }
 // --- Konfiguration --------------------------------------------------------------------------
 
 /**
- * Gemeinsames Secret mit Seating (dort RSVP_SEATING_SECRET). Gilt nur mit mindestens 32 Zeichen
- * und nur, wenn es NICHT das Secret des Abstimmungstools ist - sonst ließe sich eine Nachricht
- * der einen Kopplung in der anderen einspielen. Ohne gültiges Secret ist die Anbindung aus.
+ * Gemeinsames Secret mit Seating (hier SEATING_SECRET, dort RSVP_SEATING_SECRET). Gilt nur mit
+ * mindestens 32 Zeichen und nur, wenn es weder das Secret des Abstimmungstools noch das eines
+ * anderen verknüpften Tools ist (resolveToolSecret). Ohne gültiges Secret ist die Anbindung aus.
  */
 export function seatingSecret(): string | null {
-  const value = process.env.SEATING_SECRET
-  if (!value || value.length < MIN_SECRET_LENGTH) return null
-  if (value === process.env.POLL_VERIFICATION_SECRET) return null
-  return value
-}
-
-/** Origin einer Basis-URL ("https://plaetze.example.de/" -> "https://plaetze.example.de"), null wenn ungültig. */
-export function originOf(url: string | undefined | null): string | null {
-  if (!url) return null
-  try {
-    const parsed = new URL(url)
-    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return null
-    return parsed.origin
-  } catch {
-    return null
-  }
+  return resolveToolSecret(SEATING)
 }
 
 /**
  * Der einzige Seating-Origin, den ein Sitzplatz-Link haben darf (SEATING_BASE_URL). Ohne diese
- * Vorgabe könnte jede Creator*in über die seatingUrl den Server Webhooks an beliebige Adressen
+ * Vorgabe könnte jede Creator*in über den Link den Server Webhooks an beliebige Adressen
  * schicken lassen (auch ins interne Netz) - gleiche Idee wie ABSTIMMUNGSTOOL_BASE_URL.
  */
 export function allowedSeatingOrigin(): string | null {
-  return originOf(process.env.SEATING_BASE_URL)
+  return resolveToolOrigin(SEATING)
 }
 
-/** Origin dieser App - Empfänger (aud) der Nachrichten von Seating. */
-export function ownOrigin(): string | null {
-  return originOf(process.env.BASE_URL)
+export function seatingTool(): ConfiguredTool | null {
+  return configuredTool('seating')
 }
 
 export function seatingConfigured(): boolean {
-  return seatingSecret() !== null && allowedSeatingOrigin() !== null && ownOrigin() !== null
+  return seatingTool() !== null
 }
 
 export type SeatingLink = { url: string; origin: string; seatingEventId: string }
+
+function asSeatingLink(link: ToolLink | null): SeatingLink | null {
+  return link ? { url: link.url, origin: link.origin, seatingEventId: link.remoteEventId } : null
+}
 
 /**
  * Zerlegt einen Sitzplatz-Link (`<Seating-Origin>/rsvp/<seatingEventId>`, so zeigt ihn Seating
@@ -99,58 +93,12 @@ export type SeatingLink = { url: string; origin: string; seatingEventId: string 
  * SEATING_BASE_URL ist. `url` ist die kanonische Form ohne Query/Fragment.
  */
 export function parseSeatingUrl(value: string | null | undefined, allowedOrigin = allowedSeatingOrigin()): SeatingLink | null {
-  if (!value || !allowedOrigin) return null
-  let parsed: URL
-  try {
-    parsed = new URL(value.trim())
-  } catch {
-    return null
-  }
-  if (parsed.origin !== allowedOrigin || parsed.username || parsed.password) return null
-  const segments = parsed.pathname.split('/').filter(Boolean)
-  if (segments.length !== 2 || segments[0] !== 'rsvp' || !SEATING_ID.test(segments[1])) return null
-  return { url: `${parsed.origin}/rsvp/${segments[1]}`, origin: parsed.origin, seatingEventId: segments[1] }
+  return asSeatingLink(parseToolUrl(SEATING, value, allowedOrigin))
 }
 
 /** Der Sitzplatz-Link eines Events, wenn die Anbindung eingerichtet ist und der Link gilt. */
-export function seatingLinkOf(event: { id: string; seatingUrl: string | null }): SeatingLink | null {
-  if (!seatingSecret() || !ownOrigin() || !SEATING_ID.test(event.id)) return null
-  return parseSeatingUrl(event.seatingUrl)
-}
-
-// --- Format ---------------------------------------------------------------------------------
-
-function base64url(input: Buffer | string): string {
-  return Buffer.from(input).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
-}
-
-function fromBase64url(input: string): Buffer {
-  const padded = input + '='.repeat((4 - (input.length % 4)) % 4)
-  return Buffer.from(padded.replace(/-/g, '+').replace(/_/g, '/'), 'base64')
-}
-
-function signature(payloadPart: string, secret: string): string {
-  return base64url(createHmac('sha256', secret).update(payloadPart).digest())
-}
-
-export function signMessage(payload: object, secret: string): string {
-  const payloadPart = base64url(JSON.stringify(payload))
-  return `${payloadPart}.${signature(payloadPart, secret)}`
-}
-
-/** Signatur prüfen (konstante Laufzeit) und die Nutzlast lesen - ohne inhaltliche Prüfung. */
-export function openMessage(token: unknown, secret: string): unknown {
-  if (typeof token !== 'string' || token.length > 4_000_000) return null
-  const parts = token.trim().split('.')
-  if (parts.length !== 2 || !parts[0] || !parts[1]) return null
-  const expected = Buffer.from(signature(parts[0], secret))
-  const actual = Buffer.from(parts[1])
-  if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) return null
-  try {
-    return JSON.parse(fromBase64url(parts[0]).toString('utf8'))
-  } catch {
-    return null
-  }
+export function seatingLinkOf(event: { id: string; toolLinks: StoredToolLink[] }): SeatingLink | null {
+  return asSeatingLink(toolLinkOf(event, 'seating'))
 }
 
 // --- Inhalte --------------------------------------------------------------------------------
@@ -201,10 +149,6 @@ type Content<T extends SeatingMessageType> =
 
 export type SeatingMessage<T extends SeatingMessageType> = SeatingEnvelope & { typ: T } & Content<T>
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
 function readPlacements(value: unknown): SeatingPlacement[] | null {
   if (!Array.isArray(value) || value.length > MAX_ENTRIES) return null
   const result: SeatingPlacement[] = []
@@ -234,19 +178,10 @@ function readGuest(value: Record<string, unknown>): SeatingGuest | null {
 export function verifyMessage<T extends SeatingMessageType>(
   token: unknown, type: T, options: { secret: string; audience: string; now?: Date }
 ): SeatingMessage<T> | null {
-  const raw = openMessage(token, options.secret)
-  if (!isRecord(raw) || raw.typ !== type) return null
-  const { aud, iat, exp, seatingEventId, rsvpEventId } = raw
-  if (typeof aud !== 'string' || aud !== options.audience) return null
-  if (!Number.isInteger(iat) || !Number.isInteger(exp)) return null
-  if (typeof seatingEventId !== 'string' || !SEATING_ID.test(seatingEventId)) return null
-  if (typeof rsvpEventId !== 'string' || !SEATING_ID.test(rsvpEventId)) return null
-  const now = Math.floor((options.now ?? new Date()).getTime() / 1000)
-  const issued = iat as number
-  const expires = exp as number
-  if (expires <= now || expires - now > MAX_TOKEN_AGE_SECONDS) return null
-  if (issued > now + CLOCK_SKEW_SECONDS || issued > expires) return null
-  const envelope = { typ: type, aud, iat: issued, exp: expires, seatingEventId, rsvpEventId }
+  const verified = verifyEnvelope(token, type, { ...options, remoteIdField: SEATING.remoteIdField })
+  if (!verified) return null
+  const { raw, envelope: { aud, iat, exp, remoteEventId, rsvpEventId } } = verified
+  const envelope = { typ: type, aud, iat, exp, seatingEventId: remoteEventId, rsvpEventId }
 
   let content: object | null
   switch (type) {
@@ -285,37 +220,28 @@ export function createMessage<T extends SeatingMessageType>(
   secret: string,
   options: { now?: Date; ttlSeconds?: number } = {}
 ): string {
-  const iat = Math.floor((options.now ?? new Date()).getTime() / 1000)
-  const ttl = Math.min(options.ttlSeconds ?? 600, MAX_TOKEN_AGE_SECONDS)
-  return signMessage({ typ: type, ...content, iat, exp: iat + ttl }, secret)
+  return createSignedMessage(type, content, secret, options)
 }
 
-// --- HTTP -----------------------------------------------------------------------------------
-
 /**
- * Liest den Body höchstens bis `max` Bytes - null, wenn er größer ist. Content-Length allein
- * reicht nicht (fehlt bei chunked Übertragung oder lügt), deshalb wird der Stream mitgezählt.
+ * Inhalt des Webhooks "rsvp-change" an Seating (verschickt von app/lib/linked-tools-notify.ts):
+ * die Angaben der Zusage und ob sie bei Seating zählt - nach dem Löschen immer attending false.
  */
-export async function readLimitedText(request: Request, max: number): Promise<string | null> {
-  const declared = Number(request.headers.get('content-length') ?? 0)
-  if (Number.isFinite(declared) && declared > max) return null
-  if (!request.body) return ''
-  const reader = request.body.getReader()
-  const chunks: Uint8Array[] = []
-  let size = 0
-  try {
-    for (;;) {
-      const { done, value } = await reader.read()
-      if (done) break
-      size += value.byteLength
-      if (size > max) {
-        await reader.cancel().catch(() => {})
-        return null
-      }
-      chunks.push(value)
-    }
-  } catch {
-    return null
-  }
-  return Buffer.concat(chunks).toString('utf8')
+export function seatingRsvpChange(input: {
+  link: ToolLink
+  secret: string
+  rsvpEventId: string
+  rsvp: { id: string; isAttending: boolean; isOnWaitlist: boolean; plusOne: boolean; plusOneName: string | null }
+  participant: { name: string; email: string | null; isVerified: boolean }
+  requireVerification: boolean
+  deleted: boolean
+}): string {
+  const attending = !input.deleted && isSeatingConfirmed(input.rsvp, input.participant, input.requireVerification)
+  return createMessage('rsvp-change', {
+    aud: input.link.origin,
+    seatingEventId: input.link.remoteEventId,
+    rsvpEventId: input.rsvpEventId,
+    ...guestOf(input.rsvp, input.participant),
+    attending
+  }, input.secret)
 }

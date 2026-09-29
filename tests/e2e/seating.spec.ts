@@ -4,7 +4,7 @@ import { expect, test, type APIRequestContext, type Page } from '@playwright/tes
 import type { Event, User } from '@prisma/client'
 import {
   BASE_URL, SEATING_PORT, TEST_SEATING_BASE_URL, TEST_SEATING_SECRET, cookieHeader, createAccount, createEvent,
-  createGuestUser, createRsvp, createSeries, createTermin, decodeCouplingToken, locationOf, login, plantGuestSession,
+  createGuestUser, createRsvp, createSeries, createTermin, decodeCouplingToken, linkTool, locationOf, login, plantGuestSession,
   prisma, readForm, signCouplingToken, submitForm, unique, unlockPin
 } from './helpers'
 
@@ -41,7 +41,8 @@ const sign = (payload: object, secret = TEST_SEATING_SECRET) => signCouplingToke
 
 async function linkedEvent(owner: User, data: Partial<Event> = {}) {
   const id = seatingId()
-  const event = await createEvent(owner, { seatingUrl: seatingUrlFor(id), ...data })
+  const event = await createEvent(owner, data)
+  await linkTool(event, 'seating', seatingUrlFor(id))
   return { event, seatingEventId: id }
 }
 
@@ -124,7 +125,8 @@ test.describe('Sitzplatz wählen (/api/seating-link)', () => {
     const owner = await createAccount('CREATOR')
     const series = await createSeries(owner, { eventPin: '1357' })
     const id = seatingId()
-    const termin = await createTermin(series, { seatingUrl: seatingUrlFor(id) })
+    const termin = await createTermin(series)
+    await linkTool(termin, 'seating', seatingUrlFor(id))
     const guest = await createGuestUser()
     const { rsvp } = await createRsvp(termin, { guestUserId: guest.id })
 

@@ -14,7 +14,7 @@ import { formPassword } from '../lib/form'
 import { hasEventPinAccess, hasSeriesPinAccess } from '../lib/pin'
 import { clearFailures, clientIp, loginRules, passwordChangeRule, refund, registerRules, reserve, resetRules } from '../lib/throttle'
 import { generateApiToken, hashApiToken, NEW_API_TOKEN_COOKIE } from '../lib/api-auth'
-import { notifySeatingBeforeDelete, notifySeatingOfParticipants } from '../lib/seating-notify'
+import { notifyLinkedToolsBeforeDelete, notifyLinkedToolsOfParticipants } from '../lib/linked-tools-notify'
 
 const prisma = new PrismaClient()
 
@@ -328,9 +328,9 @@ export async function updateGuestProfile(formData: FormData) {
 
   await prisma.guestUser.update({ where: { id: guestUser.id }, data: { name, phone, dietaryOption, allergies } })
   await prisma.participant.updateMany({ where: { guestUserId: guestUser.id }, data: { name, phone, dietaryOption, allergies } })
-  // Der Name geht auch an ein verknüpftes Seating (künftige Termine)
+  // Der Name geht auch an verknüpfte Tools wie Seating (künftige Termine)
   const participants = await prisma.participant.findMany({ where: { guestUserId: guestUser.id }, select: { id: true } })
-  notifySeatingOfParticipants(participants.map(p => p.id))
+  notifyLinkedToolsOfParticipants(participants.map(p => p.id))
 
   revalidatePath('/mein-konto')
 }
@@ -411,7 +411,7 @@ export async function revokeApiToken(formData: FormData) {
 export async function deleteGuestAccount() {
   const guestUser = await requireGuestUser()
 
-  await notifySeatingBeforeDelete({ participant: { guestUserId: guestUser.id } })
+  await notifyLinkedToolsBeforeDelete({ participant: { guestUserId: guestUser.id } })
   await prisma.rsvp.deleteMany({ where: { participant: { guestUserId: guestUser.id } } })
   await prisma.participantPushSubscription.deleteMany({ where: { participant: { guestUserId: guestUser.id } } })
   await prisma.participant.deleteMany({ where: { guestUserId: guestUser.id } })

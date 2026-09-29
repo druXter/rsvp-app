@@ -1,17 +1,19 @@
 // app/lib/seating-sync.ts
 import { prisma } from './prisma'
-import { guestOf, isSeatingConfirmed, seatingLinkOf, type SeatingEnvelope, type SeatingGuest, type SeatingPlacement } from './seating'
+import { guestOf, isSeatingConfirmed, seatingLinkOf, type SeatingEnvelope, type SeatingGuest, type SeatingLink, type SeatingPlacement } from './seating'
+import { TOOL_LINKS } from './linked-tools-store'
 
 /**
  * Datenbankseite der beiden Endpunkte, die Seating aufruft (app/api/seating/guest-list und
  * app/api/seating/placements). Beide gehen ausschließlich über linkedEvent: Ein Event wird nur
- * herausgegeben bzw. verändert, wenn SEINE seatingUrl auf genau die anfragende seatingEventId
+ * herausgegeben bzw. verändert, wenn SEINE Verknüpfung mit Seating (EventToolLink, Typ
+ * "seating") auf genau die anfragende seatingEventId
  * zeigt - eine gültig signierte Nachricht mit einer fremden rsvpEventId reicht nicht (beide
  * Seiten müssen die Verknüpfung eingetragen haben).
  */
 
 export async function linkedEvent(message: SeatingEnvelope) {
-  const event = await prisma.event.findUnique({ where: { id: message.rsvpEventId }, include: { series: true } })
+  const event = await prisma.event.findUnique({ where: { id: message.rsvpEventId }, include: { series: true, toolLinks: TOOL_LINKS } })
   if (!event) return null
   const link = seatingLinkOf(event)
   if (!link || link.seatingEventId !== message.seatingEventId) return null
@@ -45,11 +47,14 @@ export async function confirmedGuests(event: LinkedEvent): Promise<SeatingGuest[
  * älter ist als die zuletzt angewandte (iat), wird ignoriert - Seating schickt nach jeder
  * Änderung den ganzen Stand, eine verspätet eintreffende alte Meldung darf ihn nicht zurückdrehen.
  */
-export async function applyPlacements(event: LinkedEvent, placements: SeatingPlacement[], iat: number): Promise<'applied' | 'stale'> {
+export async function applyPlacements(event: LinkedEvent, link: SeatingLink, placements: SeatingPlacement[], iat: number): Promise<'applied' | 'stale'> {
   const sentAt = new Date(iat * 1000)
+  const where = { eventId_type: { eventId: event.id, type: 'seating' } }
   return prisma.$transaction(async tx => {
-    const current = await tx.event.findUnique({ where: { id: event.id }, select: { seatingPlacementsAt: true } })
-    if (current?.seatingPlacementsAt && sentAt < current.seatingPlacementsAt) return 'stale'
+    // Stand der Verknüpfung erst hier lesen: Wurde sie inzwischen geändert oder entfernt, gilt die Meldung nicht mehr
+    const current = await tx.eventToolLink.findUnique({ where, select: { url: true, syncedAt: true } })
+    if (!current || current.url !== link.url) return 'stale'
+    if (current.syncedAt && sentAt < current.syncedAt) return 'stale'
 
     const own = new Set((await tx.rsvp.findMany({ where: { eventId: event.id }, select: { id: true } })).map(r => r.id))
     const labels = new Map<string, string>()
@@ -65,7 +70,7 @@ export async function applyPlacements(event: LinkedEvent, placements: SeatingPla
     for (const [label, ids] of byLabel) {
       await tx.rsvp.updateMany({ where: { eventId: event.id, id: { in: ids } }, data: { seatingLabel: label } })
     }
-    await tx.event.update({ where: { id: event.id }, data: { seatingPlacementsAt: sentAt } })
+    await tx.eventToolLink.update({ where, data: { syncedAt: sentAt } })
     return 'applied'
   })
 }

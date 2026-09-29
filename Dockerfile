@@ -22,4 +22,4 @@ RUN npm run build
 EXPOSE 3005
 
 # Beim Starten des Containers: Datenbank-Struktur sicherstellen und App starten
-CMD ["sh", "-c", "npx prisma db push && node migrate-token-hashes.js && npm start"]
+CMD ["sh", "-c", "npx prisma db push && node migrate-token-hashes.js && node migrate-tool-links.js && npm start"]

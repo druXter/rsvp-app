@@ -152,8 +152,8 @@ model Event {
   // jeden anderen Aufrufer (nicht eingeloggt, unverifiziert) führt derselbe Link
   // einfach ohne Token zur Abstimmung - das Abstimmungstool selbst entscheidet, ob
   // das für diese eine Abstimmung reicht oder nicht.
-  pollUrl   String?
-  pollLabel String?
+  pollUrl    String?
+  pollLabel  String?
   // Zwischengespeichertes Ergebnis einer verknüpften Abstimmung, gesetzt vom eingehenden
   // Webhook aus abstimmungstool sobald die Abstimmung schließt (siehe
   // app/api/poll-result-webhook/route.ts) - JSON-String `{pollTitle, winners: [{label,
@@ -162,13 +162,16 @@ model Event {
   // bestehenden pollUrl-Link (siehe app/[slug]/page.tsx), ändert an dessen Verhalten nichts.
   pollResult String?
 
-  // Optionaler Sitzplatz-Link zu Seating (Sitzplatz-Tool der Suite, eigenes Repo/Deployment -
-  // siehe app/lib/seating.ts und dessen README "Anbindung an rsvp-app"), Form
-  // `<Seating-Origin>/rsvp/<seatingEventId>`, pro Termin wie pollUrl. Der Origin muss
-  // SEATING_BASE_URL sein. Rein additiv: ohne seatingUrl ändert sich nichts.
-  seatingUrl String?
-  // iat der zuletzt angewandten Platzierungs-Meldung aus Seating - eine ältere Meldung, die
-  // erst später ankommt, überschreibt so keinen neueren Stand (app/api/seating/placements).
+  // Verknüpfungen mit anderen Tools der Suite (Seating, später Zeitplan) - höchstens eine je
+  // Tool-Typ, siehe EventToolLink.
+  toolLinks EventToolLink[]
+
+  // VERALTET, nur noch für die Migration: Sitzplatz-Link und Platzierungs-Stand von Seating
+  // standen früher hier. migrate-tool-links.js hat sie einmalig nach EventToolLink (type
+  // "seating", url/syncedAt) kopiert; seitdem liest und schreibt die App sie nicht mehr. Sie
+  // bleiben vorerst stehen, damit ein Rollback auf die vorherige Version die Links noch hat
+  // (mit dem Stand zum Zeitpunkt der Migration) - entfernen in einem späteren Release.
+  seatingUrl          String?
   seatingPlacementsAt DateTime?
 
   ownerId String
@@ -414,4 +417,31 @@ model LoginThrottle {
   key         String   @id
   count       Int
   windowStart DateTime
+}
+
+// Verknüpfung eines Termins mit einem anderen, eigenständigen Tool der Suite ("Anbindung", siehe
+// app/lib/linked-tools.ts) - höchstens eine je Termin und Tool-Typ. Rein additiv: ohne Zeile
+// ändert sich nichts. Adresse und Secret des Tools stehen nie hier, sondern nur in der .env
+// (<PREFIX>_BASE_URL, <PREFIX>_SECRET); bei jeder Verwendung wird der Link erneut gegen diese
+// Konfiguration geprüft. Wird mit dem Event gelöscht (onDelete: Cascade).
+model EventToolLink {
+  id            String    @id @default(cuid())
+  eventId       String
+  event         Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  // Tool-Typ aus app/lib/linked-tools.ts ("seating", Phase 7b "timeline") - unbekannte Typen
+  // werden ignoriert.
+  type          String
+  // Kanonischer Link auf das Event beim Tool, `<Origin des Tools>/<Segment>/<remoteEventId>`
+  // (Seating: `<SEATING_BASE_URL>/rsvp/<seatingEventId>`).
+  url           String
+  // Event-ID beim Tool (aus url abgeleitet) - muss bei jeder Verwendung zu url passen.
+  remoteEventId String
+  // iat der zuletzt angewandten Vollstand-Meldung des Tools (Seating: Platzierungen, siehe
+  // app/api/seating/placements) - eine ältere Meldung, die später ankommt, überschreibt so
+  // keinen neueren Stand. Wird bei einer Änderung des Links geleert.
+  syncedAt      DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([eventId, type])
 }

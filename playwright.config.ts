@@ -39,8 +39,8 @@ export default defineConfig({
   webServer: {
     // Datenbank bei jedem Lauf frisch anlegen (nur die eigene Testdatei löschen - bewusst kein
     // `prisma db push --force-reset`, das bei falsch gesetzter DATABASE_URL eine fremde
-    // Datenbank leeren würde), dann wie in Produktion bauen und starten.
-    command: `rm -f prisma/test.db prisma/test.db-journal && npx prisma db push --skip-generate && npx next build && npx next start -H 127.0.0.1 -p ${PORT}`,
+    // Datenbank leeren würde), wie im Container migrieren, dann wie in Produktion bauen und starten.
+    command: `rm -f prisma/test.db prisma/test.db-journal && npx prisma db push --skip-generate && node migrate-token-hashes.js && node migrate-tool-links.js && npx next build && npx next start -H 127.0.0.1 -p ${PORT}`,
     url: `${BASE_URL}/impressum`,
     reuseExistingServer: false,
     timeout: 240_000,

@@ -6,7 +6,8 @@ import { sendConfirmationEmail, sendVerificationEmail, sendWaitlistPromotedEmail
 import { generateCheckinQrDataUrl } from './qrcode'
 import { sendPushToUser, sendConfirmationPush } from './push'
 import { notifyPollOfAttendanceChange } from './poll-notify'
-import { notifySeatingOfRsvps } from './seating-notify'
+import { notifyLinkedToolsOfRsvps } from './linked-tools-notify'
+import { TOOL_LINKS } from './linked-tools-store'
 import { isSeatingConfirmed, seatingLinkOf } from './seating'
 import { hasEventPinAccess } from './pin'
 
@@ -82,7 +83,7 @@ export async function performRsvpSubmission(
 
   const event = await prisma.event.findUnique({
     where: { id: eventId },
-    include: { rsvps: true, series: true }
+    include: { rsvps: true, series: true, toolLinks: TOOL_LINKS }
   })
   if (!event) throw new Error('Event nicht gefunden')
 
@@ -342,9 +343,9 @@ export async function performRsvpSubmission(
     console.error("Fehler bei der Abstimmungs-Benachrichtigung:", error)
   }
 
-  // Verknüpftes Seating (falls vorhanden) über die Änderung informieren - diese Zusage und
-  // einen evtl. Nachrücker. Läuft erst nach der Antwort (siehe seating-notify.ts).
-  notifySeatingOfRsvps([savedRsvp.id, promotedRsvpId])
+  // Verknüpfte Tools (z.B. Seating) über die Änderung informieren - diese Zusage und
+  // einen evtl. Nachrücker. Läuft erst nach der Antwort (siehe linked-tools-notify.ts).
+  notifyLinkedToolsOfRsvps([savedRsvp.id, promotedRsvpId])
 
   // E-Mail Logik für den GAST
   if (participant.email && savedRsvp.isAttending) {

@@ -11,7 +11,7 @@ const MAX_BODY = 20_000
  * Gästeliste für Seating (typ "guest-list-request" -> Antwort "guest-list", siehe
  * app/lib/seating.ts). Seating fragt signiert an, wir antworten signiert mit allen Zusagen des
  * Termins, die dort zählen. Ungültige Signatur, falsche Art, falscher Empfänger oder abgelaufen:
- * 401. Gültig, aber das Event gibt es nicht oder seine seatingUrl zeigt nicht auf genau diese
+ * 401. Gültig, aber das Event gibt es nicht oder seine Seating-Verknüpfung zeigt nicht auf genau diese
  * seatingEventId: 404 - Daten eines nicht so verknüpften Events gehen nie heraus.
  */
 export async function POST(request: Request) {

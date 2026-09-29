@@ -3,7 +3,7 @@ import nodemailer from 'nodemailer'
 import { createEvent, DateArray } from 'ics'
 import { Event, EventSeries, GuestUser, Participant, Rsvp, User } from '@prisma/client'
 import { generateCheckinQrBuffer } from './qrcode'
-import { seatingLinkOf } from './seating'
+import { findToolLink } from './linked-tools-store'
 
 // Den Mail-Transporter mit den Daten aus der .env initialisieren
 const transporter = nodemailer.createTransport({
@@ -131,7 +131,7 @@ export async function sendConfirmationEmail(participant: Participant, rsvp: Rsvp
 
   // "Sitzplatz wählen" (Seating): frisch ausgestellt erst beim Klick, siehe
   // app/api/seating-link/[eventId]/route.ts - die Mail trägt nur den persönlichen editToken.
-  const seatLink = rsvp.isAttending && !rsvp.isOnWaitlist && seatingLinkOf(event)
+  const seatLink = rsvp.isAttending && !rsvp.isOnWaitlist && await findToolLink(event.id, 'seating')
     ? `${baseUrl()}/api/seating-link/${event.id}?token=${encodeURIComponent(participant.editToken)}`
     : null
 

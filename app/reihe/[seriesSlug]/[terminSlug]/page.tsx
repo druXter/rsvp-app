@@ -9,6 +9,7 @@ import GuestRequiredGate from '../../../[slug]/guest-required-gate'
 import PollResultBanner from '../../../ui/poll-result-banner'
 import { getCurrentGuestUser } from '../../../lib/guest-auth'
 import { isSeatingConfirmed, seatingLinkOf } from '../../../lib/seating'
+import { TOOL_LINKS } from '../../../lib/linked-tools-store'
 
 const prisma = new PrismaClient()
 
@@ -39,7 +40,7 @@ export default async function SeriesEventPage({
   const series = await prisma.eventSeries.findUnique({ where: { slug: seriesSlug } })
   if (!series) notFound()
 
-  const event = await prisma.event.findFirst({ where: { slug: terminSlug, seriesId: series.id } })
+  const event = await prisma.event.findFirst({ where: { slug: terminSlug, seriesId: series.id }, include: { toolLinks: TOOL_LINKS } })
   if (!event) notFound()
 
   // Zugangsprüfung über die reihenweite PIN (gilt für alle Termine der Reihe)

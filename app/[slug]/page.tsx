@@ -7,6 +7,7 @@ import GuestRequiredGate from './guest-required-gate'
 import PollResultBanner from '../ui/poll-result-banner'
 import { getCurrentGuestUser } from '../lib/guest-auth'
 import { isSeatingConfirmed, seatingLinkOf } from '../lib/seating'
+import { TOOL_LINKS } from '../lib/linked-tools-store'
 
 const prisma = new PrismaClient()
 
@@ -37,7 +38,7 @@ export default async function EventPage({
 
   const event = await prisma.event.findUnique({
     where: { slug: slug },
-    include: { series: true }
+    include: { series: true, toolLinks: TOOL_LINKS }
   })
 
   if (!event) notFound()

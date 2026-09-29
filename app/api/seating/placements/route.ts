@@ -30,7 +30,7 @@ export async function POST(request: Request) {
   const linked = await linkedEvent(message)
   if (!linked) return NextResponse.json({ error: 'not linked' }, { status: 404 })
 
-  const outcome = await applyPlacements(linked.event, message.placements, message.iat)
+  const outcome = await applyPlacements(linked.event, linked.link, message.placements, message.iat)
   if (outcome === 'applied') {
     revalidatePath(`/${linked.event.slug}`)
     if (linked.event.series) revalidatePath(`/reihe/${linked.event.series.slug}/${linked.event.slug}`)

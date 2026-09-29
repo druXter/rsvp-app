@@ -22,7 +22,7 @@ export async function GET(request: Request) {
 
   const event = await prisma.event.findUnique({
     where: { id: eventId },
-    include: { rsvps: { include: { participant: true } }, series: true }
+    include: { rsvps: { include: { participant: true } }, series: true, toolLinks: { select: { type: true } } }
   })
 
   if (!event || !(await hasEventModeratorOrAbove(user, event))) return new NextResponse("Event nicht gefunden", { status: 404 })
@@ -30,7 +30,7 @@ export async function GET(request: Request) {
   const requireVerification = event.series ? event.series.requireVerification : event.requireVerification
   const customQuestions: string[] = event.formConfig ? (JSON.parse(event.formConfig).customQuestions || []) : []
   // Platz aus Seating nur als Spalte, wenn der Termin verknüpft ist (siehe app/api/seating/placements)
-  const withSeating = !!event.seatingUrl
+  const withSeating = event.toolLinks.some(l => l.type === 'seating')
 
   // CSV-Kopfzeile definieren (NEU: Spalte 'Verifizierung' hinzugefügt)
   const rows = [

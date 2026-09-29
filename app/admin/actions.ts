@@ -15,8 +15,8 @@ import { formPassword, formString } from '../lib/form'
 import { clearFailures, clientIp, loginRules, passwordChangeRule, refund, reserve, resetRules } from '../lib/throttle'
 import { isOwnerOrAdmin, hasEventModeratorOrAbove, hasSeriesModeratorOrAbove } from '../lib/permissions'
 import { sendReminderPush, sendEventChangedPush } from '../lib/push'
-import { allowedSeatingOrigin, parseSeatingUrl } from '../lib/seating'
-import { notifySeatingBeforeDelete, notifySeatingOfRsvps } from '../lib/seating-notify'
+import { readToolLinks, saveToolLinks } from '../lib/linked-tools-store'
+import { notifyLinkedToolsBeforeDelete, notifyLinkedToolsOfRsvps } from '../lib/linked-tools-notify'
 import { deleteOrphanedParticipants } from '../lib/participants'
 
 const prisma = new PrismaClient()
@@ -47,40 +47,6 @@ function readPollLink(formData: FormData): { pollUrl: string | null; pollLabel: 
     pollUrl: pollUrlInput || null,
     pollLabel: pollLabelInput || null
   }
-}
-
-/**
- * Liest den optionalen Sitzplatz-Link zu Seating (Event.seatingUrl, siehe app/lib/seating.ts) -
- * leer wird zu null, sonst wird er in die kanonische Form `<Seating-Origin>/rsvp/<id>` gebracht.
- * Ein Link, der nicht genau diese Form hat oder nicht auf SEATING_BASE_URL zeigt, wird
- * abgelehnt statt still gespeichert: sonst ginge "Sitzplatz wählen" ins Leere, und über den
- * Origin könnte man den Server Webhooks an beliebige Adressen schicken lassen.
- */
-function readSeatingLink(formData: FormData): string | null | undefined {
-  // Das Feld erscheint nur, wenn die Anbindung eingerichtet ist - fehlt es, bleibt ein bereits
-  // gespeicherter Link unverändert (undefined = Prisma lässt die Spalte in Ruhe), statt bei
-  // vorübergehend fehlender Konfiguration still gelöscht zu werden.
-  if (!formData.has('seatingUrl')) return undefined
-  const input = (formData.get('seatingUrl') as string || '').trim()
-  if (!input) return null
-  if (!allowedSeatingOrigin()) {
-    throw new Error('Die Anbindung an Seating ist auf diesem Server nicht eingerichtet (SEATING_BASE_URL, SEATING_SECRET) - bitte das Feld "Sitzplatz-Link" leer lassen.')
-  }
-  const link = parseSeatingUrl(input)
-  if (!link) {
-    throw new Error(`Ungültiger Sitzplatz-Link. Erwartet wird der Link aus den Seating-Einstellungen des Events, also ${allowedSeatingOrigin()}/rsvp/<Event-ID>.`)
-  }
-  return link.url
-}
-
-/**
- * Hat sich der Sitzplatz-Link geändert (anderes Seating-Event oder entfernt), gelten die bisher
- * gemeldeten Plätze nicht mehr - sie werden geleert, bis das neue Seating-Event seinen Stand meldet.
- */
-async function resetSeatingIfRelinked(eventId: string, previous: string | null, next: string | null | undefined) {
-  if (next === undefined || previous === next) return
-  await prisma.rsvp.updateMany({ where: { eventId, seatingLabel: { not: null } }, data: { seatingLabel: null } })
-  await prisma.event.update({ where: { id: eventId }, data: { seatingPlacementsAt: null } })
 }
 
 /**
@@ -449,7 +415,8 @@ export async function createEvent(formData: FormData) {
   // deshalb bewusst NICHT in updateEvent vor.
   const requireGuestUser = formData.get('requireGuestUser') === 'on'
   const { pollUrl, pollLabel } = readPollLink(formData)
-  const seatingUrl = readSeatingLink(formData)
+  // Verknüpfte Tools (Seating, siehe app/lib/linked-tools-store.ts) - wirft bei ungültigem Link, bevor etwas angelegt ist
+  const toolLinks = readToolLinks(formData)
 
   // Abfrage-Optionen für die Gäste als JSON-String speichern
   const formConfig = JSON.stringify({
@@ -466,7 +433,7 @@ export async function createEvent(formData: FormData) {
   // Den URL-Slug normalisieren (nur Kleinbuchstaben und Bindestriche)
   const slug = slugInput.toLowerCase().replace(/[^a-z0-9-]/g, '-')
 
-  await prisma.event.create({
+  const created = await prisma.event.create({
     data: {
       ownerId: user.id,
       title,
@@ -485,10 +452,10 @@ export async function createEvent(formData: FormData) {
       enableCheckin,
       requireGuestUser,
       pollUrl,
-      pollLabel,
-      seatingUrl
+      pollLabel
     }
   })
+  await saveToolLinks(created.id, toolLinks)
 
   // Cache leeren und zum Dashboard umleiten
   revalidatePath('/admin')
@@ -507,8 +474,8 @@ export async function deleteEvent(formData: FormData) {
   const event = await prisma.event.findUnique({ where: { id } })
   if (!event || !isOwnerOrAdmin(user, event.ownerId)) return
 
-  // Seating (falls verknüpft) erfährt, dass diese Zusagen wegfallen - vor dem Löschen gelesen
-  await notifySeatingBeforeDelete({ eventId: id })
+  // Verknüpfte Tools (z.B. Seating) erfahren, dass diese Zusagen wegfallen - vor dem Löschen gelesen
+  await notifyLinkedToolsBeforeDelete({ eventId: id })
   const affectedParticipants = await prisma.rsvp.findMany({ where: { eventId: id }, select: { participantId: true } })
 
   // 1. Zuerst alle verknüpften Antworten (Gäste) und geteilten Zugriffsrechte löschen,
@@ -559,7 +526,7 @@ export async function updateEvent(formData: FormData) {
   const enableCheckin = formData.get('enableCheckin') === 'on'
   const notifyGuests = formData.get('notifyGuests') === 'on'
   const { pollUrl, pollLabel } = readPollLink(formData)
-  const seatingUrl = readSeatingLink(formData)
+  const toolLinks = readToolLinks(formData)
 
   const formConfig = JSON.stringify({
     askEmail: formData.get('askEmail') === 'on',
@@ -598,11 +565,11 @@ export async function updateEvent(formData: FormData) {
       enableCheckin,
       pollUrl,
       pollLabel,
-      seatingUrl,
       ...(changes.length > 0 ? { icsSequence: { increment: 1 } } : {})
     }
   })
-  await resetSeatingIfRelinked(id, existingEvent.seatingUrl, seatingUrl)
+  // Geänderter oder entfernter Link leert, was das bisherige Tool-Event gemeldet hat (z.B. Plätze)
+  await saveToolLinks(id, toolLinks)
 
   // Nach dem Speichern prüfen, ob durch eine Erhöhung der maxCapacity Leute nachrücken dürfen
   await triggerWaitlistPromotion(id)
@@ -627,7 +594,7 @@ export async function deleteRsvp(formData: FormData) {
   const rsvpToDelete = await prisma.rsvp.findUnique({ where: { id }, include: { event: true } })
   if (!rsvpToDelete || !(await hasEventModeratorOrAbove(user, rsvpToDelete.event))) return
 
-  await notifySeatingBeforeDelete({ id })
+  await notifyLinkedToolsBeforeDelete({ id })
   await prisma.rsvp.delete({
     where: { id }
   })
@@ -685,7 +652,7 @@ export async function updateAdminRsvp(formData: FormData) {
   })
 
   // Name/Adresse/Begleitung/Zu-/Absage können sich geändert haben
-  notifySeatingOfRsvps([id])
+  notifyLinkedToolsOfRsvps([id])
 
   // Wenn du als Admin jemanden nachträglich von "Kommt" auf "Kommt nicht" setzt:
   if (existingRsvp.isAttending && !existingRsvp.isOnWaitlist && !isAttending) {
@@ -714,7 +681,7 @@ export async function promoteFromWaitlist(formData: FormData) {
     where: { id },
     data: { isOnWaitlist: false }
   })
-  notifySeatingOfRsvps([id])
+  notifyLinkedToolsOfRsvps([id])
 
   // Erfolgs-Mails senden
   if (rsvp.participant.email) {
@@ -761,7 +728,7 @@ async function triggerWaitlistPromotion(eventId: string) {
       where: { id: nextInLine.id },
       data: { isOnWaitlist: false }
     })
-    notifySeatingOfRsvps([promotedRsvp.id])
+    notifyLinkedToolsOfRsvps([promotedRsvp.id])
 
     if (nextInLine.participant.email) {
       await sendWaitlistPromotedEmail(nextInLine.participant, promotedRsvp, event);
@@ -922,7 +889,7 @@ export async function deleteEventSeries(formData: FormData) {
   const events = await prisma.event.findMany({ where: { seriesId: id }, select: { id: true } })
   const eventIds = events.map(e => e.id)
 
-  await notifySeatingBeforeDelete({ eventId: { in: eventIds } })
+  await notifyLinkedToolsBeforeDelete({ eventId: { in: eventIds } })
   await prisma.rsvp.deleteMany({ where: { eventId: { in: eventIds } } })
   await prisma.resourceAccess.deleteMany({ where: { OR: [{ seriesId: id }, { eventId: { in: eventIds } }] } })
   await prisma.event.deleteMany({ where: { seriesId: id } })
@@ -1020,7 +987,7 @@ export async function updateSeriesTermin(formData: FormData) {
   const enableCheckin = formData.get('enableCheckin') === 'on'
   const notifyGuests = formData.get('notifyGuests') === 'on'
   const { pollUrl, pollLabel } = readPollLink(formData)
-  const seatingUrl = readSeatingLink(formData)
+  const toolLinks = readToolLinks(formData)
 
   const formConfig = JSON.stringify({
     askEmail: false,
@@ -1042,11 +1009,12 @@ export async function updateSeriesTermin(formData: FormData) {
     where: { id },
     data: {
       title, slug, date, location, description, duration, formConfig, autoReminder, reminderDays, maxCapacity, enableCheckin,
-      pollUrl, pollLabel, seatingUrl,
+      pollUrl, pollLabel,
       ...(changes.length > 0 ? { icsSequence: { increment: 1 } } : {})
     }
   })
-  await resetSeatingIfRelinked(id, existingEvent.seatingUrl, seatingUrl)
+  // Geänderter oder entfernter Link leert, was das bisherige Tool-Event gemeldet hat (z.B. Plätze)
+  await saveToolLinks(id, toolLinks)
 
   await triggerWaitlistPromotion(id)
 
@@ -1250,7 +1218,7 @@ export async function deleteUser(formData: FormData) {
   const ownEvents = await prisma.event.findMany({ where: { ownerId: targetId }, select: { id: true } })
   const eventIds = ownEvents.map(e => e.id)
 
-  await notifySeatingBeforeDelete({ eventId: { in: eventIds } })
+  await notifyLinkedToolsBeforeDelete({ eventId: { in: eventIds } })
   const affectedParticipants = await prisma.rsvp.findMany({ where: { eventId: { in: eventIds } }, select: { participantId: true } })
   await prisma.rsvp.deleteMany({ where: { eventId: { in: eventIds } } })
   await prisma.resourceAccess.deleteMany({

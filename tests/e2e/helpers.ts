@@ -113,6 +113,16 @@ export async function createTermin(series: EventSeries, data: Partial<Omit<Event
   })
 }
 
+/**
+ * Verknüpft einen Termin mit einem Tool (EventToolLink, siehe app/lib/linked-tools.ts), wie es
+ * saveToolLinks nach dem Speichern im Formular tut - `type` bewusst als string, damit Tests auch
+ * unbekannte Typen anlegen können.
+ */
+export async function linkTool(event: Event, type: string, url: string) {
+  const remoteEventId = new URL(url).pathname.split('/').filter(Boolean).pop() ?? ''
+  return prisma.eventToolLink.create({ data: { eventId: event.id, type, url, remoteEventId } })
+}
+
 /** Legt direkt in der Datenbank eine Antwort samt Participant an (wie nach einem abgeschickten Formular). */
 export async function createRsvp(
   event: Event,
