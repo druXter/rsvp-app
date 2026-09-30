@@ -1236,3 +1236,33 @@ export async function deleteUser(formData: FormData) {
 
   revalidatePath('/admin/users')
 }
+
+/**
+ * "Neue Adresse jetzt bestätigen" auf /admin/confirm-email (zweiter Schritt von
+ * requestEmailChange). Berechtigt ist, wer den an die NEUE Adresse verschickten Token kennt -
+ * wie bei resetPassword ohne Sitzung. Nicht schon beim Öffnen des Links: Link-Scanner von
+ * Mail-Anbietern rufen Links automatisch ab, und sonst könnte jemand sein Konto auf eine fremde
+ * Adresse umstellen, ohne dass deren Besitzer*in etwas tut. Token atomar verbraucht.
+ */
+export async function confirmEmailChange(formData: FormData) {
+  const token = formData.get('token')
+  if (typeof token !== 'string' || !token) redirect('/admin/confirm-email?error=invalid')
+
+  const user = await prisma.user.findUnique({ where: { emailChangeToken: hashToken(token) } })
+  if (!user || !user.pendingEmail || !user.emailChangeTokenExpiresAt || user.emailChangeTokenExpiresAt < new Date()) {
+    redirect('/admin/confirm-email?error=invalid')
+  }
+
+  let claimed
+  try {
+    claimed = await prisma.user.updateMany({
+      where: { id: user.id, emailChangeToken: hashToken(token) },
+      data: { email: user.pendingEmail, pendingEmail: null, emailChangeToken: null, emailChangeTokenExpiresAt: null }
+    })
+  } catch {
+    // Die Wunsch-Adresse wurde inzwischen von einem anderen Konto belegt (Unique-Constraint)
+    redirect('/admin/confirm-email?error=taken')
+  }
+  if (claimed.count !== 1) redirect('/admin/confirm-email?error=invalid')
+  redirect('/admin/confirm-email?done=1')
+}

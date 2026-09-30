@@ -425,3 +425,52 @@ export async function deleteGuestAccount() {
 
   redirect('/mein-konto/login')
 }
+
+/**
+ * "Konto jetzt bestätigen" auf /mein-konto/verify. Der Mail-Link selbst ändert nichts - erst
+ * dieses Formular, weil Link-Scanner von Mail-Anbietern Links automatisch abrufen und sonst ein
+ * mit fremder Adresse registriertes Konto ohne die Person bestätigt hätten (danach liefe es
+ * unter dieser Adresse, z.B. auch für die Abstimmungs-Verifizierung). Der Token wird atomar
+ * verbraucht (updateMany mit dem Token-Hash in der Bedingung).
+ */
+export async function confirmGuestAccount(formData: FormData) {
+  const token = formData.get('token')
+  const next = formData.get('next')
+  const nextParam = typeof next === 'string' && next ? `&next=${encodeURIComponent(next)}` : ''
+  if (typeof token !== 'string' || !token) redirect('/mein-konto/verify?error=invalid')
+
+  const claimed = await prisma.guestUser.updateMany({
+    where: { verifyToken: hashToken(token) },
+    data: { isVerified: true, verifiedAt: new Date(), verifyToken: null }
+  })
+  if (claimed.count !== 1) redirect('/mein-konto/verify?error=invalid')
+  redirect(`/mein-konto/verify?done=1${nextParam}`)
+}
+
+/**
+ * "Neue Adresse jetzt bestätigen" auf /mein-konto/confirm-email - Gegenstück zu
+ * confirmEmailChange in app/admin/actions.ts. Nicht schon beim Öffnen des Links: Sonst könnte
+ * jemand sein Konto auf eine fremde Adresse umstellen, deren Mail-Scanner den Link abruft.
+ */
+export async function confirmGuestEmailChange(formData: FormData) {
+  const token = formData.get('token')
+  if (typeof token !== 'string' || !token) redirect('/mein-konto/confirm-email?error=invalid')
+
+  const guestUser = await prisma.guestUser.findUnique({ where: { emailChangeToken: hashToken(token) } })
+  if (!guestUser || !guestUser.pendingEmail || !guestUser.emailChangeTokenExpiresAt || guestUser.emailChangeTokenExpiresAt < new Date()) {
+    redirect('/mein-konto/confirm-email?error=invalid')
+  }
+
+  let claimed
+  try {
+    claimed = await prisma.guestUser.updateMany({
+      where: { id: guestUser.id, emailChangeToken: hashToken(token) },
+      data: { email: guestUser.pendingEmail, pendingEmail: null, emailChangeToken: null, emailChangeTokenExpiresAt: null }
+    })
+  } catch {
+    // Die Wunsch-Adresse wurde inzwischen von einem anderen Konto belegt (Unique-Constraint)
+    redirect('/mein-konto/confirm-email?error=taken')
+  }
+  if (claimed.count !== 1) redirect('/mein-konto/confirm-email?error=invalid')
+  redirect('/mein-konto/confirm-email?done=1')
+}

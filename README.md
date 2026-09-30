@@ -294,6 +294,12 @@ Gilt für Admin-Konten (`/admin/login`) **und** Nutzer-Konten (`/mein-konto`):
 * **`TRUST_PROXY_HOPS`** muss zur Umgebung passen (siehe `.env.example`): Nur so ist die IP für die Drosselung nicht durch
   einen selbst mitgeschickten `X-Forwarded-For`-Wert fälschbar. Beim Betreiber (Cloudflare → Nginx Proxy Manager)
   gemessen: `1`.
+* **Bestätigungs-Links in Mails lösen nichts beim bloßen Aufruf aus** (Double-Opt-In einer Zusage `/verify`,
+  Konto-Bestätigung `/mein-konto/verify`, E-Mail-Änderung `/admin/confirm-email` und `/mein-konto/confirm-email`):
+  Link-Scanner von Mail-Anbietern (z.B. Microsoft Defender „Safe Links“) rufen Links automatisch ab. Die Seite prüft
+  den Link deshalb nur und zeigt einen Button; erst der Klick bestätigt, und der Link ist danach verbraucht. Sonst
+  könnte ein Scanner ein Konto bestätigen, das jemand mit fremder Adresse angelegt oder auf eine fremde Adresse
+  umgestellt hat. „Passwort vergessen“ funktionierte schon so.
 * **Sessions und Einmal-Links** (Reset, E-Mail-Änderung, Konto-Bestätigung) stehen in der Datenbank nur als SHA-256-Hash
   (`app/lib/tokens.ts`), der Klartext nur im Cookie bzw. Mail-Link. Beim ersten Start nach dem Update stellt
   `migrate-token-hashes.js` bestehende Tokens einmalig um (bereits verschickte Links funktionieren weiter) und beendet
@@ -343,7 +349,7 @@ Testprotokoll (`ECONNREFUSED …:587`) sind deshalb erwartet.
 Geprüft werden u. a.: Sicherheits-Header je Pfadgruppe (Event-Slugs inkl. `/sw.js` einbettbar, `/admin`, `/mein-konto` und
 `/api/suite/*` nicht), Session-Cookie und Hash in der Datenbank für beide Logins, Session-Fixation, Open Redirect, gleiche
 Meldung und Antwortzeit bei unbekannten Adressen, Sperre beim 11. Versuch pro E-Mail und 21. pro IP, erfundene
-`X-Forwarded-For`-Einträge, 30 gleichzeitige Versuche, PIN-Drosselung, Reset-Links (einmalig, GET verbraucht nichts),
+`X-Forwarded-For`-Einträge, 30 gleichzeitige Versuche, PIN-Drosselung, Reset- und Bestätigungs-Links (einmalig, weder Abruf noch Browser-Aufruf ohne Klick ändert etwas),
 Cron-Secrets, Rechte je Stufe (Owner/Admin, Moderator*in per Event- oder Reihen-Freigabe, fremdes Konto) für Export,
 Check-in, Löschen und Weitergeben, Konto-Zwang per fremdem `editToken`, PIN-Durchsetzung außerhalb der Seite, das
 Ersetzen einer Antwort samt Warteliste, die signierte Kopplung mit dem Abstimmungstool (manipulierte Signatur,

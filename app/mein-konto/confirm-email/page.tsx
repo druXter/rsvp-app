@@ -2,66 +2,57 @@
 import { PrismaClient } from '@prisma/client'
 import Link from 'next/link'
 import { hashToken } from '../../lib/tokens'
+import { confirmGuestEmailChange } from '../actions'
+import StatusCard from '../../ui/status-card'
+import SubmitButton from '../../ui/submit-button'
 
 const prisma = new PrismaClient()
 
 /**
- * Bestätigt eine per requestGuestEmailChange angeforderte E-Mail-Änderung per Klick auf
- * den an die NEUE Adresse verschickten Link - mutiert bewusst schon beim Aufruf per GET,
- * gleiches Muster wie app/admin/confirm-email/page.tsx.
+ * Zweiter Schritt einer per requestGuestEmailChange angeforderten E-Mail-Änderung (Link an die NEUE
+ * Adresse). Das Öffnen des Links prüft den Token nur (lesend) und zeigt "Neue Adresse jetzt
+ * bestätigen" - erst dieser Klick (confirmGuestEmailChange) ändert die Adresse. Link-Scanner von
+ * Mail-Anbietern rufen Links automatisch ab; bestätigte schon der Aufruf, könnte jemand sein
+ * Konto auf eine fremde Adresse umstellen, ohne dass deren Besitzer*in etwas tut.
  */
-export default async function GuestConfirmEmailPage({ searchParams }: { searchParams: Promise<{ token?: string }> }) {
-  const { token } = await searchParams
+export default async function GuestConfirmEmailPage({ searchParams }: { searchParams: Promise<{ token?: string; done?: string; error?: string }> }) {
+  const { token, done, error } = await searchParams
 
-  if (!token) {
+  if (done) {
     return (
-      <main className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center p-4">
-        <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow max-w-md text-center">
-          <h1 className="text-2xl font-bold text-red-600 mb-4">Fehler</h1>
-          <p className="text-gray-700 dark:text-gray-300">Es wurde kein Bestätigungs-Token übergeben.</p>
-        </div>
-      </main>
+      <StatusCard title="E-Mail-Adresse geändert! 🎉" tone="success">
+        <p className="mb-6">Deine neue E-Mail-Adresse ist ab sofort aktiv - nutze sie beim nächsten Login.</p>
+        <Link href="/mein-konto/login" className="inline-block bg-blue-600 text-white font-bold py-2 px-6 rounded hover:bg-blue-700 transition">
+          Zum Login
+        </Link>
+      </StatusCard>
     )
   }
 
-  const guestUser = await prisma.guestUser.findUnique({ where: { emailChangeToken: hashToken(token) } })
-
-  if (!guestUser || !guestUser.pendingEmail || !guestUser.emailChangeTokenExpiresAt || guestUser.emailChangeTokenExpiresAt < new Date()) {
+  if (error === 'taken') {
     return (
-      <main className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center p-4">
-        <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow max-w-md text-center">
-          <h1 className="text-2xl font-bold text-red-600 mb-4">Ungültiger Link</h1>
-          <p className="text-gray-700 dark:text-gray-300">Dieser Bestätigungslink ist ungültig, abgelaufen oder wurde bereits verwendet.</p>
-        </div>
-      </main>
+      <StatusCard title="Adresse bereits vergeben" tone="error">
+        <p>Diese E-Mail-Adresse wurde inzwischen von einem anderen Konto verwendet. Bitte fordere eine Änderung zu einer anderen Adresse an.</p>
+      </StatusCard>
     )
   }
 
-  try {
-    await prisma.guestUser.update({
-      where: { id: guestUser.id },
-      data: { email: guestUser.pendingEmail, pendingEmail: null, emailChangeToken: null, emailChangeTokenExpiresAt: null }
-    })
-  } catch {
+  const account = token && !error ? await prisma.guestUser.findUnique({ where: { emailChangeToken: hashToken(token) }, select: { pendingEmail: true, emailChangeTokenExpiresAt: true } }) : null
+  if (!token || !account || !account.pendingEmail || !account.emailChangeTokenExpiresAt || account.emailChangeTokenExpiresAt < new Date()) {
     return (
-      <main className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center p-4">
-        <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow max-w-md text-center">
-          <h1 className="text-2xl font-bold text-red-600 mb-4">Adresse bereits vergeben</h1>
-          <p className="text-gray-700 dark:text-gray-300">Diese E-Mail-Adresse wurde inzwischen von einem anderen Konto verwendet. Bitte fordere eine Änderung zu einer anderen Adresse an.</p>
-        </div>
-      </main>
+      <StatusCard title="Ungültiger Link" tone="error">
+        <p>Dieser Bestätigungslink ist ungültig, abgelaufen oder wurde bereits verwendet.</p>
+      </StatusCard>
     )
   }
 
   return (
-    <main className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow max-w-md text-center">
-        <h1 className="text-2xl font-bold text-green-600 mb-4">E-Mail-Adresse geändert! 🎉</h1>
-        <p className="text-gray-700 dark:text-gray-300 mb-6">Deine neue E-Mail-Adresse ist jetzt <strong>{guestUser.pendingEmail}</strong>.</p>
-        <Link href="/mein-konto/login" className="inline-block bg-blue-600 text-white font-bold py-2 px-6 rounded hover:bg-blue-700 transition">
-          Zum Login
-        </Link>
-      </div>
-    </main>
+    <StatusCard title="Neue E-Mail-Adresse bestätigen" tone="neutral">
+      <p className="mb-6">Soll <strong>{account.pendingEmail}</strong> künftig die E-Mail-Adresse deines Kontos sein?</p>
+      <form action={confirmGuestEmailChange}>
+        <input type="hidden" name="token" value={token} />
+        <SubmitButton>Neue Adresse jetzt bestätigen</SubmitButton>
+      </form>
+    </StatusCard>
   )
 }

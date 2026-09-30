@@ -10,6 +10,7 @@ import { cookies } from 'next/headers'
 import { clientIp, pinRules, refund, reserve } from './lib/throttle'
 import { safeEqual } from './lib/tokens'
 import { notifyLinkedToolsBeforeDelete } from './lib/linked-tools-notify'
+import { verifyParticipantByToken, type VerifiedRsvp } from './lib/participant-verification'
 
 const prisma = new PrismaClient()
 
@@ -159,4 +160,24 @@ export async function unsubscribeParticipantFromPush(editToken: string, endpoint
   if (!participant) return
 
   await prisma.participantPushSubscription.deleteMany({ where: { endpoint, participantId: participant.id } })
+}
+
+export type ParticipantVerificationState =
+  | { status: 'idle' }
+  | { status: 'invalid' }
+  | { status: 'done'; editToken: string; results: VerifiedRsvp[] }
+
+/**
+ * "Jetzt bestätigen" auf /verify (Double-Opt-In einer Zusage). Der Mail-Link selbst ändert
+ * nichts mehr - erst dieser Klick, weil Link-Scanner von Mail-Anbietern Links automatisch
+ * abrufen (siehe app/lib/participant-verification.ts). Berechtigt ist, wer den Token aus der
+ * Mail kennt; als useActionState-Action, damit die Seite das Ergebnis ohne Token in einer
+ * weiteren URL anzeigen kann.
+ */
+export async function confirmParticipantVerification(
+  _previous: ParticipantVerificationState, formData: FormData
+): Promise<ParticipantVerificationState> {
+  const token = formData.get('token')
+  const outcome = typeof token === 'string' ? await verifyParticipantByToken(token) : null
+  return outcome ? { status: 'done', ...outcome } : { status: 'invalid' }
 }
