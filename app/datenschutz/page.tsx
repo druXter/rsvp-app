@@ -209,6 +209,14 @@ export default function DatenschutzPage() {
             übertragen, ebenso wenig dein Passwort oder deine Sitzung. Bist du nicht angemeldet, führt derselbe Link
             ohne jede Übermittlung personenbezogener Daten zur Abstimmung.
           </p>
+          <p className="mt-2">
+            <strong>Terminabstimmung:</strong> Wird das Datum eines Termins per Abstimmung festgelegt, meldet die
+            Abstimmungs-Anwendung uns nur den Termin (sowie ggf. Titel und die Konto-Kennung der Person, der die
+            Abstimmung gehört, damit wir für sie ein Event anlegen können). Damit du nicht doppelt benachrichtigt wirst,
+            schickt sie außerdem nicht umkehrbare Prüfwerte (SHA-256-Hashes) der E-Mail-Adressen, die sie selbst
+            informiert; wir vergleichen sie nur mit den Adressen der Zusagenden dieses Termins und speichern sie nicht.
+            Wer zugesagt hat, bekommt von uns wie bei jeder Terminänderung eine Mail bzw. Push-Mitteilung.
+          </p>
         </div>
 
         <div>

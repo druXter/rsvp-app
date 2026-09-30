@@ -22,6 +22,10 @@ export async function GET(
   if (!event) {
     return new NextResponse('Event nicht gefunden', { status: 404 })
   }
+  // "Datum noch offen" (Event.datePending): noch kein Termin, den man eintragen könnte.
+  if (event.datePending) {
+    return new NextResponse('Das Datum dieses Events wird noch abgestimmt.', { status: 404 })
+  }
 
   const { searchParams } = new URL(request.url)
   const token = searchParams.get('token')

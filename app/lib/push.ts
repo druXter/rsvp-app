@@ -1,4 +1,5 @@
 // app/lib/push.ts
+import { formatEventDate } from './event-date'
 import webpush from 'web-push'
 import { PrismaClient, Event, EventSeries, Participant } from '@prisma/client'
 import { personalEventLink } from './mail'
@@ -98,12 +99,10 @@ export async function sendPushToParticipant(participantId: string, payload: { ti
  * landet (Reihen-Route bei einem Reihen-Termin, sonst der Einzel-Event-Slug).
  */
 export async function sendReminderPush(event: EventWithSeries, participant: Participant) {
-  const formattedDate = new Date(event.date).toLocaleString('de-DE', {
-    timeZone: 'Europe/Berlin', weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
-  })
+  const formattedDate = formatEventDate(event, 'short')
   await sendPushToParticipant(participant.id, {
     title: `⏰ Erinnerung: ${event.title}`,
-    body: `${formattedDate} Uhr${event.location ? ' · ' + event.location : ''}`,
+    body: `${formattedDate}${event.location ? ' · ' + event.location : ''}`,
     url: personalEventLink(event, participant)
   })
 }
@@ -136,12 +135,10 @@ export async function sendEventChangedPush(
  * bleibt über den verlinkten personalEventLink() auf der Termin-Seite abrufbar.
  */
 export async function sendConfirmationPush(event: EventWithSeries, participant: Participant) {
-  const formattedDate = new Date(event.date).toLocaleString('de-DE', {
-    timeZone: 'Europe/Berlin', weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
-  })
+  const formattedDate = formatEventDate(event, 'short')
   await sendPushToParticipant(participant.id, {
     title: `✅ Zusage bestätigt: ${event.title}`,
-    body: `${formattedDate} Uhr${event.location ? ' · ' + event.location : ''}`,
+    body: `${formattedDate}${event.location ? ' · ' + event.location : ''}`,
     url: personalEventLink(event, participant)
   })
 }

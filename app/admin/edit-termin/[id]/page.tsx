@@ -144,6 +144,17 @@ export default async function EditSeriesTerminPage({ params }: { params: Promise
               <label htmlFor="pollLabel" className={`block text-sm font-medium mb-1 ${themeClasses('cyan').heading}`}>Beschriftung des Buttons (Optional)</label>
               <input id="pollLabel" type="text" name="pollLabel" defaultValue={event.pollLabel || ''} className={`w-full border ${themeClasses('cyan').border} bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded outline-none ${themeClasses('cyan').borderFocus}`} placeholder="z.B. Restaurant für diesen Termin wählen" />
             </div>
+            <div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" name="datePending" defaultChecked={event.datePending} className="w-4 h-4" />
+                <span className={`text-sm font-medium ${themeClasses('cyan').heading}`}>Datum noch offen - wird per Terminabstimmung festgelegt</span>
+              </label>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 ml-6">
+                Nur mit einem Link auf eine Terminabstimmung im Abstimmungstool. Das Datum oben gilt dann nur als Platzhalter
+                (bitte in der Zukunft wählen): keine Erinnerungen, kein Kalendereintrag, Gäste sehen &quot;Datum wird noch
+                abgestimmt&quot;. Sobald dort der Termin festgelegt ist, übernimmt ihn dieses Event und alle Zusagenden werden benachrichtigt.
+              </p>
+            </div>
           </ThemeSection>
 
           {seatingOrigin && (

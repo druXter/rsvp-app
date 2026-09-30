@@ -1,4 +1,5 @@
 // app/mein-konto/page.tsx
+import { formatEventDate } from '../lib/event-date'
 import { PrismaClient } from '@prisma/client'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
@@ -88,14 +89,7 @@ export default async function MeinKontoPage() {
                   <div className="space-y-2">
                     {m.series.events.map(event => {
                       const rsvp = rsvpByEventId.get(event.id)
-                      const formattedDate = new Date(event.date).toLocaleString('de-DE', {
-                        timeZone: 'Europe/Berlin',
-                        weekday: 'short',
-                        day: '2-digit',
-                        month: '2-digit',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })
+                      const formattedDate = formatEventDate(event, 'short')
 
                       return (
                         <Link
@@ -105,7 +99,7 @@ export default async function MeinKontoPage() {
                         >
                           <div>
                             <p className="font-medium text-gray-900 dark:text-gray-100">{event.title}</p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">📅 {formattedDate} Uhr</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">📅 {formattedDate}</p>
                           </div>
                           {rsvp ? (
                             rsvp.isAttending ? (

@@ -7,14 +7,15 @@ import { revalidatePath } from 'next/cache'
 import { PrismaClient, Role } from '@prisma/client'
 import { randomUUID } from 'crypto'
 import { sanitizeNextPath } from 'suite-kit'
-import { sendReminderEmail, sendWaitlistPromotedEmail, sendConfirmationEmail, sendVerificationEmail, sendPasswordResetEmail, sendEmailChangeConfirmation, sendEventUpdatedEmail } from '../lib/mail'
+import { sendReminderEmail, sendWaitlistPromotedEmail, sendConfirmationEmail, sendVerificationEmail, sendPasswordResetEmail, sendEmailChangeConfirmation } from '../lib/mail'
 import { requireUser, createSession, destroySession, SESSION_COOKIE } from '../lib/auth'
 import { generateToken, hashToken } from '../lib/tokens'
 import { hashPassword, validatePassword, verifyAgainstDummy, verifyPassword } from '../lib/password'
 import { formPassword, formString } from '../lib/form'
 import { clearFailures, clientIp, loginRules, passwordChangeRule, refund, reserve, resetRules } from '../lib/throttle'
 import { isOwnerOrAdmin, hasEventModeratorOrAbove, hasSeriesModeratorOrAbove } from '../lib/permissions'
-import { sendReminderPush, sendEventChangedPush } from '../lib/push'
+import { sendReminderPush } from '../lib/push'
+import { notifyAttendeesOfChange } from '../lib/event-change-notify'
 import { readToolLinks, saveToolLinks } from '../lib/linked-tools-store'
 import { notifyLinkedToolsBeforeDelete, notifyLinkedToolsOfRsvps } from '../lib/linked-tools-notify'
 import { deleteOrphanedParticipants } from '../lib/participants'
@@ -40,12 +41,15 @@ function readCustomQuestions(formData: FormData): string[] {
  * pollLabel, siehe schema.prisma und app/api/poll-link/[eventId]/route.ts) - leere
  * Felder werden zu null statt leerem String, gleiche Konvention wie eventPin.
  */
-function readPollLink(formData: FormData): { pollUrl: string | null; pollLabel: string | null } {
+function readPollLink(formData: FormData): { pollUrl: string | null; pollLabel: string | null; datePending: boolean } {
   const pollUrlInput = (formData.get('pollUrl') as string || '').trim()
   const pollLabelInput = (formData.get('pollLabel') as string || '').trim()
   return {
     pollUrl: pollUrlInput || null,
-    pollLabel: pollLabelInput || null
+    pollLabel: pollLabelInput || null,
+    // "Datum noch offen" ergibt nur mit einer verknüpften Terminabstimmung Sinn - ohne
+    // pollUrl könnte nie jemand das Datum festlegen (siehe Event.datePending).
+    datePending: !!pollUrlInput && formData.get('datePending') === 'on'
   }
 }
 
@@ -84,41 +88,6 @@ function diffEventFields(
   return changes
 }
 
-/**
- * Verschickt die Änderungs-Mail (siehe sendEventUpdatedEmail) an alle Gäste mit fester
- * Zusage oder Wartelisten-Platz zu genau diesem Termin - unabhängig von Reihen-
- * Zugehörigkeit gilt Kapazität/Teilnahme wie überall sonst pro Termin. Berücksichtigt bei
- * einer Reihe die reihenweite requireVerification (siehe CLAUDE.md "Effective settings").
- */
-async function notifyAttendeesOfChange(eventId: string, changes: { label: string; detail: string }[]) {
-  const event = await prisma.event.findUnique({
-    where: { id: eventId },
-    include: {
-      rsvps: { where: { isAttending: true }, include: { participant: true } },
-      series: true
-    }
-  })
-  if (!event) return
-
-  const requireVerification = event.series ? event.series.requireVerification : event.requireVerification
-
-  const validRsvps = event.rsvps.filter(rsvp =>
-    rsvp.participant.email && rsvp.participant.email.trim() !== '' &&
-    (!requireVerification || rsvp.participant.isVerified)
-  )
-
-  const emailPromises = validRsvps.map(rsvp =>
-    sendEventUpdatedEmail(rsvp.participant, rsvp, event, changes)
-  )
-  // Push ist an die Participant-Identität geknüpft, nicht an eine verifizierte E-Mail -
-  // gilt daher für alle Teilnehmenden, die effektiv verifiziert sind (bzw. für die es gar
-  // nicht nötig ist), unabhängig davon, ob überhaupt eine E-Mail hinterlegt wurde.
-  const pushEligibleRsvps = event.rsvps.filter(rsvp => !requireVerification || rsvp.participant.isVerified)
-  const pushPromises = pushEligibleRsvps.map(rsvp =>
-    sendEventChangedPush(event, rsvp.participant, changes)
-  )
-  await Promise.allSettled([...emailPromises, ...pushPromises])
-}
 
 /**
  * Prüft E-Mail/Passwort gegen die Datenbank und erstellt bei Erfolg eine server-seitige Session
@@ -414,7 +383,7 @@ export async function createEvent(formData: FormData) {
   // Nur beim Anlegen abgefragt - siehe requireGuestUser-Kommentar in schema.prisma, kommt
   // deshalb bewusst NICHT in updateEvent vor.
   const requireGuestUser = formData.get('requireGuestUser') === 'on'
-  const { pollUrl, pollLabel } = readPollLink(formData)
+  const { pollUrl, pollLabel, datePending } = readPollLink(formData)
   // Verknüpfte Tools (Seating, siehe app/lib/linked-tools-store.ts) - wirft bei ungültigem Link, bevor etwas angelegt ist
   const toolLinks = readToolLinks(formData)
 
@@ -452,7 +421,8 @@ export async function createEvent(formData: FormData) {
       enableCheckin,
       requireGuestUser,
       pollUrl,
-      pollLabel
+      pollLabel,
+      datePending
     }
   })
   await saveToolLinks(created.id, toolLinks)
@@ -525,7 +495,7 @@ export async function updateEvent(formData: FormData) {
   const requireVerification = formData.get('requireVerification') === 'on'
   const enableCheckin = formData.get('enableCheckin') === 'on'
   const notifyGuests = formData.get('notifyGuests') === 'on'
-  const { pollUrl, pollLabel } = readPollLink(formData)
+  const { pollUrl, pollLabel, datePending } = readPollLink(formData)
   const toolLinks = readToolLinks(formData)
 
   const formConfig = JSON.stringify({
@@ -565,6 +535,7 @@ export async function updateEvent(formData: FormData) {
       enableCheckin,
       pollUrl,
       pollLabel,
+      datePending,
       ...(changes.length > 0 ? { icsSequence: { increment: 1 } } : {})
     }
   })
@@ -986,7 +957,7 @@ export async function updateSeriesTermin(formData: FormData) {
   const reminderDays = parseInt(formData.get('reminderDays') as string) || 7
   const enableCheckin = formData.get('enableCheckin') === 'on'
   const notifyGuests = formData.get('notifyGuests') === 'on'
-  const { pollUrl, pollLabel } = readPollLink(formData)
+  const { pollUrl, pollLabel, datePending } = readPollLink(formData)
   const toolLinks = readToolLinks(formData)
 
   const formConfig = JSON.stringify({
@@ -1009,7 +980,7 @@ export async function updateSeriesTermin(formData: FormData) {
     where: { id },
     data: {
       title, slug, date, location, description, duration, formConfig, autoReminder, reminderDays, maxCapacity, enableCheckin,
-      pollUrl, pollLabel,
+      pollUrl, pollLabel, datePending,
       ...(changes.length > 0 ? { icsSequence: { increment: 1 } } : {})
     }
   })

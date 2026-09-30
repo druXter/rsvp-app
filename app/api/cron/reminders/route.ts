@@ -30,6 +30,8 @@ export async function GET(request: Request) {
     where: {
       autoReminder: true,
       reminderSent: false,
+      // "Datum noch offen": Das Datum ist nur ein Platzhalter, eine Erinnerung wäre falsch.
+      datePending: false,
       date: { gte: now } // Das Event darf noch nicht vorbei sein
     },
     include: {

@@ -1,4 +1,5 @@
 // app/lib/mail.ts
+import { formatEventDate } from './event-date'
 import nodemailer from 'nodemailer'
 import { createEvent, DateArray } from 'ics'
 import { Event, EventSeries, GuestUser, Participant, Rsvp, User } from '@prisma/client'
@@ -80,6 +81,9 @@ function icsUid(event: Event): string {
  * verwenden (siehe icsUid).
  */
 function buildIcsAttachment(event: EventWithSeries, participant: Participant) {
+  // "Datum noch offen" (Event.datePending): Das Datum ist nur ein Platzhalter - kein Kalendereintrag.
+  // Sobald die Terminabstimmung es festlegt, geht die Änderungs-Mail mit Anhang raus (app/lib/poll-date.ts).
+  if (event.datePending) return null
   const date = new Date(event.date)
   const eventDate: DateArray = [
     date.getUTCFullYear(),
@@ -218,15 +222,7 @@ export async function sendReminderEmail(
   const personalLink = personalEventLink(event, participant)
 
   // Datum in deutsches Format umwandeln
-  const formattedDate = new Date(event.date).toLocaleString('de-DE', {
-    timeZone: 'Europe/Berlin',
-    weekday: 'long',
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  })
+  const formattedDate = formatEventDate(event)
 
   // Wenn ein Zusatztext eingegeben wurde, bauen wir einen hervorgehobenen HTML-Block dafür
   const customMessageHtml = customMessage
@@ -239,14 +235,14 @@ export async function sendReminderEmail(
     from: process.env.SMTP_FROM,
     to: participant.email!,
     subject: `Erinnerung: ${event.title} steht bald an!`,
-    text: `Hallo ${participant.name},\n\nwir freuen uns, dass du bei "${event.title}" dabei bist!\n\nWann: ${formattedDate} Uhr\nWo: ${event.location || 'Wird noch bekannt gegeben'}\n\n${customMessage ? 'Nachricht des Gastgebers:\n' + customMessage + '\n\n' : ''}Deine Antworten bearbeiten: ${personalLink}`,
+    text: `Hallo ${participant.name},\n\nwir freuen uns, dass du bei "${event.title}" dabei bist!\n\nWann: ${formattedDate}\nWo: ${event.location || 'Wird noch bekannt gegeben'}\n\n${customMessage ? 'Nachricht des Gastgebers:\n' + customMessage + '\n\n' : ''}Deine Antworten bearbeiten: ${personalLink}`,
     html: `
       <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
         <h2>Wir freuen uns auf dich, ${participant.name}! 🎉</h2>
         <p>Das Event <strong>${event.title}</strong> rückt näher. Hier sind noch einmal alle wichtigen Daten für dich zusammengefasst:</p>
 
         <ul style="list-style: none; padding: 0;">
-          <li>📅 <strong>Wann:</strong> ${formattedDate} Uhr</li>
+          <li>📅 <strong>Wann:</strong> ${formattedDate}</li>
           <li>📍 <strong>Wo:</strong> ${event.location || 'Wird noch bekannt gegeben'}</li>
         </ul>
 

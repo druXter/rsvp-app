@@ -43,6 +43,11 @@ export default function EventRsvpCard({
             <div>
               <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{event.title}</h2>
               <p className="text-sm text-gray-500 dark:text-gray-400">URL-Slug: <span className="font-mono bg-gray-100 dark:bg-gray-700 dark:text-gray-300 px-1 py-0.5 rounded">/{event.slug}</span></p>
+              {event.datePending && (
+                <span className="inline-block mt-1 mr-1 px-2 py-0.5 bg-cyan-100 dark:bg-cyan-950 text-cyan-800 dark:text-cyan-200 text-[10px] font-bold rounded-full">
+                  📅 Datum noch offen - wird per Terminabstimmung festgelegt
+                </span>
+              )}
               {!isOwner && (
                 <span className="inline-block mt-1 px-2 py-0.5 bg-teal-100 dark:bg-teal-950 text-teal-800 dark:text-teal-200 text-[10px] font-bold rounded-full">
                   🔗 Für dich freigegeben{ownerEmail ? ` von ${ownerEmail}` : ''}

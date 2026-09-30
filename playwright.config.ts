@@ -23,6 +23,10 @@ export const TEST_SEATING_BASE_URL = `http://127.0.0.1:${SEATING_PORT}`
 export const TEST_TIMELINE_SECRET = 'e2e-timeline-secret-0123456789abcdef012'
 export const TIMELINE_PORT = 3107
 export const TEST_TIMELINE_BASE_URL = `http://127.0.0.1:${TIMELINE_PORT}`
+// Origin des Abstimmungstools für die Terminabstimmung (app/lib/poll-date.ts): Dort läuft in den
+// Tests nichts - rsvp-app prüft nur, ob eine pollUrl zu diesem Origin gehört. Ausgehende
+// Zu-/Absage-Meldungen dorthin scheitern sofort (best-effort, siehe app/lib/poll-notify.ts).
+export const TEST_ABSTIMMUNGSTOOL_BASE_URL = 'http://127.0.0.1:3108'
 // Ein Origin, der zu keinem eingerichteten Tool gehört - für die Fälle "fremde Adresse".
 export const FOREIGN_TOOL_BASE_URL = 'http://127.0.0.1:3199'
 
@@ -72,7 +76,7 @@ export default defineConfig({
       VAPID_PRIVATE_KEY: '',
       VAPID_SUBJECT: '',
       POLL_VERIFICATION_SECRET: TEST_POLL_SECRET,
-      ABSTIMMUNGSTOOL_BASE_URL: '',
+      ABSTIMMUNGSTOOL_BASE_URL: TEST_ABSTIMMUNGSTOOL_BASE_URL,
       SEATING_SECRET: TEST_SEATING_SECRET,
       SEATING_BASE_URL: TEST_SEATING_BASE_URL,
       TIMELINE_SECRET: TEST_TIMELINE_SECRET,

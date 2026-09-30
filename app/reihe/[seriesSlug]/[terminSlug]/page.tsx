@@ -1,4 +1,5 @@
 // app/reihe/[seriesSlug]/[terminSlug]/page.tsx
+import { DATE_PENDING_TEXT } from '../../../lib/event-date'
 import { Prisma, PrismaClient } from '@prisma/client'
 import { notFound } from 'next/navigation'
 import { cookies } from 'next/headers'
@@ -157,6 +158,12 @@ export default async function SeriesEventPage({
         </Link>
 
         <PollResultBanner pollResult={event.pollResult} />
+
+        {event.datePending && (
+          <p className="mb-4 text-center text-sm bg-cyan-50 text-cyan-800 border border-cyan-200 rounded-lg py-2 px-4 dark:bg-cyan-950 dark:text-cyan-300 dark:border-cyan-800">
+            📅 {DATE_PENDING_TEXT} - sobald es feststeht, übernimmt dieses Event den Termin. Wer zugesagt hat, wird dann benachrichtigt.
+          </p>
+        )}
 
         {event.pollUrl && (
           <a

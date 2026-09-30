@@ -45,7 +45,9 @@ export async function GET(request: Request) {
           id: event.id,
           slug: event.slug,
           title: event.title,
-          date: event.date.toISOString(),
+          // null, solange das Datum per Terminabstimmung noch offen ist (Event.datePending).
+          date: event.datePending ? null : event.date.toISOString(),
+          datePending: event.datePending,
           durationHours: event.duration,
           location: event.location,
           description: event.description,

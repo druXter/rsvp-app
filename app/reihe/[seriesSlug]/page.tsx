@@ -1,4 +1,5 @@
 // app/reihe/[seriesSlug]/page.tsx
+import { formatEventDate } from '../../lib/event-date'
 import { PrismaClient } from '@prisma/client'
 import { notFound } from 'next/navigation'
 import { cookies } from 'next/headers'
@@ -73,15 +74,7 @@ export default async function SeriesOverviewPage({
               series.events.map(event => {
                 const attendingCount = event.rsvps.filter(r => r.isAttending && !r.isOnWaitlist).length
                 const isFull = event.maxCapacity !== null && attendingCount >= event.maxCapacity
-                const formattedDate = new Date(event.date).toLocaleString('de-DE', {
-                  timeZone: 'Europe/Berlin',
-                  weekday: 'long',
-                  day: '2-digit',
-                  month: 'long',
-                  year: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                })
+                const formattedDate = formatEventDate(event)
 
                 return (
                   <Link
@@ -92,7 +85,7 @@ export default async function SeriesOverviewPage({
                     <div className="flex justify-between items-start gap-4">
                       <div>
                         <p className="font-bold text-gray-900 dark:text-gray-100">{event.title}</p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">📅 {formattedDate} Uhr</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">📅 {formattedDate}</p>
                         {event.location && <p className="text-sm text-gray-500 dark:text-gray-400">📍 {event.location}</p>}
                       </div>
                       {event.maxCapacity !== null && (

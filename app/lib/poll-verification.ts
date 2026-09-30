@@ -131,3 +131,77 @@ export function verifyResultWebhookPayload(token: string | undefined | null): { 
     closedAt: payload.closedAt
   }
 }
+
+/**
+ * Prüft Signatur und Ablaufzeit einer Nachricht vom Abstimmungstool und gibt die rohe Payload
+ * zurück - Grundlage für die Terminabstimmung (verifyPollDateMessage). Eine Nachricht darf
+ * höchstens 15 Minuten in die Zukunft gültig sein, damit ein abgefangenes Exemplar nicht lange
+ * wiederverwendbar bleibt.
+ */
+function verifySignedPayload(token: string | undefined | null): Record<string, unknown> | null {
+  const secret = process.env.POLL_VERIFICATION_SECRET
+  if (!secret || !token) return null
+  const parts = token.split('.')
+  if (parts.length !== 2 || !parts[0] || !parts[1]) return null
+  const [payloadPart, signaturePart] = parts
+
+  const expectedBuf = Buffer.from(base64url(createHmac('sha256', secret).update(payloadPart).digest()))
+  const actualBuf = Buffer.from(signaturePart)
+  if (expectedBuf.length !== actualBuf.length || !timingSafeEqual(expectedBuf, actualBuf)) return null
+
+  let payload: unknown
+  try {
+    const padded = payloadPart + '='.repeat((4 - (payloadPart.length % 4)) % 4)
+    payload = JSON.parse(Buffer.from(padded.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8'))
+  } catch {
+    return null
+  }
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null
+  const record = payload as Record<string, unknown>
+  const now = Date.now() / 1000
+  if (typeof record.exp !== 'number' || record.exp < now || record.exp > now + 15 * 60) return null
+  return record
+}
+
+/** Wem die Abstimmung gehört: Konto-ID im Abstimmungstool und - falls dort verknüpft - die rsvp-app-Konto-ID. */
+export type PollDateOwner = { toolUserId: string; rsvpUserId: string | null }
+
+export type PollDateMessage =
+  | { typ: 'poll-date-status'; pollId: string; owner: PollDateOwner }
+  | { typ: 'poll-date-set'; pollId: string; pollTitle: string; startsAt: Date; owner: PollDateOwner; create: boolean; skipEmailHashes: string[] }
+
+function readOwner(value: unknown): PollDateOwner | null {
+  if (!value || typeof value !== 'object') return null
+  const { toolUserId, rsvpUserId } = value as Record<string, unknown>
+  if (typeof toolUserId !== 'string' || !toolUserId || toolUserId.length > 100) return null
+  if (rsvpUserId !== null && (typeof rsvpUserId !== 'string' || !rsvpUserId || rsvpUserId.length > 100)) return null
+  return { toolUserId, rsvpUserId: rsvpUserId as string | null }
+}
+
+/**
+ * Nachrichten der Terminabstimmung (Gegenstück zu app/lib/rsvp-date.ts im Abstimmungstool,
+ * siehe app/lib/poll-date.ts hier). Gleiches Format und Secret wie die übrigen Nachrichten
+ * dieser Kopplung, aber mit Pflichtfeld `typ` - ältere Nachrichtenarten (Klick-Token,
+ * Zu-/Absage, Ergebnis) haben keins und gehen hier deshalb nie als Termin-Meldung durch.
+ */
+export function verifyPollDateMessage(token: string | undefined | null): PollDateMessage | null {
+  const payload = verifySignedPayload(token)
+  if (!payload) return null
+  const pollId = payload.pollId
+  const owner = readOwner(payload.owner)
+  if (typeof pollId !== 'string' || !/^[A-Za-z0-9_-]{1,100}$/.test(pollId) || !owner) return null
+
+  if (payload.typ === 'poll-date-status') return { typ: 'poll-date-status', pollId, owner }
+
+  if (payload.typ === 'poll-date-set') {
+    const { pollTitle, startsAt, create, skipEmailHashes } = payload
+    if (typeof pollTitle !== 'string' || !pollTitle.trim() || pollTitle.length > 200) return null
+    if (typeof startsAt !== 'string') return null
+    const date = new Date(startsAt)
+    if (Number.isNaN(date.getTime())) return null
+    if (typeof create !== 'boolean') return null
+    if (!Array.isArray(skipEmailHashes) || skipEmailHashes.length > 10_000 || !skipEmailHashes.every(h => typeof h === 'string' && /^[0-9a-f]{64}$/.test(h))) return null
+    return { typ: 'poll-date-set', pollId, pollTitle: pollTitle.trim(), startsAt: date, owner, create, skipEmailHashes }
+  }
+  return null
+}

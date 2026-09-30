@@ -1,7 +1,7 @@
 import { createHmac } from 'node:crypto'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-  extractPollId, signPollVerificationToken, signRsvpWebhookPayload, verifyResultWebhookPayload
+  extractPollId, signPollVerificationToken, signRsvpWebhookPayload, verifyPollDateMessage, verifyResultWebhookPayload
 } from '../../app/lib/poll-verification'
 
 // Das Token-Format ist mit dem Abstimmungstool vereinbart (dessen README, "Token-Format"):
@@ -111,5 +111,42 @@ describe('extractPollId', () => {
     expect(extractPollId('https://abstimmung.example/p/cmXYZ/?lang=de#x')).toBe('cmXYZ')
     expect(extractPollId('https://abstimmung.example')).toBeNull()
     expect(extractPollId('kein link')).toBeNull()
+  })
+})
+
+describe('verifyPollDateMessage (Terminabstimmung)', () => {
+  const owner = { toolUserId: 'tool-user-1', rsvpUserId: null }
+  const set = (overrides: Record<string, unknown> = {}) => ({
+    typ: 'poll-date-set', pollId: 'poll-1', pollTitle: 'Sommerfest', startsAt: '2026-10-07T17:00:00.000Z',
+    owner, create: true, skipEmailHashes: ['a'.repeat(64)], exp: now() + 300, ...overrides
+  })
+
+  it('liest Status- und Termin-Meldung', () => {
+    expect(verifyPollDateMessage(sign({ typ: 'poll-date-status', pollId: 'poll-1', owner, exp: now() + 300 })))
+      .toEqual({ typ: 'poll-date-status', pollId: 'poll-1', owner })
+    const message = verifyPollDateMessage(sign(set()))
+    expect(message).toMatchObject({ typ: 'poll-date-set', pollTitle: 'Sommerfest', create: true, skipEmailHashes: ['a'.repeat(64)] })
+    expect(message?.typ === 'poll-date-set' && message.startsAt.toISOString()).toBe('2026-10-07T17:00:00.000Z')
+  })
+
+  it('lehnt andere Nachrichtenarten desselben Secrets ab (kein typ)', () => {
+    expect(verifyPollDateMessage(sign(result()))).toBeNull()
+    expect(verifyPollDateMessage(sign({ email: 'a@example.test', pollId: 'poll-1', attending: true, exp: now() + 300 }))).toBeNull()
+    expect(verifyPollDateMessage(sign(set({ typ: 'poll-date-unbekannt' })))).toBeNull()
+  })
+
+  it('lehnt falsche Signatur, Ablauf und zu lange Gültigkeit ab', () => {
+    expect(verifyPollDateMessage(sign(set(), 'anderes-secret'))).toBeNull()
+    expect(verifyPollDateMessage(sign(set({ exp: now() - 1 })))).toBeNull()
+    expect(verifyPollDateMessage(sign(set({ exp: now() + 16 * 60 })))).toBeNull()
+  })
+
+  it('lehnt kaputte Felder ab', () => {
+    for (const overrides of [
+      { startsAt: 'morgen' }, { pollTitle: '' }, { create: 'ja' }, { skipEmailHashes: ['kein-hash'] },
+      { owner: { rsvpUserId: null } }, { owner: { toolUserId: 'x', rsvpUserId: 5 } }, { pollId: '../admin' }
+    ]) {
+      expect(verifyPollDateMessage(sign(set(overrides))), JSON.stringify(overrides)).toBeNull()
+    }
   })
 })

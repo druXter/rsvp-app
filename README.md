@@ -102,7 +102,8 @@ POLL_VERIFICATION_SECRET=...
 
 # Basis-URL des abstimmungstools, damit diese App bei einer Zu-/Absage-Änderung
 # aktiv Bescheid geben kann (siehe app/lib/poll-notify.ts) - nur relevant zusammen
-# mit POLL_VERIFICATION_SECRET und einem gesetzten pollUrl.
+# mit POLL_VERIFICATION_SECRET und einem gesetzten pollUrl. Zugleich der einzige Origin,
+# dessen Terminabstimmungen ein Datum setzen dürfen (siehe "Terminabstimmung").
 ABSTIMMUNGSTOOL_BASE_URL=https://vote.deine-domain.de
 
 # Anbindung an Seating (Sitzplatz-Tool, eigenständiges Projekt) - siehe Abschnitte
@@ -170,6 +171,35 @@ Ein Event/Termin kann optional auf eine Abstimmung im separaten `abstimmungstool
 * **Nur Zusagende können abstimmen, Absagen werden direkt blockiert:** Der Verifizierungs-Token, der beim Klick auf den Abstimmungs-Link mitgeschickt wird, trägt neben der E-Mail auch den *aktuellen* RSVP-Status für diesen Termin (`app/lib/poll-verification.ts`, `app/api/poll-link/[eventId]/route.ts`) - bei jedem Klick frisch ermittelt. Eine nachträglich erteilte Zusage schaltet sich dadurch beim nächsten Linkaufruf von selbst wieder frei.
 * **Nachträgliche Absage entfernt eine bereits abgegebene Stimme:** Bei jeder Zu-/Absage-Änderung wird zusätzlich aktiv ein signierter Webhook ans abstimmungstool geschickt (`app/lib/poll-notify.ts`, aufgerufen aus `performRsvpSubmission`) - unabhängig davon, ob die Person die Abstimmung danach nochmal aufruft. Best-effort mit 5s-Timeout, ein nicht erreichbares abstimmungstool blockiert niemals die eigentliche RSVP-Abgabe.
 * **Ergebnis-Anzeige nach Schließung:** Schließt sich die verknüpfte Abstimmung (manuell oder automatisch), meldet abstimmungstool das Ergebnis zurück (`app/api/poll-result-webhook/route.ts`), gespeichert auf `Event.pollResult` und angezeigt als Banner auf der Event-Seite (`app/ui/poll-result-banner.tsx`).
+
+### Terminabstimmung: Datum per Abstimmung festlegen
+
+Ein Event kann sein Datum aus einer Terminabstimmung im abstimmungstool bekommen (`app/lib/poll-date.ts`,
+`POST /api/poll-date`):
+
+* **"Datum noch offen"** (`Event.datePending`, Häkchen im Abschnitt "Externe Abstimmung", nur zusammen mit einem
+  Abstimmungslink): Das Datum im Formular ist dann nur ein Platzhalter (bitte in der Zukunft) - keine Erinnerungen,
+  kein Kalender-Anhang, `/api/ical` antwortet 404, Mails/Push/Listen zeigen "Datum wird noch abgestimmt"
+  (`app/lib/event-date.ts`), die Client-API liefert `date: null` und `datePending: true`.
+* **Festlegen passiert im abstimmungstool, nie automatisch:** Dort bestätigt die Verwaltung ein eindeutiges
+  Ergebnis bzw. entscheidet bei Gleichstand. Dann meldet es den Termin hierher. Alle Events, deren `pollUrl` auf
+  **genau diese** Abstimmung des eingerichteten abstimmungstools zeigt (Origin = `ABSTIMMUNGSTOOL_BASE_URL`) und
+  deren Datum offen ist, übernehmen ihn (`icsSequence` +1); wer zugesagt hat (auch Warteliste), bekommt die
+  Änderungs-Mail samt Kalender-Anhang und Push - wie bei "Teilnehmende benachrichtigen". Dass die Event-Verwaltung
+  den Abstimmungslink gesetzt hat, ist zugleich ihre Zustimmung. Events mit festem Datum bleiben unangetastet.
+* **Neues Event:** Zeigt noch kein Event auf die Abstimmung und wünscht die Verwaltung dort eins, legt rsvp-app es an
+  - nur für den Owner der Abstimmung und nur, wenn dessen Konto über den Suite-Verbund mit einem Konto hier
+  verknüpft ist (`ExternalIdentity` mit dem abstimmungstool als Anbieter, oder umgekehrt: das abstimmungstool
+  schickt unsere Konto-ID mit, die es aus einer von uns signierten Anmeldung kennt) und dieses Konto eigene Events
+  besitzen darf (nicht MODERATOR). Titel und Datum kommen aus der Abstimmung, der Rest (Ort, Fragen, ...) wird hier
+  nachgetragen. Das neue Event trägt den Abstimmungslink - eine wiederholte Meldung legt so kein zweites an.
+* **Keine doppelten Benachrichtigungen:** Das abstimmungstool benachrichtigt seine Abstimmenden selbst und schickt
+  SHA-256-Hashes dieser Adressen mit (`skipEmailHashes`); diese Gäste bekommen hier weder Mail noch Push
+  (`app/lib/event-change-notify.ts`). Wer über rsvp-app abgestimmt hat, wird dagegen von hier benachrichtigt.
+* **Vertrag:** gleiches Format und Secret wie die übrigen Nachrichten (`POLL_VERIFICATION_SECRET`), aber mit
+  Pflichtfeld `typ` (`poll-date-status` | `poll-date-set`) - ältere Nachrichtenarten ohne `typ` gehen nie als
+  Termin-Meldung durch - und höchstens 15 Minuten gültig (`verifyPollDateMessage` in
+  `app/lib/poll-verification.ts`). Gegenstück im abstimmungstool: `app/lib/rsvp-date.ts`.
 
 Alle drei Punkte sind rein additiv und benötigen `POLL_VERIFICATION_SECRET` + `ABSTIMMUNGSTOOL_BASE_URL` (siehe oben) - ohne beide bleibt nur der einfache, unverifizierte Link übrig, wie er schon vorher existierte.
 
@@ -353,7 +383,8 @@ Meldung und Antwortzeit bei unbekannten Adressen, Sperre beim 11. Versuch pro E-
 Cron-Secrets, Rechte je Stufe (Owner/Admin, Moderator*in per Event- oder Reihen-Freigabe, fremdes Konto) für Export,
 Check-in, Löschen und Weitergeben, Konto-Zwang per fremdem `editToken`, PIN-Durchsetzung außerhalb der Seite, das
 Ersetzen einer Antwort samt Warteliste, die signierte Kopplung mit dem Abstimmungstool (manipulierte Signatur,
-abgelaufene Meldung, Klick-Token) sowie mit Seating und Zeitplan (Link nur für die eigene gültige Zusage, Signatur mit
+abgelaufene Meldung, Klick-Token; Terminabstimmung: fremder Origin, andere Nachrichtenarten, neues Event nur für den
+über den Verbund verknüpften Owner, einmaliges Übernehmen) sowie mit Seating und Zeitplan (Link nur für die eigene gültige Zusage, Signatur mit
 dem eigenen Secret, Webhook nur an das verknüpfte Tool, keine Namen an den Zeitplan) und die verknüpften Tools allgemein (Übernahme alter Sitzplatz-Links,
 Webhook nur an gültig verknüpfte Tools, fremde Adressen im Termin-Formular) – jeder Angriffsfall **mit Positivkontrolle**, dass derselbe Aufruf mit Berechtigung
 wirkt.

@@ -161,6 +161,13 @@ model Event {
   // noch nicht geschlossen wurde. Rein additiv, rendert nur zusätzlich neben dem
   // bestehenden pollUrl-Link (siehe app/[slug]/page.tsx), ändert an dessen Verhalten nichts.
   pollResult String?
+  // "Datum noch offen": Das Datum wird per Terminabstimmung im Abstimmungstool festgelegt
+  // (siehe app/lib/poll-date.ts und app/api/poll-date/route.ts). Nur zusammen mit pollUrl
+  // wirksam (readPollLink erzwingt das). Solange true, ist `date` nur ein Platzhalter: keine
+  // Erinnerungen, kein Kalender-Anhang, Gäste sehen "Datum wird noch abgestimmt". Das
+  // Abstimmungstool setzt das endgültige Datum, dann wird es false und die Zusagenden werden
+  // wie bei einer Terminänderung benachrichtigt.
+  datePending Boolean @default(false)
 
   // Verknüpfungen mit anderen Tools der Suite (Seating, später Zeitplan) - höchstens eine je
   // Tool-Typ, siehe EventToolLink.
