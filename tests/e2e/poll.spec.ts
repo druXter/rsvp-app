@@ -134,3 +134,24 @@ test('Klick-Token nur für bestätigte Nutzer-Konten, an Abstimmung gebunden, 10
   // Eine Absage wird mitgeteilt, statt die Person als zugesagt auszugeben.
   expect(decodeCouplingToken((await follow(declined)).searchParams.get('verify')!)).toMatchObject({ email: declined.email, attending: false })
 })
+
+test('Ergebnis-Banner: nicht beschlussfähig und Punkte statt Stimmen', async ({ page, request }) => {
+  const owner = await createAccount('CREATOR')
+  const event = await createEvent(owner, { pollUrl: 'https://abstimmung.example/p/banner' })
+  const deliverResult = (overrides: Record<string, unknown>) =>
+    request.post('/api/poll-result-webhook', { data: signCouplingToken(resultPayload(event.id, overrides)), headers: { 'content-type': 'text/plain' } })
+
+  expect((await deliverResult({ winners: [], quorumMet: false })).status()).toBe(200)
+  await page.goto(`/${event.slug}`)
+  await expect(page.getByText('Nicht beschlussfähig - die Mindestbeteiligung wurde nicht erreicht.')).toBeVisible()
+  await expect(page.getByText('Es wurde keine Stimme abgegeben.')).toHaveCount(0)
+
+  expect((await deliverResult({ winners: [{ label: 'Kino', votes: 12 }], unit: 'points' })).status()).toBe(200)
+  await page.reload()
+  await expect(page.getByText('Kino (12 Punkte)')).toBeVisible()
+
+  // Positivkontrolle: ohne die neuen Felder wie bisher
+  expect((await deliverResult({ winners: [{ label: 'Kino', votes: 3 }] })).status()).toBe(200)
+  await page.reload()
+  await expect(page.getByText('Kino (3 Stimmen)')).toBeVisible()
+})

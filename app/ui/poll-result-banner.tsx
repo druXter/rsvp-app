@@ -10,7 +10,8 @@
 export default function PollResultBanner({ pollResult }: { pollResult: string | null }) {
   if (!pollResult) return null
 
-  let parsed: { pollTitle: string; winners: { label: string; votes: number }[]; closedAt: string }
+  // quorumMet/unit fehlen bei Ergebnissen, die vor ihrer Einführung gespeichert wurden (siehe verifyResultWebhookPayload).
+  let parsed: { pollTitle: string; winners: { label: string; votes: number }[]; closedAt: string; quorumMet?: boolean; unit?: 'votes' | 'points' }
   try {
     parsed = JSON.parse(pollResult)
   } catch {
@@ -25,11 +26,15 @@ export default function PollResultBanner({ pollResult }: { pollResult: string | 
       <p className="font-medium">
         🏆 Ergebnis der Abstimmung &quot;{parsed.pollTitle}&quot;:
       </p>
-      {winners.length === 0 ? (
+      {parsed.quorumMet === false ? (
+        <p className="text-sm mt-1">Nicht beschlussfähig - die Mindestbeteiligung wurde nicht erreicht.</p>
+      ) : winners.length === 0 ? (
         <p className="text-sm mt-1">Es wurde keine Stimme abgegeben.</p>
       ) : (
         <p className="text-sm mt-1">
-          {winners.map(w => `${w.label} (${w.votes} Stimme${w.votes === 1 ? '' : 'n'})`).join(' · ')}
+          {winners.map(w => parsed.unit === 'points'
+            ? `${w.label} (${w.votes} Punkt${w.votes === 1 ? '' : 'e'})`
+            : `${w.label} (${w.votes} Stimme${w.votes === 1 ? '' : 'n'})`).join(' · ')}
           {winners.length > 1 ? ' — Gleichstand' : ''}
         </p>
       )}

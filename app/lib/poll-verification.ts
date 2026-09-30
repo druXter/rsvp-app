@@ -91,7 +91,14 @@ export function signRsvpWebhookPayload(email: string, pollUrl: string, eventId: 
  * in dieser Kopplung: eine fehlgeschlagene Prüfung ist ein normaler, erwartbarer
  * Zustand (z.B. veraltetes/falsch konfiguriertes Secret), kein Serverfehler.
  */
-export function verifyResultWebhookPayload(token: string | undefined | null): { eventId: string; pollId: string; pollTitle: string; winners: { label: string; votes: number }[]; closedAt: string } | null {
+export type PollResultUnit = 'votes' | 'points'
+
+/**
+ * `quorumMet` (false = Mindestbeteiligung verfehlt, "nicht beschlussfähig") und `unit` ("points" bei
+ * Abstimmungsarten mit Wertung statt Stimmen) sind optional und fehlen in Meldungen älterer
+ * abstimmungstool-Versionen - dann gelten true bzw. "votes".
+ */
+export function verifyResultWebhookPayload(token: string | undefined | null): { eventId: string; pollId: string; pollTitle: string; winners: { label: string; votes: number }[]; closedAt: string; quorumMet: boolean; unit: PollResultUnit } | null {
   const secret = process.env.POLL_VERIFICATION_SECRET
   if (!secret || !token) return null
 
@@ -107,7 +114,7 @@ export function verifyResultWebhookPayload(token: string | undefined | null): { 
 
   let payload: {
     eventId?: unknown; pollId?: unknown; pollTitle?: unknown
-    winners?: unknown; closedAt?: unknown; exp?: unknown
+    winners?: unknown; closedAt?: unknown; exp?: unknown; quorumMet?: unknown; unit?: unknown
   }
   try {
     const padded = payloadPart + '='.repeat((4 - (payloadPart.length % 4)) % 4)
@@ -122,8 +129,12 @@ export function verifyResultWebhookPayload(token: string | undefined | null): { 
   if (typeof payload.closedAt !== 'string') return null
   if (!Array.isArray(payload.winners)) return null
   if (typeof payload.exp !== 'number' || payload.exp * 1000 < Date.now()) return null
+  if (payload.quorumMet !== undefined && typeof payload.quorumMet !== 'boolean') return null
+  if (payload.unit !== undefined && payload.unit !== 'votes' && payload.unit !== 'points') return null
 
   return {
+    quorumMet: payload.quorumMet !== false,
+    unit: payload.unit === 'points' ? 'points' : 'votes',
     eventId: payload.eventId,
     pollId: payload.pollId,
     pollTitle: payload.pollTitle,

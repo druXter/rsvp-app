@@ -30,7 +30,9 @@ export async function POST(request: Request) {
       pollResult: JSON.stringify({
         pollTitle: result.pollTitle,
         winners: result.winners,
-        closedAt: result.closedAt
+        closedAt: result.closedAt,
+        quorumMet: result.quorumMet,
+        unit: result.unit
       })
     }
   })

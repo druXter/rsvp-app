@@ -30,8 +30,16 @@ afterEach(() => vi.unstubAllEnvs())
 describe('verifyResultWebhookPayload (eingehende Ergebnis-Meldung)', () => {
   it('Positivkontrolle: gültig signierte Meldung wird angenommen', () => {
     expect(verifyResultWebhookPayload(sign(result()))).toEqual({
-      eventId: 'event-1', pollId: 'poll-1', pollTitle: 'Wohin?', winners: [{ label: 'Kino', votes: 2 }], closedAt: '2026-09-01T18:00:00.000Z'
+      eventId: 'event-1', pollId: 'poll-1', pollTitle: 'Wohin?', winners: [{ label: 'Kino', votes: 2 }], closedAt: '2026-09-01T18:00:00.000Z',
+      // Ältere Meldungen ohne die optionalen Felder: beschlussfähig, Stimmen
+      quorumMet: true, unit: 'votes'
     })
+  })
+
+  it('liest die optionalen Felder quorumMet und unit - und lehnt kaputte Werte ab', () => {
+    expect(verifyResultWebhookPayload(sign(result({ quorumMet: false, unit: 'points' })))).toMatchObject({ quorumMet: false, unit: 'points' })
+    expect(verifyResultWebhookPayload(sign(result({ quorumMet: 'nein' })))).toBeNull()
+    expect(verifyResultWebhookPayload(sign(result({ unit: 'euro' })))).toBeNull()
   })
 
   it('lehnt manipulierte Signatur und manipulierten Inhalt ab', () => {
