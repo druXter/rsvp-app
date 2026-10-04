@@ -53,8 +53,9 @@ export default function DatenschutzPage() {
             du uns freiwillig zusätzlich mitteilst. Rechtsgrundlage ist grundsätzlich Art. 6 Abs. 1 lit. b DSGVO
             (Erfüllung eines Vertrags bzw. vorvertraglicher Maßnahmen - deine Anmeldung zur Veranstaltung), für rein
             freiwillige Zusatzangaben (z.B. Allergien, siehe Punkt 4) sowie für optionale Funktionen wie
-            Push-Benachrichtigungen (Punkt 6) Art. 6 Abs. 1 lit. a bzw. Art. 9 Abs. 2 lit. a DSGVO (Einwilligung durch
-            das Ausfüllen des jeweiligen Feldes bzw. das aktive Aktivieren der Funktion).
+            Push-Benachrichtigungen (Punkt 6) oder die Anmeldung mit deinem Teilnehmendenkonto in einem anderen Tool
+            (Punkt 3) Art. 6 Abs. 1 lit. a bzw. Art. 9 Abs. 2 lit. a DSGVO (Einwilligung durch das Ausfüllen des
+            jeweiligen Feldes bzw. das aktive Aktivieren oder Erlauben der Funktion).
           </p>
         </div>
 
@@ -365,8 +366,9 @@ export default function DatenschutzPage() {
           </p>
           <p className="mt-2">
             <strong>Verbundene Tools:</strong> Die in Punkt 3 beschriebene Anmeldung mit Konten anderer Tools
-            überträgt Konto-Kennung, E-Mail-Adresse und Rolle nur an Tools, die der Betreiber selbst betreibt und
-            freigegeben hat.
+            überträgt bei Verwaltungskonten Konto-Kennung, E-Mail-Adresse und Rolle, bei Teilnehmendenkonten - nur nach
+            deiner Zustimmung - deinen Namen und eine nur für das jeweilige Tool gültige Kennung. Beides nur an Tools,
+            die der Betreiber selbst betreibt und freigegeben hat.
           </p>
           <p className="mt-2">
             <strong>Hosting:</strong> Diese Anwendung wird auf einem vom Verantwortlichen selbst betriebenen und
@@ -391,8 +393,11 @@ export default function DatenschutzPage() {
           </p>
           <p className="mt-2">
             Ein Teilnehmendenkonto unter &quot;Mein Konto&quot; wird automatisch vollständig gelöscht, wenn du dich{' '}
-            <strong>2 Jahre</strong> lang nicht mehr eingeloggt hast - inklusive aller Reihen-Zuordnungen und
-            Antworten. Verwaltungskonten (Veranstalter:innen) sind von dieser automatischen Löschung ausgenommen.
+            <strong>2 Jahre</strong> lang nicht mehr eingeloggt hast - inklusive aller Reihen-Zuordnungen, Antworten und
+            Freigaben für andere Tools. Verwaltungskonten (Veranstalter:innen) sind von dieser automatischen Löschung
+            ausgenommen. Entziehst du eine Freigabe für ein anderes Tool, bleibt nur der Vermerk samt Kennung bis zur
+            Löschung deines Kontos stehen - damit du bei einer erneuten Freigabe dort dieselbe Person bist (z.B. nicht
+            doppelt abstimmst).
           </p>
           <p className="mt-2">
             Sitzungen laufen nach 30 Tagen ab, Passwort-Reset- und E-Mail-Änderungs-Links nach 1 Stunde; abgelaufene
@@ -430,8 +435,9 @@ export default function DatenschutzPage() {
             derselben Stelle (bzw. bei Verwaltungskonten unter &quot;⚙️ Konto-Einstellungen&quot; im Dashboard) kannst du
             dein Passwort und deine E-Mail-Adresse jederzeit selbst ändern - eine E-Mail-Änderung wird erst nach
             Bestätigung über einen an die neue Adresse geschickten Link wirksam. Ebenfalls dort steuerst du, ob du
-            Bestätigungs-Mails erhalten möchtest (Punkt 5); Push-Benachrichtigungen deaktivierst du direkt auf der
-            jeweiligen Termin-Seite bzw. im Dashboard (Punkt 6).
+            Bestätigungs-Mails erhalten möchtest (Punkt 5) und welche anderen Tools dich mit deinem Teilnehmendenkonto
+            anmelden dürfen (&quot;Anmeldung in anderen Tools&quot;, Punkt 3 - dort entziehst du eine Freigabe);
+            Push-Benachrichtigungen deaktivierst du direkt auf der jeweiligen Termin-Seite bzw. im Dashboard (Punkt 6).
           </p>
           <p className="mt-2">
             Unabhängig davon hast du das Recht, dich bei einer Datenschutz-Aufsichtsbehörde zu beschweren, wenn du der
