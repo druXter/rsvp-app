@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { PrismaClient } from '@prisma/client'
 import { getCurrentGuestUser } from '../../lib/guest-auth'
 import { cookies } from 'next/headers'
-import { changeGuestPassword, requestGuestEmailChange, cancelGuestEmailChange, updateConfirmationEmailPreference, createApiToken, revokeApiToken } from '../actions'
+import { changeGuestPassword, requestGuestEmailChange, cancelGuestEmailChange, updateConfirmationEmailPreference, createApiToken, revokeApiToken, revokeToolConsent } from '../actions'
 import { NEW_API_TOKEN_COOKIE } from '../../lib/api-auth'
 import SubmitButton from '../../ui/submit-button'
 import AuthError from '../../ui/auth-error'
@@ -21,7 +21,7 @@ const prisma = new PrismaClient()
 export default async function GuestAccountPage({
   searchParams
 }: {
-  searchParams: Promise<{ error?: string; passwordChanged?: string; emailChangeRequested?: string; confirmationPrefSaved?: string; tokenCreated?: string; tokenRevoked?: string }>
+  searchParams: Promise<{ error?: string; passwordChanged?: string; emailChangeRequested?: string; confirmationPrefSaved?: string; tokenCreated?: string; tokenRevoked?: string; consentRevoked?: string }>
 }) {
   const guestUser = await getCurrentGuestUser()
   if (!guestUser) redirect('/mein-konto/login')
@@ -40,6 +40,12 @@ export default async function GuestAccountPage({
 
   const tokenCreated = params.tokenCreated === '1'
   const tokenRevoked = params.tokenRevoked === '1'
+  const consentRevoked = params.consentRevoked === '1'
+  // Freigaben für andere Tools der Suite (Teilnehmenden-Bestätigung, siehe /mein-konto/freigabe).
+  const toolConsents = await prisma.guestToolConsent.findMany({
+    where: { guestUserId: guestUser.id, revokedAt: null },
+    orderBy: { grantedAt: 'asc' }
+  })
   const apiTokens = await prisma.guestApiToken.findMany({
     where: { guestUserId: guestUser.id },
     orderBy: { createdAt: 'desc' }
@@ -229,6 +235,42 @@ export default async function GuestAccountPage({
             </div>
           </details>
         </div>
+
+        {(toolConsents.length > 0 || consentRevoked) && (
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow space-y-3">
+            <h2 className="font-bold text-gray-900 dark:text-gray-100">Anmeldung in anderen Tools</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Diese Tools dürfen dich mit deinem Teilnehmendenkonto anmelden. Sie bekommen nur deinen Namen und eine
+              Kennung, die nur für sie gilt - keine E-Mail-Adresse.
+            </p>
+            {consentRevoked && (
+              <p className="text-sm text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-950 p-2 rounded">
+                Freigabe entzogen. Eine neue Anmeldung dort ist nicht mehr möglich; eine laufende endet spätestens nach 24 Stunden.
+              </p>
+            )}
+            {toolConsents.length > 0 && (
+              <ul className="divide-y divide-gray-100 dark:divide-gray-700 border border-gray-100 dark:border-gray-700 rounded" aria-label="Freigaben für andere Tools">
+                {toolConsents.map(c => (
+                  <li key={c.id} className="flex items-center justify-between gap-3 p-2">
+                    <div className="min-w-0">
+                      <p className="text-sm text-gray-800 dark:text-gray-100 truncate">{new URL(c.app).host}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Erlaubt am {c.grantedAt.toLocaleDateString('de-DE')} ·{' '}
+                        {c.lastUsedAt ? `zuletzt genutzt am ${c.lastUsedAt.toLocaleDateString('de-DE')}` : 'noch nie genutzt'}
+                      </p>
+                    </div>
+                    <form action={revokeToolConsent}>
+                      <input type="hidden" name="consentId" value={c.id} />
+                      <button type="submit" className="text-xs bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300 px-2 py-1 rounded hover:bg-red-200 dark:hover:bg-red-900 transition whitespace-nowrap">
+                        Freigabe entziehen
+                      </button>
+                    </form>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
 
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow border-t-4 border-red-200 dark:border-red-800 space-y-2">
           <h2 className="font-bold text-gray-900 dark:text-gray-100">Konto löschen</h2>

@@ -5,7 +5,9 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { PrismaClient } from '@prisma/client'
-import { sanitizeNextPath } from 'suite-kit'
+import { randomBytes } from 'node:crypto'
+import { parseAuthorizeRequest, sanitizeNextPath } from 'suite-kit'
+import { getParticipantApps, selfOrigin } from '../lib/suite'
 import { sendGuestVerificationEmail, sendGuestPasswordResetEmail, sendGuestEmailChangeConfirmation } from '../lib/mail'
 import { requireGuestUser, createGuestSession, destroyGuestSession, GUEST_SESSION_COOKIE } from '../lib/guest-auth'
 import { generateToken, hashToken } from '../lib/tokens'
@@ -142,6 +144,10 @@ export async function loginGuestUser(formData: FormData) {
   await refund(rules.ip)
   await clearFailures([rules.email])
   await createGuestSession(guestUser.id) // neue Session, lastLoginAt aktuell (siehe app/lib/guest-auth.ts)
+  // Anmeldung für ein anderes Tool (Teilnehmenden-Bestätigung): über eine Zwischenseite mit echtem
+  // Seitenwechsel weiter, weil der Next-Client eine Weiterleitung aus einer Server Action in einen
+  // Route Handler, der seinerseits auf eine andere Domain weiterleitet, nicht sauber abschließt.
+  if (next?.startsWith('/api/suite/authorize?')) redirect(`/mein-konto/weiter?to=${encodeURIComponent(next)}`)
   redirect(next || '/mein-konto')
 }
 
@@ -418,6 +424,7 @@ export async function deleteGuestAccount() {
   await prisma.guestUserSeries.deleteMany({ where: { guestUserId: guestUser.id } })
   await prisma.guestSession.deleteMany({ where: { guestUserId: guestUser.id } })
   await prisma.guestApiToken.deleteMany({ where: { guestUserId: guestUser.id } })
+  await prisma.guestToolConsent.deleteMany({ where: { guestUserId: guestUser.id } })
   await prisma.guestUser.delete({ where: { id: guestUser.id } })
 
   const cookieStore = await cookies()
@@ -473,4 +480,50 @@ export async function confirmGuestEmailChange(formData: FormData) {
   }
   if (claimed.count !== 1) redirect('/mein-konto/confirm-email?error=invalid')
   redirect('/mein-konto/confirm-email?done=1')
+}
+
+/**
+ * Prüft eine Anfrage eines anderen Tools nach einer Teilnehmenden-Bestätigung erneut (die Werte
+ * kommen aus dem Formular der Zustimmungsseite und sind damit frei manipulierbar).
+ */
+function participantRequest(app: string, state: string) {
+  const origin = selfOrigin()
+  if (!origin) return null
+  const url = new URL('/api/suite/authorize', origin)
+  url.search = new URLSearchParams({ app, state, kind: 'participant' }).toString()
+  const parsed = parseAuthorizeRequest(url, [], getParticipantApps())
+  return parsed.ok ? { request: parsed.request, continueTo: url.pathname + url.search } : null
+}
+
+/**
+ * Zustimmung auf /mein-konto/freigabe: Dieses Teilnehmendenkonto darf sich im anfragenden Tool
+ * anmelden. Legt beim ersten Mal die paarweise Kennung an (zufällig, nur dieses Tool sieht sie);
+ * eine früher entzogene Freigabe wird mit derselben Kennung wieder erteilt. Danach weiter zum
+ * Anbieter-Endpunkt, der jetzt die Bestätigung ausstellt.
+ */
+export async function grantToolConsent(formData: FormData) {
+  const guestUser = await requireGuestUser()
+  if (!guestUser.isVerified) redirect('/mein-konto/freigabe?error=unverified')
+  const flow = participantRequest(String(formData.get('app') ?? ''), String(formData.get('state') ?? ''))
+  if (!flow) redirect('/mein-konto/freigabe?error=app')
+
+  await prisma.guestToolConsent.upsert({
+    where: { guestUserId_app: { guestUserId: guestUser.id, app: flow.request.app } },
+    create: { guestUserId: guestUser.id, app: flow.request.app, subject: randomBytes(24).toString('base64url') },
+    update: { revokedAt: null, grantedAt: new Date() }
+  })
+  redirect(`/mein-konto/weiter?to=${encodeURIComponent(flow.continueTo)}`)
+}
+
+/**
+ * Freigabe für ein Tool entziehen. Die Zeile bleibt (mit revokedAt), damit die Person bei einer
+ * erneuten Freigabe dort dieselbe ist. Eine laufende Sitzung im anderen Tool endet spätestens
+ * nach deren kurzer Laufzeit (24 Stunden), eine neue Anmeldung ist ab sofort nicht mehr möglich.
+ */
+export async function revokeToolConsent(formData: FormData) {
+  const guestUser = await requireGuestUser()
+  const consentId = formData.get('consentId')
+  if (typeof consentId !== 'string') return
+  await prisma.guestToolConsent.updateMany({ where: { id: consentId, guestUserId: guestUser.id, revokedAt: null }, data: { revokedAt: new Date() } })
+  redirect('/mein-konto/account?consentRevoked=1')
 }

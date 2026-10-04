@@ -71,6 +71,7 @@ export async function GET(request: Request) {
   await prisma.guestUserSeries.deleteMany({ where: { guestUserId: { in: inactiveGuestUserIds } } })
   await prisma.guestSession.deleteMany({ where: { guestUserId: { in: inactiveGuestUserIds } } })
   await prisma.guestApiToken.deleteMany({ where: { guestUserId: { in: inactiveGuestUserIds } } })
+  await prisma.guestToolConsent.deleteMany({ where: { guestUserId: { in: inactiveGuestUserIds } } })
   await prisma.guestUser.deleteMany({ where: { id: { in: inactiveGuestUserIds } } })
 
   return NextResponse.json({

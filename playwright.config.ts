@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test'
+import { createHash } from 'node:crypto'
 
 // E2E-Tests gegen eine echte, frisch gebaute Instanz (next build + next start) mit eigener
 // Datenbank (prisma/test.db) - nie gegen die Entwicklungs- oder Produktivdatenbank.
@@ -27,6 +28,14 @@ export const TEST_TIMELINE_BASE_URL = `http://127.0.0.1:${TIMELINE_PORT}`
 // Tests nichts - rsvp-app prüft nur, ob eine pollUrl zu diesem Origin gehört. Ausgehende
 // Zu-/Absage-Meldungen dorthin scheitern sofort (best-effort, siehe app/lib/poll-notify.ts).
 export const TEST_ABSTIMMUNGSTOOL_BASE_URL = 'http://127.0.0.1:3108'
+// Konto-Verbund, nur die Anbieter-Rolle für TEILNEHMENDENKONTEN (tests/e2e/suite-participant.spec.ts):
+// fester Ed25519-Testschlüssel (PKCS#8 = fester Präfix + 32 Byte Seed aus einem Namen) und zwei
+// Empfänger-Origins, unter denen nichts läuft - die Tests fangen die Weiterleitung dorthin im Browser ab.
+export const TEST_SUITE_SIGNING_KEY = Buffer.concat([
+  Buffer.from('302e020100300506032b657004220420', 'hex'),
+  createHash('sha256').update('rsvp-e2e-suite').digest()
+]).toString('base64url')
+export const TEST_PARTICIPANT_APPS = ['http://127.0.0.1:3121', 'http://127.0.0.1:3122']
 // Ein Origin, der zu keinem eingerichteten Tool gehört - für die Fälle "fremde Adresse".
 export const FOREIGN_TOOL_BASE_URL = 'http://127.0.0.1:3199'
 
@@ -81,7 +90,10 @@ export default defineConfig({
       SEATING_BASE_URL: TEST_SEATING_BASE_URL,
       TIMELINE_SECRET: TEST_TIMELINE_SECRET,
       TIMELINE_BASE_URL: TEST_TIMELINE_BASE_URL,
-      SUITE_SIGNING_KEY: '',
+      // Anbieter nur für Teilnehmendenkonten: SUITE_TRUSTED_APPS bleibt leer, Verwaltungskonten
+      // werden also für niemanden bestätigt; als Empfänger (SUITE_IDPS) ist nichts eingerichtet.
+      SUITE_SIGNING_KEY: TEST_SUITE_SIGNING_KEY,
+      SUITE_PARTICIPANT_APPS: TEST_PARTICIPANT_APPS.join(','),
       SUITE_IDPS: '',
       SUITE_TRUSTED_APPS: '',
       TZ: 'Europe/Berlin'

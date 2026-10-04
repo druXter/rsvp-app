@@ -152,15 +152,15 @@ model Event {
   // jeden anderen Aufrufer (nicht eingeloggt, unverifiziert) führt derselbe Link
   // einfach ohne Token zur Abstimmung - das Abstimmungstool selbst entscheidet, ob
   // das für diese eine Abstimmung reicht oder nicht.
-  pollUrl    String?
-  pollLabel  String?
+  pollUrl     String?
+  pollLabel   String?
   // Zwischengespeichertes Ergebnis einer verknüpften Abstimmung, gesetzt vom eingehenden
   // Webhook aus abstimmungstool sobald die Abstimmung schließt (siehe
   // app/api/poll-result-webhook/route.ts) - JSON-String `{pollTitle, winners: [{label,
   // votes}], closedAt}`. Bleibt null, solange keine verknüpfte Abstimmung existiert oder
   // noch nicht geschlossen wurde. Rein additiv, rendert nur zusätzlich neben dem
   // bestehenden pollUrl-Link (siehe app/[slug]/page.tsx), ändert an dessen Verhalten nichts.
-  pollResult String?
+  pollResult  String?
   // "Datum noch offen": Das Datum wird per Terminabstimmung im Abstimmungstool festgelegt
   // (siehe app/lib/poll-date.ts und app/api/poll-date/route.ts). Nur zusammen mit pollUrl
   // wirksam (readPollLink erzwingt das). Solange true, ist `date` nur ein Platzhalter: keine
@@ -353,6 +353,7 @@ model GuestUser {
   participants      Participant[]
   sessions          GuestSession[]
   apiTokens         GuestApiToken[]
+  toolConsents      GuestToolConsent[]
 }
 
 // Mitgliedschaft eines Nutzer-Kontos in einer Reihe (n:m - ein Konto kann mehreren Reihen
@@ -369,6 +370,26 @@ model GuestUserSeries {
   createdAt   DateTime    @default(now())
 
   @@unique([guestUserId, seriesId])
+}
+
+// Zustimmung eines Teilnehmendenkontos, sich damit in einem anderen Tool der Suite anzumelden
+// (suite-kit, Teilnehmenden-Bestätigung, siehe app/api/suite/authorize/route.ts). Eine Zeile pro
+// (Konto, Tool). `subject` ist die PAARWEISE Kennung, die nur dieses eine Tool zu sehen bekommt -
+// zufällig, damit Tools Personen nicht untereinander verknüpfen können. Beim Entziehen bleibt die
+// Zeile mit revokedAt stehen: Erteilt die Person die Freigabe später erneut, ist sie dort wieder
+// dieselbe (sonst könnte sie z.B. ein zweites Mal abstimmen).
+model GuestToolConsent {
+  id          String    @id @default(cuid())
+  guestUserId String
+  guestUser   GuestUser @relation(fields: [guestUserId], references: [id], onDelete: Cascade)
+  // Origin des anfragenden Tools (aud der Bestätigung).
+  app         String
+  subject     String    @unique
+  grantedAt   DateTime  @default(now())
+  revokedAt   DateTime?
+  lastUsedAt  DateTime?
+
+  @@unique([guestUserId, app])
 }
 
 // Server-seitige Gast-Session, strikt getrennt vom Admin-Session-Modell - auch hier trägt

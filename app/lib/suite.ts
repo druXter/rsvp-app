@@ -46,6 +46,15 @@ export function getTrustedApps(): string[] {
   return (trustedApps ??= parseTrustedApps(process.env.SUITE_TRUSTED_APPS))
 }
 
+let participantApps: string[] | undefined
+/**
+ * Tools, die sich Teilnehmendenkonten (GuestUser) bestätigen lassen dürfen (SUITE_PARTICIPANT_APPS) -
+ * getrennt von SUITE_TRUSTED_APPS, weil das eine für Verwaltungskonten gilt und das andere für Gäste.
+ */
+export function getParticipantApps(): string[] {
+  return (participantApps ??= parseTrustedApps(process.env.SUITE_PARTICIPANT_APPS, 'SUITE_PARTICIPANT_APPS'))
+}
+
 /** Kann dieses Tool Logins für andere Tools ausstellen? */
 export function isProvider(): boolean {
   return !!selfOrigin() && getSigners().length > 0

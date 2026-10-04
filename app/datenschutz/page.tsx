@@ -92,8 +92,21 @@ export default function DatenschutzPage() {
             freigegeben hat. Dabei übermittelt das Tool, bei dem du angemeldet bist, an das andere eine etwa eine
             Minute gültige, digital signierte Bestätigung mit <strong>deiner Konto-Kennung, E-Mail-Adresse und
             Rolle</strong> - niemals dein Passwort oder deine Sitzung. Die Verknüpfung speichern wir und du kannst
-            sie unter &quot;⚙️ Konto-Einstellungen&quot; jederzeit entfernen. Teilnehmendenkonten
-            (&quot;Mein Konto&quot;) nehmen daran nicht teil.
+            sie unter &quot;⚙️ Konto-Einstellungen&quot; jederzeit entfernen. Für Teilnehmendenkonten
+            (&quot;Mein Konto&quot;) gilt der folgende, eigene Ablauf.
+          </p>
+          <p className="mt-2">
+            <strong>Mit deinem Teilnehmendenkonto in einem anderen Tool anmelden (optional):</strong> Ist dies vom
+            Betreiber eingerichtet, kannst du dich mit deinem Konto unter &quot;Mein Konto&quot; auch in einem
+            verbundenen Tool anmelden, z.B. um im Abstimmungstool abzustimmen. Beim ersten Mal fragen wir dich auf einer
+            eigenen Seite, ob du das willst, und zeigen, was übertragen wird. Erst nach deiner Zustimmung übermitteln wir
+            dem Tool eine etwa eine Minute gültige, digital signierte Bestätigung mit <strong>deinem Namen und einer
+            Kennung, die nur für dieses eine Tool gilt</strong> - nie deine E-Mail-Adresse, Telefonnummer,
+            Essenswünsche oder Antworten, und keine Kennung, mit der verschiedene Tools dich miteinander verknüpfen
+            könnten. Wir speichern, welchem Tool du zugestimmt hast, die Kennung und wann du die Anmeldung zuletzt
+            genutzt hast. Rechtsgrundlage ist deine Einwilligung (Art. 6 Abs. 1 lit. a DSGVO); du kannst sie unter
+            &quot;⚙️ Konto-Einstellungen&quot; jederzeit entziehen. Eine dort bereits laufende Anmeldung endet dann
+            spätestens nach 24 Stunden. Was das andere Tool speichert, steht in dessen Datenschutzerklärung.
           </p>
         </div>
 
