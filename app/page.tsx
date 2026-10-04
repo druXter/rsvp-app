@@ -31,7 +31,7 @@ export default async function Home() {
               href={user ? '/admin' : '/admin/login'}
               className="inline-block bg-blue-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-blue-700 transition shadow-lg"
             >
-              {user ? `Zum Admin-Dashboard (${user.email})` : 'Zum Admin-Bereich'}
+              {user ? `Zur Verwaltung (${user.email})` : 'Zur Verwaltung'}
             </Link>
             <Link
               href={guestUser ? '/mein-konto' : '/mein-konto/login'}

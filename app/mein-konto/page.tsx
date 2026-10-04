@@ -24,7 +24,7 @@ export default async function MeinKontoPage() {
   const guestUser = await getCurrentGuestUser()
   if (!guestUser) redirect('/mein-konto/login')
 
-  // Nur relevant, falls DIESES Konto auch gerade im Admin-Bereich eingeloggt ist (eigenes
+  // Nur relevant, falls DIESES Konto auch gerade in der Verwaltung eingeloggt ist (eigenes
   // Cookie, siehe app/lib/auth.ts) - z.B. ein Moderator, der bei einer fremden Reihe auch
   // ganz normal als Nutzer teilnimmt. Bekommt dann einen direkten Wechsel-Link zurück,
   // ohne sich manuell zum Dashboard durchklicken zu müssen (wichtig v.a. in der
@@ -55,7 +55,7 @@ export default async function MeinKontoPage() {
           <div className="flex gap-2 flex-wrap items-center">
             {user && (
               <Link href="/admin" className="bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 px-4 py-2 rounded hover:bg-emerald-200 dark:hover:bg-emerald-900 transition text-sm font-medium flex items-center">
-                🔀 Admin-Dashboard ({user.email})
+                🔀 Verwaltung ({user.email})
               </Link>
             )}
             <Link href="/mein-konto/account" className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition text-sm font-medium flex items-center">

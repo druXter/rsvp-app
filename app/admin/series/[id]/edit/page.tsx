@@ -44,7 +44,7 @@ export default async function EditEventSeriesPage({
       <div className="max-w-2xl mx-auto bg-white dark:bg-gray-800 p-8 rounded-lg shadow space-y-6 text-gray-900 dark:text-gray-100">
 
         <div className="flex justify-between items-center border-b pb-4">
-          <h1 className="text-2xl font-bold">{isOwner ? 'Reihe bearbeiten' : 'Nutzer-Mitglieder verwalten'}</h1>
+          <h1 className="text-2xl font-bold">{isOwner ? 'Reihe bearbeiten' : 'Mitglieder verwalten'}</h1>
           <Link href={`/admin/series/${series.id}`} className="text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition">
             {isOwner ? 'Abbrechen' : '← Zurück'}
           </Link>

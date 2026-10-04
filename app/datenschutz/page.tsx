@@ -59,20 +59,20 @@ export default function DatenschutzPage() {
         </div>
 
         <div>
-          <h2 className="font-bold text-lg">3. Registrierung & Login (Admin-Konten und &quot;Mein Konto&quot;)</h2>
+          <h2 className="font-bold text-lg">3. Registrierung & Login (Verwaltungs- und Teilnehmendenkonten)</h2>
           <p className="mt-2">
-            Für Veranstalter:innen (E-Mail, Passwort-Hash) und für Gäste, die sich freiwillig ein Nutzer-Konto unter
+            Für Veranstalter:innen (Verwaltungskonto: E-Mail, Passwort-Hash) und für Gäste, die sich freiwillig ein Teilnehmendenkonto unter
             &quot;Mein Konto&quot; anlegen (E-Mail, Passwort-Hash, Name, optional Handynummer/Essenswunsch/Allergien),
             speichern wir Login-Daten. Passwörter werden ausschließlich als Hash (bcrypt) gespeichert, niemals im
             Klartext. Die Anmeldung erfolgt über ein zufällig erzeugtes Sitzungs-Token in einem Cookie (siehe Punkt 14)
-            - niemals über deinen Namen oder deine E-Mail-Adresse direkt im Cookie. Bei einem Nutzer-Konto speichern
+            - niemals über deinen Namen oder deine E-Mail-Adresse direkt im Cookie. Bei einem Teilnehmendenkonto speichern
             wir außerdem den Zeitpunkt deines letzten Logins, um das Konto nach längerer Inaktivität automatisch
             löschen zu können (siehe Punkt 15).
           </p>
           <p className="mt-2">
             <strong>Sicherer Umgang mit Zugangsdaten:</strong> Passwörter werden mit bcrypt gehasht. Auch
             Sitzungs-Tokens sowie die Einmal-Links für Passwort-Reset, E-Mail-Änderung und die Bestätigung eines
-            Nutzer-Kontos speichern wir in der Datenbank <strong>nur als Hash</strong> - der Klartext steht allein
+            Teilnehmendenkontos speichern wir in der Datenbank <strong>nur als Hash</strong> - der Klartext steht allein
             in deinem Cookie bzw. in der Mail an dich. Eine Kopie der Datenbank ermöglicht damit weder die
             Übernahme einer Sitzung noch das Einlösen eines Links.
           </p>
@@ -85,14 +85,14 @@ export default function DatenschutzPage() {
             ist unser berechtigtes Interesse an der Sicherheit der Anwendung (Art. 6 Abs. 1 lit. f DSGVO).
           </p>
           <p className="mt-2">
-            <strong>Anmeldung mit dem Konto eines anderen Tools (optional, nur Admin-Konten):</strong> Ist dies vom
+            <strong>Anmeldung mit dem Konto eines anderen Tools (optional, nur Verwaltungskonten):</strong> Ist dies vom
             Betreiber eingerichtet, kannst du dich hier mit einem Konto eines verbundenen Tools anmelden (z.B. dem
             Abstimmungstool), und umgekehrt kann man sich dort mit einem Konto von hier anmelden. Das geschieht{' '}
             <strong>nur, wenn du es aktiv anstößt</strong>, und nur zwischen Tools, die der Betreiber ausdrücklich
             freigegeben hat. Dabei übermittelt das Tool, bei dem du angemeldet bist, an das andere eine etwa eine
             Minute gültige, digital signierte Bestätigung mit <strong>deiner Konto-Kennung, E-Mail-Adresse und
             Rolle</strong> - niemals dein Passwort oder deine Sitzung. Die Verknüpfung speichern wir und du kannst
-            sie unter &quot;⚙️ Konto-Einstellungen&quot; jederzeit entfernen. Nutzer-Konten für Veranstaltungsreihen
+            sie unter &quot;⚙️ Konto-Einstellungen&quot; jederzeit entfernen. Teilnehmendenkonten
             (&quot;Mein Konto&quot;) nehmen daran nicht teil.
           </p>
         </div>
@@ -137,7 +137,7 @@ export default function DatenschutzPage() {
             - zusätzlich als Push-Benachrichtigung (siehe Punkt 6).
           </p>
           <p className="mt-2">
-            <strong>Bestätigungs-Mails abbestellen:</strong>{' '}Hast du ein Nutzer-Konto unter &quot;Mein Konto&quot; und
+            <strong>Bestätigungs-Mails abbestellen:</strong>{' '}Hast du ein Teilnehmendenkonto unter &quot;Mein Konto&quot; und
             dort Push-Benachrichtigungen aktiviert, kannst du unter &quot;⚙️ Konto-Einstellungen&quot; festlegen, dass
             wir dir keine Bestätigungs-Mails mehr schicken - du erhältst die Bestätigung dann ausschließlich als
             Push-Benachrichtigung. Diese Einstellung lässt sich jederzeit wieder zurücknehmen. Verifizierungs-,
@@ -201,7 +201,7 @@ export default function DatenschutzPage() {
             wenn du den entsprechenden Link aktiv anklickst, verlässt du diese Anwendung.
           </p>
           <p className="mt-2">
-            Bist du zu diesem Zeitpunkt mit einem bestätigten Nutzer-Konto unter &quot;Mein Konto&quot; angemeldet,
+            Bist du zu diesem Zeitpunkt mit einem bestätigten Teilnehmendenkonto unter &quot;Mein Konto&quot; angemeldet,
             übermitteln wir dabei <strong>deine E-Mail-Adresse</strong> in einem kryptographisch signierten,{' '}
             <strong>nur 10 Minuten gültigen</strong> Token an die verlinkte Abstimmung. Das dient ausschließlich dazu,
             dich dort als bereits bestätigte Person auszuweisen, damit du nicht erneut eine Verifizierung durchlaufen
@@ -313,7 +313,7 @@ export default function DatenschutzPage() {
             Marketing-Cookies.
           </p>
           <ul className="list-disc list-inside mt-2 space-y-1 text-sm">
-            <li><code>__Host-session</code> - Login-Sitzung im Admin-Bereich (30 Tage)</li>
+            <li><code>__Host-session</code> - Login-Sitzung in der Verwaltung (30 Tage)</li>
             <li><code>__Host-guest-session</code> - Login-Sitzung in &quot;Mein Konto&quot; (30 Tage)</li>
             <li><code>__Host-suite-state</code> - nur während der Anmeldung über ein anderes Tool (10 Minuten)</li>
             <li><code>event_pin_&lt;id&gt;</code> / <code>series_pin_&lt;id&gt;</code> - Freischaltung passwortgeschützter Veranstaltungen (30 Tage)</li>
@@ -377,9 +377,9 @@ export default function DatenschutzPage() {
             du noch zu einem anderen Termin derselben Reihe geantwortet hast.
           </p>
           <p className="mt-2">
-            Ein Nutzer-Konto unter &quot;Mein Konto&quot; wird automatisch vollständig gelöscht, wenn du dich{' '}
+            Ein Teilnehmendenkonto unter &quot;Mein Konto&quot; wird automatisch vollständig gelöscht, wenn du dich{' '}
             <strong>2 Jahre</strong> lang nicht mehr eingeloggt hast - inklusive aller Reihen-Zuordnungen und
-            Antworten. Admin-Konten (Veranstalter:innen) sind von dieser automatischen Löschung ausgenommen.
+            Antworten. Verwaltungskonten (Veranstalter:innen) sind von dieser automatischen Löschung ausgenommen.
           </p>
           <p className="mt-2">
             Sitzungen laufen nach 30 Tagen ab, Passwort-Reset- und E-Mail-Änderungs-Links nach 1 Stunde; abgelaufene
@@ -414,7 +414,7 @@ export default function DatenschutzPage() {
             Veranstaltungsreihen betrifft das alle deine Antworten der gesamten Reihe, nicht nur einen einzelnen
             Termin. Hast du zusätzlich ein Konto unter &quot;Mein Konto&quot;, findest du dort unter &quot;⚙️
             Konto-Einstellungen&quot; eine Schaltfläche, um dieses Konto jederzeit vollständig zu löschen. An
-            derselben Stelle (bzw. bei Admin-Konten unter &quot;⚙️ Konto-Einstellungen&quot; im Dashboard) kannst du
+            derselben Stelle (bzw. bei Verwaltungskonten unter &quot;⚙️ Konto-Einstellungen&quot; im Dashboard) kannst du
             dein Passwort und deine E-Mail-Adresse jederzeit selbst ändern - eine E-Mail-Änderung wird erst nach
             Bestätigung über einen an die neue Adresse geschickten Link wirksam. Ebenfalls dort steuerst du, ob du
             Bestätigungs-Mails erhalten möchtest (Punkt 5); Push-Benachrichtigungen deaktivierst du direkt auf der

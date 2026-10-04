@@ -24,7 +24,7 @@ export default function GuestRequiredGate({
         <span className="text-4xl block">🔒</span>
         <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">{title}</h2>
         <p className="text-gray-500 dark:text-gray-400 text-sm">
-          Für dieses Event ist ein Nutzer-Konto erforderlich. Bitte logge dich ein oder erstelle
+          Für dieses Event ist ein Teilnehmendenkonto erforderlich. Bitte logge dich ein oder erstelle
           ein Konto, um teilzunehmen.
         </p>
 

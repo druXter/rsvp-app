@@ -100,7 +100,7 @@ export default async function AdminDashboard() {
 
         <div className="flex justify-between items-center bg-white dark:bg-gray-800 p-6 rounded-lg shadow flex-wrap gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">RSVP Admin-Dashboard</h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">RSVP-Verwaltung</h1>
             <p className="text-sm text-gray-500 dark:text-gray-400">Eingeloggt als {user.email} <span className="text-gray-400 dark:text-gray-500">({ROLE_LABELS[user.role]})</span></p>
           </div>
           <div className="flex gap-4 flex-wrap">
@@ -115,12 +115,12 @@ export default async function AdminDashboard() {
             )}
             {isAdmin && (
               <Link href="/admin/users" className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition text-sm font-medium flex items-center">
-                👥 Nutzerverwaltung
+                👥 Kontenverwaltung
               </Link>
             )}
             {!isModerator && (
               <Link href="/admin/create-user" className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition text-sm font-medium flex items-center">
-                + Nutzer anlegen
+                + Konto anlegen
               </Link>
             )}
             {!isModerator && (

@@ -59,7 +59,7 @@ async function shouldSuppressConfirmationEmail(participant: { guestUserId: strin
   return guestUser?.disableConfirmationEmails ?? false
 }
 
-const ACCOUNT_REQUIRED_MESSAGE = 'Für dieses Event/diese Reihe ist ein Nutzer-Konto erforderlich. Bitte logge dich unter /mein-konto ein oder registriere dich zuerst.'
+const ACCOUNT_REQUIRED_MESSAGE = 'Für dieses Event/diese Reihe ist ein Teilnehmendenkonto erforderlich. Bitte logge dich unter /mein-konto ein oder registriere dich zuerst.'
 
 /**
  * Die eigentliche Antwort-Logik (Identität auflösen, Kapazität/Warteliste, Verifizierung,

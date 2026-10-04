@@ -86,7 +86,7 @@ export default async function AdminLoginPage({ searchParams }: { searchParams: P
         </p>
 
         <p className="text-xs text-center text-gray-400 dark:text-gray-500 border-t dark:border-gray-700 pt-4">
-          Nutzer-Konto einer Veranstaltungsreihe? <Link href="/mein-konto/login" className="text-blue-600 hover:underline">Hier einloggen</Link>
+          Teilnehmendenkonto einer Veranstaltungsreihe? <Link href="/mein-konto/login" className="text-blue-600 hover:underline">Hier einloggen</Link>
         </p>
       </div>
     </main>

@@ -23,11 +23,11 @@ export default function GuestMembersPanel({
   return (
     <ThemeSection
       color="emerald"
-      title="Nutzer-Mitglieder dieser Reihe"
-      description={'Bestehende Nutzer-Konten (per Selbstregistrierung auf der Reihen-Seite entstanden) können hier zusätzlich zu dieser Reihe hinzugefügt werden, ohne ein neues Konto anzulegen. Sie sehen die Termine dann automatisch in ihrem "Mein Konto"-Bereich.'}
+      title="Mitglieder dieser Reihe (Teilnehmendenkonten)"
+      description={'Bestehende Teilnehmendenkonten (per Selbstregistrierung auf der Reihen-Seite entstanden) können hier zusätzlich zu dieser Reihe hinzugefügt werden, ohne ein neues Konto anzulegen. Sie sehen die Termine dann automatisch in ihrem "Mein Konto"-Bereich.'}
     >
       {error === 'notfound' && (
-        <div className="p-2 bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 text-xs rounded">Für diese E-Mail-Adresse existiert kein Nutzer-Konto.</div>
+        <div className="p-2 bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 text-xs rounded">Für diese E-Mail-Adresse existiert kein Teilnehmendenkonto.</div>
       )}
 
       {members.length > 0 && (

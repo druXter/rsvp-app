@@ -53,7 +53,7 @@ export default async function RegisterGuestUserForEventPage({
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Konto für {event.title}</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Für dieses Event ist ein Nutzer-Konto erforderlich, um teilzunehmen.
+            Für dieses Event ist ein Teilnehmendenkonto erforderlich, um teilzunehmen.
           </p>
         </div>
 

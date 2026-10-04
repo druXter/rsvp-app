@@ -26,7 +26,7 @@ export default async function CreateUserPage({ searchParams }: { searchParams: P
     <main className="min-h-screen bg-gray-100 dark:bg-gray-900 py-12 px-4">
       <div className="max-w-md mx-auto bg-white dark:bg-gray-800 p-8 rounded-lg shadow space-y-6">
         <div className="flex justify-between items-center border-b dark:border-gray-700 pb-4">
-          <h1 className="text-2xl font-bold">Nutzer anlegen</h1>
+          <h1 className="text-2xl font-bold">Verwaltungskonto anlegen</h1>
           <Link href="/admin" className="text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition">
             Abbrechen
           </Link>

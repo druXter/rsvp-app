@@ -30,7 +30,7 @@ export default async function UsersPage() {
       <div className="max-w-4xl mx-auto space-y-6">
 
         <div className="flex justify-between items-center bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Nutzerverwaltung</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Kontenverwaltung</h1>
           <Link href="/admin" className="text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition">← Dashboard</Link>
         </div>
 
@@ -85,7 +85,7 @@ export default async function UsersPage() {
         </div>
 
         <p className="text-xs text-gray-500 dark:text-gray-400">
-          Admin-Konten können hier weder gelöscht noch (auch nicht das eigene) in ihrer Rolle geändert werden -
+          Konten mit Admin-Rolle können hier weder gelöscht noch (auch nicht das eigene) in ihrer Rolle geändert werden -
           das schützt davor, versehentlich den letzten funktionierenden Admin-Zugang zu verlieren. Ein Rollenwechsel
           für dein eigenes Konto ist nur per <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">set-role.js</code> mit direktem Server-Zugriff möglich.
         </p>

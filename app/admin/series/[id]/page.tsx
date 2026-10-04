@@ -61,7 +61,7 @@ export default async function SeriesDetailPage({ params }: { params: Promise<{ i
               )}
               {isModerator && (
                 <Link href={`/admin/series/${series.id}/edit`} className="px-3 py-1 bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 text-sm font-medium rounded hover:bg-blue-200 dark:hover:bg-blue-900 transition">
-                  👥 Nutzer-Mitglieder
+                  👥 Mitglieder
                 </Link>
               )}
               {isOwner && <DeleteSeriesButton seriesId={series.id} />}

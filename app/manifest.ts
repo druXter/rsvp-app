@@ -48,11 +48,11 @@ export default function manifest(): MetadataRoute.Manifest {
     // Erlaubt auf unterstützten Plattformen (z.B. Android/Chrome per Icon-Long-Press)
     // einen direkten Sprung in einen der beiden Bereiche, ohne erst über die neutrale
     // Startseite zu müssen - hilfreich für jemanden mit Konten in beiden Systemen
-    // (z.B. Moderator UND Nutzer einer fremden Reihe, siehe Admin-Dashboard/Mein-Konto
+    // (z.B. Moderator UND Nutzer einer fremden Reihe, siehe Verwaltung/Mein-Konto
     // Wechsel-Link für denselben Anwendungsfall innerhalb der App).
     shortcuts: [
       {
-        name: 'Admin-Dashboard',
+        name: 'Verwaltung',
         short_name: 'Admin',
         url: '/admin',
         description: 'Events und Reihen verwalten',
