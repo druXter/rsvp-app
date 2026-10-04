@@ -1,5 +1,5 @@
 // app/mein-konto/page.tsx
-import { formatEventDate } from '../lib/event-date'
+import { formatEventDate, isArchived } from '../lib/event-date'
 import { PrismaClient } from '@prisma/client'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
@@ -75,6 +75,8 @@ export default async function MeinKontoPage() {
           memberships.map(m => {
             const participant = participantBySeriesId.get(m.series.id)
             const rsvpByEventId = new Map((participant?.rsvps || []).map(r => [r.eventId, r]))
+            // Vergangene Termine (48 h nach Beginn) blenden wir aus, siehe isArchived.
+            const events = m.series.events.filter(event => !isArchived(event))
 
             return (
               <div key={m.id} className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow space-y-4">
@@ -83,11 +85,11 @@ export default async function MeinKontoPage() {
                   {m.series.description && <p className="text-sm text-gray-600 dark:text-gray-400">{m.series.description}</p>}
                 </div>
 
-                {m.series.events.length === 0 ? (
-                  <p className="text-sm text-gray-500 dark:text-gray-400 italic">Für diese Reihe stehen aktuell noch keine Termine fest.</p>
+                {events.length === 0 ? (
+                  <p className="text-sm text-gray-500 dark:text-gray-400 italic">Für diese Reihe stehen aktuell keine Termine an.</p>
                 ) : (
                   <div className="space-y-2">
-                    {m.series.events.map(event => {
+                    {events.map(event => {
                       const rsvp = rsvpByEventId.get(event.id)
                       const formattedDate = formatEventDate(event, 'short')
 

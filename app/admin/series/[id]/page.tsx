@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { addTerminToSeries } from '../../actions'
-import EventRsvpCard from '../../event-rsvp-card'
+import SeriesTermine from '../../series-termine'
 import DeleteSeriesButton from '../../delete-series-button'
 import { getCurrentUser } from '../../../lib/auth'
 import { isOwnerOrAdmin } from '../../../lib/permissions'
@@ -161,13 +161,12 @@ export default async function SeriesDetailPage({ params }: { params: Promise<{ i
           )}
         </div>
 
-        {series.events.length === 0 ? (
-          <p className="text-center text-gray-500 dark:text-gray-400 italic bg-white dark:bg-gray-800 p-6 rounded-lg shadow">Diese Reihe hat noch keine Termine.</p>
-        ) : (
-          series.events.map(event => (
-            <EventRsvpCard key={event.id} event={event} requireVerification={series.requireVerification} access={isOwner ? 'owner' : 'moderator'} />
-          ))
-        )}
+        <SeriesTermine
+          events={series.events}
+          requireVerification={series.requireVerification}
+          access={isOwner ? 'owner' : 'moderator'}
+          empty={<p className="text-center text-gray-500 dark:text-gray-400 italic bg-white dark:bg-gray-800 p-6 rounded-lg shadow">Diese Reihe hat noch keine Termine.</p>}
+        />
 
       </div>
     </main>

@@ -1,5 +1,5 @@
 // app/reihe/[seriesSlug]/page.tsx
-import { formatEventDate } from '../../lib/event-date'
+import { formatEventDate, isArchived } from '../../lib/event-date'
 import { PrismaClient } from '@prisma/client'
 import { notFound } from 'next/navigation'
 import { cookies } from 'next/headers'
@@ -47,6 +47,8 @@ export default async function SeriesOverviewPage({
   const token = typeof currentSearchParams?.token === 'string' ? currentSearchParams.token : undefined
   const tokenQuery = token ? `?token=${token}` : ''
   const guestUser = await getCurrentGuestUser()
+  // Vergangene Termine (48 h nach Beginn) tauchen hier nicht mehr auf - die Termin-Seite selbst bleibt erreichbar.
+  const events = series.events.filter(event => !isArchived(event))
 
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-gray-900 py-10">
@@ -68,10 +70,10 @@ export default async function SeriesOverviewPage({
           )}
 
           <div className="mt-6 space-y-3">
-            {series.events.length === 0 ? (
-              <p className="text-gray-500 dark:text-gray-400 italic">Für diese Reihe stehen aktuell noch keine Termine fest.</p>
+            {events.length === 0 ? (
+              <p className="text-gray-500 dark:text-gray-400 italic">Für diese Reihe stehen aktuell keine Termine an.</p>
             ) : (
-              series.events.map(event => {
+              events.map(event => {
                 const attendingCount = event.rsvps.filter(r => r.isAttending && !r.isOnWaitlist).length
                 const isFull = event.maxCapacity !== null && attendingCount >= event.maxCapacity
                 const formattedDate = formatEventDate(event)

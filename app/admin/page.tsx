@@ -8,6 +8,7 @@ import { getCurrentGuestUser } from '../lib/guest-auth'
 import { ROLE_LABELS } from '../lib/permissions'
 import EventRsvpCard from './event-rsvp-card'
 import DeleteSeriesButton from './delete-series-button'
+import SeriesTermine from './series-termine'
 import PushSubscribeButton from './push-subscribe-button'
 
 const prisma = new PrismaClient()
@@ -185,13 +186,12 @@ export default async function AdminDashboard() {
                 </div>
 
                 <div className="pl-4 border-l-4 border-purple-200 dark:border-purple-800 space-y-6">
-                  {s.events.length === 0 ? (
-                    <p className="text-sm text-purple-700 dark:text-purple-300 italic">Noch keine Termine in dieser Reihe.</p>
-                  ) : (
-                    s.events.map(event => (
-                      <EventRsvpCard key={event.id} event={event} requireVerification={s.requireVerification} access="owner" />
-                    ))
-                  )}
+                  <SeriesTermine
+                    events={s.events}
+                    requireVerification={s.requireVerification}
+                    access="owner"
+                    empty={<p className="text-sm text-purple-700 dark:text-purple-300 italic">Noch keine Termine in dieser Reihe.</p>}
+                  />
                 </div>
               </div>
             ))}
@@ -212,13 +212,12 @@ export default async function AdminDashboard() {
                 </div>
 
                 <div className="pl-4 border-l-4 border-teal-200 dark:border-teal-800 space-y-6">
-                  {s.events.length === 0 ? (
-                    <p className="text-sm text-teal-700 dark:text-teal-300 italic">Noch keine Termine in dieser Reihe.</p>
-                  ) : (
-                    s.events.map(event => (
-                      <EventRsvpCard key={event.id} event={event} requireVerification={s.requireVerification} access="moderator" />
-                    ))
-                  )}
+                  <SeriesTermine
+                    events={s.events}
+                    requireVerification={s.requireVerification}
+                    access="moderator"
+                    empty={<p className="text-sm text-teal-700 dark:text-teal-300 italic">Noch keine Termine in dieser Reihe.</p>}
+                  />
                 </div>
               </div>
             ))}
