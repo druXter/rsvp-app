@@ -171,7 +171,10 @@ model Event {
 
   // Foto-Link (Idee Q3 der Suite): geteiltes Album mit Upload-Link, z. B. in Immich. Nur http(s), geprüft in
   // app/lib/photo-link.ts. Gäste mit Zusage sehen ihn ab dem Ende des Termins (photoLinkVisible).
-  photoUrl    String?
+  photoUrl String?
+
+  // Mitbringliste (Idee L5 der Suite), siehe BringSlot.
+  bringSlots BringSlot[]
 
   // Verknüpfungen mit anderen Tools der Suite (Seating, später Zeitplan) - höchstens eine je
   // Tool-Typ, siehe EventToolLink.
@@ -251,16 +254,18 @@ model Rsvp {
   additionalInfo String?
   declineReason  String?
   customAnswers  String?
-  plusOne        Boolean   @default(false)
+  plusOne        Boolean      @default(false)
   plusOneName    String?
   bringingItem   String?
-  isOnWaitlist   Boolean   @default(false)
-  hasAttended    Boolean   @default(false)
+  isOnWaitlist   Boolean      @default(false)
+  hasAttended    Boolean      @default(false)
   checkedInAt    DateTime?
   // Platz aus Seating ("Tisch 7, Plätze 3, 4"), gesetzt über /api/seating/placements - nur
   // Anzeige (Gästeseite, Einlass, CSV), verschwindet mit der Rsvp.
   seatingLabel   String?
-  createdAt      DateTime  @default(now())
+  createdAt      DateTime     @default(now())
+  // Beanspruchte Einträge der Mitbringliste (BringClaim), verschwinden mit der Rsvp.
+  bringClaims    BringClaim[]
 
   @@unique([eventId, participantId])
 }
@@ -468,4 +473,34 @@ model EventToolLink {
   updatedAt     DateTime  @updatedAt
 
   @@unique([eventId, type])
+}
+
+// Mitbringliste (Idee L5 der Suite, app/lib/bring-list.ts): Einträge mit Anzahl ("2x Salat"), die Gäste mit
+// Zusage beim Antworten beanspruchen, damit nicht fünf Leute Nudelsalat mitbringen. position: Reihenfolge
+// wie im Formular. Gespeichert wird beim Termin über den Abgleich nach Bezeichnung (saveBringSlots): Ein
+// entfernter Eintrag nimmt seine Beanspruchungen mit.
+model BringSlot {
+  id       String       @id @default(cuid())
+  eventId  String
+  event    Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  label    String
+  quantity Int
+  position Int
+  claims   BringClaim[]
+
+  @@index([eventId])
+}
+
+// Eine Zusage beansprucht einen Platz eines Eintrags. Höchstens quantity Zeilen je Eintrag, auch bei
+// gleichzeitigen Zusagen (claimBringSlot zählt und fügt in einer Anweisung ein).
+model BringClaim {
+  id        String    @id @default(cuid())
+  slotId    String
+  slot      BringSlot @relation(fields: [slotId], references: [id], onDelete: Cascade)
+  rsvpId    String
+  rsvp      Rsvp      @relation(fields: [rsvpId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+
+  @@unique([slotId, rsvpId])
+  @@index([rsvpId])
 }

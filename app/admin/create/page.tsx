@@ -189,6 +189,13 @@ export default async function CreateEventPage() {
             </div>
           </ThemeSection>
 
+          <ThemeSection color="emerald" title="Mitbringliste" description="Einträge, die Gäste beim Zusagen beanspruchen können - damit nicht alle dasselbe mitbringen. Eine Zeile pro Eintrag, Anzahl optional vorne: „2x Salat“, „3x Getränke“, „Nachtisch“. Ein entfernter Eintrag gibt beanspruchte Plätze frei.">
+            <div>
+              <label htmlFor="bringSlots" className={`block text-sm font-medium mb-1 ${themeClasses('emerald').heading}`}>Einträge (Optional)</label>
+              <textarea id="bringSlots" name="bringSlots" rows={4} className={`w-full border ${themeClasses('emerald').border} bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded outline-none ${themeClasses('emerald').borderFocus}`} placeholder={'2x Salat\n3x Getränke\nNachtisch'} />
+            </div>
+          </ThemeSection>
+
           {seatingOrigin && (
             <ThemeSection color="lime" title="Sitzplätze (Seating)" description="Verknüpft diesen Termin mit einem Event im Sitzplatz-Tool Seating. Den Link zeigt Seating in den Event-Einstellungen an, sobald dort die ID dieses Termins eingetragen ist - erst mit beiden Einträgen gilt die Verknüpfung. Zugesagte Gäste sehen dann „Sitzplatz wählen“ und später ihren Platz; Name, E-Mail (falls vorhanden) und Begleitung gehen dafür an Seating.">
               <div>

@@ -41,7 +41,9 @@ export async function submitRsvp(formData: FormData) {
       plusOneName: formData.get('plusOneName') as string || null,
       bringingItem: formData.get('bringingItem') as string || null,
       // Bis zu 3 frei definierbare Zusatzfragen, positionsbasiert (siehe readCustomQuestions)
-      customAnswers: [0, 1, 2].map(i => (formData.get(`customAnswer_${i}`) as string) || '')
+      customAnswers: [0, 1, 2].map(i => (formData.get(`customAnswer_${i}`) as string) || ''),
+      // Mitbringliste: nur wenn das Formular sie angezeigt hat (Markierungsfeld), sonst unangetastet
+      bringSlotIds: formData.has('bringSlotsShown') ? formData.getAll('bringSlot').map(String) : undefined
     },
     editToken ? null : await getCurrentGuestUser()
   )

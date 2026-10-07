@@ -4,9 +4,10 @@ import { Event, Rsvp, Participant } from '@prisma/client'
 import { sendReminder, resendVerificationEmail, promoteFromWaitlist, toggleAttendance } from './actions'
 import DeleteButton from './delete-button'
 import DeleteRsvpButton from './delete-rsvp-button'
+import { claimedLabels } from '../lib/bring-list'
 
-type RsvpWithParticipant = Rsvp & { participant: Participant }
-export type EventForCard = Event & { rsvps: RsvpWithParticipant[] }
+type RsvpWithParticipant = Rsvp & { participant: Participant; bringClaims?: { slot: { label: string; position: number } }[] }
+export type EventForCard = Event & { rsvps: RsvpWithParticipant[]; bringSlots?: { label: string; quantity: number; _count: { claims: number } }[] }
 
 /**
  * Eine einzelne Termin-Karte im Admin-Dashboard: Kopfzeile mit Kennzahlen/Aktionen,
@@ -115,6 +116,12 @@ export default function EventRsvpCard({
           </a>
         </div>
 
+        {event.bringSlots && event.bringSlots.length > 0 && (
+          <p className="text-sm text-gray-700 dark:text-gray-300 mb-3" data-testid="bring-summary">
+            🍕 Mitbringliste: {event.bringSlots.map(s => `${s.label} ${s._count.claims}/${s.quantity}`).join(' · ')}
+          </p>
+        )}
+
         {event.rsvps.length === 0 ? (
           <p className="text-sm text-gray-500 dark:text-gray-400 italic">Bisher noch keine Antworten eingegangen.</p>
         ) : (
@@ -221,7 +228,7 @@ export default function EventRsvpCard({
                       {rsvp.drinksAlcohol === true ? 'Ja' : rsvp.drinksAlcohol === false ? 'Nein' : '-'}
                     </td>
 
-                    <td className="p-2 text-gray-600 dark:text-gray-400">{rsvp.bringingItem || '-'}</td>
+                    <td className="p-2 text-gray-600 dark:text-gray-400">{[...claimedLabels(rsvp), ...(rsvp.bringingItem ? [rsvp.bringingItem] : [])].join(', ') || '-'}</td>
 
                     <td className="p-2 text-gray-500 dark:text-gray-400">
                       {rsvp.isAttending

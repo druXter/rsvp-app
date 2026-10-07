@@ -115,7 +115,8 @@ export default function DatenschutzPage() {
           <h2 className="font-bold text-lg">4. Angaben im RSVP-Formular</h2>
           <p className="mt-2">
             Je nach Konfiguration der jeweiligen Veranstaltung fragen wir Name (Pflichtfeld), E-Mail-Adresse,
-            Handynummer, Essenswunsch, Begleitperson, Alkohol-Präferenz, Mitbringsel und freie Zusatzfragen ab. Diese
+            Handynummer, Essenswunsch, Begleitperson, Alkohol-Präferenz, Mitbringsel (als Freitext oder als Eintrag aus
+            einer Mitbringliste, z.B. „Salat“) und freie Zusatzfragen ab. Diese
             Angaben verwenden wir ausschließlich zur Organisation und Durchführung der jeweiligen Veranstaltung. Wir
             geben deine Daten nicht an Dritte außerhalb der in Punkt 16 genannten Auftragsverarbeiter weiter.
           </p>
@@ -191,7 +192,9 @@ export default function DatenschutzPage() {
           <h2 className="font-bold text-lg">7. Öffentliche Gästeliste</h2>
           <p className="mt-2">
             Manche Veranstaltungen zeigen optional eine öffentliche Gästeliste, auf der andere Gäste sehen können, wer
-            zugesagt hat, wer eine Begleitung mitbringt und wer welches Mitbringsel beisteuert. Dort wird
+            zugesagt hat, wer eine Begleitung mitbringt und wer welches Mitbringsel beisteuert (auch die übernommenen
+            Einträge einer Mitbringliste). Ohne öffentliche Gästeliste sehen andere Gäste bei einer Mitbringliste nur,
+            wie viele Plätze eines Eintrags vergeben sind, nicht an wen. Dort wird
             ausschließlich dein <strong>Name</strong> angezeigt - deine E-Mail-Adresse, Handynummer und Allergien
             werden dabei niemals veröffentlicht. Ist diese Funktion für eine Veranstaltung aktiv, weisen wir dich im
             RSVP-Formular selbst noch einmal ausdrücklich darauf hin, bevor du deine Zusage absendest.

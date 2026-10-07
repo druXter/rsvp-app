@@ -11,6 +11,7 @@ import { TOOL_LINKS } from './linked-tools-store'
 import { isTimelineConfirmed, timelineLinkOf } from './timeline'
 import { isSeatingConfirmed, seatingLinkOf } from './seating'
 import { hasEventPinAccess } from './pin'
+import { syncBringClaims } from './bring-list'
 
 const prisma = new PrismaClient()
 
@@ -35,6 +36,11 @@ export type RsvpSubmissionInput = {
   plusOneName?: string | null
   bringingItem?: string | null
   customAnswers?: string[]
+  /**
+   * Angekreuzte Einträge der Mitbringliste (app/lib/bring-list.ts). undefined = die Liste wurde gar nicht
+   * angezeigt bzw. gesendet (Client-API) - dann bleiben bestehende Beanspruchungen unangetastet.
+   */
+  bringSlotIds?: string[]
   /**
    * NUR für die Client-API (app/api/v1/): Der Aufrufer ist dort per API-Token ein Mitglied der Reihe
    * (GuestUserSeries, wird vor dem Aufruf geprüft), das die Reihe über die PIN-geschützte Registrierung
@@ -293,6 +299,9 @@ export async function performRsvpSubmission(
       console.error("Fehler beim Push-Versand:", error)
     }
   }
+
+  // Mitbringliste: nur eine Zusage, die zählt (nicht auf der Warteliste), hält Einträge
+  await syncBringClaims(savedRsvp.id, eventId, input.bringSlotIds, isAttending && !isOnWaitlist)
 
   // Nachrück-Automatik, wenn man von "Kommt" auf "Kommt nicht" wechselt
   let promotedRsvpId: string | null = null

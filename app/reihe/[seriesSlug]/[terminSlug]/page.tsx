@@ -10,6 +10,7 @@ import GuestRequiredGate from '../../../[slug]/guest-required-gate'
 import PollResultBanner from '../../../ui/poll-result-banner'
 import PhotoLinkBanner from '../../../ui/photo-link-banner'
 import { photoLinkVisible } from '../../../lib/photo-link'
+import { bringSlotsForForm, claimedLabels } from '../../../lib/bring-list'
 import { getCurrentGuestUser } from '../../../lib/guest-auth'
 import { isSeatingConfirmed, seatingLinkOf } from '../../../lib/seating'
 import { TOOL_LINKS } from '../../../lib/linked-tools-store'
@@ -28,6 +29,7 @@ type PublicRsvp = Prisma.RsvpGetPayload<{
     declineReason: true
     createdAt: true
     participant: { select: { name: true } }
+    bringClaims: { select: { slot: { select: { label: true, position: true } } } }
   }
 }>
 
@@ -145,7 +147,8 @@ export default async function SeriesEventPage({
         bringingItem: true,
         declineReason: true,
         createdAt: true,
-        participant: { select: { name: true } }
+        participant: { select: { name: true } },
+        bringClaims: { select: { slot: { select: { label: true, position: true } } } }
         // E-MAIL, HANDYNUMMER, ALLERGIEN SIND HIER ABSICHTLICH NICHT DABEI!
       },
       orderBy: { createdAt: 'asc' }
@@ -179,6 +182,7 @@ export default async function SeriesEventPage({
         {photoLinkVisible(event, existingRsvp) && <PhotoLinkBanner url={event.photoUrl!} />}
 
         <RsvpForm
+          bringSlots={await bringSlotsForForm(event.id, existingRsvp?.id ?? null)}
           eventId={event.id}
           formConfig={mergedConfig}
           participant={participant}
@@ -208,9 +212,9 @@ export default async function SeriesEventPage({
                         <span className="text-gray-500 dark:text-gray-400 text-sm ml-1">(+ {guest.plusOneName})</span>
                       )}
 
-                      {guest.isAttending && guest.bringingItem && (
+                      {guest.isAttending && (guest.bringingItem || guest.bringClaims.length > 0) && (
                         <div className="text-sm text-blue-600 mt-1">
-                          🍕 Bringt mit: {guest.bringingItem}
+                          🍕 Bringt mit: {[...claimedLabels(guest), ...(guest.bringingItem ? [guest.bringingItem] : [])].join(', ')}
                         </div>
                       )}
 

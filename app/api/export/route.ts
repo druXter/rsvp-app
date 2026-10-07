@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client'
 import { NextResponse } from 'next/server'
 import { getCurrentUser } from '../../lib/auth'
 import { hasEventModeratorOrAbove } from '../../lib/permissions'
+import { claimedLabels } from '../../lib/bring-list'
 
 const prisma = new PrismaClient()
 
@@ -22,7 +23,7 @@ export async function GET(request: Request) {
 
   const event = await prisma.event.findUnique({
     where: { id: eventId },
-    include: { rsvps: { include: { participant: true } }, series: true, toolLinks: { select: { type: true } } }
+    include: { rsvps: { include: { participant: true, bringClaims: { select: { slot: { select: { label: true, position: true } } } } } }, series: true, toolLinks: { select: { type: true } } }
   })
 
   if (!event || !(await hasEventModeratorOrAbove(user, event))) return new NextResponse("Event nicht gefunden", { status: 404 })
@@ -78,7 +79,7 @@ export async function GET(request: Request) {
       participant.allergies || "",
 
       rsvp.drinksAlcohol === true ? "Ja" : rsvp.drinksAlcohol === false ? "Nein" : "",
-      rsvp.bringingItem || "",
+      [...claimedLabels(rsvp), ...(rsvp.bringingItem ? [rsvp.bringingItem] : [])].join(", "),
 
       rsvp.isAttending ? (rsvp.additionalInfo || "") : (rsvp.declineReason || ""),
 

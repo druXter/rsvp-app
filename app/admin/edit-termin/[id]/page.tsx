@@ -6,6 +6,7 @@ import { updateSeriesTermin } from '../../actions'
 import { getCurrentUser } from '../../../lib/auth'
 import { isOwnerOrAdmin } from '../../../lib/permissions'
 import SubmitButton from '../../../ui/submit-button'
+import { formatBringSlots } from '../../../lib/bring-list'
 import ThemeSection, { themeClasses } from '../../../ui/theme-section'
 import { allowedSeatingOrigin } from '../../../lib/seating'
 import { allowedTimelineOrigin } from '../../../lib/timeline'
@@ -23,7 +24,7 @@ export default async function EditSeriesTerminPage({ params }: { params: Promise
   if (!user) redirect('/admin/login')
 
   const { id } = await params
-  const event = await prisma.event.findUnique({ where: { id }, include: { series: true, toolLinks: TOOL_LINKS } })
+  const event = await prisma.event.findUnique({ where: { id }, include: { series: true, toolLinks: TOOL_LINKS, bringSlots: { orderBy: { position: 'asc' } } } })
 
   if (!event || !event.series || !isOwnerOrAdmin(user, event.ownerId)) {
     return notFound()
@@ -161,6 +162,13 @@ export default async function EditSeriesTerminPage({ params }: { params: Promise
             <div>
               <label htmlFor="photoUrl" className={`block text-sm font-medium mb-1 ${themeClasses('rose').heading}`}>Foto-Link (Optional)</label>
               <input id="photoUrl" type="url" name="photoUrl" defaultValue={event.photoUrl || ''} className={`w-full border ${themeClasses('rose').border} bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded outline-none ${themeClasses('rose').borderFocus}`} placeholder="https://fotos.example.de/s/sommerfest" />
+            </div>
+          </ThemeSection>
+
+          <ThemeSection color="emerald" title="Mitbringliste" description="Einträge, die Gäste beim Zusagen beanspruchen können - damit nicht alle dasselbe mitbringen. Eine Zeile pro Eintrag, Anzahl optional vorne: „2x Salat“, „3x Getränke“, „Nachtisch“. Ein entfernter Eintrag gibt beanspruchte Plätze frei.">
+            <div>
+              <label htmlFor="bringSlots" className={`block text-sm font-medium mb-1 ${themeClasses('emerald').heading}`}>Einträge (Optional)</label>
+              <textarea id="bringSlots" name="bringSlots" rows={4} defaultValue={formatBringSlots(event.bringSlots)} className={`w-full border ${themeClasses('emerald').border} bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded outline-none ${themeClasses('emerald').borderFocus}`} placeholder={'2x Salat\n3x Getränke\nNachtisch'} />
             </div>
           </ThemeSection>
 

@@ -18,6 +18,7 @@ import { sendReminderPush } from '../lib/push'
 import { notifyAttendeesOfChange } from '../lib/event-change-notify'
 import { readToolLinks, saveToolLinks } from '../lib/linked-tools-store'
 import { parsePhotoUrl } from '../lib/photo-link'
+import { readBringSlots, saveBringSlots } from '../lib/bring-list'
 import { notifyLinkedToolsBeforeDelete, notifyLinkedToolsOfRsvps } from '../lib/linked-tools-notify'
 import { deleteOrphanedParticipants } from '../lib/participants'
 
@@ -387,6 +388,7 @@ export async function createEvent(formData: FormData) {
   const requireGuestUser = formData.get('requireGuestUser') === 'on'
   const { pollUrl, pollLabel, datePending } = readPollLink(formData)
   const photoUrl = parsePhotoUrl(formData.get('photoUrl') as string || '')
+  const bringSlots = readBringSlots(formData)
   // Verknüpfte Tools (Seating, siehe app/lib/linked-tools-store.ts) - wirft bei ungültigem Link, bevor etwas angelegt ist
   const toolLinks = readToolLinks(formData)
 
@@ -430,6 +432,7 @@ export async function createEvent(formData: FormData) {
     }
   })
   await saveToolLinks(created.id, toolLinks)
+  await saveBringSlots(created.id, bringSlots)
 
   // Cache leeren und zum Dashboard umleiten
   revalidatePath('/admin')
@@ -501,6 +504,7 @@ export async function updateEvent(formData: FormData) {
   const notifyGuests = formData.get('notifyGuests') === 'on'
   const { pollUrl, pollLabel, datePending } = readPollLink(formData)
   const photoUrl = parsePhotoUrl(formData.get('photoUrl') as string || '')
+  const bringSlots = readBringSlots(formData)
   const toolLinks = readToolLinks(formData)
 
   const formConfig = JSON.stringify({
@@ -547,6 +551,7 @@ export async function updateEvent(formData: FormData) {
   })
   // Geänderter oder entfernter Link leert, was das bisherige Tool-Event gemeldet hat (z.B. Plätze)
   await saveToolLinks(id, toolLinks)
+  await saveBringSlots(id, bringSlots)
 
   // Nach dem Speichern prüfen, ob durch eine Erhöhung der maxCapacity Leute nachrücken dürfen
   await triggerWaitlistPromotion(id)
@@ -627,6 +632,9 @@ export async function updateAdminRsvp(formData: FormData) {
       declineReason: isAttending ? null : declineReason
     }
   })
+
+  // Absage gibt beanspruchte Einträge der Mitbringliste frei
+  if (!isAttending) await prisma.bringClaim.deleteMany({ where: { rsvpId: id } })
 
   // Name/Adresse/Begleitung/Zu-/Absage können sich geändert haben
   notifyLinkedToolsOfRsvps([id])
@@ -965,6 +973,7 @@ export async function updateSeriesTermin(formData: FormData) {
   const notifyGuests = formData.get('notifyGuests') === 'on'
   const { pollUrl, pollLabel, datePending } = readPollLink(formData)
   const photoUrl = parsePhotoUrl(formData.get('photoUrl') as string || '')
+  const bringSlots = readBringSlots(formData)
   const toolLinks = readToolLinks(formData)
 
   const formConfig = JSON.stringify({
@@ -993,6 +1002,7 @@ export async function updateSeriesTermin(formData: FormData) {
   })
   // Geänderter oder entfernter Link leert, was das bisherige Tool-Event gemeldet hat (z.B. Plätze)
   await saveToolLinks(id, toolLinks)
+  await saveBringSlots(id, bringSlots)
 
   await triggerWaitlistPromotion(id)
 

@@ -8,6 +8,7 @@ import GuestRequiredGate from './guest-required-gate'
 import PollResultBanner from '../ui/poll-result-banner'
 import PhotoLinkBanner from '../ui/photo-link-banner'
 import { photoLinkVisible } from '../lib/photo-link'
+import { bringSlotsForForm, claimedLabels } from '../lib/bring-list'
 import { getCurrentGuestUser } from '../lib/guest-auth'
 import { isSeatingConfirmed, seatingLinkOf } from '../lib/seating'
 import { TOOL_LINKS } from '../lib/linked-tools-store'
@@ -26,6 +27,7 @@ type PublicRsvp = Prisma.RsvpGetPayload<{
     declineReason: true
     createdAt: true
     participant: { select: { name: true } }
+    bringClaims: { select: { slot: { select: { label: true, position: true } } } }
   }
 }>
 
@@ -140,7 +142,8 @@ export default async function EventPage({
         bringingItem: true,
         declineReason: true,
         createdAt: true,
-        participant: { select: { name: true } }
+        participant: { select: { name: true } },
+        bringClaims: { select: { slot: { select: { label: true, position: true } } } }
         // E-MAIL, HANDYNUMMER, ALLERGIEN SIND HIER ABSICHTLICH NICHT DABEI!
       },
       orderBy: { createdAt: 'asc' }
@@ -172,6 +175,7 @@ export default async function EventPage({
 
         {/* Das eigentliche Formular */}
         <RsvpForm
+          bringSlots={await bringSlotsForForm(event.id, existingRsvp?.id ?? null)}
           canChooseSeat={!!seatingLinkOf(event) && !!existingRsvp && isSeatingConfirmed(existingRsvp, { isVerified: !!participant?.isVerified }, event.requireVerification)}
           seatingLabel={existingRsvp?.seatingLabel ?? null}
           canOpenTimeline={!!timelineLinkOf(event) && !!existingRsvp && isTimelineConfirmed(existingRsvp, { isVerified: !!participant?.isVerified }, event.requireVerification)}
@@ -202,9 +206,9 @@ export default async function EventPage({
                       )}
 
                       {/* Mitbringsel anzeigen, falls Zusage */}
-                      {guest.isAttending && guest.bringingItem && (
+                      {guest.isAttending && (guest.bringingItem || guest.bringClaims.length > 0) && (
                         <div className="text-sm text-blue-600 mt-1">
-                          🍕 Bringt mit: {guest.bringingItem}
+                          🍕 Bringt mit: {[...claimedLabels(guest), ...(guest.bringingItem ? [guest.bringingItem] : [])].join(', ')}
                         </div>
                       )}
 

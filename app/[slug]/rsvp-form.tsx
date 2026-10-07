@@ -10,6 +10,7 @@ import DeleteMyDataButton from './delete-my-data-button'
 import PushSubscribeToggle from './push-subscribe-toggle'
 import SeatingBox from '../ui/seating-box'
 import TimelineBox from '../ui/timeline-box'
+import type { BringSlotForForm } from '../lib/bring-list'
 
 export default function RsvpForm({
   eventId,
@@ -23,7 +24,8 @@ export default function RsvpForm({
   vapidPublicKey = null,
   canChooseSeat = false,
   seatingLabel = null,
-  canOpenTimeline = false
+  canOpenTimeline = false,
+  bringSlots = []
 }: {
   eventId: string;
   formConfig: string | null;
@@ -45,6 +47,8 @@ export default function RsvpForm({
   // "Zeitplan" (Zeitplan-Tool) - wie canChooseSeat: Termin mit gültigem Zeitplan-Link UND eine
   // Zusage, die zählt (siehe isConfirmedRsvp in app/lib/linked-tools.ts).
   canOpenTimeline?: boolean;
+  // Mitbringliste (app/lib/bring-list.ts): Einträge mit belegt/gesamt und ob diese Antwort einen Platz hält.
+  bringSlots?: BringSlotForForm[];
 }) {
   const [isAttending, setIsAttending] = useState<boolean | null>(rsvp ? rsvp.isAttending : null)
   const [hasPlusOne, setHasPlusOne] = useState<boolean>(rsvp ? rsvp.plusOne : false)
@@ -324,6 +328,26 @@ export default function RsvpForm({
                   <input type="radio" name="drinksAlcohol" value="false" defaultChecked={rsvp?.drinksAlcohol === false} required className="w-4 h-4 text-blue-600" /> Nein (nur alkoholfrei)
                 </label>
               </div>
+            </fieldset>
+          )}
+
+          {bringSlots.length > 0 && (
+            <fieldset>
+              <legend className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Mitbringliste: Was übernimmst du? (Optional)</legend>
+              <input type="hidden" name="bringSlotsShown" value="1" />
+              <div className="space-y-1">
+                {bringSlots.map(slot => {
+                  const full = slot.claimed >= slot.quantity && !slot.mine
+                  return (
+                    <label key={slot.id} className={`flex items-center gap-2 text-sm ${full ? 'text-gray-400 dark:text-gray-500' : 'text-gray-800 dark:text-gray-200 cursor-pointer'}`}>
+                      <input type="checkbox" name="bringSlot" value={slot.id} defaultChecked={slot.mine} disabled={full} className="w-4 h-4" />
+                      <span>{slot.label}</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">({slot.claimed}/{slot.quantity}{full ? ', vergeben' : ''})</span>
+                    </label>
+                  )
+                })}
+              </div>
+              {isOnWaitlist && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Auf der Warteliste hältst du noch keine Einträge.</p>}
             </fieldset>
           )}
 
