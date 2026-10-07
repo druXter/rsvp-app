@@ -169,6 +169,10 @@ model Event {
   // wie bei einer Terminänderung benachrichtigt.
   datePending Boolean @default(false)
 
+  // Foto-Link (Idee Q3 der Suite): geteiltes Album mit Upload-Link, z. B. in Immich. Nur http(s), geprüft in
+  // app/lib/photo-link.ts. Gäste mit Zusage sehen ihn ab dem Ende des Termins (photoLinkVisible).
+  photoUrl    String?
+
   // Verknüpfungen mit anderen Tools der Suite (Seating, später Zeitplan) - höchstens eine je
   // Tool-Typ, siehe EventToolLink.
   toolLinks EventToolLink[]

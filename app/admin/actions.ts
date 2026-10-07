@@ -17,6 +17,7 @@ import { isOwnerOrAdmin, hasEventModeratorOrAbove, hasSeriesModeratorOrAbove } f
 import { sendReminderPush } from '../lib/push'
 import { notifyAttendeesOfChange } from '../lib/event-change-notify'
 import { readToolLinks, saveToolLinks } from '../lib/linked-tools-store'
+import { parsePhotoUrl } from '../lib/photo-link'
 import { notifyLinkedToolsBeforeDelete, notifyLinkedToolsOfRsvps } from '../lib/linked-tools-notify'
 import { deleteOrphanedParticipants } from '../lib/participants'
 
@@ -385,6 +386,7 @@ export async function createEvent(formData: FormData) {
   // deshalb bewusst NICHT in updateEvent vor.
   const requireGuestUser = formData.get('requireGuestUser') === 'on'
   const { pollUrl, pollLabel, datePending } = readPollLink(formData)
+  const photoUrl = parsePhotoUrl(formData.get('photoUrl') as string || '')
   // Verknüpfte Tools (Seating, siehe app/lib/linked-tools-store.ts) - wirft bei ungültigem Link, bevor etwas angelegt ist
   const toolLinks = readToolLinks(formData)
 
@@ -423,6 +425,7 @@ export async function createEvent(formData: FormData) {
       requireGuestUser,
       pollUrl,
       pollLabel,
+      photoUrl,
       datePending
     }
   })
@@ -497,6 +500,7 @@ export async function updateEvent(formData: FormData) {
   const enableCheckin = formData.get('enableCheckin') === 'on'
   const notifyGuests = formData.get('notifyGuests') === 'on'
   const { pollUrl, pollLabel, datePending } = readPollLink(formData)
+  const photoUrl = parsePhotoUrl(formData.get('photoUrl') as string || '')
   const toolLinks = readToolLinks(formData)
 
   const formConfig = JSON.stringify({
@@ -536,6 +540,7 @@ export async function updateEvent(formData: FormData) {
       enableCheckin,
       pollUrl,
       pollLabel,
+      photoUrl,
       datePending,
       ...(changes.length > 0 ? { icsSequence: { increment: 1 } } : {})
     }
@@ -959,6 +964,7 @@ export async function updateSeriesTermin(formData: FormData) {
   const enableCheckin = formData.get('enableCheckin') === 'on'
   const notifyGuests = formData.get('notifyGuests') === 'on'
   const { pollUrl, pollLabel, datePending } = readPollLink(formData)
+  const photoUrl = parsePhotoUrl(formData.get('photoUrl') as string || '')
   const toolLinks = readToolLinks(formData)
 
   const formConfig = JSON.stringify({
@@ -981,7 +987,7 @@ export async function updateSeriesTermin(formData: FormData) {
     where: { id },
     data: {
       title, slug, date, location, description, duration, formConfig, autoReminder, reminderDays, maxCapacity, enableCheckin,
-      pollUrl, pollLabel, datePending,
+      pollUrl, pollLabel, datePending, photoUrl,
       ...(changes.length > 0 ? { icsSequence: { increment: 1 } } : {})
     }
   })

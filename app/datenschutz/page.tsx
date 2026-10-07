@@ -65,10 +65,10 @@ export default function DatenschutzPage() {
             Für Veranstalter:innen (Verwaltungskonto: E-Mail, Passwort-Hash) und für Gäste, die sich freiwillig ein Teilnehmendenkonto unter
             &quot;Mein Konto&quot; anlegen (E-Mail, Passwort-Hash, Name, optional Handynummer/Essenswunsch/Allergien),
             speichern wir Login-Daten. Passwörter werden ausschließlich als Hash (bcrypt) gespeichert, niemals im
-            Klartext. Die Anmeldung erfolgt über ein zufällig erzeugtes Sitzungs-Token in einem Cookie (siehe Punkt 14)
+            Klartext. Die Anmeldung erfolgt über ein zufällig erzeugtes Sitzungs-Token in einem Cookie (siehe Punkt 15)
             - niemals über deinen Namen oder deine E-Mail-Adresse direkt im Cookie. Bei einem Teilnehmendenkonto speichern
             wir außerdem den Zeitpunkt deines letzten Logins, um das Konto nach längerer Inaktivität automatisch
-            löschen zu können (siehe Punkt 15).
+            löschen zu können (siehe Punkt 16).
           </p>
           <p className="mt-2">
             <strong>Sicherer Umgang mit Zugangsdaten:</strong> Passwörter werden mit bcrypt gehasht. Auch
@@ -117,7 +117,7 @@ export default function DatenschutzPage() {
             Je nach Konfiguration der jeweiligen Veranstaltung fragen wir Name (Pflichtfeld), E-Mail-Adresse,
             Handynummer, Essenswunsch, Begleitperson, Alkohol-Präferenz, Mitbringsel und freie Zusatzfragen ab. Diese
             Angaben verwenden wir ausschließlich zur Organisation und Durchführung der jeweiligen Veranstaltung. Wir
-            geben deine Daten nicht an Dritte außerhalb der in Punkt 15 genannten Auftragsverarbeiter weiter.
+            geben deine Daten nicht an Dritte außerhalb der in Punkt 16 genannten Auftragsverarbeiter weiter.
           </p>
           <p className="mt-2">
             <strong>Allergien/Unverträglichkeiten:</strong> Dieses Feld ist stets freiwillig und optional. Da
@@ -125,7 +125,7 @@ export default function DatenschutzPage() {
             verarbeiten wir sie ausschließlich auf Basis deiner ausdrücklichen Einwilligung, die du durch das
             freiwillige Ausfüllen dieses Feldes erteilst (Art. 9 Abs. 2 lit. a DSGVO). Du kannst diese Einwilligung
             jederzeit mit Wirkung für die Zukunft widerrufen, z.B. indem du deine Angabe über deinen persönlichen Link
-            entfernst oder deine Daten vollständig löschst (siehe Punkt 17).
+            entfernst oder deine Daten vollständig löschst (siehe Punkt 18).
           </p>
           <p className="mt-2">
             <strong>Veranstaltungsreihen:</strong> Gehört ein Termin zu einer Reihe, werden deine Kontakt- und
@@ -181,7 +181,7 @@ export default function DatenschutzPage() {
           <p className="mt-2">
             Für die Zustellung speichern wir die technische Abo-Adresse (Endpoint-URL) und die Verschlüsselungs-Keys
             deines Browsers. Die Auslieferung erfolgt technisch über den Push-Dienst deines Browser-Herstellers - die
-            damit verbundene Datenübermittlung ist in Punkt 15 beschrieben. Du kannst die Benachrichtigungen jederzeit
+            damit verbundene Datenübermittlung ist in Punkt 16 beschrieben. Du kannst die Benachrichtigungen jederzeit
             an derselben Stelle wieder deaktivieren oder die Erlaubnis in den Einstellungen deines Browsers entziehen;
             das gespeicherte Abo wird dann gelöscht.
           </p>
@@ -289,7 +289,21 @@ export default function DatenschutzPage() {
         </div>
 
         <div>
-          <h2 className="font-bold text-lg">12. Zugriff durch Veranstalter:innen und Moderator:innen</h2>
+          <h2 className="font-bold text-lg">12. Fotoalbum</h2>
+          <p className="mt-2">
+            Veranstalter:innen können zu einem Termin einen Link zu einem geteilten Fotoalbum hinterlegen (z.B. ein
+            Album in Immich mit Upload-Freigabe). Gäste mit Zusage sehen ihn auf ihrer persönlichen Seite ab dem Ende
+            des Termins. Wir speichern nur diesen Link und übermitteln dem Album keine Daten über dich.
+          </p>
+          <p className="mt-2">
+            Das Album ist ein eigenständiges Angebot der Veranstalter:innen bzw. des jeweiligen Betreibers. Was dort mit
+            deinen Fotos und Daten geschieht (z.B. beim Hochladen), richtet sich nach dessen Datenschutzhinweisen; wir
+            haben darauf keinen Zugriff.
+          </p>
+        </div>
+
+        <div>
+          <h2 className="font-bold text-lg">13. Zugriff durch Veranstalter:innen und Moderator:innen</h2>
           <p className="mt-2">
             Deine Angaben zu einer Veranstaltung (einschließlich E-Mail-Adresse, Handynummer, Essenswunsch und
             Allergien) sind für die Veranstalter:in einsehbar, die diese Veranstaltung angelegt hat, und können von ihr
@@ -301,7 +315,7 @@ export default function DatenschutzPage() {
         </div>
 
         <div>
-          <h2 className="font-bold text-lg">13. API-Zugang für eigene Apps</h2>
+          <h2 className="font-bold text-lg">14. API-Zugang für eigene Apps</h2>
           <p className="mt-2">
             Du kannst dir in den Konto-Einstellungen einen API-Token erzeugen, um mit einer selbst
             entwickelten App (z.B. auf einer Smartwatch) deine Termine abzurufen und zu- oder abzusagen. Ein
@@ -320,7 +334,7 @@ export default function DatenschutzPage() {
         </div>
 
         <div>
-          <h2 className="font-bold text-lg">14. Cookies</h2>
+          <h2 className="font-bold text-lg">15. Cookies</h2>
           <p className="mt-2">
             Wir setzen ausschließlich technisch notwendige Cookies ein (Art. 6 Abs. 1 lit. b/f DSGVO, § 25 Abs. 2 Nr. 2
             TDDDG) - dafür ist keine Einwilligung erforderlich. Es gibt keine Tracking-, Analyse- oder
@@ -335,7 +349,7 @@ export default function DatenschutzPage() {
         </div>
 
         <div>
-          <h2 className="font-bold text-lg">15. Empfänger und Auftragsverarbeiter</h2>
+          <h2 className="font-bold text-lg">16. Empfänger und Auftragsverarbeiter</h2>
           <p className="mt-2">
             <strong>E-Mail-Versand:</strong> Bestätigungs-, Erinnerungs-, Verifizierungs- und Passwort-Reset-E-Mails
             versenden wir über den E-Mail-Server <code>{smtpHost}</code>. Mit dem Betreiber dieses Servers besteht,
@@ -378,7 +392,7 @@ export default function DatenschutzPage() {
         </div>
 
         <div>
-          <h2 className="font-bold text-lg">16. Speicherdauer</h2>
+          <h2 className="font-bold text-lg">17. Speicherdauer</h2>
           <p className="mt-2">
             Deine Daten zu einer Veranstaltung werden spätestens <strong>18 Monate nach dem Veranstaltungsdatum</strong>{' '}
             automatisch vollständig gelöscht - inklusive des Veranstaltungs-Datensatzes selbst, nicht nur deiner
@@ -407,18 +421,18 @@ export default function DatenschutzPage() {
           <p className="mt-2">
             Gespeicherte Push-Abos werden gelöscht, sobald du die Benachrichtigungen deaktivierst, dein Browser das Abo
             beendet (z.B. beim Löschen der Websitedaten) oder die zugehörigen Daten nach den oben genannten Fristen
-            entfallen. API-Token (Punkt 13) bleiben bis zu ihrem Widerruf gespeichert und werden zusammen mit dem
+            entfallen. API-Token (Punkt 14) bleiben bis zu ihrem Widerruf gespeichert und werden zusammen mit dem
             Konto gelöscht.
           </p>
           <p className="mt-2">
-            Unabhängig von diesen automatischen Fristen kannst du deine Daten jederzeit früher über die in Punkt 17
+            Unabhängig von diesen automatischen Fristen kannst du deine Daten jederzeit früher über die in Punkt 18
             beschriebenen Selbstbedienungs-Funktionen löschen oder uns unter der oben genannten Kontaktadresse um
             frühere Löschung bitten.
           </p>
         </div>
 
         <div>
-          <h2 className="font-bold text-lg">17. Deine Rechte</h2>
+          <h2 className="font-bold text-lg">18. Deine Rechte</h2>
           <p className="mt-2">
             Du hast das Recht auf Auskunft (Art. 15 DSGVO), Berichtigung (Art. 16 DSGVO), Löschung (Art. 17 DSGVO),
             Einschränkung der Verarbeitung (Art. 18 DSGVO), Datenübertragbarkeit (Art. 20 DSGVO) und Widerspruch (Art.
@@ -446,7 +460,7 @@ export default function DatenschutzPage() {
         </div>
 
         <div>
-          <h2 className="font-bold text-lg">18. Datensicherheit</h2>
+          <h2 className="font-bold text-lg">19. Datensicherheit</h2>
           <p className="mt-2">
             Die Übertragung erfolgt verschlüsselt (TLS/HTTPS). Login-Cookies sind <code>httpOnly</code> gesetzt und
             damit per JavaScript nicht auslesbar. Passwörter, Sitzungs-Tokens und Einmal-Links werden ausschließlich als Hash

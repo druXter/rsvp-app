@@ -205,6 +205,13 @@ export default async function EditEventPage({ params, searchParams }: { params: 
             </div>
           </ThemeSection>
 
+          <ThemeSection color="rose" title="Fotos" description="Link zu einem geteilten Album, in das Gäste ihre Fotos hochladen können (z.B. ein Immich-Album mit Upload-Freigabe). Gäste mit Zusage sehen ihn ab dem Ende des Termins.">
+            <div>
+              <label htmlFor="photoUrl" className={`block text-sm font-medium mb-1 ${themeClasses('rose').heading}`}>Foto-Link (Optional)</label>
+              <input id="photoUrl" type="url" name="photoUrl" defaultValue={event.photoUrl || ''} className={`w-full border ${themeClasses('rose').border} bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded outline-none ${themeClasses('rose').borderFocus}`} placeholder="https://fotos.example.de/s/sommerfest" />
+            </div>
+          </ThemeSection>
+
           {seatingOrigin && (
             <ThemeSection color="lime" title="Sitzplätze (Seating)" description="Verknüpft diesen Termin mit einem Event im Sitzplatz-Tool Seating. Den Link zeigt Seating in den Event-Einstellungen an, sobald dort die ID dieses Termins eingetragen ist - erst mit beiden Einträgen gilt die Verknüpfung. Zugesagte Gäste sehen dann „Sitzplatz wählen“ und später ihren Platz; Name, E-Mail (falls vorhanden) und Begleitung gehen dafür an Seating.">
               <div>

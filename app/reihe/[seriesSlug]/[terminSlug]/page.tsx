@@ -8,6 +8,8 @@ import RsvpForm from '../../../[slug]/rsvp-form'
 import PinForm from '../../../[slug]/pin-form'
 import GuestRequiredGate from '../../../[slug]/guest-required-gate'
 import PollResultBanner from '../../../ui/poll-result-banner'
+import PhotoLinkBanner from '../../../ui/photo-link-banner'
+import { photoLinkVisible } from '../../../lib/photo-link'
 import { getCurrentGuestUser } from '../../../lib/guest-auth'
 import { isSeatingConfirmed, seatingLinkOf } from '../../../lib/seating'
 import { TOOL_LINKS } from '../../../lib/linked-tools-store'
@@ -173,6 +175,8 @@ export default async function SeriesEventPage({
             {event.pollLabel || '🗳️ Zur Abstimmung'}
           </a>
         )}
+
+        {photoLinkVisible(event, existingRsvp) && <PhotoLinkBanner url={event.photoUrl!} />}
 
         <RsvpForm
           eventId={event.id}
