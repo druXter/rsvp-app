@@ -1,15 +1,14 @@
 import { randomBytes } from 'node:crypto'
 import { createServer, type Server } from 'node:http'
-import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 import {
-  BASE_URL, FOREIGN_TOOL_BASE_URL, SEATING_PORT, TEST_SEATING_BASE_URL, TEST_SEATING_SECRET, createAccount, createEvent, createRsvp,
-  decodeCouplingToken, linkTool, locationOf, login, prisma, readForm, signCouplingToken, submitForm
+  FOREIGN_TOOL_BASE_URL, SEATING_PORT, TEST_SEATING_BASE_URL, createAccount, createEvent, createRsvp,
+  decodeCouplingToken, linkTool, login, prisma, readForm, submitForm
 } from './helpers'
-import { copyLegacySeatingLinks } from '../../migrate-tool-links.js'
 
-// Verknüpfte Tools allgemein (app/lib/linked-tools.ts, Tabelle EventToolLink): Übernahme der alten
-// Seating-Spalten durch migrate-tool-links.js, Webhook nur an gültig verknüpfte Tools, Speichern
-// und Entfernen der Verknüpfung im Termin-Formular. Den Vertrag mit Seating selbst prüft seating.spec.ts.
+// Verknüpfte Tools allgemein (app/lib/linked-tools.ts, Tabelle EventToolLink): Webhook nur an gültig
+// verknüpfte Tools, Speichern und Entfernen der Verknüpfung im Termin-Formular. Den Vertrag mit
+// Seating selbst prüft seating.spec.ts.
 
 
 const received: { path: string; body: string }[] = []
@@ -31,11 +30,8 @@ test.afterAll(async () => {
   await new Promise(resolve => seating.close(resolve))
 })
 
-const nowSeconds = () => Math.floor(Date.now() / 1000)
 const seatingId = () => 'cmseat' + randomBytes(10).toString('hex')
 const seatingUrlFor = (id: string) => `${TEST_SEATING_BASE_URL}/rsvp/${id}`
-const post = (request: APIRequestContext, path: string, body: string) =>
-  request.post(path, { data: body, headers: { 'content-type': 'text/plain' } })
 const messagesFor = (rsvpId: string) => received.map(r => decodeCouplingToken(r.body)).filter(m => m.rsvpId === rsvpId)
 
 async function answerYes(page: Page, slug: string, name: string) {
@@ -45,44 +41,6 @@ async function answerYes(page: Page, slug: string, name: string) {
   await page.getByRole('button', { name: 'Antwort absenden' }).click()
   await expect(page.getByText('Deine Rückmeldung wurde erfolgreich gespeichert.')).toBeVisible()
 }
-
-test('alte Seating-Verknüpfung (Event.seatingUrl) wird übernommen und funktioniert danach unverändert', async ({ request }) => {
-  const owner = await createAccount('CREATOR')
-  const seatingEventId = seatingId()
-  const placedAt = new Date(Date.now() - 60_000)
-  // Stand vor dem Update: Link und Platzierungs-Zeitpunkt in den alten Spalten, noch keine EventToolLink-Zeile
-  const event = await createEvent(owner, { seatingUrl: seatingUrlFor(seatingEventId), seatingPlacementsAt: placedAt })
-  const { rsvp, participant } = await createRsvp(event, { name: 'Alt-Gast' })
-
-  // Ohne Übernahme kennt die App die Verknüpfung nicht mehr (Negativkontrolle)
-  expect(locationOf(await request.get(`/api/seating-link/${event.id}?token=${participant.editToken}`, { maxRedirects: 0 }))!.origin).toBe(BASE_URL)
-
-  expect(await copyLegacySeatingLinks(prisma)).toBeGreaterThanOrEqual(1)
-  expect(await prisma.eventToolLink.findUnique({ where: { eventId_type: { eventId: event.id, type: 'seating' } } }))
-    .toMatchObject({ url: seatingUrlFor(seatingEventId), remoteEventId: seatingEventId, syncedAt: placedAt })
-
-  // Sitzplatz-Link: wie vorher zu Seating, mit demselben Vertrag
-  const target = locationOf(await request.get(`/api/seating-link/${event.id}?token=${participant.editToken}`, { maxRedirects: 0 }))!
-  expect(target.origin).toBe(TEST_SEATING_BASE_URL)
-  expect(decodeCouplingToken(target.searchParams.get('t')!)).toMatchObject({ typ: 'seat-link', seatingEventId, rsvpEventId: event.id, rsvpId: rsvp.id })
-
-  // Gästeliste: Verknüpfung gilt
-  const envelope = (typ: string, extra: Record<string, unknown> = {}) =>
-    ({ typ, aud: BASE_URL, iat: nowSeconds(), exp: nowSeconds() + 600, seatingEventId, rsvpEventId: event.id, ...extra })
-  expect((await post(request, '/api/seating/guest-list', signCouplingToken(envelope('guest-list-request'), TEST_SEATING_SECRET))).status()).toBe(200)
-
-  // Platzierungs-Zeitpunkt übernommen: eine ältere Meldung gilt als veraltet, eine neuere wird angewandt
-  const placements = (iat: number) => signCouplingToken({ ...envelope('placements', { iat }), placements: [{ rsvpId: rsvp.id, label: 'Tisch 3' }] }, TEST_SEATING_SECRET)
-  const older = await post(request, '/api/seating/placements', placements(Math.floor(placedAt.getTime() / 1000) - 30))
-  expect(await older.json()).toMatchObject({ outcome: 'stale' })
-  const newer = await post(request, '/api/seating/placements', placements(nowSeconds()))
-  expect(await newer.json()).toMatchObject({ outcome: 'applied' })
-  expect((await prisma.rsvp.findUniqueOrThrow({ where: { id: rsvp.id } })).seatingLabel).toBe('Tisch 3')
-
-  // Ein zweiter Aufruf legt nichts doppelt an
-  await copyLegacySeatingLinks(prisma)
-  expect(await prisma.eventToolLink.count({ where: { eventId: event.id } })).toBe(1)
-})
 
 test('Webhook geht nur an gültig verknüpfte, eingerichtete Tools', async ({ page }) => {
   const owner = await createAccount('CREATOR')

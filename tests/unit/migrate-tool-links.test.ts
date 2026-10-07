@@ -1,73 +1,83 @@
 import { createRequire } from 'node:module'
 import { describe, expect, it, vi } from 'vitest'
 
-// Die Migration ist ein CommonJS-Skript für den Containerstart (migrate-tool-links.js) - hier mit
-// einer Schein-Datenbank statt SQLite.
+// Die Migrationen sind CommonJS-Skripte für den Containerstart - hier mit einer Schein-Datenbank
+// statt SQLite.
 const requireScript = createRequire(import.meta.url)
-const { copyLegacySeatingLinks, main } = requireScript('../../migrate-tool-links.js')
+const toolLinks = requireScript('../../migrate-tool-links.js')
+const dropColumns = requireScript('../../migrate-drop-seating-columns.js')
 
-type Row = { eventId: string; type: string; url: string; remoteEventId: string; syncedAt: Date | null }
-
-function fakeDb(events: { id: string; seatingUrl: string | null; seatingPlacementsAt: Date | null }[], links: Row[] = [], version = 1) {
+function fakeDb(version: number, columns: string[] = ['id', 'title', 'ownerId']) {
   const db = {
-    links,
     version,
-    event: { findMany: vi.fn(async () => events.filter(e => e.seatingUrl !== null)) },
-    eventToolLink: {
-      findUnique: vi.fn(async ({ where }: { where: { eventId_type: { eventId: string; type: string } } }) =>
-        db.links.find(l => l.eventId === where.eventId_type.eventId && l.type === where.eventId_type.type) ?? null),
-      create: vi.fn(async ({ data }: { data: Row }) => { db.links.push(data); return data })
-    },
-    $queryRawUnsafe: vi.fn(async () => [{ user_version: BigInt(db.version) }]),
-    $executeRawUnsafe: vi.fn(async (sql: string) => { db.version = Number(sql.match(/= (\d+)/)![1]); return 0 }),
+    columns: [...columns],
+    statements: [] as string[],
+    $queryRawUnsafe: vi.fn(async (sql: string) =>
+      sql.startsWith('PRAGMA table_info') ? db.columns.map(name => ({ name })) : [{ user_version: BigInt(db.version) }]),
+    $executeRawUnsafe: vi.fn(async (sql: string) => {
+      db.statements.push(sql)
+      const version = sql.match(/user_version = (\d+)/)
+      if (version) db.version = Number(version[1])
+      const dropped = sql.match(/DROP COLUMN "(\w+)"/)
+      if (dropped) db.columns = db.columns.filter(c => c !== dropped[1])
+      return 0
+    }),
     $transaction: vi.fn(async (fn: (tx: unknown) => unknown) => fn(db))
   }
   return db
 }
 
-const placedAt = new Date('2026-09-01T10:00:00Z')
+const quiet = () => vi.spyOn(console, 'log').mockImplementation(() => {})
 
 describe('migrate-tool-links.js', () => {
-  it('übernimmt jede alte seatingUrl unverändert als EventToolLink "seating", seatingPlacementsAt als syncedAt', async () => {
-    const db = fakeDb([
-      { id: 'cmevent000000000001', seatingUrl: 'https://plaetze.example.de/rsvp/cmseatingevent00001', seatingPlacementsAt: placedAt },
-      // Link, den die aktuelle Konfiguration vielleicht nicht (mehr) annimmt - geht trotzdem nicht verloren
-      { id: 'cmevent000000000002', seatingUrl: 'https://alt.example.de/rsvp/cmseatingevent00002', seatingPlacementsAt: null },
-      { id: 'cmevent000000000003', seatingUrl: null, seatingPlacementsAt: null },
-      { id: 'cmevent000000000004', seatingUrl: '   ', seatingPlacementsAt: null }
-    ])
-    expect(await copyLegacySeatingLinks(db)).toBe(2)
-    expect(db.links).toEqual([
-      { eventId: 'cmevent000000000001', type: 'seating', url: 'https://plaetze.example.de/rsvp/cmseatingevent00001', remoteEventId: 'cmseatingevent00001', syncedAt: placedAt },
-      { eventId: 'cmevent000000000002', type: 'seating', url: 'https://alt.example.de/rsvp/cmseatingevent00002', remoteEventId: 'cmseatingevent00002', syncedAt: null }
-    ])
-  })
-
-  it('überschreibt keine vorhandene Verknüpfung', async () => {
-    const existing = { eventId: 'cmevent000000000001', type: 'seating', url: 'https://plaetze.example.de/rsvp/cmneueseatingid0001', remoteEventId: 'cmneueseatingid0001', syncedAt: null }
-    const db = fakeDb([{ id: 'cmevent000000000001', seatingUrl: 'https://plaetze.example.de/rsvp/cmseatingevent00001', seatingPlacementsAt: null }], [existing])
-    expect(await copyLegacySeatingLinks(db)).toBe(0)
-    expect(db.links).toEqual([existing])
-  })
-
-  it('läuft genau einmal (user_version 2) und nur nach der Token-Migration (user_version 1)', async () => {
-    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
-    const events = [{ id: 'cmevent000000000001', seatingUrl: 'https://plaetze.example.de/rsvp/cmseatingevent00001', seatingPlacementsAt: null }]
-
-    const fresh = fakeDb(events, [], 0)
-    await expect(main(fresh)).rejects.toThrow('migrate-token-hashes.js')
-    expect(fresh.links).toEqual([])
-    expect(fresh.version).toBe(0)
-
-    const db = fakeDb(events)
-    await main(db)
-    expect(db.links).toHaveLength(1)
+  it('setzt nach der Token-Migration nur noch die Version 2, einmal', async () => {
+    const log = quiet()
+    const db = fakeDb(1)
+    await toolLinks.main(db)
     expect(db.version).toBe(2)
-
-    // Zweiter Lauf, nachdem die Verknüpfung in der Oberfläche entfernt wurde: bleibt entfernt
-    db.links = []
-    await main(db)
-    expect(db.links).toEqual([])
+    await toolLinks.main(db)
+    expect(db.statements).toHaveLength(1)
     log.mockRestore()
+  })
+
+  it('bricht ohne Token-Migration ab (user_version 0)', async () => {
+    const db = fakeDb(0)
+    await expect(toolLinks.main(db)).rejects.toThrow('migrate-token-hashes.js')
+    expect(db.version).toBe(0)
+  })
+})
+
+describe('migrate-drop-seating-columns.js', () => {
+  const legacy = ['id', 'title', 'seatingUrl', 'seatingPlacementsAt', 'ownerId']
+
+  it('entfernt beide alten Spalten, wenn die Links übernommen sind (user_version 2)', async () => {
+    const log = quiet()
+    const db = fakeDb(2, legacy)
+    await dropColumns.main(db)
+    expect(db.columns).toEqual(['id', 'title', 'ownerId'])
+    expect(db.statements).toEqual([
+      'ALTER TABLE "Event" DROP COLUMN "seatingUrl"',
+      'ALTER TABLE "Event" DROP COLUMN "seatingPlacementsAt"'
+    ])
+    log.mockRestore()
+  })
+
+  it('tut nichts, wenn es die Spalten nicht (mehr) gibt - frische Datenbank oder zweiter Lauf', async () => {
+    const log = quiet()
+    for (const version of [0, 2]) {
+      const db = fakeDb(version)
+      await dropColumns.main(db)
+      expect(db.statements).toEqual([])
+    }
+    log.mockRestore()
+  })
+
+  it('bricht ab statt Links zu verlieren, wenn sie noch nie übernommen wurden (user_version < 2)', async () => {
+    for (const version of [0, 1]) {
+      const db = fakeDb(version, legacy)
+      await expect(dropColumns.main(db)).rejects.toThrow('noch nicht nach EventToolLink')
+      expect(db.columns).toEqual(legacy)
+      expect(db.statements).toEqual([])
+    }
   })
 })

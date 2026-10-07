@@ -228,15 +228,13 @@ siehe unten) und das **Zeitplan-Tool** (Ablauf des Events, siehe unten). Alles G
   stellen dann bei jedem Klick einen frischen, kurz gültigen Link nach dem Vertrag des Tools aus.
 
 **Update von einer Version mit `Event.seatingUrl`:** Früher standen der Sitzplatz-Link und der Platzierungs-Stand in den
-Spalten `Event.seatingUrl`/`seatingPlacementsAt`. Beim ersten Containerstart nach dem Update legt `prisma db push` die
-Tabelle `EventToolLink` an, und `migrate-tool-links.js` kopiert jeden vorhandenen Link **unverändert** als Verknüpfung vom
-Typ `seating` (samt Platzierungs-Zeitpunkt als `syncedAt`) - unabhängig davon, ob Seating gerade eingerichtet ist; ob ein
-Link gilt, prüft die App wie bisher bei der Verwendung. Die Migration läuft genau einmal (SQLite `PRAGMA user_version` 2,
-nach `migrate-token-hashes.js` mit Version 1) und bricht ab, wenn die Token-Migration noch fehlt. Die alten Spalten bleiben
-vorerst unangetastet stehen (ein Rollback auf die vorherige Version hat die Links dann noch, mit dem Stand zum Zeitpunkt
-der Migration), werden aber nicht mehr gelesen oder geschrieben und können in einem späteren Release entfallen.
-`SEATING_SECRET` und `SEATING_BASE_URL` bleiben unverändert gültig - an der `.env` ist nichts zu tun. Lokal ohne Docker
-nach `npx prisma db push` einmal `node migrate-token-hashes.js && node migrate-tool-links.js` ausführen.
+Spalten `Event.seatingUrl`/`seatingPlacementsAt`. Eine frühere Version hat sie einmalig nach `EventToolLink` übernommen
+(`PRAGMA user_version` 2). Seit Oktober 2026 entfernt `migrate-drop-seating-columns.js` die beiden Spalten beim
+Containerstart **vor** `prisma db push`, aber nur, wenn diese Übernahme gelaufen ist. Andernfalls bricht der Start mit
+einem Hinweis ab, statt die Links zu verlieren. Wer von einer noch älteren Version kommt, startet deshalb erst einmal die
+Vorgängerversion (Commit `ca1bd37`) und spielt danach das Update ein. Ein Rollback legt die Spalten leer wieder an, die
+App liest sie ohnehin nicht. Lokal ohne Docker: `node migrate-drop-seating-columns.js && npx prisma db push && node
+migrate-token-hashes.js && node migrate-tool-links.js`.
 
 ## 🪑 Verknüpfung mit Seating (Sitzplätze)
 

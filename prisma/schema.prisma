@@ -173,14 +173,6 @@ model Event {
   // Tool-Typ, siehe EventToolLink.
   toolLinks EventToolLink[]
 
-  // VERALTET, nur noch für die Migration: Sitzplatz-Link und Platzierungs-Stand von Seating
-  // standen früher hier. migrate-tool-links.js hat sie einmalig nach EventToolLink (type
-  // "seating", url/syncedAt) kopiert; seitdem liest und schreibt die App sie nicht mehr. Sie
-  // bleiben vorerst stehen, damit ein Rollback auf die vorherige Version die Links noch hat
-  // (mit dem Stand zum Zeitpunkt der Migration) - entfernen in einem späteren Release.
-  seatingUrl          String?
-  seatingPlacementsAt DateTime?
-
   ownerId String
   owner   User   @relation(fields: [ownerId], references: [id])
 
