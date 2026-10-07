@@ -62,3 +62,6 @@ CLAUDE.md
 
 # Erlaube explizit die .env.example (wird sonst von ".env*" auf Zeile 34 blockiert!)
 !.env.example
+
+# Log des nächtlichen Backup-Cronjobs
+backup.log
