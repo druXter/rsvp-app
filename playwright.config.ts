@@ -38,10 +38,46 @@ export const TEST_SUITE_SIGNING_KEY = Buffer.concat([
 export const TEST_PARTICIPANT_APPS = ['http://127.0.0.1:3121', 'http://127.0.0.1:3122']
 // Ein Origin, der zu keinem eingerichteten Tool gehört - für die Fälle "fremde Adresse".
 export const FOREIGN_TOOL_BASE_URL = 'http://127.0.0.1:3199'
+// Zweite Instanz mit demselben Build, derselben Datenbank und derselben BASE_URL, aber mit einem
+// bevorzugten Anbieter (SUITE_LOGIN_REDIRECT), der nicht erreichbar ist: Die Login-Seite leitet
+// weiter, die Anmeldung scheitert und landet mit Fehlermeldung beim Formular statt in einer Schleife
+// (tests/e2e/login-redirect.spec.ts).
+export const REDIRECT_PORT = 3109
+export const UNREACHABLE_IDP = 'http://localhost:3198'
 
 // Gilt für den Server UND für die Testprozesse (tests/e2e/helpers.ts greift direkt auf die
 // Datenbank zu). Relative SQLite-Pfade löst Prisma relativ zu prisma/schema.prisma auf.
 process.env.DATABASE_URL = 'file:./test.db'
+
+const SERVER_ENV: Record<string, string> = {
+  DATABASE_URL: 'file:./test.db',
+  BASE_URL,
+  // Ein Proxy: Die Tests spielen ihn selbst und setzen X-Forwarded-For, um verschiedene
+  // Besucher-IPs zu simulieren.
+  TRUST_PROXY_HOPS: '1',
+  CRON_SECRET: TEST_CRON_SECRET,
+  // Kein Mailversand: Reset-/Bestätigungs-Mails gehen nirgendwohin (die Tests lesen Tokens
+  // aus der Datenbank bzw. legen sie dort selbst an).
+  SMTP_HOST: '',
+  SMTP_USER: '',
+  SMTP_PASS: '',
+  VAPID_PUBLIC_KEY: '',
+  VAPID_PRIVATE_KEY: '',
+  VAPID_SUBJECT: '',
+  POLL_VERIFICATION_SECRET: TEST_POLL_SECRET,
+  ABSTIMMUNGSTOOL_BASE_URL: TEST_ABSTIMMUNGSTOOL_BASE_URL,
+  SEATING_SECRET: TEST_SEATING_SECRET,
+  SEATING_BASE_URL: TEST_SEATING_BASE_URL,
+  TIMELINE_SECRET: TEST_TIMELINE_SECRET,
+  TIMELINE_BASE_URL: TEST_TIMELINE_BASE_URL,
+  // Anbieter nur für Teilnehmendenkonten: SUITE_TRUSTED_APPS bleibt leer, Verwaltungskonten
+  // werden also für niemanden bestätigt; als Empfänger (SUITE_IDPS) ist nichts eingerichtet.
+  SUITE_SIGNING_KEY: TEST_SUITE_SIGNING_KEY,
+  SUITE_PARTICIPANT_APPS: TEST_PARTICIPANT_APPS.join(','),
+  SUITE_IDPS: '',
+  SUITE_TRUSTED_APPS: '',
+  TZ: 'Europe/Berlin'
+}
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -56,7 +92,7 @@ export default defineConfig({
     ...devices['Desktop Chrome'],
     locale: 'de-DE'
   },
-  webServer: {
+  webServer: [{
     // Datenbank bei jedem Lauf frisch anlegen (nur die eigene Testdatei löschen - bewusst kein
     // `prisma db push --force-reset`, das bei falsch gesetzter DATABASE_URL eine fremde
     // Datenbank leeren würde), wie im Container migrieren, dann wie in Produktion bauen und starten.
@@ -69,34 +105,19 @@ export default defineConfig({
     // Next.js liest zusätzlich die lokale .env - bereits gesetzte Variablen (auch leere) überschreibt
     // sie aber nicht. Alles, was nach außen wirken würde (Mailversand, Push, Meldungen ans
     // Abstimmungstool, Konten-Verbund), wird deshalb hier ausdrücklich abgeschaltet.
+    env: SERVER_ENV
+  }, {
+    // Startet nach der ersten Instanz (Playwright richtet die Server nacheinander ein) und nutzt deren Build.
+    command: `npx next start -H 127.0.0.1 -p ${REDIRECT_PORT}`,
+    url: `http://127.0.0.1:${REDIRECT_PORT}/impressum`,
+    reuseExistingServer: false,
+    timeout: 60_000,
+    stdout: 'ignore',
+    stderr: 'pipe',
     env: {
-      DATABASE_URL: 'file:./test.db',
-      BASE_URL,
-      // Ein Proxy: Die Tests spielen ihn selbst und setzen X-Forwarded-For, um verschiedene
-      // Besucher-IPs zu simulieren.
-      TRUST_PROXY_HOPS: '1',
-      CRON_SECRET: TEST_CRON_SECRET,
-      // Kein Mailversand: Reset-/Bestätigungs-Mails gehen nirgendwohin (die Tests lesen Tokens
-      // aus der Datenbank bzw. legen sie dort selbst an).
-      SMTP_HOST: '',
-      SMTP_USER: '',
-      SMTP_PASS: '',
-      VAPID_PUBLIC_KEY: '',
-      VAPID_PRIVATE_KEY: '',
-      VAPID_SUBJECT: '',
-      POLL_VERIFICATION_SECRET: TEST_POLL_SECRET,
-      ABSTIMMUNGSTOOL_BASE_URL: TEST_ABSTIMMUNGSTOOL_BASE_URL,
-      SEATING_SECRET: TEST_SEATING_SECRET,
-      SEATING_BASE_URL: TEST_SEATING_BASE_URL,
-      TIMELINE_SECRET: TEST_TIMELINE_SECRET,
-      TIMELINE_BASE_URL: TEST_TIMELINE_BASE_URL,
-      // Anbieter nur für Teilnehmendenkonten: SUITE_TRUSTED_APPS bleibt leer, Verwaltungskonten
-      // werden also für niemanden bestätigt; als Empfänger (SUITE_IDPS) ist nichts eingerichtet.
-      SUITE_SIGNING_KEY: TEST_SUITE_SIGNING_KEY,
-      SUITE_PARTICIPANT_APPS: TEST_PARTICIPANT_APPS.join(','),
-      SUITE_IDPS: '',
-      SUITE_TRUSTED_APPS: '',
-      TZ: 'Europe/Berlin'
+      ...SERVER_ENV,
+      SUITE_IDPS: JSON.stringify([{ issuer: UNREACHABLE_IDP, label: 'Nirgendwo', autoProvision: false }]),
+      SUITE_LOGIN_REDIRECT: UNREACHABLE_IDP
     }
-  }
+  }]
 })

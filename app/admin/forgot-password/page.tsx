@@ -24,7 +24,7 @@ export default async function ForgotPasswordPage({ searchParams }: { searchParam
               Zurücksetzen deines Passworts geschickt. Der Link ist eine Stunde gültig.
             </div>
             <p className="text-sm text-center text-gray-500 dark:text-gray-400">
-              <Link href="/admin/login" className="text-blue-600 hover:underline">Zurück zum Login</Link>
+              <Link href="/admin/login?local=1" className="text-blue-600 hover:underline">Zurück zum Login</Link>
             </p>
           </>
         ) : (
@@ -51,7 +51,7 @@ export default async function ForgotPasswordPage({ searchParams }: { searchParam
             </form>
 
             <p className="text-sm text-center text-gray-500 dark:text-gray-400">
-              <Link href="/admin/login" className="text-blue-600 hover:underline">Zurück zum Login</Link>
+              <Link href="/admin/login?local=1" className="text-blue-600 hover:underline">Zurück zum Login</Link>
             </p>
           </>
         )}

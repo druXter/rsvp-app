@@ -355,6 +355,10 @@ Anbieter und Empfänger, und jedes bleibt mit eigenen Konten vollständig allein
 
 * **Konfiguration:** `SUITE_SIGNING_KEY` + `SUITE_TRUSTED_APPS` (Anbieter), `SUITE_IDPS` (Empfänger), siehe `.env.example`.
   Ohne sie keine Föderation, kein Button.
+* **Bevorzugter Anbieter** (`SUITE_LOGIN_REDIRECT`, optional): ein Origin aus `SUITE_IDPS`. Die Login-Seite leitet
+  ohne Sitzung direkt dorthin weiter, statt erst das Formular zu zeigen. Nach einem Fehlschlag, beim Zurücksetzen des
+  Passworts, nach dem Abmelden und wenn dieses Tool selbst als Anbieter gefragt ist, erscheint wie gewohnt das Formular; der lokale Login
+  bleibt über `/admin/login?local=1` erreichbar.
 * **Kein Passwort-Austausch, kein gemeinsames Secret:** Bestätigungen sind mit Ed25519 signiert, der öffentliche Schlüssel
   steht unter `/.well-known/suite-identity`.
 * **Identität** ist (Anbieter, Konto-ID) - nie die E-Mail. Kein automatisches Zusammenführen über die E-Mail: Gibt es hier

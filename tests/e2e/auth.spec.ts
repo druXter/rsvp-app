@@ -83,7 +83,8 @@ test.describe('Admin-Login', () => {
     await login(page, user.email)
     await expect(page).toHaveURL(`${BASE_URL}/admin`)
     await page.getByRole('button', { name: 'Abmelden' }).click()
-    await expect(page).toHaveURL(`${BASE_URL}/admin/login`)
+    // local=1: mit bevorzugtem Anbieter (SUITE_LOGIN_REDIRECT) wäre man sonst sofort wieder angemeldet
+    await expect(page).toHaveURL(`${BASE_URL}/admin/login?local=1`)
     expect(await prisma.session.count({ where: { userId: user.id } })).toBe(0)
     await page.goto('/admin')
     await expect(page).toHaveURL(`${BASE_URL}/admin/login`)

@@ -147,7 +147,8 @@ export async function loginUser(formData: FormData) {
  */
 export async function logoutUser() {
   await destroySession()
-  redirect('/admin/login')
+  // local=1: Mit SUITE_LOGIN_REDIRECT wäre man sonst über den bevorzugten Anbieter sofort wieder angemeldet.
+  redirect('/admin/login?local=1')
 }
 
 const RESET_TOKEN_DURATION_MS = 1000 * 60 * 60 // 1 Stunde

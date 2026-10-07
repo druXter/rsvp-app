@@ -4,18 +4,38 @@ import { loginUser } from '../actions'
 import SubmitButton from '../../ui/submit-button'
 import AuthError from '../../ui/auth-error'
 import { sanitizeNextPath } from 'suite-kit'
-import { getIdps, idpLabel } from '../../lib/suite'
+import { getIdps, idpLabel, loginRedirectIdp, shouldAutoRedirect } from '../../lib/suite'
+import HardRedirect from './weiter/hard-redirect'
 
 /**
  * Login-Seite. Stellt ein Formular für E-Mail + Passwort bereit und fängt Fehler
  * über URL-Parameter ab.
  */
-export default async function AdminLoginPage({ searchParams }: { searchParams: Promise<{ error?: string; reset?: string; next?: string }> }) {
+export default async function AdminLoginPage({ searchParams }: { searchParams: Promise<{ error?: string; reset?: string; next?: string; local?: string }> }) {
   const params = await searchParams;
   const hasError = params.error === '1';
   const wasReset = params.reset === '1';
   const next = sanitizeNextPath(params.next, '/admin');
   const idps = getIdps();
+
+  // Bevorzugter Anbieter (SUITE_LOGIN_REDIRECT): direkt weiter, per echtem Seitenwechsel - die Seite
+  // wird auch über Client-Links erreicht, und der Route Handler leitet zu einer anderen Domain weiter.
+  const preferred = loginRedirectIdp();
+  if (preferred && shouldAutoRedirect(params, next)) {
+    return (
+      <main className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center px-4">
+        <div className="max-w-md w-full bg-white dark:bg-gray-800 p-8 rounded-lg shadow space-y-4 text-gray-900 dark:text-gray-100">
+          <h1 className="text-2xl font-bold text-center">Anmelden mit {idpLabel(preferred)}</h1>
+          <HardRedirect to={`/api/suite/login?idp=${encodeURIComponent(preferred.issuer)}&next=${encodeURIComponent(next)}`} />
+          <p className="text-sm text-center">
+            <Link href={`/admin/login?local=1&next=${encodeURIComponent(next)}`} className="text-blue-600 hover:underline">
+              Stattdessen mit E-Mail und Passwort anmelden
+            </Link>
+          </p>
+        </div>
+      </main>
+    )
+  }
 
   return (
     <main className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center px-4">

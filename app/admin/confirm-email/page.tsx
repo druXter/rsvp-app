@@ -22,7 +22,7 @@ export default async function ConfirmEmailPage({ searchParams }: { searchParams:
     return (
       <StatusCard title="E-Mail-Adresse geändert! 🎉" tone="success">
         <p className="mb-6">Deine neue E-Mail-Adresse ist ab sofort aktiv - nutze sie beim nächsten Login.</p>
-        <Link href="/admin/login" className="inline-block bg-blue-600 text-white font-bold py-2 px-6 rounded hover:bg-blue-700 transition">
+        <Link href="/admin/login?local=1" className="inline-block bg-blue-600 text-white font-bold py-2 px-6 rounded hover:bg-blue-700 transition">
           Zum Login
         </Link>
       </StatusCard>
