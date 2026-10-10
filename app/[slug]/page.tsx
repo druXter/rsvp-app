@@ -5,6 +5,8 @@ import { cookies } from 'next/headers'
 import RsvpForm from './rsvp-form'
 import PinForm from './pin-form'
 import GuestRequiredGate from './guest-required-gate'
+import InvitationGate from './invitation-gate'
+import { householdForForm, invitationOf } from '../lib/invitation-store'
 import PollResultBanner from '../ui/poll-result-banner'
 import PhotoLinkBanner from '../ui/photo-link-banner'
 import { photoLinkVisible } from '../lib/photo-link'
@@ -14,6 +16,7 @@ import { guestPersons } from '../lib/guest-persons'
 import { guestTicketing } from '../lib/guest-ticketing'
 import { TOOL_LINKS } from '../lib/linked-tools-store'
 import { isTimelineConfirmed, timelineLinkOf } from '../lib/timeline'
+import { deadlinePassed, formatDeadline } from '../lib/rsvp-deadline'
 
 const prisma = new PrismaClient()
 
@@ -128,6 +131,20 @@ export default async function EventPage({
     }
   }
 
+  // Einladungsmodus (docs/KONZEPT-EINLADUNGEN.md): nur mit dem Link einer Einladung zu diesem Termin
+  let household = null
+  if (event.inviteOnly) {
+    const invitation = token && participant && 'id' in participant ? await invitationOf(participant.id, event.id) : null
+    if (!invitation) {
+      return (
+        <main className="min-h-screen bg-gray-50 dark:bg-gray-900">
+          <InvitationGate title={event.title} />
+        </main>
+      )
+    }
+    household = { label: invitation.label, rows: await householdForForm(invitation, existingRsvp?.id ?? null), extraPersons: invitation.extraPersons }
+  }
+
   // 3. Gästeliste laden (Issue #8) - EXTREM WICHTIG: Nur ungefährliche Felder abfragen!
   let publicRsvps: PublicRsvp[] = [];
   if (event.isGuestListVisible) {
@@ -176,6 +193,8 @@ export default async function EventPage({
         <RsvpForm
           bringSlots={await bringSlotsForForm(event.id, existingRsvp?.id ?? null)}
           {...await guestPersons(event, existingRsvp)}
+          deadline={event.rsvpDeadline ? { label: formatDeadline(event.rsvpDeadline)!, passed: deadlinePassed(event) } : null}
+          household={household}
           {...await guestTicketing(event, existingRsvp, !!participant?.isVerified, event.requireVerification)}
           seatingLabel={existingRsvp?.seatingLabel ?? null}
           canOpenTimeline={!!timelineLinkOf(event) && !!existingRsvp && isTimelineConfirmed(existingRsvp, { isVerified: !!participant?.isVerified }, event.requireVerification)}
@@ -201,7 +220,10 @@ export default async function EventPage({
                   <li key={guest.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-100 dark:border-gray-700">
                     <div>
                       <span className="font-bold text-gray-800 dark:text-gray-100">{guest.participant.name}</span>
-                      {guest.persons.length > 1 && guest.isAttending && (
+                      {event.inviteOnly && guest.isAttending && (
+                        <span className="text-gray-500 dark:text-gray-400 text-sm ml-1">({guest.persons.filter(p => p.isAttending).map(p => p.name).join(', ')})</span>
+                      )}
+                      {!event.inviteOnly && guest.persons.length > 1 && guest.isAttending && (
                         <span className="text-gray-500 dark:text-gray-400 text-sm ml-1">(+ {guest.persons.slice(1).map(p => p.name || 'Begleitung').join(', ')})</span>
                       )}
 

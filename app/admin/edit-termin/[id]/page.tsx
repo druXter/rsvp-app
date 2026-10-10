@@ -15,6 +15,7 @@ import { allowedSeatingOrigin } from '../../../lib/seating'
 import { allowedTimelineOrigin } from '../../../lib/timeline'
 import { TOOL_LINKS, storedToolUrl } from '../../../lib/linked-tools-store'
 import NotifyGuestsToggle from '../../notify-guests-toggle'
+import { deadlineInputValue } from '../../../lib/rsvp-deadline'
 
 const prisma = new PrismaClient()
 
@@ -86,7 +87,15 @@ export default async function EditSeriesTerminPage({ params }: { params: Promise
           <div>
             <label htmlFor="maxCapacity" className="block text-sm font-medium mb-1">Maximale Teilnehmerzahl (optional)</label>
             <input id="maxCapacity" type="number" name="maxCapacity" min="1" defaultValue={event.maxCapacity || ''} className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded" placeholder="z.B. 50 (leer lassen für unbegrenzt)" />
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Gäste landen automatisch auf der Warteliste, wenn dieses Limit erreicht ist.</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Gäste landen automatisch auf der Warteliste, wenn dieses Limit erreicht ist. Gezählt werden Personen (mit Begleitungen, ohne Kleinkinder).</p>
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="rsvpDeadline" className="block text-sm font-medium mb-1">Antwortfrist (optional)</label>
+              <input id="rsvpDeadline" type="date" name="rsvpDeadline" defaultValue={deadlineInputValue(event.rsvpDeadline)} className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded" />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Gäste sehen „Bitte antwortet bis …“. Danach können sie nichts mehr ändern, nur noch ihr in der Verwaltung.</p>
+            </div>
           </div>
 
           <div>

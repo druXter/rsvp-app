@@ -13,6 +13,7 @@ import { notifyLinkedToolsBeforeDelete } from './lib/linked-tools-notify'
 import { verifyParticipantByToken, type VerifiedRsvp } from './lib/participant-verification'
 import { readCompanions } from './lib/persons'
 import { readMenuSelection } from './lib/menu'
+import { readHousehold } from './lib/invitations'
 
 const prisma = new PrismaClient()
 
@@ -44,6 +45,8 @@ export async function submitRsvp(formData: FormData) {
         companions: readCompanions(formData),
         // Menüwahl der anmeldenden Person (app/lib/menu.ts): nur wenn das Formular sie angezeigt hat
         menu: readMenuSelection(formData, 'menu_'),
+        // Einladungsmodus: Zu-/Absage pro Person des Haushalts (app/lib/invitations.ts)
+        household: readHousehold(formData),
         bringingItem: formData.get('bringingItem') as string || null,
         // Bis zu 3 frei definierbare Zusatzfragen, positionsbasiert (siehe readCustomQuestions)
         customAnswers: [0, 1, 2].map(i => (formData.get(`customAnswer_${i}`) as string) || ''),

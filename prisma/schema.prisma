@@ -192,9 +192,17 @@ model Event {
 
   // Begleitungen und Angaben pro Person (Idee L2/L3 der Suite, docs/KONZEPT-EINLADUNGEN.md, app/lib/persons.ts):
   // bis zu so viele weitere Personen pro Antwort, 0 = keine. Ersetzt formConfig.askPlusOne (migrate-persons.js).
-  maxCompanions Int          @default(0)
+  maxCompanions    Int          @default(0)
   // Menü mit Gängen, Wahl pro Person (Idee L3, app/lib/menu.ts). Ohne Gänge keine Menüwahl.
-  menuCourses   MenuCourse[]
+  menuCourses      MenuCourse[]
+  // Einladungsmodus (Idee L2, app/lib/invitations.ts): Nur eingeladene Haushalte können antworten, über ihren
+  // persönlichen Link. Nur für Einzel-Events, nicht mit PIN, Konto-Pflicht, Verifizierung oder Ticketkategorien.
+  inviteOnly       Boolean      @default(false)
+  invitations      Invitation[]
+  // Antwortfrist (app/lib/rsvp-deadline.ts): Ende des Tages (Ortszeit), danach ändern nur noch Verwaltung und
+  // Nachrücken etwas. rsvpReminderDays: Erinnerung an Einladungen ohne Antwort so viele Tage vorher (Cron).
+  rsvpDeadline     DateTime?
+  rsvpReminderDays Int?
 
   // Verknüpfungen mit anderen Tools der Suite (Seating, später Zeitplan) - höchstens eine je
   // Tool-Typ, siehe EventToolLink.
@@ -241,6 +249,8 @@ model Participant {
   rsvps     Rsvp[]
 
   pushSubscriptions ParticipantPushSubscription[]
+  // Vorab angelegt für eine Einladung (Einladungsmodus): der editToken ist der persönliche Link des Haushalts.
+  invitation        Invitation?
 }
 
 // Push-Abo eines Gast-Geräts, verknüpft mit dem Participant statt (wie PushSubscription)
@@ -324,7 +334,47 @@ model RsvpPerson {
   allergies     String?
   menuChoices   MenuChoice[]
 
+  // Im Einladungsmodus: welche eingeladene Person das ist (null = vom Haushalt selbst eingetragen)
+  invitationPersonId String?
+  invitationPerson   InvitationPerson? @relation(fields: [invitationPersonId], references: [id], onDelete: SetNull)
+
   @@index([rsvpId])
+}
+
+// Eine Einladung an einen Haushalt (Idee L2, docs/KONZEPT-EINLADUNGEN.md, app/lib/invitations.ts). Legt sofort
+// einen Participant an - dessen editToken ist der persönliche Link. Löscht der Haushalt seine Daten, geht die
+// Einladung mit (Cascade).
+model Invitation {
+  id             String             @id @default(cuid())
+  eventId        String
+  event          Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  participantId  String             @unique
+  participant    Participant        @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  label          String
+  email          String?
+  // Wie viele Personen der Haushalt selbst dazu eintragen darf ("+1")
+  extraPersons   Int                @default(0)
+  // Nur für die Verwaltung
+  note           String?
+  sentAt         DateTime?
+  reminderSentAt DateTime?
+  createdAt      DateTime           @default(now())
+  persons        InvitationPerson[]
+
+  @@index([eventId])
+}
+
+// Wer eingeladen ist (von der Verwaltung vorgegeben). Die Antwort steht in RsvpPerson.
+model InvitationPerson {
+  id           String       @id @default(cuid())
+  invitationId String
+  invitation   Invitation   @relation(fields: [invitationId], references: [id], onDelete: Cascade)
+  name         String
+  ageGroup     String       @default("ADULT")
+  position     Int
+  rsvpPersons  RsvpPerson[]
+
+  @@index([invitationId])
 }
 
 // Ein Gang des Menüs (docs/KONZEPT-EINLADUNGEN.md, app/lib/menu.ts): "Hauptgang" mit Optionen als JSON-Array.

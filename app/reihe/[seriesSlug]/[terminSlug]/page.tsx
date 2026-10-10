@@ -16,6 +16,7 @@ import { guestPersons } from '../../../lib/guest-persons'
 import { guestTicketing } from '../../../lib/guest-ticketing'
 import { TOOL_LINKS } from '../../../lib/linked-tools-store'
 import { isTimelineConfirmed, timelineLinkOf } from '../../../lib/timeline'
+import { deadlinePassed, formatDeadline } from '../../../lib/rsvp-deadline'
 
 const prisma = new PrismaClient()
 
@@ -187,6 +188,7 @@ export default async function SeriesEventPage({
           participant={participant}
           rsvp={existingRsvp}
           {...await guestPersons(event, existingRsvp)}
+          deadline={event.rsvpDeadline ? { label: formatDeadline(event.rsvpDeadline)!, passed: deadlinePassed(event) } : null}
           {...await guestTicketing(event, existingRsvp, !!participant?.isVerified, series.requireVerification)}
           seatingLabel={existingRsvp?.seatingLabel ?? null}
           canOpenTimeline={!!timelineLinkOf(event) && !!existingRsvp && isTimelineConfirmed(existingRsvp, { isVerified: !!participant?.isVerified }, series.requireVerification)}

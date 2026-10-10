@@ -19,6 +19,7 @@ import CompanionFields from '../ui/companion-fields'
 import type { CompanionInput } from '../lib/persons'
 import type { MenuCourseForForm, MenuSelection } from '../lib/menu'
 import MenuSelects from '../ui/menu-selects'
+import HouseholdFields, { type HouseholdFormRow } from '../ui/household-fields'
 
 export default function RsvpForm({
   eventId,
@@ -40,7 +41,9 @@ export default function RsvpForm({
   maxCompanions = 0,
   companions = [],
   menu = [],
-  ownMenu = {}
+  ownMenu = {},
+  household = null,
+  deadline = null
 }: {
   eventId: string;
   formConfig: string | null;
@@ -76,8 +79,14 @@ export default function RsvpForm({
   // Menü (app/lib/menu.ts): Gänge des Termins und die bisherige eigene Wahl.
   menu?: MenuCourseForForm[];
   ownMenu?: MenuSelection;
+  // Einladungsmodus (app/lib/invitation-store.ts): Bezeichnung, Personen mit bisheriger Antwort, Zusatzpersonen.
+  // Ersetzt Name, "Bist du dabei?", Essen/Allergien/Menü der anmeldenden Person und Begleitungen.
+  household?: { label: string; rows: HouseholdFormRow[]; extraPersons: number } | null;
+  // Antwortfrist (app/lib/rsvp-deadline.ts): Datum als Text und ob sie abgelaufen ist (dann nur noch lesen).
+  deadline?: { label: string; passed: boolean } | null;
 }) {
   const [isAttending, setIsAttending] = useState<boolean | null>(rsvp ? rsvp.isAttending : null)
+  const isHousehold = !!household
   const [submittedToken, setSubmittedToken] = useState<string | null>(null)
 
   const [showVerifyScreen, setShowVerifyScreen] = useState<boolean>(false)
@@ -251,7 +260,17 @@ export default function RsvpForm({
     {seatAfterPayment && <SeatAfterPaymentHint />}
     {canChooseSeat && <SeatingBox eventId={eventId} editToken={usedUrlToken ? participant?.editToken : null} seatingLabel={seatingLabel} />}
     {canOpenTimeline && <TimelineBox eventId={eventId} editToken={usedUrlToken ? participant?.editToken : null} />}
+    {deadline && (
+      deadline.passed ? (
+        <p role="status" className="text-sm bg-gray-100 text-gray-800 p-3 rounded border border-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600" data-testid="deadline">
+          ⏰ Die Antwortfrist ist am {deadline.label} abgelaufen. {rsvp ? 'Deine Antwort kannst du nicht mehr ändern' : 'Antworten sind nicht mehr möglich'} - bitte wende dich direkt an die Veranstaltung.
+        </p>
+      ) : (
+        <p className="text-sm text-gray-600 dark:text-gray-400" data-testid="deadline">⏰ Bitte antworte bis {deadline.label}.</p>
+      )
+    )}
     <form onSubmit={handleSubmit} className="space-y-6">
+      <fieldset disabled={!!deadline?.passed} className="space-y-6 min-w-0">
       <input type="hidden" name="eventId" value={eventId} />
       {/* Nur mitschicken, wenn der Participant wirklich über einen ?token= aus der URL
           aufgelöst wurde (anonymer Bearbeitungs-Link) - sonst würde submitRsvp die
@@ -268,6 +287,18 @@ export default function RsvpForm({
         </p>
       )}
 
+      {household ? (
+        <>
+          <p className="text-lg font-semibold">💌 Einladung für {household.label}</p>
+          <input type="hidden" name="name" value={household.label} />
+          <input type="hidden" name="isAttending" value={isAttending ? 'true' : 'false'} />
+          <HouseholdFields
+            rows={household.rows} extraPersons={household.extraPersons} askDiet={!!config.askDiet} askAllergies={!!config.askAllergies} menu={menu}
+            onAttendingChange={setIsAttending}
+          />
+        </>
+      ) : (
+      <>
       <div>
         <label htmlFor="name" className="block text-sm font-medium mb-1">Dein Name</label>
         <input id="name" type="text" name="name" defaultValue={participant?.name} required className="w-full border border-gray-300 p-2 rounded bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100" placeholder="Max Mustermann" />
@@ -286,6 +317,8 @@ export default function RsvpForm({
           </label>
         </div>
       </fieldset>
+      </>
+      )}
 
       {isAttending === true && (
         <div className="space-y-4 pt-4 border-t border-gray-200 dark:border-gray-700">
@@ -343,7 +376,7 @@ export default function RsvpForm({
             </div>
           )}
 
-          {config.askDiet && (
+          {config.askDiet && !isHousehold && (
             <div>
               <label htmlFor="dietaryOption" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Essenswunsch</label>
               <select id="dietaryOption" name="dietaryOption" defaultValue={participant?.dietaryOption || ''} required className="w-full border border-gray-300 p-2 rounded-md bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100">
@@ -355,7 +388,7 @@ export default function RsvpForm({
             </div>
           )}
 
-          {config.askAllergies && (
+          {config.askAllergies && !isHousehold && (
             <div>
               <label htmlFor="allergies" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Allergien oder Unverträglichkeiten? (Optional)</label>
               <input id="allergies" type="text" name="allergies" defaultValue={participant?.allergies || ''} className="w-full border border-gray-300 p-2 rounded-md bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100" placeholder="z.B. Laktose, Nüsse, Gluten..." />
@@ -365,7 +398,7 @@ export default function RsvpForm({
             </div>
           )}
 
-          {menu.length > 0 && (
+          {menu.length > 0 && !isHousehold && (
             <fieldset>
               <legend className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Dein Menü</legend>
               <input type="hidden" name="menuShown" value="1" />
@@ -374,7 +407,7 @@ export default function RsvpForm({
           )}
 
           {/* Begleitungen (bei Ticketkategorien ist maxCompanions 0: jede Person meldet sich selbst an) */}
-          {maxCompanions > 0 && (
+          {maxCompanions > 0 && !isHousehold && (
             <CompanionFields max={maxCompanions} initial={companions} askDiet={!!config.askDiet} askAllergies={!!config.askAllergies} menu={menu} />
           )}
 
@@ -451,7 +484,8 @@ export default function RsvpForm({
         <p role="alert" className="text-sm bg-red-50 text-red-800 p-3 rounded border border-red-200 dark:bg-red-950 dark:text-red-300 dark:border-red-800">{formError}</p>
       )}
 
-      <SubmitButton>{rsvp ? "Änderungen speichern" : "Antwort absenden"}</SubmitButton>
+      {!deadline?.passed && <SubmitButton>{rsvp ? "Änderungen speichern" : "Antwort absenden"}</SubmitButton>}
+      </fieldset>
     </form>
 
     {participant?.editToken && (

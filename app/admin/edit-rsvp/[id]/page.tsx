@@ -30,7 +30,10 @@ export default async function EditRsvpPage({ params }: { params: Promise<{ id: s
 
   const participant = rsvp.participant
   // Begleitungen: wie in updateAdminRsvp, nicht bei Ticketkategorien
-  const showCompanions = rsvp.event.ticketCategories.length === 0 && (rsvp.event.maxCompanions > 0 || rsvp.persons.length > 0)
+  // Antwort eines eingeladenen Haushalts: Personen und Zu-/Absage pro Person nur über den Einladungslink
+  const invitation = await prisma.invitation.findUnique({ where: { participantId: participant.id }, include: { event: { select: { slug: true } } } })
+  const household = invitation?.eventId === rsvp.eventId ? invitation : null
+  const showCompanions = !household && rsvp.event.ticketCategories.length === 0 && (rsvp.event.maxCompanions > 0 || rsvp.persons.length > 0)
   const menu = await menuForForm(rsvp.event.id)
 
   return (
@@ -51,7 +54,7 @@ export default async function EditRsvpPage({ params }: { params: Promise<{ id: s
               <label htmlFor="name" className="block text-sm font-medium mb-1">Name</label>
               <input id="name" type="text" name="name" defaultValue={participant.name} required className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded" />
             </div>
-            <div>
+            <div className={household ? 'hidden' : ''}>
               <label htmlFor="isAttending" className="block text-sm font-medium mb-1">Status</label>
               <select id="isAttending" name="isAttending" defaultValue={rsvp.isAttending ? 'true' : 'false'} className="w-full border border-gray-300 dark:border-gray-600 p-2 rounded bg-white dark:bg-gray-800 dark:text-gray-100">
                 <option value="true">Zusage</option>
@@ -84,7 +87,15 @@ export default async function EditRsvpPage({ params }: { params: Promise<{ id: s
             </div>
           </div>
 
-          {menu.length > 0 && (
+          {household && (
+            <p className="text-sm bg-indigo-50 text-indigo-900 p-3 rounded border border-indigo-200 dark:bg-indigo-950 dark:text-indigo-200 dark:border-indigo-800" data-testid="household-note">
+              💌 Antwort des eingeladenen Haushalts „{household.label}“. Wer kommt, Essen und Menü pro Person bearbeitest du über den{' '}
+              <a href={`/${household.event.slug}?token=${participant.editToken}`} target="_blank" rel="noopener" className="underline">Einladungslink</a>, die Personen der Einladung unter{' '}
+              <Link href={`/admin/einladungen/${rsvp.eventId}`} className="underline">Einladungen</Link>.
+            </p>
+          )}
+
+          {menu.length > 0 && !household && (
             <fieldset className="pt-4 border-t dark:border-gray-700">
               <legend className="block text-sm font-medium mb-1">Menü von {participant.name}</legend>
               <input type="hidden" name="menuShown" value="1" />

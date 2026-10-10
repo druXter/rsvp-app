@@ -169,6 +169,14 @@ export default function EventRsvpCard({
           </div>
         )}
 
+        {event.inviteOnly && (
+          <p className="text-sm mb-3">
+            <Link href={`/admin/einladungen/${event.id}`} className="px-2 py-1 text-xs font-medium rounded border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900 transition">
+              💌 Einladungen verwalten
+            </Link>
+          </p>
+        )}
+
         {(withPersons || menuCourses.length > 0) && (
           <p className="text-sm mb-3">
             <Link href={`/admin/kueche/${event.id}`} className="px-2 py-1 text-xs font-medium rounded border border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-950 text-orange-700 dark:text-orange-300 hover:bg-orange-100 dark:hover:bg-orange-900 transition">
@@ -195,7 +203,7 @@ export default function EventRsvpCard({
                   {withTickets && <th className="p-2">Ticket / Zahlung</th>}
                   <th className="p-2">E-Mail</th>
                   <th className="p-2">Handy</th>
-                  <th className="p-2">Begleitungen</th>
+                  <th className="p-2">{event.inviteOnly ? 'Personen' : 'Begleitungen'}</th>
                   {menuCourses.length > 0 && <th className="p-2">Menü</th>}
                   <th className="p-2">Essen</th>
                   <th className="p-2">Allergien</th>
@@ -293,7 +301,9 @@ export default function EventRsvpCard({
                     <td className="p-2 text-gray-600 dark:text-gray-400">{rsvp.participant.phone || '-'}</td>
 
                     <td className="p-2 text-gray-600 dark:text-gray-400">
-                      {personsOf(rsvp, rsvp.participant).slice(1).map(p => describePerson(p)).join('; ') || '-'}
+                      {event.inviteOnly
+                        ? personsOf(rsvp, rsvp.participant).map(p => `${p.isAttending ? '✓' : '✗'} ${describePerson(p)}`).join('; ')
+                        : personsOf(rsvp, rsvp.participant).slice(1).map(p => describePerson(p)).join('; ') || '-'}
                     </td>
 
                     {menuCourses.length > 0 && (

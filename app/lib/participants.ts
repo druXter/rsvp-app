@@ -22,7 +22,9 @@ export async function deleteOrphanedParticipants(candidateIds?: (string | null |
   const ids = candidateIds ? [...new Set(candidateIds.filter((id): id is string => !!id))] : null
   if (ids && ids.length === 0) return 0
 
-  const orphaned: Prisma.ParticipantWhereInput = { rsvps: { none: {} }, ...(ids ? { id: { in: ids } } : {}) }
+  // Ein vorab angelegter Participant einer Einladung (noch ohne Antwort) ist nicht verwaist, solange die Einladung
+  // besteht - mit dem Termin geht die Einladung (Cascade), danach räumt dieser Durchlauf ihn auf.
+  const orphaned: Prisma.ParticipantWhereInput = { rsvps: { none: {} }, invitation: null, ...(ids ? { id: { in: ids } } : {}) }
   const [, deleted] = await prisma.$transaction([
     prisma.participantPushSubscription.deleteMany({ where: { participant: orphaned } }),
     prisma.participant.deleteMany({ where: orphaned })

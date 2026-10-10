@@ -16,6 +16,7 @@ import { allowedSeatingOrigin } from '../../../lib/seating'
 import { allowedTimelineOrigin } from '../../../lib/timeline'
 import { TOOL_LINKS, storedToolUrl } from '../../../lib/linked-tools-store'
 import NotifyGuestsToggle from '../../notify-guests-toggle'
+import { deadlineInputValue } from '../../../lib/rsvp-deadline'
 
 const prisma = new PrismaClient()
 
@@ -92,7 +93,19 @@ export default async function EditEventPage({ params, searchParams }: { params: 
           <div>
             <label htmlFor="maxCapacity" className="block text-sm font-medium mb-1">Maximale Teilnehmerzahl (optional)</label>
             <input id="maxCapacity" type="number" name="maxCapacity" min="1" defaultValue={event.maxCapacity || ''} className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded" placeholder="z.B. 50 (leer lassen für unbegrenzt)" />
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Gäste landen automatisch auf der Warteliste, wenn dieses Limit erreicht ist.</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Gäste landen automatisch auf der Warteliste, wenn dieses Limit erreicht ist. Gezählt werden Personen (mit Begleitungen, ohne Kleinkinder).</p>
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="rsvpDeadline" className="block text-sm font-medium mb-1">Antwortfrist (optional)</label>
+              <input id="rsvpDeadline" type="date" name="rsvpDeadline" defaultValue={deadlineInputValue(event.rsvpDeadline)} className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded" />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Gäste sehen „Bitte antwortet bis …“. Danach können sie nichts mehr ändern, nur noch ihr in der Verwaltung.</p>
+            </div>
+            <div>
+              <label htmlFor="rsvpReminderDays" className="block text-sm font-medium mb-1">Erinnerung an Einladungen ohne Antwort (optional)</label>
+              <input id="rsvpReminderDays" type="number" name="rsvpReminderDays" min="1" max="60" defaultValue={event.rsvpReminderDays ?? ''} className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded" placeholder="Tage vor der Frist, z.B. 7" />
+            </div>
           </div>
 
           <div>
@@ -176,6 +189,13 @@ export default async function EditEventPage({ params, searchParams }: { params: 
           </ThemeSection>
 
           <ThemeSection color="indigo" title="Gruppen- & Vereins-Features">
+            <input type="hidden" name="inviteOnlyShown" value="1" />
+            <label className="flex items-start gap-2 cursor-pointer mb-3">
+              <input type="checkbox" name="inviteOnly" defaultChecked={event.inviteOnly} className={`w-4 h-4 mt-0.5 ${themeClasses('indigo').accent}`} />
+              <span className={`text-sm ${themeClasses('indigo').heading}`}>
+                <span className="font-medium">💌 Nur mit Einladung</span> - nur eingeladene Haushalte können antworten, jeder über seinen persönlichen Link (Einladungen verwaltet ihr in der Gästeliste). Ohne Link sehen Besucher*innen nur den Titel. Nicht zusammen mit PIN, E-Mail-Verifizierung, Konto-Pflicht oder Ticketkategorien.
+              </span>
+            </label>
             <label className="flex items-center gap-2 cursor-pointer mb-3">
               <input type="checkbox" name="isGuestListVisible" defaultChecked={event.isGuestListVisible} className={`w-4 h-4 ${themeClasses('indigo').accent}`} />
               <span className={`text-sm font-medium ${themeClasses('indigo').heading}`}>Transparente Gästeliste (Zeigt Wer kommt & Mitbringsel)</span>

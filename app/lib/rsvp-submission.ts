@@ -17,6 +17,9 @@ import { generatePaymentReference, paymentInfoOf, syncPaymentDue } from './payme
 import { fillFreeSeats, shouldSuppressConfirmationEmail } from './waitlist'
 import { companionsOf, menuOf, seatsOf, type CompanionInput } from './persons'
 import { courseOptions, isCompleteSelection, validSelection, type MenuSelection } from './menu'
+import { householdAttends, resolveHousehold, type HouseholdPersonInput } from './invitations'
+import { invitationOf } from './invitation-store'
+import { deadlinePassed, formatDeadline } from './rsvp-deadline'
 
 const prisma = new PrismaClient()
 
@@ -44,6 +47,11 @@ export type RsvpSubmissionInput = {
   companions?: CompanionInput[]
   /** Menüwahl der anmeldenden Person (app/lib/menu.ts). undefined = nicht gesendet, die bisherige bleibt. */
   menu?: MenuSelection
+  /**
+   * Einladungsmodus: die Personen des Haushalts mit Zu-/Absage pro Person (app/lib/invitations.ts). Ersetzt dort
+   * name/isAttending/companions/menu.
+   */
+  household?: HouseholdPersonInput[]
   bringingItem?: string | null
   customAnswers?: string[]
   /**
@@ -88,7 +96,7 @@ export async function performRsvpSubmission(
   guestUserCandidate: GuestUser | null
 ) {
   const {
-    eventId, editToken, name, isAttending,
+    eventId, editToken,
     phone = null, dietaryOption = null, allergies = null, emailInput = null,
     drinksAlcohol = null, additionalInfo = null, declineReason = null,
     bringingItem = null
@@ -102,7 +110,13 @@ export async function performRsvpSubmission(
 
   // Die PIN wurde früher nur beim Rendern der Seite geprüft - jeder, der die Event-ID kannte, konnte
   // die Server Action direkt aufrufen und die PIN umgehen (siehe app/lib/pin.ts).
-  if (!input.skipPinCheck && !(await hasEventPinAccess(event))) {
+  // Antwortfrist (docs/KONZEPT-EINLADUNGEN.md, Abschnitt 5): danach ändert nur noch die Verwaltung etwas
+  if (deadlinePassed(event)) {
+    throw new RsvpInputError(`Die Antwortfrist ist am ${formatDeadline(event.rsvpDeadline)} abgelaufen. Änderungen bitte direkt an die Veranstaltung.`)
+  }
+
+  // Im Einladungsmodus ersetzt die Einladung (weiter unten geprüft) die PIN
+  if (!input.skipPinCheck && !event.inviteOnly && !(await hasEventPinAccess(event))) {
     throw new Error('Für dieses Event/diese Reihe ist ein Zugangscode erforderlich. Bitte öffne die Seite und gib ihn ein.')
   }
 
@@ -162,6 +176,26 @@ export async function performRsvpSubmission(
     if (!tokenBelongsHere) throw new Error(ACCOUNT_REQUIRED_MESSAGE)
   }
 
+  // Einladungsmodus (docs/KONZEPT-EINLADUNGEN.md, Abschnitt 3): nur über den Link einer Einladung zu GENAU diesem
+  // Termin. Der Haushalt antwortet pro Person; er sagt zu, wenn mindestens eine Person (nicht nur Kleinkinder)
+  // kommt. Name der Antwort ist die Bezeichnung der Einladung.
+  const invitation = event.inviteOnly ? await invitationOf(existingParticipant?.id, eventId) : null
+  if (event.inviteOnly && !invitation) {
+    throw new RsvpInputError('Für diesen Termin braucht es eine persönliche Einladung. Bitte nutze den Link aus deiner Einladung.')
+  }
+  let householdRows: HouseholdPersonInput[] = []
+  if (invitation) {
+    if (!input.household) throw new RsvpInputError('Bitte gib für jede eingeladene Person an, ob sie kommt.')
+    const resolved = resolveHousehold(invitation.persons, invitation.extraPersons, input.household)
+    if ('error' in resolved) throw new RsvpInputError(resolved.error)
+    householdRows = resolved.persons
+    if (!householdAttends(householdRows) && householdRows.some(p => p.isAttending)) {
+      throw new RsvpInputError('Kleinkinder können nur zusammen mit einer weiteren Person kommen.')
+    }
+  }
+  const isAttending = invitation ? householdAttends(householdRows) : input.isAttending
+  const name = invitation ? invitation.label : input.name
+
   // Ticketkategorie (docs/KONZEPT-TICKETS.md): Pflicht für eine Zusage, sobald der Termin Kategorien hat. Nur
   // Kategorien DIESES Termins zählen. Eine Absage behält die bisherige (Erstattung, erneute Zusage).
   const categories = event.ticketCategories
@@ -215,8 +249,9 @@ export async function performRsvpSubmission(
   const existingCompanions = companionsOf(existingPersons)
   const maxCompanions = categories.length > 0 ? 0 : Math.max(event.maxCompanions, existingCompanions.length)
   const menu = event.menuCourses.map(c => ({ id: c.id, label: c.label, options: courseOptions(c.options) }))
-  const usesPersons = maxCompanions > 0 || existingPersons.length > 0 || menu.length > 0
-  const companions = input.companions ?? existingCompanions
+  const usesPersons = maxCompanions > 0 || existingPersons.length > 0 || menu.length > 0 || !!invitation
+  // Im Einladungsmodus kommen die Personen aus der Haushalts-Antwort, Begleitungen gibt es dort nicht
+  const companions = invitation ? [] : input.companions ?? existingCompanions
   if (companions.length > maxCompanions) {
     throw new RsvpInputError(maxCompanions === 0 ? 'Für diesen Termin sind keine Begleitungen vorgesehen.' : `Höchstens ${maxCompanions} Begleitung${maxCompanions === 1 ? '' : 'en'} möglich.`)
   }
@@ -224,11 +259,15 @@ export async function performRsvpSubmission(
   // Gespeichert wird nur, was es im Menü dieses Termins gibt.
   const ownMenu = validSelection(menu, input.menu ?? (existingPersons[0] ? menuOf(existingPersons[0]) : {}))
   const companionRows = companions.map(c => ({ ...c, isAttending, menu: c.ageGroup === 'INFANT' ? {} : validSelection(menu, c.menu) }))
+  const householdPersons = householdRows.map(p => ({ ...p, menu: p.ageGroup === 'INFANT' ? {} : validSelection(menu, p.menu) }))
   if (isAttending && menu.length > 0) {
-    const missing = [{ name, ageGroup: 'ADULT', menu: ownMenu }, ...companionRows].find(p => p.ageGroup !== 'INFANT' && !isCompleteSelection(menu, p.menu))
+    const eating = invitation
+      ? householdPersons.filter(p => p.isAttending)
+      : [{ name, ageGroup: 'ADULT', menu: ownMenu }, ...companionRows]
+    const missing = eating.find(p => p.ageGroup !== 'INFANT' && !isCompleteSelection(menu, p.menu))
     if (missing) throw new RsvpInputError(`Bitte wähle das Menü für ${missing.name || 'alle Personen'} (jeder Gang).`)
   }
-  const seats = usesPersons ? seatsOf([{ isAttending, ageGroup: 'ADULT' }, ...companionRows]) : 1
+  const seats = invitation ? seatsOf(householdPersons) : usesPersons ? seatsOf([{ isAttending, ageGroup: 'ADULT' }, ...companionRows]) : 1
   const previousSeats = seatsOf(existingPersons)
 
   // Kapazitätsprüfung & Warteliste - ausschließlich pro Termin, Gesamtkapazität und Kontingent der Kategorie, Plätze
@@ -363,7 +402,9 @@ export async function performRsvpSubmission(
   }
 
   // Personen der Antwort: die anmeldende (Angaben vom Participant) und ihre Begleitungen, alle neu geschrieben
-  if (usesPersons) {
+  if (invitation) {
+    await savePersons(savedRsvp.id, householdPersons)
+  } else if (usesPersons) {
     await savePersons(savedRsvp.id, [
       { name: participant.name, ageGroup: 'ADULT', isAttending, dietaryOption: participant.dietaryOption, allergies: participant.allergies, menu: ownMenu },
       ...companionRows
@@ -467,7 +508,7 @@ export async function performRsvpSubmission(
  */
 export async function savePersons(
   rsvpId: string,
-  persons: readonly { name: string | null; ageGroup: string; isAttending: boolean; dietaryOption: string | null; allergies: string | null; menu?: MenuSelection }[]
+  persons: readonly { name: string | null; ageGroup: string; isAttending: boolean; dietaryOption: string | null; allergies: string | null; menu?: MenuSelection; invitationPersonId?: string | null }[]
 ) {
   await prisma.$transaction([
     prisma.rsvpPerson.deleteMany({ where: { rsvpId } }),

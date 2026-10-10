@@ -30,6 +30,7 @@ import { sendPaymentRemindersForEvent } from '../lib/payment-reminder'
 import { companionsOf, MAX_COMPANIONS, menuOf, readCompanions, seatsOf } from '../lib/persons'
 import { courseOptions, readMenu, readMenuSelection, validSelection } from '../lib/menu'
 import { assertMenuChangeable, saveMenu } from '../lib/menu-store'
+import { parseDeadline } from '../lib/rsvp-deadline'
 import { savePersons } from '../lib/rsvp-submission'
 
 const prisma = new PrismaClient()
@@ -67,6 +68,52 @@ async function assertCompanionsAllowed(maxCompanions: number | undefined, catego
   if (companions === 0) return
   const hasCategories = categories ? categories.length > 0 : !!eventId && (await prisma.ticketCategory.count({ where: { eventId } })) > 0
   if (hasCategories) throw new Error('Begleitungen und Ticketkategorien schließen sich aus: Bei Kategorien meldet sich jede Person selbst an. Bitte eines von beiden entfernen.')
+}
+
+/**
+ * Einladungsmodus (docs/KONZEPT-EINLADUNGEN.md, Abschnitt 3): nur für Einzel-Events und nicht zusammen mit PIN,
+ * Konto-Pflicht, E-Mail-Verifizierung oder Ticketkategorien - der persönliche Link ersetzt diese Zugänge, und
+ * Kategorien gelten pro Person. Wirft, bevor etwas gespeichert ist.
+ */
+async function assertInviteOnlyAllowed(
+  inviteOnly: boolean,
+  settings: { eventPin: string | null; requireVerification: boolean; requireGuestUser: boolean },
+  categories: TicketCategoryInput[] | null,
+  eventId: string | null
+) {
+  if (!inviteOnly) return
+  const conflicts = [
+    settings.eventPin && 'PIN',
+    settings.requireVerification && 'E-Mail-Verifizierung',
+    settings.requireGuestUser && 'Teilnehmendenkonto-Pflicht',
+    (categories ? categories.length > 0 : !!eventId && (await prisma.ticketCategory.count({ where: { eventId } })) > 0) && 'Ticketkategorien'
+  ].filter(Boolean)
+  if (conflicts.length > 0) throw new Error(`Einladungsmodus: nicht zusammen mit ${conflicts.join(', ')}. Der persönliche Link ersetzt diese Zugänge.`)
+}
+
+/**
+ * Antwortfrist und Erinnerung an Einladungen ohne Antwort (docs/KONZEPT-EINLADUNGEN.md, Abschnitt 5). Felder, die
+ * das Formular nicht hat, bleiben unverändert (undefined). Die Erinnerung braucht eine Frist. Wirft, bevor etwas
+ * gespeichert ist.
+ */
+function readDeadlineSettings(formData: FormData): { rsvpDeadline?: Date | null; rsvpReminderDays?: number | null } {
+  const result: { rsvpDeadline?: Date | null; rsvpReminderDays?: number | null } = {}
+  if (formData.has('rsvpDeadline')) result.rsvpDeadline = parseDeadline(formString(formData, 'rsvpDeadline', 20))
+  if (formData.has('rsvpReminderDays')) {
+    const raw = formString(formData, 'rsvpReminderDays', 5)
+    const days = raw ? Number(raw) : null
+    if (days !== null && (!Number.isInteger(days) || days < 1 || days > 60)) throw new Error('Erinnerung an Einladungen: 1 bis 60 Tage vor der Frist.')
+    if (days !== null && formData.has('rsvpDeadline') && !result.rsvpDeadline) throw new Error('Erinnerung an Einladungen: Bitte zuerst eine Antwortfrist eintragen.')
+    result.rsvpReminderDays = days
+  }
+  return result
+}
+
+/** Neue Antwortfrist: Erinnerungen an Einladungen gehen für die neue Frist noch einmal. */
+async function resetInvitationReminders(eventId: string, before: Date | null, after: Date | null | undefined) {
+  if (after !== undefined && (before?.getTime() ?? null) !== (after?.getTime() ?? null)) {
+    await prisma.invitation.updateMany({ where: { eventId }, data: { reminderSentAt: null } })
+  }
 }
 
 /**
@@ -461,6 +508,9 @@ export async function createEvent(formData: FormData) {
   const maxCompanions = readMaxCompanions(formData)
   await assertCompanionsAllowed(maxCompanions, ticketing.ticketCategories, null)
   const menu = readMenu(formData)
+  const inviteOnly = formData.get('inviteOnly') === 'on'
+  await assertInviteOnlyAllowed(inviteOnly, { eventPin, requireVerification, requireGuestUser }, ticketing.ticketCategories, null)
+  const deadline = readDeadlineSettings(formData)
 
   // Abfrage-Optionen für die Gäste als JSON-String speichern
   const formConfig = JSON.stringify({
@@ -499,6 +549,8 @@ export async function createEvent(formData: FormData) {
       photoUrl,
       datePending,
       maxCompanions,
+      inviteOnly,
+      ...deadline,
       ...(ticketing.payment ?? {}),
       seatingRequiresPayment: ticketing.seatingRequiresPayment ?? false
     }
@@ -527,7 +579,11 @@ export async function deleteEvent(formData: FormData) {
 
   // Verknüpfte Tools (z.B. Seating) erfahren, dass diese Zusagen wegfallen - vor dem Löschen gelesen
   await notifyLinkedToolsBeforeDelete({ eventId: id })
-  const affectedParticipants = await prisma.rsvp.findMany({ where: { eventId: id }, select: { participantId: true } })
+  const affectedParticipants = [
+    ...await prisma.rsvp.findMany({ where: { eventId: id }, select: { participantId: true } }),
+    // Eingeladene Haushalte ohne Antwort (ihre Einladung geht mit dem Event)
+    ...await prisma.invitation.findMany({ where: { eventId: id }, select: { participantId: true } })
+  ]
 
   // 1. Zuerst alle verknüpften Antworten (Gäste) und geteilten Zugriffsrechte löschen,
   // um Fremdschlüssel-Konflikte zu vermeiden
@@ -585,6 +641,10 @@ export async function updateEvent(formData: FormData) {
   await assertCompanionsAllowed(maxCompanions, ticketing.ticketCategories, id)
   const menu = readMenu(formData)
   await assertMenuChangeable(id, menu)
+  const deadline = readDeadlineSettings(formData)
+  // Einladungsmodus nur über das Bearbeiten-Formular eines Einzel-Events (Feld fehlt = unverändert)
+  const inviteOnly = formData.has('inviteOnlyShown') ? formData.get('inviteOnly') === 'on' : existingEvent.inviteOnly
+  await assertInviteOnlyAllowed(inviteOnly, { eventPin, requireVerification, requireGuestUser: existingEvent.requireGuestUser }, ticketing.ticketCategories, id)
 
   const formConfig = JSON.stringify({
     askEmail: formData.get('askEmail') === 'on',
@@ -625,6 +685,8 @@ export async function updateEvent(formData: FormData) {
       photoUrl,
       datePending,
       maxCompanions,
+      inviteOnly,
+      ...deadline,
       ...(ticketing.payment ?? {}),
       ...(ticketing.seatingRequiresPayment !== undefined ? { seatingRequiresPayment: ticketing.seatingRequiresPayment } : {}),
       ...(changes.length > 0 ? { icsSequence: { increment: 1 } } : {})
@@ -634,6 +696,7 @@ export async function updateEvent(formData: FormData) {
   await saveToolLinks(id, toolLinks)
   await saveBringSlots(id, bringSlots)
   await saveMenu(id, menu)
+  await resetInvitationReminders(id, existingEvent.rsvpDeadline, deadline.rsvpDeadline)
   await applyTicketing(id, ticketing, ticketing.seatingRequiresPayment !== undefined && ticketing.seatingRequiresPayment !== existingEvent.seatingRequiresPayment)
 
   if (notifyGuests && changes.length > 0) {
@@ -677,7 +740,7 @@ export async function updateAdminRsvp(formData: FormData) {
   const user = await requireUser()
   const id = formData.get('rsvpId') as string
   const name = formData.get('name') as string
-  const isAttending = formData.get('isAttending') === 'true'
+  const requestedAttending = formData.get('isAttending') === 'true'
 
   const email = formData.get('email') as string || null
   const phone = formData.get('phone') as string || null
@@ -711,7 +774,11 @@ export async function updateAdminRsvp(formData: FormData) {
   // eintragen (wie "Zulassen", ohne Platzprüfung), nur nicht bei Ticketkategorien. Das Menü muss sie nicht
   // vollständig wählen, gespeichert wird nur, was es im Menü des Termins gibt.
   const menu = existingRsvp.event.menuCourses.map(c => ({ id: c.id, label: c.label, options: courseOptions(c.options) }))
-  const usesPersons = (categories.length === 0 && existingRsvp.event.maxCompanions > 0) || existingRsvp.persons.length > 0 || menu.length > 0
+  // Antwort eines eingeladenen Haushalts: Personen und Zu-/Absage bleiben, wie der Haushalt sie gesetzt hat
+  const invitation = await prisma.invitation.findUnique({ where: { participantId: existingRsvp.participantId }, select: { eventId: true } })
+  const isHousehold = invitation?.eventId === existingRsvp.eventId
+  const isAttending = isHousehold ? existingRsvp.isAttending : requestedAttending
+  const usesPersons = !isHousehold && ((categories.length === 0 && existingRsvp.event.maxCompanions > 0) || existingRsvp.persons.length > 0 || menu.length > 0)
   const companions = categories.length > 0 ? [] : (companionsInput ?? companionsOf(existingRsvp.persons)).slice(0, MAX_COMPANIONS)
   const ownMenu = readMenuSelection(formData, 'menu_') ?? (existingRsvp.persons[0] ? menuOf(existingRsvp.persons[0]) : {})
   const persons = [
@@ -1207,6 +1274,7 @@ export async function updateSeriesTermin(formData: FormData) {
   await assertCompanionsAllowed(maxCompanions, ticketing.ticketCategories, id)
   const menu = readMenu(formData)
   await assertMenuChangeable(id, menu)
+  const deadline = readDeadlineSettings(formData)
 
   const formConfig = JSON.stringify({
     askEmail: false,
@@ -1227,7 +1295,7 @@ export async function updateSeriesTermin(formData: FormData) {
     where: { id },
     data: {
       title, slug, date, location, description, duration, formConfig, autoReminder, reminderDays, maxCapacity, enableCheckin,
-      pollUrl, pollLabel, datePending, photoUrl, maxCompanions,
+      pollUrl, pollLabel, datePending, photoUrl, maxCompanions, ...deadline,
       ...(ticketing.payment ?? {}),
       ...(ticketing.seatingRequiresPayment !== undefined ? { seatingRequiresPayment: ticketing.seatingRequiresPayment } : {}),
       ...(changes.length > 0 ? { icsSequence: { increment: 1 } } : {})
@@ -1237,6 +1305,7 @@ export async function updateSeriesTermin(formData: FormData) {
   await saveToolLinks(id, toolLinks)
   await saveBringSlots(id, bringSlots)
   await saveMenu(id, menu)
+  await resetInvitationReminders(id, existingEvent.rsvpDeadline, deadline.rsvpDeadline)
   await applyTicketing(id, ticketing, ticketing.seatingRequiresPayment !== undefined && ticketing.seatingRequiresPayment !== existingEvent.seatingRequiresPayment)
 
   if (notifyGuests && changes.length > 0) {
@@ -1440,7 +1509,10 @@ export async function deleteUser(formData: FormData) {
   const eventIds = ownEvents.map(e => e.id)
 
   await notifyLinkedToolsBeforeDelete({ eventId: { in: eventIds } })
-  const affectedParticipants = await prisma.rsvp.findMany({ where: { eventId: { in: eventIds } }, select: { participantId: true } })
+  const affectedParticipants = [
+    ...await prisma.rsvp.findMany({ where: { eventId: { in: eventIds } }, select: { participantId: true } }),
+    ...await prisma.invitation.findMany({ where: { eventId: { in: eventIds } }, select: { participantId: true } })
+  ]
   await prisma.rsvp.deleteMany({ where: { eventId: { in: eventIds } } })
   await prisma.resourceAccess.deleteMany({
     where: { OR: [{ userId: targetId }, { eventId: { in: eventIds } }, { seriesId: { in: seriesIds } }] }

@@ -162,7 +162,9 @@ export async function sendConfirmationEmail(participant: Participant, rsvp: Rsvp
       ])
     : [[], []]
   const persons = personsOf({ isAttending: true, persons: personRows }, participant).filter(p => p.isAttending)
-  const companions = persons.slice(1).map(p => describePerson(p))
+  // Bei einer Einladung sind alle Personen gleichrangig (die Antwort trägt den Namen des Haushalts)
+  const companions = (event.inviteOnly ? persons : persons.slice(1)).map(p => describePerson(p))
+  const companionsLabel = event.inviteOnly ? 'Angemeldet' : 'Mit dir angemeldet'
   const menuLines = courses.length > 0
     ? persons.filter(p => p.ageGroup !== 'INFANT').map(p => `${p.name || 'Begleitung'}: ${describeSelection(courses, p.menu) || 'noch nicht gewählt'}`)
     : []
@@ -180,7 +182,7 @@ ${rsvp.isAttending
   ? 'Wir freuen uns sehr, dass du dabei bist! Im Anhang findest du eine Kalenderdatei (.ics), damit du dir den Termin direkt abspeichern kannst, sowie deinen persönlichen Einlass-QR-Code - bitte am Einlass bereithalten.'
   : 'Schade, dass du nicht dabei sein kannst. Falls sich deine Pläne doch noch ändern sollten, kannst du deine Antwort jederzeit anpassen.'}
 
-${companions.length > 0 ? `Mit dir angemeldet: ${companions.join('; ')}\n\n` : ''}${menuLines.length > 0 ? `Menü:\n${menuLines.join('\n')}\n\n` : ''}${payment ? `${payment.text}\n\n` : ''}${seatAfterPayment ? 'Deinen Sitzplatz kannst du wählen, sobald deine Zahlung eingegangen ist - dann bekommst du eine Mail mit dem Link.\n\n' : ''}${seatLink ? `Deinen Sitzplatz kannst du hier wählen:\n${seatLink}\n\n` : ''}${timelineLink ? `Den Ablauf des Events findest du im Zeitplan:\n${timelineLink}\n\n` : ''}Du kannst deine Antwort und alle optionalen Angaben jederzeit über diesen persönlichen Link bearbeiten:
+${companions.length > 0 ? `${companionsLabel}: ${companions.join('; ')}\n\n` : ''}${menuLines.length > 0 ? `Menü:\n${menuLines.join('\n')}\n\n` : ''}${payment ? `${payment.text}\n\n` : ''}${seatAfterPayment ? 'Deinen Sitzplatz kannst du wählen, sobald deine Zahlung eingegangen ist - dann bekommst du eine Mail mit dem Link.\n\n' : ''}${seatLink ? `Deinen Sitzplatz kannst du hier wählen:\n${seatLink}\n\n` : ''}${timelineLink ? `Den Ablauf des Events findest du im Zeitplan:\n${timelineLink}\n\n` : ''}Du kannst deine Antwort und alle optionalen Angaben jederzeit über diesen persönlichen Link bearbeiten:
 ${personalLink}${seriesHintText(event, participant)}
 
 Viele Grüße,
@@ -193,7 +195,7 @@ Dein Event-Team`
       <p>${rsvp.isAttending
         ? 'Wir freuen uns sehr, dass du dabei bist! Im Anhang findest du eine Kalenderdatei (.ics), damit du dir den Termin direkt abspeichern kannst.'
         : 'Schade, dass du nicht dabei sein kannst. Falls sich deine Pläne doch noch ändern sollten, kannst du deine Antwort jederzeit anpassen.'}</p>
-      ${companions.length > 0 ? `<p>Mit dir angemeldet: ${companions.map(escapeHtml).join('; ')}</p>` : ''}
+      ${companions.length > 0 ? `<p>${companionsLabel}: ${companions.map(escapeHtml).join('; ')}</p>` : ''}
       ${menuLines.length > 0 ? `<p>🍽️ Menü:<br>${menuLines.map(escapeHtml).join('<br>')}</p>` : ''}
       ${payment ? payment.html : ''}
       ${seatAfterPayment ? '<p>🪑 Deinen Sitzplatz kannst du wählen, sobald deine Zahlung eingegangen ist - dann bekommst du eine Mail mit dem Link.</p>' : ''}
@@ -753,6 +755,56 @@ export async function sendPaymentReminderEmail(participant: Participant, rsvp: R
     `,
     attachments: [payment.attachment],
     envelope: { from: process.env.SMTP_USER, to: participant.email! }
+  })
+}
+
+/**
+ * Einladung an einen Haushalt (docs/KONZEPT-EINLADUNGEN.md, Abschnitt 3) - oder mit `reminder` die Erinnerung an
+ * eine noch offene Antwort vor der Antwortfrist. Nennt Termin, Ort, eingeladene Personen, ggf. die Frist und den
+ * persönlichen Link.
+ */
+export async function sendInvitationEmail(
+  invitation: { label: string; email: string; persons: { name: string }[] },
+  event: Event,
+  link: string,
+  options: { reminder?: boolean; deadline?: string | null } = {}
+) {
+  const names = invitation.persons.map(p => p.name).join(', ')
+  const intro = options.reminder
+    ? `ihr habt noch nicht geantwortet, ob ihr zu "${event.title}" kommt.`
+    : `wir laden euch herzlich ein: "${event.title}".`
+  const deadline = options.deadline ? `Bitte antwortet bis ${options.deadline}.` : 'Bitte gebt uns Bescheid, wer von euch kommt.'
+  const where = `${formatEventDate(event)}${event.location ? `, ${event.location}` : ''}`
+  await transporter.sendMail({
+    from: process.env.SMTP_FROM,
+    to: invitation.email,
+    subject: `${options.reminder ? 'Erinnerung an die Einladung' : 'Einladung'}: ${event.title}`,
+    text: `Hallo ${invitation.label},
+
+${intro}
+
+Wann und wo: ${where}
+Eingeladen: ${names}
+
+${deadline} Über diesen persönlichen Link sagt ihr für jede Person zu oder ab:
+${link}
+
+Viele Grüße`,
+    html: `
+      <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
+        <h2>${options.reminder ? 'Erinnerung an die Einladung' : 'Einladung'} 💌</h2>
+        <p>Hallo ${escapeHtml(invitation.label)},</p>
+        <p>${escapeHtml(intro)}</p>
+        <p><strong>Wann und wo:</strong> ${escapeHtml(where)}<br><strong>Eingeladen:</strong> ${escapeHtml(names)}</p>
+        <p>${escapeHtml(deadline)}</p>
+        <p style="text-align: center; margin: 30px 0;">
+          <a href="${link}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">Jetzt antworten</a>
+        </p>
+        <p style="font-size: 12px; color: #666;">Der Link ist persönlich für euch - bitte nicht weitergeben.</p>
+        <p>Viele Grüße</p>
+      </div>
+    `,
+    envelope: { from: process.env.SMTP_USER, to: invitation.email }
   })
 }
 

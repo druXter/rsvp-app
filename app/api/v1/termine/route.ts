@@ -55,6 +55,8 @@ export async function GET(request: Request) {
           description: event.description,
           maxCapacity: event.maxCapacity,
           maxCompanions: event.maxCompanions,
+          // Antwortfrist (Ende des Tages), danach antwortet POST mit 400
+          rsvpDeadline: event.rsvpDeadline ? event.rsvpDeadline.toISOString() : null,
           // Menü: Gänge mit Optionen, beim Antworten als menu bzw. companions[].menu {Gang-ID: Option}
           menuCourses: event.menuCourses.map(c => ({ id: c.id, label: c.label, options: courseOptions(c.options) })),
           url: `/reihe/${m.series.slug}/${event.slug}`,

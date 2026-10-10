@@ -15,7 +15,7 @@ import { safeEqual } from './tokens'
  * Event-Datensatz ist dann wirkungslos (siehe CLAUDE.md "Effective settings").
  */
 type Series = { id: string; eventPin: string | null }
-type EventWithSeries = { id: string; eventPin: string | null; series?: Series | null }
+type EventWithSeries = { id: string; eventPin: string | null; inviteOnly?: boolean; series?: Series | null }
 
 async function cookieMatches(cookieName: string, pin: string): Promise<boolean> {
   const value = (await cookies()).get(cookieName)?.value
@@ -27,8 +27,13 @@ export async function hasSeriesPinAccess(series: Series): Promise<boolean> {
   return !series.eventPin || cookieMatches(`series_pin_${series.id}`, series.eventPin)
 }
 
+/**
+ * Ein Termin im Einladungsmodus (Event.inviteOnly, docs/KONZEPT-EINLADUNGEN.md) verhält sich wie einer mit PIN,
+ * die niemand kennt: Zugang gibt es nur über den persönlichen Link (tokenBelongsToEvent bzw. die Einladung).
+ */
 export async function hasEventPinAccess(event: EventWithSeries): Promise<boolean> {
   if (event.series) return hasSeriesPinAccess(event.series)
+  if (event.inviteOnly) return false
   return !event.eventPin || cookieMatches(`event_pin_${event.id}`, event.eventPin)
 }
 

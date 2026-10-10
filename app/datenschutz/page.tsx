@@ -137,6 +137,21 @@ export default function DatenschutzPage() {
             Verpflegung, Einlass) und löschen sie zusammen mit deiner Antwort.
           </p>
           <p className="mt-2">
+            <strong>Einladungen:</strong> Bei Veranstaltungen „nur mit Einladung“ (z.B. einer Hochzeit) tragen die
+            Veranstalter:innen vorab ein, wen sie einladen: eine Bezeichnung des Haushalts (z.B. „Familie Müller“), die
+            Namen und Altersgruppen der eingeladenen Personen, optional eine E-Mail-Adresse und eine interne Notiz.
+            Diese Daten stammen also nicht von dir, sondern von den Veranstalter:innen (Art. 14 DSGVO); wir verwenden
+            sie nur, um dir die Einladung zuzustellen und deine Antwort zuzuordnen. Jeder Haushalt bekommt einen
+            persönlichen Link, über den ihr für jede Person zu- oder absagt, Namen korrigiert und - falls vorgesehen -
+            weitere Personen eintragt. Ohne diesen Link zeigt die Veranstaltungsseite nur den Titel. Über den Link kannst
+            du eure Daten auch selbst vollständig löschen; damit verschwindet auch die Einladung.
+          </p>
+          <p className="mt-2">
+            <strong>Antwortfrist:</strong> Legen die Veranstalter:innen eine Antwortfrist fest, kannst du deine Antwort
+            danach nicht mehr selbst ändern (wohl aber deine Daten löschen); Änderungen nehmen dann die
+            Veranstalter:innen vor.
+          </p>
+          <p className="mt-2">
             <strong>Tickets und Bezahlung:</strong> Bietet eine Veranstaltung Ticketkategorien an (z.B.
             &quot;Studierende&quot;, &quot;Gäste&quot;), speichern wir an deiner Antwort die gewählte Kategorie, den zu
             zahlenden Betrag und einen Verwendungszweck, über den die Veranstalter:innen deine Überweisung zuordnen.
@@ -168,6 +183,11 @@ export default function DatenschutzPage() {
             fremdem Namen. Sofern du eine E-Mail-Adresse hinterlegt hast, erhältst du außerdem eine Bestätigung deiner
             Zusage (mit Kalenderdatei und - falls aktiviert - deinem Einlass-QR-Code), Benachrichtigungen zur
             Warteliste sowie automatische oder manuelle Erinnerungen vor der Veranstaltung.
+          </p>
+          <p className="mt-2">
+            <strong>Einladungen:</strong> Haben die Veranstalter:innen für deinen Haushalt eine E-Mail-Adresse
+            eingetragen, schicken wir dorthin die Einladung mit eurem persönlichen Link und - falls ihr bis kurz vor der
+            Antwortfrist noch nicht geantwortet habt - einmal eine Erinnerung.
           </p>
           <p className="mt-2">
             <strong>Änderungs-Mitteilungen:</strong> Ändert die Veranstalter:in nach deiner Zusage wesentliche Angaben
@@ -432,8 +452,9 @@ export default function DatenschutzPage() {
             Zahlungen länger nachweisen (z.B. für eine Vereinsbuchhaltung), sichern sie dafür selbst einen Export.
           </p>
           <p className="mt-2">
-            Löschen Veranstalter:innen einen Termin oder deine Antwort schon vorher, werden deine Angaben dazu{' '}
-            <strong>sofort</strong> gelöscht (samt Push-Abo und persönlichem Link). Ein Reihen-Profil bleibt nur, solange
+            Löschen Veranstalter:innen einen Termin, eine Einladung oder deine Antwort schon vorher, werden deine Angaben
+            dazu{' '}<strong>sofort</strong> gelöscht (samt Push-Abo und persönlichem Link). Einladungen werden mit dem
+            Termin gelöscht. Ein Reihen-Profil bleibt nur, solange
             du noch zu einem anderen Termin derselben Reihe geantwortet hast.
           </p>
           <p className="mt-2">

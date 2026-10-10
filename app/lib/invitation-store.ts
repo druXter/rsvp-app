@@ -1,0 +1,125 @@
+// app/lib/invitation-store.ts
+//
+// Datenbankseite der Einladungen (app/lib/invitations.ts, docs/KONZEPT-EINLADUNGEN.md, Abschnitt 3).
+import { randomUUID } from 'crypto'
+import { prisma } from './prisma'
+import { baseUrl } from './base-url'
+import { asAgeGroup, menuOf } from './persons'
+import { notifyLinkedToolsBeforeDelete, notifyLinkedToolsOfRsvps } from './linked-tools-notify'
+import { fillFreeSeats } from './waitlist'
+import type { HouseholdPersonInput, InvitationInput } from './invitations'
+
+/** Der persönliche Link eines Haushalts (Einladungen gibt es nur bei Einzel-Events). */
+export function invitationLink(event: { slug: string }, participant: { editToken: string }): string {
+  return `${baseUrl()}/${event.slug}?token=${participant.editToken}`
+}
+
+/** Legt Einladungen an - je eine mit eigenem Participant (editToken = Link) und den eingeladenen Personen. */
+export async function createInvitations(eventId: string, inputs: readonly InvitationInput[]): Promise<number> {
+  await prisma.$transaction(inputs.map(input => prisma.invitation.create({
+    data: {
+      event: { connect: { id: eventId } },
+      label: input.label,
+      email: input.email,
+      extraPersons: input.extraPersons,
+      participant: { create: { name: input.label, email: input.email, editToken: randomUUID() } },
+      persons: { create: input.persons.map((p, position) => ({ name: p.name, ageGroup: p.ageGroup, position })) }
+    }
+  })))
+  return inputs.length
+}
+
+/**
+ * Ändert eine Einladung. Personen werden nach Position abgeglichen (eine umbenannte Person bleibt dieselbe, ihre
+ * Antwort bleibt). Fallen Personen weg, fallen auch ihre Antworten weg - dann werden Plätze frei und verknüpfte
+ * Tools erfahren es.
+ */
+export async function updateInvitation(id: string, input: InvitationInput & { note: string | null }): Promise<void> {
+  const invitation = await prisma.invitation.findUniqueOrThrow({
+    where: { id },
+    include: { persons: { orderBy: { position: 'asc' } }, participant: { include: { rsvps: { select: { id: true } } } } }
+  })
+  const removed = invitation.persons.slice(input.persons.length).map(p => p.id)
+  await prisma.$transaction([
+    prisma.invitation.update({ where: { id }, data: { label: input.label, email: input.email, extraPersons: input.extraPersons, note: input.note } }),
+    // Der Participant trägt die Bezeichnung als Namen (Verwaltung, Mails, Seating ohne zusagende Person)
+    prisma.participant.update({ where: { id: invitation.participantId }, data: { name: input.label, ...(input.email ? { email: input.email } : {}) } }),
+    ...input.persons.map((p, position) => invitation.persons[position]
+      ? prisma.invitationPerson.update({ where: { id: invitation.persons[position].id }, data: { name: p.name, ageGroup: p.ageGroup } })
+      : prisma.invitationPerson.create({ data: { invitationId: id, name: p.name, ageGroup: p.ageGroup, position } })),
+    prisma.rsvpPerson.deleteMany({ where: { invitationPersonId: { in: removed } } }),
+    prisma.invitationPerson.deleteMany({ where: { id: { in: removed } } })
+  ])
+  // Altersgruppe aus der Einladung gilt auch für die Antwort
+  for (const [position, p] of input.persons.entries()) {
+    const current = invitation.persons[position]
+    if (current) await prisma.rsvpPerson.updateMany({ where: { invitationPersonId: current.id }, data: { ageGroup: p.ageGroup } })
+  }
+  const rsvpIds = invitation.participant.rsvps.map(r => r.id)
+  if (rsvpIds.length > 0) {
+    // Eine Antwort ohne zusagende Person ist eine Absage
+    for (const rsvpId of rsvpIds) {
+      const attending = await prisma.rsvpPerson.count({ where: { rsvpId, isAttending: true, ageGroup: { not: 'INFANT' } } })
+      if (attending === 0) await prisma.rsvp.updateMany({ where: { id: rsvpId, isAttending: true }, data: { isAttending: false, isOnWaitlist: false } })
+    }
+    notifyLinkedToolsOfRsvps(rsvpIds)
+    await fillFreeSeats(invitation.eventId)
+  }
+}
+
+/** Löscht eine Einladung samt Antwort und Participant. Plätze werden frei, verknüpfte Tools erfahren es. */
+export async function deleteInvitation(id: string): Promise<void> {
+  const invitation = await prisma.invitation.findUnique({ where: { id }, include: { participant: { include: { rsvps: true } } } })
+  if (!invitation) return
+  const wasFixed = invitation.participant.rsvps.some(r => r.isAttending && !r.isOnWaitlist)
+  await notifyLinkedToolsBeforeDelete({ participantId: invitation.participantId })
+  await prisma.$transaction([
+    prisma.rsvp.deleteMany({ where: { participantId: invitation.participantId } }),
+    prisma.participantPushSubscription.deleteMany({ where: { participantId: invitation.participantId } }),
+    prisma.participant.delete({ where: { id: invitation.participantId } })
+  ])
+  if (wasFixed) await fillFreeSeats(invitation.eventId)
+}
+
+/** Einladung eines Participants zu genau diesem Termin, oder null. */
+export async function invitationOf(participantId: string | null | undefined, eventId: string) {
+  if (!participantId) return null
+  const invitation = await prisma.invitation.findUnique({ where: { participantId }, include: { persons: { orderBy: { position: 'asc' } } } })
+  return invitation && invitation.eventId === eventId ? invitation : null
+}
+
+export type HouseholdRow = HouseholdPersonInput & { answered: boolean }
+
+/**
+ * Die Personen fürs Formular eines Haushalts: eingeladene in ihrer Reihenfolge, mit der bisherigen Antwort
+ * (answered = schon beantwortet), danach selbst eingetragene Zusatzpersonen.
+ */
+export async function householdForForm(invitation: { id: string; persons: { id: string; name: string; ageGroup: string; position: number }[] }, rsvpId: string | null): Promise<HouseholdRow[]> {
+  const answers = rsvpId
+    ? await prisma.rsvpPerson.findMany({ where: { rsvpId }, include: { menuChoices: true }, orderBy: { position: 'asc' } })
+    : []
+  const invited = invitation.persons.map(p => {
+    const answer = answers.find(a => a.invitationPersonId === p.id)
+    return {
+      invitationPersonId: p.id,
+      name: answer?.name || p.name,
+      ageGroup: asAgeGroup(p.ageGroup),
+      isAttending: answer?.isAttending ?? false,
+      dietaryOption: answer?.dietaryOption ?? null,
+      allergies: answer?.allergies ?? null,
+      menu: answer ? menuOf(answer) : {},
+      answered: !!answer
+    }
+  })
+  const extras = answers.filter(a => !a.invitationPersonId).map(a => ({
+    invitationPersonId: null,
+    name: a.name ?? '',
+    ageGroup: asAgeGroup(a.ageGroup),
+    isAttending: a.isAttending,
+    dietaryOption: a.dietaryOption,
+    allergies: a.allergies,
+    menu: menuOf(a),
+    answered: true
+  }))
+  return [...invited, ...extras]
+}

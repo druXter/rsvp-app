@@ -187,6 +187,8 @@ model MenuChoice {
 
 ## 8. Schritte
 
+Stand 2026-10-10: alle vier Schritte umgesetzt und deployed.
+
 1. Personenliste mit Begleitungen und Angaben pro Person, Migration von „+1“, Platzregel nach Personen, Seating,
    Verwaltung, Einlass, CSV, API, Mails.
 2. Menü mit Gängen, Wahl pro Person, Küchenübersicht.
@@ -204,6 +206,15 @@ Antwort nach Fristende).
 * Einlass pro Person, Alkohol pro Person.
 * Küchenliste pro Tisch: braucht vom Seating-Vertrag den Tisch pro Person statt nur des Platztexts pro Antwort.
 * Einladungsmodus für Reihen.
+
+## Abweichungen bei der Umsetzung
+
+* Begleitungen brauchen einen Namen (wie früher das „+1“).
+* Personen einer Haushalts-Antwort ändert die Verwaltung über den Einladungslink („Antwort ansehen“), nicht über
+  „Antwort bearbeiten“ - dort bleiben Personen und Zu-/Absage unangetastet.
+* Einladungen anlegen, ändern und löschen dürfen auch Moderator\*innen, Mails verschicken nur Owner und Admins.
+* Farben: Einladungen indigo (wie die übrigen Zugangs-Einstellungen), Menü und Küche orange (neue Themenfarbe).
+* Ohne Link zeigt die Seite nur den Titel; Kalenderdatei und Abstimmungs-Link gibt es nur mit Antwort.
 
 ## Entschieden (2026-10-10)
 
