@@ -1,13 +1,13 @@
-// app/admin/einladungen/[eventId]/invitation-forms.tsx
+// app/admin/events/[id]/einladungen/invitation-forms.tsx
 'use client'
 
 import { useActionState } from 'react'
-import { addInvitations, removeInvitation, saveInvitation, type InvitationFormState } from '../../invitation-actions'
-import SubmitButton from '../../../ui/submit-button'
-import { themeClasses } from '../../../ui/theme-section'
+import { addInvitations, removeInvitation, saveInvitation, type InvitationFormState } from '../../../invitation-actions'
+import SubmitButton from '../../../../ui/submit-button'
+import { buttonClass, hintClass, inputClass, labelClass } from '../../../../ui/kit'
 
-const input = `w-full border ${themeClasses('indigo').border} bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded outline-none ${themeClasses('indigo').borderFocus}`
-const label = `block text-sm font-medium mb-1 ${themeClasses('indigo').heading}`
+const input = inputClass
+const label = labelClass
 
 function Feedback({ state, success }: { state: InvitationFormState; success: string | null }) {
   if (state?.error) return <p role="alert" className="text-sm bg-red-50 text-red-800 p-3 rounded border border-red-200 dark:bg-red-950 dark:text-red-300 dark:border-red-800">{state.error}</p>
@@ -23,7 +23,7 @@ export function AddInvitationsForm({ eventId }: { eventId: string }) {
       <input type="hidden" name="eventId" value={eventId} />
       <label htmlFor="invitations" className={label}>Neue Einladungen, eine Zeile pro Haushalt</label>
       <textarea id="invitations" name="invitations" rows={5} className={input} placeholder={'Familie Müller; mueller@example.org; Anna, Ben, Clara (Kind), Dora (Kleinkind)\nTante Erna; erna@example.org; +1\nJonas; Jonas, Lea'} />
-      <p className={`text-xs ${themeClasses('indigo').text}`}>
+      <p className={hintClass}>
         Bezeichnung; danach in beliebiger Reihenfolge und optional: E-Mail, Personen (mit Komma getrennt, „(Kind)“ oder „(Kleinkind)“ dahinter), „+1“ für Personen, die der Haushalt selbst dazu eintragen darf. Ohne Personen ist die Bezeichnung die eingeladene Person.
       </p>
       <Feedback state={state} success={state?.added ? `✅ ${state.added} Einladung(en) angelegt.` : null} />
@@ -51,7 +51,7 @@ export function EditInvitationForm({ invitation }: { invitation: { id: string; l
       <div>
         <label htmlFor={`persons-${invitation.id}`} className={label}>Personen (mit Komma getrennt)</label>
         <input id={`persons-${invitation.id}`} name="persons" defaultValue={invitation.persons} required className={input} />
-        <p className={`text-xs ${themeClasses('indigo').text} mt-1`}>Die Reihenfolge zählt: Eine umbenannte Person behält ihre Antwort, eine entfernte verliert sie.</p>
+        <p className={hintClass}>Die Reihenfolge zählt: Eine umbenannte Person behält ihre Antwort, eine entfernte verliert sie.</p>
       </div>
       <div className="grid sm:grid-cols-2 gap-2">
         <div>
@@ -64,7 +64,7 @@ export function EditInvitationForm({ invitation }: { invitation: { id: string; l
         </div>
       </div>
       <Feedback state={state} success={state?.saved ? '✅ Gespeichert.' : null} />
-      <button type="submit" disabled={pending} className="px-3 py-1.5 text-sm font-medium rounded bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-60">Speichern</button>
+      <button type="submit" disabled={pending} className={buttonClass('primary', 'sm')}>Speichern</button>
     </form>
   )
 }
@@ -76,7 +76,7 @@ export function DeleteInvitationButton({ invitationId, label: name }: { invitati
       <button
         type="submit"
         onClick={e => { if (!confirm(`Einladung „${name}“ samt Antwort wirklich löschen? Der Link funktioniert danach nicht mehr.`)) e.preventDefault() }}
-        className="px-2 py-1 bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300 text-xs font-bold rounded hover:bg-red-200 dark:hover:bg-red-900 transition"
+        className={buttonClass('danger', 'sm')}
         aria-label={`Einladung ${name} löschen`}
       >
         🗑️

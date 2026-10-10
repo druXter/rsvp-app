@@ -2,6 +2,7 @@
 'use client'
 
 import { deleteEventSeries } from './actions'
+import { buttonClass } from '../ui/kit'
 
 /**
  * Button-Komponente zum Löschen einer kompletten Veranstaltungsreihe inkl. aller
@@ -15,7 +16,7 @@ export default function DeleteSeriesButton({ seriesId }: { seriesId: string }) {
       }
     }}>
       <input type="hidden" name="seriesId" value={seriesId} />
-      <button type="submit" className="px-3 py-1 bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300 text-sm font-medium rounded hover:bg-red-200 dark:hover:bg-red-900 transition">
+      <button type="submit" className={buttonClass('danger')}>
         🗑️ Reihe löschen
       </button>
     </form>

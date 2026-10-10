@@ -473,7 +473,7 @@ export async function performRsvpSubmission(
 
   revalidatePath(`/${event.slug}`)
   if (event.series) revalidatePath(`/reihe/${event.series.slug}`)
-  revalidatePath('/admin')
+  revalidatePath('/admin', 'layout')
 
   // Einlass-QR-Code für die Erfolgsseite - nur für einen bestätigten, festen Platz
   // und nur, wenn der Check-in für diesen Termin aktiviert ist

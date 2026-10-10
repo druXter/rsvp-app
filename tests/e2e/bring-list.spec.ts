@@ -77,7 +77,8 @@ test('Gäste beanspruchen beim Zusagen; voll ist gesperrt, Absage gibt frei; Anz
   await expect(visitor.getByText('🍕 Bringt mit: Salat, Getränke')).toBeVisible()
   const admin = await browser.newPage()
   await login(admin, owner.email)
-  await expect(admin.getByTestId('bring-summary').first()).toContainText('Salat 1/1 · Getränke 2/2')
+  await admin.goto(`/admin/events/${event.id}`)
+  await expect(admin.getByTestId('bring-summary').locator('li')).toHaveText([/Salat\s*1\/1/, /Getränke\s*2\/2/])
   const csv = await (await admin.request.get(`/api/export?eventId=${event.id}`, { headers: await cookieHeader(admin.context()) })).text()
   expect(csv).toContain('Salat, Getränke')
 

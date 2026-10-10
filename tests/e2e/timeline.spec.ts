@@ -199,7 +199,7 @@ test.describe('Webhook an Zeitplan (rsvp-change)', () => {
     // Wieder zusagen, dann löscht der Owner die Antwort -> zuletzt attending false
     await prisma.rsvp.update({ where: { id: rsvp.id }, data: { isAttending: true } })
     await login(page, owner.email)
-    await page.goto('/admin')
+    await page.goto(`/admin/events/${event.id}/gaeste`)
     const deleteForm = await readForm(page, `form:has(input[name="rsvpId"][value="${rsvp.id}"]):has(button[title="Antwort löschen"])`)
     await submitForm(page, deleteForm)
     expect(await prisma.rsvp.findUnique({ where: { id: rsvp.id } })).toBeNull()

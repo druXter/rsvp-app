@@ -28,10 +28,10 @@ export function parsePersonList(text: string, context = 'Personen'): InvitedPers
     const match = part.match(/^(.*?)\s*\(([^)]*)\)$/)
     const name = clean(match ? match[1] : part)
     const suffix = match ? match[2].trim().toLowerCase() : ''
-    if (match && !(suffix in AGE_SUFFIX) && suffix !== 'erwachsen') throw new Error(`${context}: „(${match[2]})“ ist keine Altersgruppe - erlaubt sind (Kind) und (Kleinkind).`)
+    if (match && !Object.hasOwn(AGE_SUFFIX, suffix) && suffix !== 'erwachsen') throw new Error(`${context}: „(${match[2]})“ ist keine Altersgruppe - erlaubt sind (Kind) und (Kleinkind).`)
     if (!name) throw new Error(`${context}: Eine Person hat keinen Namen.`)
     if (name.length > 100) throw new Error(`${context}: Der Name „${name.slice(0, 30)}…“ ist zu lang.`)
-    persons.push({ name, ageGroup: AGE_SUFFIX[suffix] ?? 'ADULT' })
+    persons.push({ name, ageGroup: Object.hasOwn(AGE_SUFFIX, suffix) ? AGE_SUFFIX[suffix] : 'ADULT' })
   }
   if (persons.length > INVITATION_LIMITS.persons) throw new Error(`${context}: höchstens ${INVITATION_LIMITS.persons} Personen pro Einladung.`)
   return persons

@@ -1,177 +1,104 @@
 // app/admin/series/[id]/page.tsx
-import { PrismaClient } from '@prisma/client'
-import { redirect } from 'next/navigation'
-import Link from 'next/link'
+import { notFound } from 'next/navigation'
+import type { Prisma } from '@prisma/client'
+import { prisma } from '../../../lib/prisma'
 import { addTerminToSeries } from '../../actions'
-import SeriesTermine from '../../series-termine'
+import { summarizeEvent } from '../../../lib/event-summary'
+import { splitArchived } from '../../../lib/event-date'
+import EventRow from '../../event-row'
 import DeleteSeriesButton from '../../delete-series-button'
-import { getCurrentUser } from '../../../lib/auth'
-import { isOwnerOrAdmin } from '../../../lib/permissions'
 import SubmitButton from '../../../ui/submit-button'
+import { EmptyState, inputClass, labelClass } from '../../../ui/kit'
+import { loadAdminSeries } from './series-access'
 
-const prisma = new PrismaClient()
+const TERMIN_SUMMARY = {
+  rsvps: { select: { isAttending: true, isOnWaitlist: true, hasAttended: true, amountCents: true, paidAt: true, refundedAt: true, paymentDueAt: true, persons: { select: { isAttending: true, ageGroup: true } } } },
+  _count: { select: { ticketCategories: true, menuCourses: true } }
+} satisfies Prisma.EventInclude
 
-export default async function SeriesDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const user = await getCurrentUser()
-  if (!user) redirect('/admin/login')
-
+/**
+ * Reiter "Termine" einer Reihe: aktuelle und (eingeklappt im Archiv, 48 Stunden nach Beginn) vergangene Termine mit Kennzahlen, jeder ein Link zu
+ * seiner Event-Seite, dazu "Termin hinzufügen" (Owner/Admin) mit den Grunddaten - alles Weitere in den
+ * Einstellungen des Termins.
+ */
+export default async function SeriesTermine({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const series = await prisma.eventSeries.findUnique({
-    where: { id },
-    include: {
-      events: {
-        include: {
-          rsvps: {
-            include: { participant: true, persons: { include: { menuChoices: true } } },
-            orderBy: { createdAt: 'desc' }
-          },
-          ticketCategories: { orderBy: { position: 'asc' }, select: { id: true, label: true, capacity: true } },
-          menuCourses: { orderBy: { position: 'asc' }, select: { id: true, label: true } }
-        },
-        orderBy: { date: 'asc' }
-      },
-      sharedWith: { where: { userId: user.id } }
-    }
+  const loaded = await loadAdminSeries(id)
+  if (!loaded) notFound()
+  const { series, isOwner } = loaded
+
+  const events = await prisma.event.findMany({ where: { seriesId: series.id }, include: TERMIN_SUMMARY, orderBy: { date: 'asc' } })
+  const row = (e: (typeof events)[number]) => ({
+    id: e.id, title: e.title, date: e.date, datePending: e.datePending, location: e.location, maxCapacity: e.maxCapacity, inviteOnly: false,
+    hasTickets: e._count.ticketCategories > 0, hasMenu: e._count.menuCourses > 0, summary: summarizeEvent(e.rsvps)
   })
-
-  const isOwner = !!series && isOwnerOrAdmin(user, series.ownerId)
-  const isModerator = !!series && !isOwner && series.sharedWith.length > 0
-
-  if (!series || (!isOwner && !isModerator)) {
-    return <div className="p-8">Reihe nicht gefunden.</div>
-  }
+  // Wie für Gäste: 48 Stunden nach Beginn wandert ein Termin ins Archiv (isArchived in app/lib/event-date.ts)
+  const { current: upcoming, archived: past } = splitArchived(events)
 
   return (
-    <main className="min-h-screen bg-gray-100 dark:bg-gray-900 py-12 px-4">
-      <div className="max-w-4xl mx-auto space-y-8">
-
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow space-y-4">
-          <div className="flex justify-between items-start border-b pb-4">
+    <div className="space-y-6">
+      {isOwner && (
+        <details className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800" open={events.length === 0}>
+          <summary className="cursor-pointer font-semibold text-gray-900 dark:text-gray-100">+ Termin hinzufügen</summary>
+          <form action={addTerminToSeries} className="mt-4 space-y-4">
+            <input type="hidden" name="seriesId" value={series.id} />
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{series.title}</h1>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Reihen-Slug: <span className="font-mono bg-gray-100 dark:bg-gray-700 dark:text-gray-300 px-1 py-0.5 rounded">/reihe/{series.slug}</span></p>
-              {series.description && <p className="text-sm text-gray-600 dark:text-gray-300 mt-2">{series.description}</p>}
+              <label htmlFor="title" className={labelClass}>Titel des Termins</label>
+              <input id="title" name="title" required className={inputClass} placeholder={`z.B. ${series.title} - Januar`} />
             </div>
-            <div className="flex gap-2 flex-wrap justify-end">
-              <Link href="/admin" className="px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition">
-                ← Dashboard
-              </Link>
-              {isOwner && (
-                <Link href={`/admin/series/${series.id}/edit`} className="px-3 py-1 bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 text-sm font-medium rounded hover:bg-blue-200 dark:hover:bg-blue-900 transition">
-                  ✏️ Reihe bearbeiten
-                </Link>
-              )}
-              {isModerator && (
-                <Link href={`/admin/series/${series.id}/edit`} className="px-3 py-1 bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 text-sm font-medium rounded hover:bg-blue-200 dark:hover:bg-blue-900 transition">
-                  👥 Mitglieder
-                </Link>
-              )}
-              {isOwner && <DeleteSeriesButton seriesId={series.id} />}
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div>
+                <label htmlFor="date" className={labelClass}>Datum und Uhrzeit</label>
+                <input id="date" type="datetime-local" name="date" required className={inputClass} />
+              </div>
+              <div>
+                <label htmlFor="duration" className={labelClass}>Dauer in Stunden</label>
+                <input id="duration" type="number" name="duration" min="1" max="72" defaultValue={4} required className={inputClass} />
+              </div>
+              <div>
+                <label htmlFor="maxCapacity" className={labelClass}>Kapazität (optional)</label>
+                <input id="maxCapacity" type="number" name="maxCapacity" min="1" className={inputClass} placeholder="unbegrenzt" />
+              </div>
             </div>
-          </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label htmlFor="location" className={labelClass}>Ort (optional)</label>
+                <input id="location" name="location" className={inputClass} />
+              </div>
+              <div>
+                <label htmlFor="slug" className={labelClass}>Adresse (URL-Wort, optional)</label>
+                <input id="slug" name="slug" className={`${inputClass} font-mono`} placeholder="wird aus dem Titel gebildet" />
+              </div>
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Abfragen, Erinnerung, Einlass und alles Weitere stellt ihr danach in den Einstellungen des Termins ein.</p>
+            <SubmitButton>Termin anlegen</SubmitButton>
+          </form>
+        </details>
+      )}
 
-          {isOwner && (
-          <div className="pt-2">
-            <details className="group">
-              <summary className="cursor-pointer text-sm font-bold text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 transition list-none">
-                ＋ Termin zu dieser Reihe hinzufügen
-              </summary>
-              <form action={addTerminToSeries} className="mt-4 space-y-4 bg-purple-50 dark:bg-purple-950 p-4 rounded-md border border-purple-200 dark:border-purple-800">
-                <input type="hidden" name="seriesId" value={series.id} />
+      {events.length === 0 && !isOwner && <EmptyState>Diese Reihe hat noch keine Termine.</EmptyState>}
+      {upcoming.length > 0 && (
+        <section>
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Aktuelle Termine</h2>
+          <div className="grid gap-3">{upcoming.map(e => <EventRow key={e.id} event={row(e)} />)}</div>
+        </section>
+      )}
+      {past.length > 0 && (
+        <details className="group">
+          <summary className="mb-3 cursor-pointer list-none text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            <span className="inline-block transition group-open:rotate-90">▸</span> 🗄️ Archiv ({past.length} vergangene{past.length === 1 ? 'r' : ''} Termin{past.length === 1 ? '' : 'e'})
+          </summary>
+          <div className="grid gap-3">{past.map(e => <EventRow key={e.id} event={row(e)} muted />)}</div>
+        </details>
+      )}
 
-                <div>
-                  <label htmlFor="title" className="block text-sm font-medium mb-1">Termin-Titel</label>
-                  <input id="title" type="text" name="title" required className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded" placeholder={`z.B. ${series.title} - Januar`} />
-                </div>
-
-                <div>
-                  <label htmlFor="slug" className="block text-sm font-medium mb-1">URL-Wort (Slug)</label>
-                  <input id="slug" type="text" name="slug" required className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded" placeholder="z.B. januar" />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Erreichbar unter domain.de/reihe/{series.slug}/slug</p>
-                </div>
-
-                <div>
-                  <label htmlFor="date" className="block text-sm font-medium mb-1">Datum & Uhrzeit</label>
-                  <input id="date" type="datetime-local" name="date" required className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded" />
-                </div>
-
-                <div>
-                  <label htmlFor="duration" className="block text-sm font-medium mb-1">Dauer (in Stunden)</label>
-                  <input id="duration" type="number" name="duration" min="1" max="72" defaultValue={4} required className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded" />
-                </div>
-
-                <div>
-                  <label htmlFor="location" className="block text-sm font-medium mb-1">Ort</label>
-                  <input id="location" type="text" name="location" className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded" />
-                </div>
-
-                <div>
-                  <label htmlFor="maxCapacity" className="block text-sm font-medium mb-1">Maximale Teilnehmerzahl (optional)</label>
-                  <input id="maxCapacity" type="number" name="maxCapacity" min="1" className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded" placeholder="leer lassen für unbegrenzt" />
-                </div>
-
-                <div>
-                  <label htmlFor="description" className="block text-sm font-medium mb-1">Beschreibung / Einladungstext</label>
-                  <textarea id="description" name="description" rows={3} className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded"></textarea>
-                </div>
-
-                <div className="space-y-2 pt-2 border-t border-purple-200 dark:border-purple-800">
-                  <h4 className="font-bold text-gray-900 dark:text-gray-100 text-sm">Für DIESEN Termin einzeln abgefragt:</h4>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" name="askAlcohol" className="w-4 h-4" />
-                    <span>Alkohol-Präferenz abfragen (Ja/Nein)</span>
-                  </label>
-                  <label className="flex flex-wrap items-center gap-2">
-                    <span>Begleitungen pro Anmeldung: bis zu</span>
-                    <input type="number" name="maxCompanions" min={0} max={20} defaultValue={0} className="w-16 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-gray-100 p-1 rounded" />
-                    <span className="text-xs text-gray-500 dark:text-gray-400">(0 = keine, mit Namen und Altersgruppe; nicht bei Ticketkategorien)</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" name="askBringingItem" className="w-4 h-4" />
-                    <span>Mitbringsel (Essen/Trinken) abfragen</span>
-                  </label>
-                </div>
-
-                <div className="space-y-2 pt-2 border-t border-purple-200 dark:border-purple-800">
-                  <h4 className="font-bold text-gray-900 dark:text-gray-100 text-sm">Freie Zusatzfragen für DIESEN Termin (optional, max. 3):</h4>
-                  <input type="text" name="customQuestion1" className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded" placeholder="z.B. Welchen Song wünschst du dir vom DJ?" />
-                  <input type="text" name="customQuestion2" className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded" placeholder="Optionale zweite Frage" />
-                  <input type="text" name="customQuestion3" className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded" placeholder="Optionale dritte Frage" />
-                </div>
-
-                <div className="space-y-2 pt-2 border-t border-purple-200 dark:border-purple-800">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" name="autoReminder" className="w-4 h-4 text-blue-600" />
-                    <span className="text-sm font-medium">Automatische Erinnerung aktivieren</span>
-                  </label>
-                  <div>
-                    <label htmlFor="reminderDays" className="block text-sm font-medium mb-1">Wie viele Tage vor dem Termin?</label>
-                    <input id="reminderDays" type="number" name="reminderDays" min="1" max="30" defaultValue={7} className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded" />
-                  </div>
-                </div>
-
-                <div className="space-y-2 pt-2 border-t border-purple-200 dark:border-purple-800">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" name="enableCheckin" className="w-4 h-4 text-teal-600" />
-                    <span className="text-sm font-medium">QR-Code Check-in für diesen Termin aktivieren</span>
-                  </label>
-                </div>
-
-                <SubmitButton>Termin speichern</SubmitButton>
-              </form>
-            </details>
-          </div>
-          )}
+      {isOwner && (
+        <div className="rounded-xl border border-red-200 bg-white p-5 dark:border-red-900 dark:bg-gray-800">
+          <h2 className="font-semibold text-red-800 dark:text-red-300">Reihe löschen</h2>
+          <p className="mt-1 mb-3 text-sm text-gray-600 dark:text-gray-400">Löscht die Reihe mit allen Terminen, Antworten und Profilen der Gäste. Das lässt sich nicht rückgängig machen.</p>
+          <DeleteSeriesButton seriesId={series.id} />
         </div>
-
-        <SeriesTermine
-          events={series.events}
-          requireVerification={series.requireVerification}
-          access={isOwner ? 'owner' : 'moderator'}
-          empty={<p className="text-center text-gray-500 dark:text-gray-400 italic bg-white dark:bg-gray-800 p-6 rounded-lg shadow">Diese Reihe hat noch keine Termine.</p>}
-        />
-
-      </div>
-    </main>
+      )}
+    </div>
   )
 }

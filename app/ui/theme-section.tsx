@@ -40,14 +40,30 @@ const THEME_CLASSES: Record<ThemeColor, {
  * (`accent`) oder ein Eingabefeld (`border`/`borderFocus`) innerhalb einer ThemeSection.
  */
 export function themeClasses(color: ThemeColor) {
-  return THEME_CLASSES[color]
+  // Seit der ruhigen Gestaltung (docs/KONZEPT-OBERFLAECHE.md) tragen Felder und Texte keine Themenfarbe mehr - nur
+  // noch Checkboxen (accent) und die kleine Marke im Titel. box/heading/text/border bleiben als neutrale Werte,
+  // damit alle Stellen einheitlich aussehen.
+  return { ...NEUTRAL, accent: THEME_CLASSES[color].accent, marker: MARKER[color] }
+}
+
+const NEUTRAL = {
+  box: 'bg-white dark:bg-gray-800',
+  heading: 'text-gray-900 dark:text-gray-100',
+  text: 'text-gray-600 dark:text-gray-400',
+  border: 'border-gray-300 dark:border-gray-600',
+  borderFocus: 'focus:border-blue-500 dark:focus:border-blue-500'
+}
+
+const MARKER: Record<ThemeColor, string> = {
+  yellow: 'bg-yellow-400', sky: 'bg-sky-500', teal: 'bg-teal-500', indigo: 'bg-indigo-500', rose: 'bg-rose-500', emerald: 'bg-emerald-500',
+  purple: 'bg-purple-500', gray: 'bg-gray-400', amber: 'bg-amber-500', cyan: 'bg-cyan-500', violet: 'bg-violet-500', lime: 'bg-lime-500',
+  fuchsia: 'bg-fuchsia-500', pink: 'bg-pink-500', orange: 'bg-orange-500'
 }
 
 /**
- * Farblich abgesetzte Box für einen thematischen Formular-Abschnitt (z.B. "QR-Code
- * Einlasskontrolle", "Zugriff teilen"). Ersetzt die zuvor pro Seite von Hand kopierten
- * `bg-{farbe}-50 p-4 rounded-md`-Blöcke, damit dasselbe Thema nie versehentlich in
- * unterschiedlichen Farben auftaucht.
+ * Abschnitt eines Formulars zu einem Thema (z.B. "QR-Code Einlasskontrolle", "Zugriff teilen"): weiße Karte mit
+ * Titel, kleiner farbiger Marke des Themas und optionaler Beschreibung. Die Themenfarbe bleibt so erkennbar, ohne
+ * dass jede Seite zu einem bunten Flickenteppich wird.
  */
 export default function ThemeSection({
   color,
@@ -60,11 +76,13 @@ export default function ThemeSection({
   description?: string
   children: React.ReactNode
 }) {
-  const c = THEME_CLASSES[color]
   return (
-    <div className={`space-y-3 pt-4 border-t border-gray-200 dark:border-gray-700 ${c.box} p-4 rounded-md`}>
-      <h3 className={`font-bold ${c.heading}`}>{title}</h3>
-      {description && <p className={`text-xs ${c.text} mb-2`}>{description}</p>}
+    <div className="space-y-3 rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+      <h3 className="flex items-center gap-2 font-semibold text-gray-900 dark:text-gray-100">
+        <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${MARKER[color]}`} aria-hidden />
+        {title}
+      </h3>
+      {description && <p className="text-sm text-gray-600 dark:text-gray-400">{description}</p>}
       {children}
     </div>
   )

@@ -1,5 +1,6 @@
 // app/admin/ticket-settings-section.tsx
-import ThemeSection, { themeClasses } from '../ui/theme-section'
+import { themeClasses } from '../ui/theme-section'
+import { hintClass, inputClass, labelClass } from '../ui/kit'
 import { formatTicketCategories, type TicketCategoryInput } from '../lib/tickets'
 import { formatIban } from '../lib/payment'
 
@@ -12,21 +13,21 @@ type TicketSettings = {
   paymentReminderDays: number | null
 }
 
-const input = `w-full border ${themeClasses('pink').border} bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded outline-none ${themeClasses('pink').borderFocus}`
-const label = `block text-sm font-medium mb-1 ${themeClasses('pink').heading}`
+const input = inputClass
+const label = labelClass
 
 /**
- * "Tickets und Bezahlung" im Termin-Formular (Anlegen, Bearbeiten, Reihen-Termin): Kategorien mit Preis und
- * Kontingent (app/lib/tickets.ts) und das Konto für Überweisungen (app/lib/payment.ts). Gelesen von
- * readTicketing in app/admin/actions.ts. Farbe pink = Tickets und Bezahlung (siehe CLAUDE.md "Farbschema").
+ * Felder "Tickets und Bezahlung" der Termin-Einstellungen (app/admin/event-settings-form.tsx): Kategorien mit Preis
+ * und Kontingent (app/lib/tickets.ts) und das Konto für Überweisungen (app/lib/payment.ts). Gelesen von
+ * readTicketing in app/admin/actions.ts.
  */
-export default function TicketSettingsSection({ event }: { event?: TicketSettings }) {
+export function TicketFields({ event }: { event?: TicketSettings }) {
   return (
-    <ThemeSection color="pink" title="Tickets und Bezahlung" description="Optional: Kategorien mit Preis und Kontingent, z. B. für einen Ball. Gäste wählen beim Zusagen eine Kategorie, volle Kategorien führen auf die Warteliste. Mit Preis bekommen Gäste Betrag, Verwendungszweck und GiroCode zum Überweisen; ihr markiert Zahlungen in der Gästeliste. Bei Kategorien gibt es keine Begleitung - jede Person meldet sich selbst an.">
+    <>
       <div>
         <label htmlFor="ticketCategories" className={label}>Kategorien (Optional)</label>
         <textarea id="ticketCategories" name="ticketCategories" rows={4} defaultValue={event ? formatTicketCategories(event.ticketCategories) : ''} className={input} placeholder={'Studierende; 25; 120\nGäste; 35,50\nHelfer*innen; 0; 20'} />
-        <p className={`text-xs ${themeClasses('pink').text} mt-1`}>Eine Zeile pro Kategorie: Bezeichnung; Preis in Euro; Kontingent. Preis und Kontingent sind optional. Ein neuer Preis gilt nur für neue Zusagen. Eine Kategorie mit Antworten lässt sich nicht entfernen oder umbenennen.</p>
+        <p className={hintClass}>Eine Zeile pro Kategorie: Bezeichnung; Preis in Euro; Kontingent. Preis und Kontingent sind optional. Ein neuer Preis gilt nur für neue Zusagen. Eine Kategorie mit Antworten lässt sich nicht entfernen oder umbenennen.</p>
       </div>
       <div className="grid sm:grid-cols-2 gap-3">
         <div>
@@ -50,8 +51,8 @@ export default function TicketSettingsSection({ event }: { event?: TicketSetting
           <input id="paymentReminderDays" name="paymentReminderDays" type="number" min={1} max={60} defaultValue={event?.paymentReminderDays ?? ''} className={input} placeholder="z. B. 3" />
         </div>
       </div>
-      <p className={`text-xs ${themeClasses('pink').text}`}>Empfänger*in und IBAN sind Pflicht, sobald eine Kategorie etwas kostet. Die Frist zählt ab dem festen Platz und wird nur angezeigt: Überfällige Zusagen könnt ihr in der Gästeliste stornieren, nichts verfällt automatisch. Mit Zahlungserinnerung bekommen offene Zahlungen einmal pro Frist automatisch eine Mail (und Push), braucht den Cronjob der Erinnerungen; per Knopf in der Gästeliste geht das jederzeit.</p>
-    </ThemeSection>
+      <p className={hintClass}>Empfänger*in und IBAN sind Pflicht, sobald eine Kategorie etwas kostet. Die Frist zählt ab dem festen Platz und wird nur angezeigt: Überfällige Zusagen könnt ihr in der Gästeliste stornieren, nichts verfällt automatisch. Mit Zahlungserinnerung bekommen offene Zahlungen einmal pro Frist automatisch eine Mail (und Push), braucht den Cronjob der Erinnerungen; per Knopf in der Gästeliste geht das jederzeit.</p>
+    </>
   )
 }
 

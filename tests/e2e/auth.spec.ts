@@ -2,7 +2,8 @@ import bcrypt from 'bcryptjs'
 import { expect, test, type BrowserContext } from '@playwright/test'
 import {
   BASE_URL, GUEST_SESSION_COOKIE, PASSWORD, SESSION_COOKIE, createAccount, createGuestUser, guestLogin, login,
-  pageAlert, prisma, sha256, uniqueEmail
+  pageAlert, prisma, sha256, uniqueEmail,
+  logout
 } from './helpers'
 
 async function cookieNamed(context: BrowserContext, name: string) {
@@ -82,7 +83,7 @@ test.describe('Admin-Login', () => {
     const user = await createAccount('CREATOR')
     await login(page, user.email)
     await expect(page).toHaveURL(`${BASE_URL}/admin`)
-    await page.getByRole('button', { name: 'Abmelden' }).click()
+    await logout(page)
     // local=1: mit bevorzugtem Anbieter (SUITE_LOGIN_REDIRECT) wäre man sonst sofort wieder angemeldet
     await expect(page).toHaveURL(`${BASE_URL}/admin/login?local=1`)
     expect(await prisma.session.count({ where: { userId: user.id } })).toBe(0)

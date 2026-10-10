@@ -197,6 +197,12 @@ export async function login(page: Page, email: string, password = PASSWORD, ip =
   await page.waitForURL(url => url.pathname !== '/admin/login' || url.searchParams.has('error'))
 }
 
+/** Abmelden über das Konto-Menü der Verwaltung (app/admin/admin-shell.tsx). */
+export async function logout(page: Page) {
+  await page.getByLabel('Konto-Menü').click()
+  await page.getByRole('button', { name: 'Abmelden' }).click()
+}
+
 /** Wie login(), aber für Nutzer-Konten (GuestUser) über /mein-konto/login. */
 export async function guestLogin(page: Page, email: string, password = PASSWORD, ip = uniqueIp(), next?: string) {
   await page.setExtraHTTPHeaders({ 'x-forwarded-for': ip })

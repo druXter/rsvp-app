@@ -1,10 +1,11 @@
 // app/admin/create-user/page.tsx
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
 import { getCurrentUser } from '../../lib/auth'
 import { createUser } from '../actions'
 import SubmitButton from '../../ui/submit-button'
 import AuthError from '../../ui/auth-error'
+import AdminShell from '../admin-shell'
+import { PageHeader, inputClass } from '../../ui/kit'
 
 /**
  * Legt ein weiteres Benutzerkonto an (z.B. für ein anderes Referat, einen Freund
@@ -23,14 +24,9 @@ export default async function CreateUserPage({ searchParams }: { searchParams: P
   const isAdmin = user.role === 'ADMIN'
 
   return (
-    <main className="min-h-screen bg-gray-100 dark:bg-gray-900 py-12 px-4">
-      <div className="max-w-md mx-auto bg-white dark:bg-gray-800 p-8 rounded-lg shadow space-y-6">
-        <div className="flex justify-between items-center border-b dark:border-gray-700 pb-4">
-          <h1 className="text-2xl font-bold">Verwaltungskonto anlegen</h1>
-          <Link href="/admin" className="text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition">
-            Abbrechen
-          </Link>
-        </div>
+    <AdminShell user={user} width="narrow">
+      <PageHeader title="Verwaltungskonto anlegen" back={{ href: '/admin', label: 'Zurück' }} />
+      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800 space-y-6 text-gray-900 dark:text-gray-100">
 
         <p className="text-sm text-gray-600 dark:text-gray-300">
           {isAdmin
@@ -48,18 +44,18 @@ export default async function CreateUserPage({ searchParams }: { searchParams: P
         <form action={createUser} className="space-y-4">
           <div>
             <label htmlFor="email" className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">E-Mail</label>
-            <input id="email" type="email" name="email" required className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 rounded text-gray-900 dark:text-gray-100" placeholder="referat@domain.de" />
+            <input id="email" type="email" name="email" required className={inputClass} placeholder="referat@domain.de" />
           </div>
 
           <div>
             <label htmlFor="password" className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Passwort</label>
-            <input id="password" type="password" name="password" required minLength={10} className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 rounded text-gray-900 dark:text-gray-100" placeholder="Mindestens 10 Zeichen" />
+            <input id="password" type="password" name="password" required minLength={10} className={inputClass} placeholder="Mindestens 10 Zeichen" />
           </div>
 
           {isAdmin ? (
             <div>
               <label htmlFor="role" className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Rolle</label>
-              <select id="role" name="role" defaultValue="MODERATOR" className="w-full border border-gray-300 dark:border-gray-600 p-2 rounded text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800">
+              <select id="role" name="role" defaultValue="MODERATOR" className={inputClass}>
                 <option value="CREATOR">Creator (eigenständiges Konto mit eigenen Events/Reihen)</option>
                 <option value="MODERATOR">Moderator (nur mit dir geteilter Zugriff)</option>
                 <option value="ADMIN">Admin (voller Zugriff auf alles)</option>
@@ -72,6 +68,6 @@ export default async function CreateUserPage({ searchParams }: { searchParams: P
           <SubmitButton>Konto anlegen</SubmitButton>
         </form>
       </div>
-    </main>
+    </AdminShell>
   )
 }

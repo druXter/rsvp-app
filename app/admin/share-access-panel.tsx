@@ -1,6 +1,7 @@
 // app/admin/share-access-panel.tsx
 import { shareResource, unshareResource } from './actions'
 import ThemeSection, { themeClasses } from '../ui/theme-section'
+import { buttonClass, inputClass } from '../ui/kit'
 
 type Share = { id: string; email: string }
 
@@ -58,9 +59,9 @@ export default function ShareAccessPanel({
           name="email"
           required
           placeholder="konto@domain.de"
-          className={`flex-1 border ${c.border} p-2 rounded text-sm text-gray-900 dark:text-gray-100`}
+          className={inputClass}
         />
-        <button type="submit" className="bg-rose-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-rose-700 transition">
+        <button type="submit" className={buttonClass('secondary')}>
           Teilen
         </button>
       </form>

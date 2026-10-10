@@ -1,251 +1,94 @@
 // app/admin/create/page.tsx
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
 import { createEvent } from '../actions'
 import { getCurrentUser } from '../../lib/auth'
+import { EVENT_PRESETS } from '../../lib/event-presets'
+import AdminShell from '../admin-shell'
 import SubmitButton from '../../ui/submit-button'
-import TicketSettingsSection, { SeatingPaymentToggle } from '../ticket-settings-section'
-import MenuSettingsSection from '../menu-settings-section'
-import ThemeSection, { themeClasses } from '../../ui/theme-section'
-import { allowedSeatingOrigin } from '../../lib/seating'
-import { allowedTimelineOrigin } from '../../lib/timeline'
+import { Card, PageHeader, hintClass, inputClass, labelClass } from '../../ui/kit'
 
+/**
+ * Neues Event (docs/KONZEPT-OBERFLAECHE.md): nur Grunddaten und die Art des Events. Die Art setzt passende
+ * Grundeinstellungen (app/lib/event-presets.ts); alles Weitere (Formular, Menü, Tickets, Verknüpfungen ...) stellt
+ * ihr danach auf der Event-Seite ein, wohin createEvent weiterleitet.
+ */
 export default async function CreateEventPage() {
-  // Das Sitzplatz-Feld erscheint nur, wenn die Anbindung an Seating eingerichtet ist (SEATING_BASE_URL)
-  const seatingOrigin = allowedSeatingOrigin()
-  // ebenso das Zeitplan-Feld (TIMELINE_BASE_URL)
-  const timelineOrigin = allowedTimelineOrigin()
   const user = await getCurrentUser()
   if (!user) redirect('/admin/login')
   if (user.role === 'MODERATOR') redirect('/admin')
 
   return (
-    <main className="min-h-screen bg-gray-100 dark:bg-gray-900 py-12 px-4">
-      <div className="max-w-2xl mx-auto bg-white dark:bg-gray-800 p-8 rounded-lg shadow space-y-6 text-gray-900 dark:text-gray-100">
-
-        <div className="flex justify-between items-center border-b dark:border-gray-700 pb-4">
-          <h1 className="text-2xl font-bold">Neues Event anlegen</h1>
-          <Link href="/admin" className="text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition">
-            Zurück
-          </Link>
-        </div>
-
-        <form action={createEvent} className="space-y-4">
+    <AdminShell user={user} width="narrow">
+      <PageHeader title="Neues Event" back={{ href: '/admin', label: 'Alle Events' }} subtitle="Erst das Wichtigste - alles Weitere stellt ihr danach in Ruhe ein." />
+      <form action={createEvent} className="space-y-4">
+        <Card className="space-y-4">
           <div>
-            <label htmlFor="title" className="block text-sm font-medium mb-1">Event-Titel</label>
-            <input id="title" type="text" name="title" required className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded" placeholder="z.B. Sommerfest 2026" />
+            <label htmlFor="title" className={labelClass}>Titel</label>
+            <input id="title" name="title" required maxLength={200} className={inputClass} placeholder="z.B. Sommerfest 2027" />
           </div>
-
-          <div>
-            <label htmlFor="slug" className="block text-sm font-medium mb-1">URL-Wort (Slug)</label>
-            <input id="slug" type="text" name="slug" required className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded" placeholder="z.B. sommerfest" />
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Das Event ist dann unter domain.de/slug erreichbar.</p>
-          </div>
-
-          <div>
-            <label htmlFor="date" className="block text-sm font-medium mb-1">Datum & Uhrzeit</label>
-            <input id="date" type="datetime-local" name="date" required className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded" />
-          </div>
-
-          <div>
-            <label htmlFor="duration" className="block text-sm font-medium mb-1">Dauer (in Stunden)</label>
-            <input id="duration" type="number" name="duration" min="1" max="72" defaultValue={4} required className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded" />
-          </div>
-
-          <div>
-            <label htmlFor="location" className="block text-sm font-medium mb-1">Ort</label>
-            <input id="location" type="text" name="location" className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded" placeholder="z.B. Hauptcampus / Aula" />
-          </div>
-
-          <div>
-            <label htmlFor="maxCapacity" className="block text-sm font-medium mb-1">Maximale Teilnehmerzahl (optional)</label>
-            <input id="maxCapacity" type="number" name="maxCapacity" min="1" className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded" placeholder="z.B. 50 (leer lassen für unbegrenzt)" />
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Gäste landen automatisch auf der Warteliste, wenn dieses Limit erreicht ist. Gezählt werden Personen (mit Begleitungen, ohne Kleinkinder).</p>
-          </div>
-
-          <div className="grid sm:grid-cols-2 gap-4">
+          <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label htmlFor="rsvpDeadline" className="block text-sm font-medium mb-1">Antwortfrist (optional)</label>
-              <input id="rsvpDeadline" type="date" name="rsvpDeadline" className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded" />
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Gäste sehen „Bitte antwortet bis …“. Danach können sie nichts mehr ändern, nur noch ihr in der Verwaltung.</p>
+              <label htmlFor="date" className={labelClass}>Datum und Uhrzeit</label>
+              <input id="date" type="datetime-local" name="date" required className={inputClass} />
             </div>
             <div>
-              <label htmlFor="rsvpReminderDays" className="block text-sm font-medium mb-1">Erinnerung an Einladungen ohne Antwort (optional)</label>
-              <input id="rsvpReminderDays" type="number" name="rsvpReminderDays" min="1" max="60" className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded" placeholder="Tage vor der Frist, z.B. 7" />
+              <label htmlFor="duration" className={labelClass}>Dauer in Stunden</label>
+              <input id="duration" type="number" name="duration" min="1" max="72" defaultValue={4} required className={inputClass} />
             </div>
           </div>
-
           <div>
-            <label htmlFor="description" className="block text-sm font-medium mb-1">Beschreibung / Einladungstext</label>
-            <textarea id="description" name="description" rows={4} className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded" placeholder="Wir laden euch herzlich ein..."></textarea>
+            <label htmlFor="location" className={labelClass}>Ort (optional)</label>
+            <input id="location" name="location" className={inputClass} />
           </div>
-
-          <div className="space-y-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <h3 className="font-bold text-gray-900 dark:text-gray-100">Welche Felder sollen im Formular abgefragt werden?</h3>
-            
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" name="askEmail" className="w-4 h-4" />
-              <span>E-Mail Adresse abfragen</span>
-            </label>
-            
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" name="askPhone" className="w-4 h-4" />
-              <span>Handynummer abfragen</span>
-            </label>
-            
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" name="askDiet" className="w-4 h-4" />
-              <span>Essenswünsche abfragen (Veggie/Vegan)</span>
-            </label>
-            
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" name="askAlcohol" className="w-4 h-4" />
-              <span>Alkohol-Präferenz abfragen (Ja/Nein)</span>
-            </label>
-
-            <label className="flex flex-wrap items-center gap-2">
-              <span>Begleitungen pro Anmeldung: bis zu</span>
-              <input type="number" name="maxCompanions" min={0} max={20} defaultValue={0} className="w-16 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-gray-100 p-1 rounded" />
-              <span className="text-xs text-gray-500 dark:text-gray-400">(0 = keine, mit Namen und Altersgruppe; nicht bei Ticketkategorien)</span>
-            </label>
-            
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" name="askBringingItem" className="w-4 h-4" />
-              <span>Mitbringsel (Essen/Trinken) abfragen</span>
-            </label>
-            
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" name="askAllergies" className="w-4 h-4" />
-              <span>Allergien abfragen</span>
-            </label>
+          <div>
+            <label htmlFor="description" className={labelClass}>Beschreibung / Einladungstext (optional)</label>
+            <textarea id="description" name="description" rows={3} className={inputClass} />
           </div>
+        </Card>
 
-          <div className="space-y-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <h3 className="font-bold text-gray-900 dark:text-gray-100">Freie Zusatzfragen (optional, max. 3)</h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Leer lassen, um keine zusätzliche Frage zu stellen. Wird nur bei Zusage abgefragt.</p>
-            <input type="text" name="customQuestion1" className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded" placeholder="z.B. Welchen Song wünschst du dir vom DJ?" />
-            <input type="text" name="customQuestion2" className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded" placeholder="Optionale zweite Frage" />
-            <input type="text" name="customQuestion3" className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded" placeholder="Optionale dritte Frage" />
-          </div>
-
-          {/* Einstellungen für Uptime Kuma Cronjob */}
-          <ThemeSection color="sky" title="Automatische E-Mail Erinnerung" description="Erfordert, dass Gäste ihre E-Mail angeben (siehe oben).">
-            <label className="flex items-center gap-2 cursor-pointer mb-3">
-              <input type="checkbox" name="autoReminder" className={`w-4 h-4 ${themeClasses('sky').accent}`} />
-              <span className={`text-sm font-medium ${themeClasses('sky').heading}`}>Automatische Erinnerung aktivieren</span>
-            </label>
-
-            <div>
-              <label htmlFor="reminderDays" className={`block text-sm font-medium mb-1 ${themeClasses('sky').heading}`}>Wie viele Tage vor dem Event?</label>
-              <input id="reminderDays" type="number" name="reminderDays" min="1" max="30" defaultValue={7} className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded" />
+        <Card>
+          <fieldset>
+            <legend className="font-semibold text-gray-900 dark:text-gray-100">Was für ein Event?</legend>
+            <p className={hintClass}>Setzt passende Grundeinstellungen - alles lässt sich später ändern.</p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {Object.entries(EVENT_PRESETS).map(([key, preset], i) => (
+                <label key={key} htmlFor={`preset-${key}`} aria-label={preset.label} className="flex cursor-pointer gap-3 rounded-lg border border-gray-200 p-3 hover:border-blue-300 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50 dark:border-gray-700 dark:has-[:checked]:bg-blue-950">
+                  <input id={`preset-${key}`} type="radio" name="preset" value={key} defaultChecked={i === 0} className="mt-1 accent-blue-600" />
+                  <span>
+                    <span className="block text-sm font-medium text-gray-900 dark:text-gray-100">{preset.label}</span>
+                    <span className="block text-xs text-gray-600 dark:text-gray-400">{preset.description}</span>
+                  </span>
+                </label>
+              ))}
             </div>
-          </ThemeSection>
+          </fieldset>
+        </Card>
 
-          <ThemeSection color="yellow" title="E-Mail-Verifizierung (Double-Opt-In)" description="Gäste müssen ihre Anmeldung per Klick in einer E-Mail bestätigen. (Erfordert E-Mail-Abfrage oben).">
-            <label className="flex items-center gap-2 cursor-pointer mb-3">
-              <input type="checkbox" name="requireVerification" className={`w-4 h-4 ${themeClasses('yellow').accent}`} />
-              <span className={`text-sm font-medium ${themeClasses('yellow').heading}`}>Verifizierung zwingend erforderlich</span>
-            </label>
-          </ThemeSection>
-
-          <ThemeSection color="teal" title="QR-Code Einlasskontrolle" description="Bestätigte Gäste erhalten einen persönlichen QR-Code (Mail & Erfolgsseite) zum Scannen am Einlass.">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" name="enableCheckin" className={`w-4 h-4 ${themeClasses('teal').accent}`} />
-              <span className={`text-sm font-medium ${themeClasses('teal').heading}`}>QR-Code Check-in aktivieren</span>
-            </label>
-          </ThemeSection>
-
-          <ThemeSection color="indigo" title="Gruppen- & Vereins-Features">
-            <label className="flex items-start gap-2 cursor-pointer mb-3">
-              <input type="checkbox" name="inviteOnly" className={`w-4 h-4 mt-0.5 ${themeClasses('indigo').accent}`} />
-              <span className={`text-sm ${themeClasses('indigo').heading}`}>
-                <span className="font-medium">💌 Nur mit Einladung</span> - nur eingeladene Haushalte können antworten, jeder über seinen persönlichen Link (Einladungen verwaltet ihr in der Gästeliste). Ohne Link sehen Besucher*innen nur den Titel. Nicht zusammen mit PIN, E-Mail-Verifizierung, Konto-Pflicht oder Ticketkategorien.
+        <details className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <summary className="cursor-pointer text-sm font-medium text-gray-800 dark:text-gray-200">Weitere Optionen (Kapazität, Adresse, Konto-Pflicht)</summary>
+          <div className="mt-4 space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label htmlFor="maxCapacity" className={labelClass}>Kapazität (optional)</label>
+                <input id="maxCapacity" type="number" name="maxCapacity" min="1" className={inputClass} placeholder="unbegrenzt" />
+              </div>
+              <div>
+                <label htmlFor="slug" className={labelClass}>Adresse (URL-Wort, optional)</label>
+                <input id="slug" name="slug" className={`${inputClass} font-mono`} placeholder="wird aus dem Titel gebildet" />
+              </div>
+            </div>
+            <label className="flex cursor-pointer items-start gap-3">
+              <input type="checkbox" name="requireGuestUser" className="mt-0.5 h-4 w-4 accent-blue-600" />
+              <span className="text-sm text-gray-800 dark:text-gray-200">
+                Nur mit Teilnehmendenkonto
+                <span className="block text-xs text-gray-500 dark:text-gray-400">Antworten nur nach Login unter „Mein Konto“. Lässt sich später nicht mehr ändern und nicht mit Einladungen kombinieren.</span>
               </span>
             </label>
-            <label className="flex items-center gap-2 cursor-pointer mb-3">
-              <input type="checkbox" name="isGuestListVisible" className={`w-4 h-4 ${themeClasses('indigo').accent}`} />
-              <span className={`text-sm font-medium ${themeClasses('indigo').heading}`}>Transparente Gästeliste (Zeigt Wer kommt & Mitbringsel)</span>
-            </label>
+          </div>
+        </details>
 
-            <div>
-              <label htmlFor="eventPin" className={`block text-sm font-medium mb-1 ${themeClasses('indigo').heading}`}>Event-PIN / Passwort (Optional)</label>
-              <input id="eventPin" type="text" name="eventPin" className={`w-full border ${themeClasses('indigo').border} bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded outline-none ${themeClasses('indigo').borderFocus}`} placeholder="z.B. Sommer26 (leer lassen für öffentliches Event)" />
-              <p className={`text-xs ${themeClasses('indigo').text} mt-1`}>Gäste müssen diesen Code eingeben, bevor sie das Formular oder die Gästeliste sehen können.</p>
-            </div>
-          </ThemeSection>
-
-          <ThemeSection color="violet" title="Nur registrierte Teilnehmer" description="Nur Gäste mit eingeloggtem Teilnehmendenkonto (/mein-konto) dürfen teilnehmen - anonyme Anmeldungen sind dann nicht mehr möglich. Kann später NICHT mehr geändert werden, deshalb jetzt bewusst entscheiden.">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" name="requireGuestUser" className={`w-4 h-4 ${themeClasses('violet').accent}`} />
-              <span className={`text-sm font-medium ${themeClasses('violet').heading}`}>Nur registrierte Teilnehmer zulassen</span>
-            </label>
-          </ThemeSection>
-
-          <ThemeSection color="cyan" title="Externe Abstimmung" description="Verlinkt z.B. auf eine Restaurant-Wahl im separaten Abstimmungstool. Ein eingeloggter, verifizierter Nutzer wird dabei automatisch für diese Abstimmung erkannt (falls die Abstimmung das nutzt) - alle anderen können trotzdem ganz normal darüber abstimmen.">
-            <div>
-              <label htmlFor="pollUrl" className={`block text-sm font-medium mb-1 ${themeClasses('cyan').heading}`}>Link zur Abstimmung (Optional)</label>
-              <input id="pollUrl" type="url" name="pollUrl" className={`w-full border ${themeClasses('cyan').border} bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded outline-none ${themeClasses('cyan').borderFocus}`} placeholder="https://abstimmung.example.de/xyz" />
-            </div>
-            <div>
-              <label htmlFor="pollLabel" className={`block text-sm font-medium mb-1 ${themeClasses('cyan').heading}`}>Beschriftung des Buttons (Optional)</label>
-              <input id="pollLabel" type="text" name="pollLabel" className={`w-full border ${themeClasses('cyan').border} bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded outline-none ${themeClasses('cyan').borderFocus}`} placeholder="z.B. Restaurant für diesen Termin wählen" />
-            </div>
-            <div>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" name="datePending" className="w-4 h-4" />
-                <span className={`text-sm font-medium ${themeClasses('cyan').heading}`}>Datum noch offen - wird per Terminabstimmung festgelegt</span>
-              </label>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 ml-6">
-                Nur mit einem Link auf eine Terminabstimmung im Abstimmungstool. Das Datum oben gilt dann nur als Platzhalter
-                (bitte in der Zukunft wählen): keine Erinnerungen, kein Kalendereintrag, Gäste sehen &quot;Datum wird noch
-                abgestimmt&quot;. Sobald dort der Termin festgelegt ist, übernimmt ihn dieses Event und alle Zusagenden werden benachrichtigt.
-              </p>
-            </div>
-          </ThemeSection>
-
-          <ThemeSection color="rose" title="Fotos" description="Link zu einem geteilten Album, in das Gäste ihre Fotos hochladen können (z.B. ein Immich-Album mit Upload-Freigabe). Gäste mit Zusage sehen ihn ab dem Ende des Termins.">
-            <div>
-              <label htmlFor="photoUrl" className={`block text-sm font-medium mb-1 ${themeClasses('rose').heading}`}>Foto-Link (Optional)</label>
-              <input id="photoUrl" type="url" name="photoUrl" className={`w-full border ${themeClasses('rose').border} bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded outline-none ${themeClasses('rose').borderFocus}`} placeholder="https://fotos.example.de/s/sommerfest" />
-            </div>
-          </ThemeSection>
-
-          <ThemeSection color="emerald" title="Mitbringliste" description="Einträge, die Gäste beim Zusagen beanspruchen können - damit nicht alle dasselbe mitbringen. Eine Zeile pro Eintrag, Anzahl optional vorne: „2x Salat“, „3x Getränke“, „Nachtisch“. Ein entfernter Eintrag gibt beanspruchte Plätze frei.">
-            <div>
-              <label htmlFor="bringSlots" className={`block text-sm font-medium mb-1 ${themeClasses('emerald').heading}`}>Einträge (Optional)</label>
-              <textarea id="bringSlots" name="bringSlots" rows={4} className={`w-full border ${themeClasses('emerald').border} bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded outline-none ${themeClasses('emerald').borderFocus}`} placeholder={'2x Salat\n3x Getränke\nNachtisch'} />
-            </div>
-          </ThemeSection>
-
-          <MenuSettingsSection />
-
-          <TicketSettingsSection />
-
-          {seatingOrigin && (
-            <ThemeSection color="lime" title="Sitzplätze (Seating)" description="Verknüpft diesen Termin mit einem Event im Sitzplatz-Tool Seating. Den Link zeigt Seating in den Event-Einstellungen an, sobald dort die ID dieses Termins eingetragen ist - erst mit beiden Einträgen gilt die Verknüpfung. Zugesagte Gäste sehen dann „Sitzplatz wählen“ und später ihren Platz; Name, E-Mail (falls vorhanden) und Begleitung gehen dafür an Seating.">
-              <div>
-                <label htmlFor="seatingUrl" className={`block text-sm font-medium mb-1 ${themeClasses('lime').heading}`}>Sitzplatz-Link (Seating, optional)</label>
-                <input id="seatingUrl" type="url" name="seatingUrl" className={`w-full border ${themeClasses('lime').border} bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded outline-none ${themeClasses('lime').borderFocus}`} placeholder={`${seatingOrigin}/rsvp/…`} />
-                <p className={`text-xs ${themeClasses('lime').text} mt-1`}>Die ID für Seating gibt es erst nach dem Anlegen - den Link kannst du auch später beim Bearbeiten eintragen.</p>
-              </div>
-              <SeatingPaymentToggle checked={false} />
-            </ThemeSection>
-          )}
-
-          {timelineOrigin && (
-            <ThemeSection color="fuchsia" title="Zeitplan" description="Verknüpft diesen Termin mit einem Event im Zeitplan-Tool (Ablauf des Events). Den Link zeigt der Zeitplan in den Event-Einstellungen an, sobald dort die ID dieses Termins eingetragen ist - erst mit beiden Einträgen gilt die Verknüpfung. Zugesagte Gäste sehen dann „Zeitplan“; an den Zeitplan gehen nur Kennungen und ob die Zusage gilt, keine Namen oder Adressen.">
-              <div>
-                <label htmlFor="timelineUrl" className={`block text-sm font-medium mb-1 ${themeClasses('fuchsia').heading}`}>Zeitplan-Link (optional)</label>
-                <input id="timelineUrl" type="url" name="timelineUrl" className={`w-full border ${themeClasses('fuchsia').border} bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded outline-none ${themeClasses('fuchsia').borderFocus}`} placeholder={`${timelineOrigin}/rsvp/…`} />
-                <p className={`text-xs ${themeClasses('fuchsia').text} mt-1`}>Die ID für den Zeitplan gibt es erst nach dem Anlegen - den Link kannst du auch später beim Bearbeiten eintragen.</p>
-              </div>
-            </ThemeSection>
-          )}
-
-          <SubmitButton>Event speichern</SubmitButton>
-        </form>
-
-      </div>
-    </main>
+        <SubmitButton>Event anlegen</SubmitButton>
+      </form>
+    </AdminShell>
   )
 }

@@ -34,7 +34,7 @@ export async function POST(request: Request) {
   if (outcome === 'applied') {
     revalidatePath(`/${linked.event.slug}`)
     if (linked.event.series) revalidatePath(`/reihe/${linked.event.series.slug}/${linked.event.slug}`)
-    revalidatePath('/admin')
+    revalidatePath('/admin', 'layout')
   }
   return NextResponse.json({ ok: true, outcome }, { headers: { 'Cache-Control': 'no-store' } })
 }

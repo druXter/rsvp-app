@@ -31,6 +31,7 @@ import { companionsOf, MAX_COMPANIONS, menuOf, readCompanions, seatsOf } from '.
 import { courseOptions, readMenu, readMenuSelection, validSelection } from '../lib/menu'
 import { assertMenuChangeable, saveMenu } from '../lib/menu-store'
 import { parseDeadline } from '../lib/rsvp-deadline'
+import { EVENT_PRESETS, presetOf, slugify } from '../lib/event-presets'
 import { savePersons } from '../lib/rsvp-submission'
 
 const prisma = new PrismaClient()
@@ -467,64 +468,38 @@ export async function createUser(formData: FormData) {
 
   await prisma.user.create({ data: { email, passwordHash: await hashPassword(password), role } })
 
-  revalidatePath('/admin')
+  revalidatePath('/admin', 'layout')
   redirect('/admin')
 }
 
 /**
- * Legt ein neues, eigenständiges Event in der Datenbank an (Standard-Fall).
- * Konvertiert die Formulardaten in das passende Datenbank-Format und serialisiert
- * die dynamische Formular-Konfiguration als JSON.
+ * Neues Event (docs/KONZEPT-OBERFLAECHE.md): nur Grunddaten und eine Art (app/lib/event-presets.ts), die passende
+ * Grundeinstellungen setzt. Danach geht es auf die Event-Seite - zu den Einladungen bzw. in den passenden
+ * Abschnitt der Einstellungen. Ohne URL-Wort wird eines aus dem Titel gebildet (bei Bedarf mit -2, -3 ...).
+ * requireGuestUser lässt sich nur hier setzen (siehe schema.prisma).
  */
 export async function createEvent(formData: FormData) {
   const user = await requireUser()
   if (user.role === 'MODERATOR') return
 
-  const title = formData.get('title') as string
-  const slugInput = formData.get('slug') as string
-  const date = new Date(formData.get('date') as string)
-  const location = formData.get('location') as string
-  const description = formData.get('description') as string
-  const duration = parseInt(formData.get('duration') as string) || 4 // Fallback auf 4 Stunden
-  const maxCapStr = formData.get('maxCapacity') as string
-  const maxCapacity = maxCapStr ? parseInt(maxCapStr) : null
-  const isGuestListVisible = formData.get('isGuestListVisible') === 'on'
-  const eventPinInput = formData.get('eventPin') as string
-  const eventPin = eventPinInput ? eventPinInput.trim() : null
-
-  const autoReminder = formData.get('autoReminder') === 'on'
-  const reminderDays = parseInt(formData.get('reminderDays') as string) || 7
-  const requireVerification = formData.get('requireVerification') === 'on'
-  const enableCheckin = formData.get('enableCheckin') === 'on'
-  // Nur beim Anlegen abgefragt - siehe requireGuestUser-Kommentar in schema.prisma, kommt
-  // deshalb bewusst NICHT in updateEvent vor.
+  const title = formString(formData, 'title', 200)
+  if (!title) throw new Error('Bitte einen Titel eintragen.')
+  const date = new Date(formString(formData, 'date', 30))
+  if (Number.isNaN(date.getTime())) throw new Error('Bitte Datum und Uhrzeit eintragen.')
+  const location = formString(formData, 'location', 300) || null
+  const description = formString(formData, 'description', 10_000) || null
+  const duration = parseInt(formString(formData, 'duration', 5)) || 4
+  const maxCapStr = formString(formData, 'maxCapacity', 10)
+  const maxCapacity = maxCapStr ? parseInt(maxCapStr) || null : null
   const requireGuestUser = formData.get('requireGuestUser') === 'on'
-  const { pollUrl, pollLabel, datePending } = readPollLink(formData)
-  const photoUrl = parsePhotoUrl(formData.get('photoUrl') as string || '')
-  const bringSlots = readBringSlots(formData)
-  // Verknüpfte Tools (Seating, siehe app/lib/linked-tools-store.ts) - wirft bei ungültigem Link, bevor etwas angelegt ist
-  const toolLinks = readToolLinks(formData)
-  const ticketing = await readTicketing(formData, null)
-  const maxCompanions = readMaxCompanions(formData)
-  await assertCompanionsAllowed(maxCompanions, ticketing.ticketCategories, null)
-  const menu = readMenu(formData)
-  const inviteOnly = formData.get('inviteOnly') === 'on'
-  await assertInviteOnlyAllowed(inviteOnly, { eventPin, requireVerification, requireGuestUser }, ticketing.ticketCategories, null)
-  const deadline = readDeadlineSettings(formData)
+  const presetKey = presetOf(formData.get('preset'))
+  const preset = EVENT_PRESETS[presetKey]
+  await assertInviteOnlyAllowed(preset.inviteOnly, { eventPin: null, requireVerification: false, requireGuestUser }, [], null)
 
-  // Abfrage-Optionen für die Gäste als JSON-String speichern
-  const formConfig = JSON.stringify({
-    askEmail: formData.get('askEmail') === 'on',
-    askPhone: formData.get('askPhone') === 'on',
-    askDiet: formData.get('askDiet') === 'on',
-    askAlcohol: formData.get('askAlcohol') === 'on',
-    askBringingItem: formData.get('askBringingItem') === 'on',
-    askAllergies: formData.get('askAllergies') === 'on',
-    customQuestions: readCustomQuestions(formData),
-  })
-
-  // Den URL-Slug normalisieren (nur Kleinbuchstaben und Bindestriche)
-  const slug = slugInput.toLowerCase().replace(/[^a-z0-9-]/g, '-')
+  // URL-Wort: eingegeben (normalisiert) oder aus dem Titel, eindeutig gemacht
+  const base = formString(formData, 'slug', 100) ? slugify(formString(formData, 'slug', 100)) : slugify(title)
+  let slug = base
+  for (let i = 2; await prisma.event.findUnique({ where: { slug }, select: { id: true } }); i++) slug = `${base}-${i}`
 
   const created = await prisma.event.create({
     data: {
@@ -535,34 +510,20 @@ export async function createEvent(formData: FormData) {
       location,
       description,
       duration,
-      formConfig,
-      autoReminder,
-      reminderDays,
-      requireVerification,
       maxCapacity,
-      isGuestListVisible,
-      eventPin,
-      enableCheckin,
       requireGuestUser,
-      pollUrl,
-      pollLabel,
-      photoUrl,
-      datePending,
-      maxCompanions,
-      inviteOnly,
-      ...deadline,
-      ...(ticketing.payment ?? {}),
-      seatingRequiresPayment: ticketing.seatingRequiresPayment ?? false
+      formConfig: JSON.stringify({ ...preset.formConfig, customQuestions: [] }),
+      maxCompanions: preset.maxCompanions,
+      inviteOnly: preset.inviteOnly,
+      isGuestListVisible: preset.isGuestListVisible,
+      enableCheckin: preset.enableCheckin
     }
   })
-  await saveToolLinks(created.id, toolLinks)
-  await saveBringSlots(created.id, bringSlots)
-  await saveTicketCategories(created.id, ticketing.ticketCategories)
-  await saveMenu(created.id, menu)
 
-  // Cache leeren und zum Dashboard umleiten
-  revalidatePath('/admin')
-  redirect('/admin')
+  revalidatePath('/admin', 'layout')
+  redirect(preset.next.tab === 'einladungen'
+    ? `/admin/events/${created.id}/einladungen`
+    : `/admin/events/${created.id}/einstellungen?neu=1&abschnitt=${preset.next.section}`)
 }
 
 /**
@@ -602,7 +563,9 @@ export async function deleteEvent(formData: FormData) {
   // 3. Gäste ohne weitere Antwort nicht bis zum nächsten Cron-Lauf liegen lassen
   await deleteOrphanedParticipants(affectedParticipants.map(r => r.participantId))
 
-  revalidatePath('/admin')
+  revalidatePath('/admin', 'layout')
+  // Die Event-Seite gibt es nicht mehr - zurück zur Übersicht bzw. zur Reihe
+  redirect(event.seriesId ? `/admin/series/${event.seriesId}` : '/admin')
 }
 
 /**
@@ -703,8 +666,8 @@ export async function updateEvent(formData: FormData) {
     await notifyAttendeesOfChange(id, changes)
   }
 
-  revalidatePath('/admin')
-  redirect('/admin')
+  revalidatePath('/admin', 'layout')
+  redirect(`/admin/events/${id}/einstellungen?gespeichert=1`)
 }
 
 /**
@@ -729,7 +692,7 @@ export async function deleteRsvp(formData: FormData) {
     await fillFreeSeats(rsvpToDelete.eventId)
   }
 
-  revalidatePath('/admin')
+  revalidatePath('/admin', 'layout')
 }
 
 /**
@@ -819,8 +782,8 @@ export async function updateAdminRsvp(formData: FormData) {
     await fillFreeSeats(existingRsvp.eventId)
   }
 
-  revalidatePath('/admin')
-  redirect('/admin')
+  revalidatePath('/admin', 'layout')
+  redirect(`/admin/events/${existingRsvp.eventId}/gaeste`)
 }
 
 /**
@@ -852,7 +815,7 @@ export async function promoteFromWaitlist(formData: FormData) {
     await sendConfirmationEmail(rsvp.participant, promotedRsvp, rsvp.event)
   }
 
-  revalidatePath('/admin')
+  revalidatePath('/admin', 'layout')
 }
 
 
@@ -887,7 +850,7 @@ export async function setPaymentStatus(formData: FormData) {
 
   // "Sitzplatzwahl erst nach Zahlung": bezahlt bzw. zurückgesetzt ändert, ob die Zusage bei Seating zählt
   if (changed === 1) notifyLinkedToolsOfRsvps([id])
-  revalidatePath('/admin')
+  revalidatePath('/admin', 'layout')
 }
 
 /**
@@ -915,7 +878,7 @@ async function markPaid(
 export type BankImportState = { error?: string; fileName?: string; preview?: ImportPreview } | null
 
 /**
- * Kontoauszug-Import, Schritt 1 (app/admin/zahlungen/[eventId]): liest die hochgeladene Datei NUR im Speicher
+ * Kontoauszug-Import, Schritt 1 (app/admin/events/[id]/zahlungen): liest die hochgeladene Datei NUR im Speicher
  * (nie gespeichert - sie enthält fremde Kontodaten) und liefert die Vorschau. Markiert noch nichts.
  */
 export async function previewBankImport(_prev: BankImportState, formData: FormData): Promise<BankImportState> {
@@ -948,8 +911,8 @@ export async function confirmBankImport(formData: FormData) {
     if (paymentDue(rsvp) && await markPaid(rsvp, 'TRANSFER')) marked.push(rsvp.id)
   }
   if (marked.length > 0) notifyLinkedToolsOfRsvps(marked)
-  revalidatePath('/admin')
-  redirect(`/admin/zahlungen/${eventId}?markiert=${marked.length}`)
+  revalidatePath('/admin', 'layout')
+  redirect(`/admin/events/${eventId}/zahlungen?markiert=${marked.length}`)
 }
 
 /** Knopf "Zahlungserinnerung senden": an alle offenen Zahlungen eines Termins (nur Owner/Admin, wie Reminder). */
@@ -959,7 +922,7 @@ export async function sendPaymentReminders(formData: FormData) {
   const event = await prisma.event.findUnique({ where: { id: eventId } })
   if (!event || !isOwnerOrAdmin(user, event.ownerId)) return
   await sendPaymentRemindersForEvent(eventId)
-  revalidatePath('/admin')
+  revalidatePath('/admin', 'layout')
 }
 
 /**
@@ -983,7 +946,7 @@ export async function checkInAtDoor(formData: FormData) {
   await prisma.rsvp.updateMany({ where: { id, hasAttended: false }, data: { hasAttended: true, checkedInAt: new Date() } })
 
   revalidatePath(`/admin/checkin/${id}`)
-  revalidatePath('/admin')
+  revalidatePath('/admin', 'layout')
 }
 
 /**
@@ -1015,7 +978,7 @@ export async function cancelUnpaidRsvp(formData: FormData) {
     }
   }
   await fillFreeSeats(rsvp.eventId)
-  revalidatePath('/admin')
+  revalidatePath('/admin', 'layout')
 }
 
 /**
@@ -1057,7 +1020,7 @@ export async function sendReminder(formData: FormData) {
     data: { reminderSent: true }
   })
 
-  revalidatePath('/admin')
+  revalidatePath('/admin', 'layout')
 }
 
 /**
@@ -1117,7 +1080,7 @@ export async function createEventSeries(formData: FormData) {
     data: { ownerId: user.id, title, slug, description, askEmail, askPhone, askDiet, askAllergies, requireVerification, isGuestListVisible, eventPin, requireGuestUser }
   })
 
-  revalidatePath('/admin')
+  revalidatePath('/admin', 'layout')
   redirect(`/admin/series/${series.id}`)
 }
 
@@ -1151,8 +1114,8 @@ export async function updateEventSeries(formData: FormData) {
     data: { title, slug, description, askEmail, askPhone, askDiet, askAllergies, requireVerification, isGuestListVisible, eventPin }
   })
 
-  revalidatePath('/admin')
-  redirect(`/admin/series/${id}`)
+  revalidatePath('/admin', 'layout')
+  redirect(`/admin/series/${id}/edit?gespeichert=1`)
 }
 
 /**
@@ -1176,7 +1139,7 @@ export async function deleteEventSeries(formData: FormData) {
   await prisma.participant.deleteMany({ where: { seriesId: id } })
   await prisma.eventSeries.delete({ where: { id } })
 
-  revalidatePath('/admin')
+  revalidatePath('/admin', 'layout')
   redirect('/admin')
 }
 
@@ -1215,9 +1178,12 @@ export async function addTerminToSeries(formData: FormData) {
     customQuestions: readCustomQuestions(formData),
   })
 
-  const slug = slugInput.toLowerCase().replace(/[^a-z0-9-]/g, '-')
+  // URL-Wort: eingegeben oder aus dem Titel, eindeutig gemacht (wie bei createEvent)
+  const base = slugify(slugInput?.trim() || title)
+  let slug = base
+  for (let i = 2; await prisma.event.findUnique({ where: { slug }, select: { id: true } }); i++) slug = `${base}-${i}`
 
-  await prisma.event.create({
+  const created = await prisma.event.create({
     data: {
       ownerId: series.ownerId,
       seriesId,
@@ -1236,8 +1202,8 @@ export async function addTerminToSeries(formData: FormData) {
     }
   })
 
-  revalidatePath('/admin')
-  redirect(`/admin/series/${seriesId}`)
+  revalidatePath('/admin', 'layout')
+  redirect(`/admin/events/${created.id}/einstellungen?neu=1&abschnitt=formular`)
 }
 
 /**
@@ -1291,7 +1257,7 @@ export async function updateSeriesTermin(formData: FormData) {
   // Siehe updateEvent: gleiche Diff-Logik, entscheidet über ICS-SEQUENCE und Mail-Versand.
   const changes = diffEventFields(existingEvent, { title, date, duration, location, description })
 
-  const event = await prisma.event.update({
+  await prisma.event.update({
     where: { id },
     data: {
       title, slug, date, location, description, duration, formConfig, autoReminder, reminderDays, maxCapacity, enableCheckin,
@@ -1312,8 +1278,8 @@ export async function updateSeriesTermin(formData: FormData) {
     await notifyAttendeesOfChange(id, changes)
   }
 
-  revalidatePath('/admin')
-  redirect(`/admin/series/${event.seriesId}`)
+  revalidatePath('/admin', 'layout')
+  redirect(`/admin/events/${id}/einstellungen?gespeichert=1`)
 }
 
 /**
@@ -1335,7 +1301,7 @@ export async function toggleAttendance(formData: FormData) {
     }
   })
 
-  revalidatePath('/admin')
+  revalidatePath('/admin', 'layout')
 }
 
 /**
@@ -1386,7 +1352,7 @@ export async function shareResource(formData: FormData) {
 
   const target = await prisma.user.findUnique({ where: { email } })
   if (!target) {
-    redirect(eventId ? `/admin/edit/${eventId}?shareError=notfound` : `/admin/series/${seriesId}/edit?shareError=notfound`)
+    redirect(eventId ? `/admin/events/${eventId}/einstellungen?shareError=notfound` : `/admin/series/${seriesId}/edit?shareError=notfound`)
   }
 
   await prisma.resourceAccess.upsert({
@@ -1397,8 +1363,8 @@ export async function shareResource(formData: FormData) {
     create: { userId: target.id, eventId, seriesId }
   })
 
-  revalidatePath('/admin')
-  if (eventId) redirect(`/admin/edit/${eventId}`)
+  revalidatePath('/admin', 'layout')
+  if (eventId) redirect(`/admin/events/${eventId}/einstellungen`)
   redirect(`/admin/series/${seriesId}/edit`)
 }
 
@@ -1420,7 +1386,7 @@ export async function unshareResource(formData: FormData) {
   if (!ownerId || !isOwnerOrAdmin(user, ownerId)) return
 
   await prisma.resourceAccess.delete({ where: { id: accessId } })
-  revalidatePath('/admin')
+  revalidatePath('/admin', 'layout')
 }
 
 /**

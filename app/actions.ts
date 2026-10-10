@@ -133,7 +133,7 @@ export async function deleteMyParticipantData(formData: FormData) {
   await prisma.participantPushSubscription.deleteMany({ where: { participantId: participant.id } })
   await prisma.participant.delete({ where: { id: participant.id } })
 
-  revalidatePath('/admin')
+  revalidatePath('/admin', 'layout')
 
   if (event?.series) {
     redirect(`/reihe/${event.series.slug}/${event.slug}`)

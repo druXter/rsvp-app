@@ -254,7 +254,7 @@ export default function RsvpForm({
     // verschachtelte Formulare sind ungültiges HTML - der Browser wirft das innere Tag beim
     // Parsen weg, was zu einem Hydration-Mismatch führt und den Lösch-Button vor der
     // Hydration das RSVP-Formular absenden lässt. Im Embed-Modus entfällt die Box-Optik.
-    <div className={`space-y-6 text-gray-900 dark:text-gray-100 ${isEmbed ? '' : 'bg-white p-6 rounded-lg shadow dark:bg-gray-800'}`}>
+    <div className={`space-y-6 text-gray-900 dark:text-gray-100 ${isEmbed ? '' : 'bg-white p-6 rounded-xl border border-gray-200 shadow-sm dark:bg-gray-800 dark:border-gray-700'}`}>
     {/* Ohne ?token= kam der Participant über die Gast-Session - die Route löst ihn dann ebenfalls darüber auf */}
     {payment && <PaymentBox payment={payment} />}
     {seatAfterPayment && <SeatAfterPaymentHint />}

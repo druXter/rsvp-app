@@ -1,9 +1,9 @@
-// app/admin/zahlungen/[eventId]/bank-import-form.tsx
+// app/admin/events/[id]/zahlungen/bank-import-form.tsx
 'use client'
 
 import { useActionState } from 'react'
-import { confirmBankImport, previewBankImport, type BankImportState } from '../../actions'
-import SubmitButton from '../../../ui/submit-button'
+import { confirmBankImport, previewBankImport, type BankImportState } from '../../../actions'
+import SubmitButton from '../../../../ui/submit-button'
 
 /**
  * Zwei Schritte: Datei hochladen -> Vorschau (previewBankImport, markiert nichts) -> Auswahl bestätigen

@@ -1,11 +1,12 @@
 // app/admin/users/page.tsx
 import { PrismaClient } from '@prisma/client'
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
 import { getCurrentUser } from '../../lib/auth'
 import { updateUserRole } from '../actions'
 import { ROLE_LABELS } from '../../lib/permissions'
 import DeleteUserButton from '../delete-user-button'
+import AdminShell from '../admin-shell'
+import { ButtonLink, PageHeader } from '../../ui/kit'
 
 const prisma = new PrismaClient()
 
@@ -26,13 +27,9 @@ export default async function UsersPage() {
   })
 
   return (
-    <main className="min-h-screen bg-gray-100 dark:bg-gray-900 py-12 px-4">
-      <div className="max-w-4xl mx-auto space-y-6">
-
-        <div className="flex justify-between items-center bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Kontenverwaltung</h1>
-          <Link href="/admin" className="text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition">← Dashboard</Link>
-        </div>
+    <AdminShell user={user}>
+      <div className="space-y-6">
+        <PageHeader title="Konten" subtitle="Verwaltungskonten aller Rollen" actions={<ButtonLink href="/admin/create-user" variant="primary">+ Konto anlegen</ButtonLink>} />
 
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-x-auto">
           <table className="w-full text-left text-sm min-w-max">
@@ -91,6 +88,6 @@ export default async function UsersPage() {
         </p>
 
       </div>
-    </main>
+    </AdminShell>
   )
 }

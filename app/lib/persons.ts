@@ -137,6 +137,11 @@ export function readCompanions(formData: FormData): CompanionInput[] | undefined
   return companions
 }
 
+/** Altersgruppe (außer erwachsen), Essen und Allergien einer Person als Liste ("Kind", "Vegan", "Nüsse"). */
+export function personDetails(person: Pick<PersonData, 'ageGroup' | 'dietaryOption' | 'allergies'>): string[] {
+  return [AGE_GROUP_SHORT[person.ageGroup], person.dietaryOption, person.allergies].filter((d): d is string => !!d)
+}
+
 /** "Anna (Kind, Vegetarisch, Nüsse)" - für Verwaltung, Einlass und Mails. */
 export function describePerson(person: PersonData, fallbackName = 'Begleitung'): string {
   const details = [AGE_GROUP_SHORT[person.ageGroup], person.dietaryOption, person.allergies].filter(Boolean)

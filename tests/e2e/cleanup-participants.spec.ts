@@ -20,12 +20,16 @@ async function withPush(participant: Participant) {
 const exists = async (participant: Participant) => !!(await prisma.participant.findUnique({ where: { id: participant.id } }))
 const pushCount = (participant: Participant) => prisma.participantPushSubscription.count({ where: { participantId: participant.id } })
 
-/** Dashboard eines Kontos mit den beiden Lösch-Formularen (Termin, Antwort) zum Nachspielen. */
-async function dashboardForms(browser: Browser, owner: User) {
+/**
+ * Die beiden Lösch-Formulare (Termin in den Einstellungen, Antwort in der Gästeliste) einer Event-Seite zum
+ * Nachspielen - `sample` ist ein Event des Kontos, das mindestens eine Antwort hat.
+ */
+async function dashboardForms(browser: Browser, owner: User, sample: { id: string }) {
   const page = await browser.newPage()
   await login(page, owner.email)
-  await page.goto('/admin')
-  const deleteEvent = await readForm(page, 'form:has(input[name="eventId"]):has(button:has-text("Löschen"))')
+  await page.goto(`/admin/events/${sample.id}/einstellungen`)
+  const deleteEvent = await readForm(page, 'form:has(input[name="eventId"]):has(button:has-text("Event löschen"))')
+  await page.goto(`/admin/events/${sample.id}/gaeste`)
   const deleteRsvp = await readForm(page, 'form:has(input[name="rsvpId"]):has(button[title="Antwort löschen"])')
   return {
     deleteEvent: (eventId: string) => submitForm(page, deleteEvent, { eventId }),
@@ -42,7 +46,7 @@ test('Termin löschen: Gäste ohne weitere Antwort sofort weg, alle anderen blei
   await createRsvp(other, { participantId: alsoElsewhere.id })
   const unrelated = (await createRsvp(other)).participant
 
-  const forms = await dashboardForms(browser, owner)
+  const forms = await dashboardForms(browser, owner, other)
   await forms.deleteEvent(doomed.id)
   expect(await prisma.event.findUnique({ where: { id: doomed.id } })).toBeNull()
 
@@ -57,7 +61,8 @@ test('Termin löschen: Gäste ohne weitere Antwort sofort weg, alle anderen blei
 
 test('Reihen-Termin löschen: Konto-Gast mit weiterem Termin bleibt, nach dem letzten Termin nur das Profil weg', async ({ browser }) => {
   const owner = await createAccount('CREATOR')
-  await createEvent(owner) // damit das Dashboard ein Lösch-Formular für Termine enthält
+  const sample = await createEvent(owner) // Event-Seite mit den Lösch-Formularen
+  await createRsvp(sample)
   const series = await createSeries(owner)
   const first = await createTermin(series)
   const second = await createTermin(series)
@@ -66,7 +71,7 @@ test('Reihen-Termin löschen: Konto-Gast mit weiterem Termin bleibt, nach dem le
   const shared = await withPush((await createRsvp(first, { guestUserId: guest.id })).participant)
   await createRsvp(second, { participantId: shared.id })
 
-  const forms = await dashboardForms(browser, owner)
+  const forms = await dashboardForms(browser, owner, sample)
   await forms.deleteEvent(first.id)
   expect(await prisma.event.findUnique({ where: { id: first.id } })).toBeNull()
   expect(await exists(shared)).toBe(true)
@@ -89,7 +94,7 @@ test('Einzelne Antwort löschen: Participant weg, außer er hat noch eine andere
   const multi = await createRsvp(event)
   await createRsvp(other, { participantId: multi.participant.id })
 
-  const forms = await dashboardForms(browser, owner)
+  const forms = await dashboardForms(browser, owner, other)
   await forms.deleteRsvp(single.rsvp.id)
   expect(await prisma.rsvp.findUnique({ where: { id: single.rsvp.id } })).toBeNull()
   expect(await exists(single.participant)).toBe(false)

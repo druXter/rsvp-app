@@ -20,14 +20,16 @@ test('Verwaltung: alte Termine landen im eingeklappten Archiv der Reihe', async 
   const { owner, series, upcoming, recent, old, pending } = await seriesWithTermine()
   await login(page, owner.email)
 
-  for (const path of [`/admin/series/${series.id}`, '/admin']) {
-    await page.goto(path)
-    for (const t of [upcoming, recent, pending]) await expect(page.getByText(t.title)).toBeVisible()
-    await expect(page.getByText(old.title)).toBeHidden()
+  await page.goto(`/admin/series/${series.id}`)
+  for (const t of [upcoming, recent, pending]) await expect(page.getByText(t.title)).toBeVisible()
+  await expect(page.getByText(old.title)).toBeHidden()
+  await page.locator('summary', { hasText: '🗄️ Archiv (1 vergangener Termin)' }).click()
+  await expect(page.getByText(old.title)).toBeVisible()
 
-    await page.locator('summary', { hasText: '🗄️ Archiv (1 vergangener Termin)' }).click()
-    await expect(page.getByText(old.title)).toBeVisible()
-  }
+  // Die Übersicht zeigt pro Reihe nur die nächsten Termine, nie archivierte
+  await page.goto('/admin')
+  await expect(page.getByTestId('series-card').getByText(upcoming.title)).toBeVisible()
+  await expect(page.getByText(old.title)).toHaveCount(0)
 })
 
 test('Nutzer: alte Termine fehlen in Reihen-Übersicht und Mein Konto, bleiben aber erreichbar', async ({ page }) => {

@@ -17,6 +17,7 @@ import { guestTicketing } from '../../../lib/guest-ticketing'
 import { TOOL_LINKS } from '../../../lib/linked-tools-store'
 import { isTimelineConfirmed, timelineLinkOf } from '../../../lib/timeline'
 import { deadlinePassed, formatDeadline } from '../../../lib/rsvp-deadline'
+import EventHeader from '../../../ui/event-header'
 
 const prisma = new PrismaClient()
 
@@ -161,6 +162,8 @@ export default async function SeriesEventPage({
         <Link href={`/reihe/${series.slug}${token ? `?token=${token}` : ''}`} className="inline-block text-sm text-blue-600 hover:underline">
           ← Alle Termine von {series.title}
         </Link>
+
+        <EventHeader event={event} seriesTitle={series.title} />
 
         <PollResultBanner pollResult={event.pollResult} />
 

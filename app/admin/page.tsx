@@ -1,252 +1,140 @@
 // app/admin/page.tsx
-import { PrismaClient } from '@prisma/client'
 import Link from 'next/link'
-import { logoutUser } from './actions'
 import { redirect } from 'next/navigation'
+import type { Prisma } from '@prisma/client'
+import { prisma } from '../lib/prisma'
 import { getCurrentUser } from '../lib/auth'
-import { getCurrentGuestUser } from '../lib/guest-auth'
-import { ROLE_LABELS } from '../lib/permissions'
-import EventRsvpCard from './event-rsvp-card'
-import DeleteSeriesButton from './delete-series-button'
-import SeriesTermine from './series-termine'
-import PushSubscribeButton from './push-subscribe-button'
+import { isPastEvent, summarizeEvent } from '../lib/event-summary'
+import AdminShell from './admin-shell'
+import EventRow, { type EventRowData } from './event-row'
+import { Badge, ButtonLink, EmptyState, PageHeader } from '../ui/kit'
 
-const prisma = new PrismaClient()
-
-const rsvpInclude = {
+/** Was die Übersicht pro Termin braucht - bewusst ohne Gästedaten (die stehen auf der Event-Seite). */
+const EVENT_SUMMARY = {
   rsvps: {
-    include: { participant: true, persons: { include: { menuChoices: true } }, bringClaims: { select: { slot: { select: { label: true, position: true } } } } },
-    orderBy: { createdAt: 'desc' as const }
+    select: {
+      isAttending: true, isOnWaitlist: true, hasAttended: true, amountCents: true, paidAt: true, refundedAt: true, paymentDueAt: true,
+      persons: { select: { isAttending: true, ageGroup: true } }
+    }
   },
-  // Mitbringliste: Stand je Eintrag für die Übersicht der Karte
-  bringSlots: { orderBy: { position: 'asc' as const }, select: { label: true, quantity: true, _count: { select: { claims: true } } } },
-  // Tickets: Kategorien für Übersicht und Spalte "Ticket / Zahlung"
-  ticketCategories: { orderBy: { position: 'asc' as const }, select: { id: true, label: true, capacity: true } },
-  // Menü: Gänge für die Spalte "Menü" und den Link zur Küchenübersicht
-  menuCourses: { orderBy: { position: 'asc' as const }, select: { id: true, label: true } }
+  owner: { select: { email: true } },
+  _count: { select: { invitations: true, ticketCategories: true, menuCourses: true } }
+} satisfies Prisma.EventInclude
+
+type SummaryEvent = Prisma.EventGetPayload<{ include: typeof EVENT_SUMMARY }>
+
+function toRow(event: SummaryEvent, viewerEmail: string, sharedBy: string | null = null): EventRowData {
+  return {
+    id: event.id,
+    title: event.title,
+    date: event.date,
+    datePending: event.datePending,
+    location: event.location,
+    maxCapacity: event.maxCapacity,
+    inviteOnly: event.inviteOnly,
+    hasTickets: event._count.ticketCategories > 0,
+    hasMenu: event._count.menuCourses > 0,
+    summary: summarizeEvent(event.rsvps, event.inviteOnly ? event._count.invitations : null),
+    ownerEmail: !sharedBy && event.owner.email !== viewerEmail ? event.owner.email : null,
+    sharedBy
+  }
 }
 
 /**
- * Eigene (bzw. bei Admins: alle) Einzel-Events.
+ * Übersicht der Verwaltung (docs/KONZEPT-OBERFLAECHE.md): anstehende Events, Reihen mit ihrem nächsten Termin und
+ * eingeklappt die vergangenen - jeweils mit den wichtigsten Zahlen. Gästelisten, Einladungen, Zahlungen und
+ * Einstellungen liegen auf der Event-Seite (/admin/events/[id]). Admins sehen alle Konten, Moderator*innen nur,
+ * was ihnen freigegeben wurde.
  */
-const getStandaloneEvents = (userId: string, isAdmin: boolean) => {
-  return prisma.event.findMany({
-    where: { seriesId: null, ...(isAdmin ? {} : { ownerId: userId }) },
-    include: { ...rsvpInclude, owner: { select: { email: true } } },
-    orderBy: { date: 'asc' }
-  })
-}
-
-/**
- * Eigene (bzw. bei Admins: alle) Veranstaltungsreihen.
- */
-const getSeries = (userId: string, isAdmin: boolean) => {
-  return prisma.eventSeries.findMany({
-    where: isAdmin ? {} : { ownerId: userId },
-    include: {
-      events: { include: rsvpInclude, orderBy: { date: 'asc' } },
-      owner: { select: { email: true } }
-    },
-    orderBy: { createdAt: 'asc' }
-  })
-}
-
-/**
- * Reihen, auf die dieser Nutzer per ResourceAccess Moderator-Zugriff hat (nicht seine eigenen).
- */
-const getSharedSeries = async (userId: string) => {
-  const access = await prisma.resourceAccess.findMany({ where: { userId, seriesId: { not: null } }, select: { seriesId: true } })
-  const seriesIds = access.map(a => a.seriesId!).filter(Boolean)
-  if (seriesIds.length === 0) return []
-  return prisma.eventSeries.findMany({
-    where: { id: { in: seriesIds } },
-    include: {
-      events: { include: rsvpInclude, orderBy: { date: 'asc' } },
-      owner: { select: { email: true } }
-    },
-    orderBy: { createdAt: 'asc' }
-  })
-}
-
-/**
- * Einzelne Events (Standalone oder Termine), die diesem Nutzer direkt per ResourceAccess
- * geteilt wurden - unabhängig von einer evtl. reihenweiten Freigabe (die läuft über getSharedSeries).
- */
-const getSharedEvents = async (userId: string, excludeSeriesIds: string[]) => {
-  const access = await prisma.resourceAccess.findMany({ where: { userId, eventId: { not: null } }, select: { eventId: true } })
-  const eventIds = access.map(a => a.eventId!).filter(Boolean)
-  if (eventIds.length === 0) return []
-  const events = await prisma.event.findMany({
-    where: { id: { in: eventIds } },
-    include: { ...rsvpInclude, owner: { select: { email: true } } },
-    orderBy: { date: 'asc' }
-  })
-  return events.filter(e => !e.seriesId || !excludeSeriesIds.includes(e.seriesId))
-}
-
 export default async function AdminDashboard() {
   const user = await getCurrentUser()
   if (!user) redirect('/admin/login')
 
-  // Nur relevant, falls DIESES Konto (per anderer E-Mail oder zufällig gleicher) auch
-  // gerade als Nutzer eingeloggt ist (eigenes Cookie, siehe app/lib/guest-auth.ts) -
-  // dann bekommt es einen direkten Wechsel-Link, statt sich manuell zu "Mein Konto"
-  // durchklicken zu müssen (wichtig v.a. in der installierten PWA).
-  const guestUser = await getCurrentGuestUser()
-
   const isAdmin = user.role === 'ADMIN'
   const isModerator = user.role === 'MODERATOR'
 
-  const [events, series] = await Promise.all([getStandaloneEvents(user.id, isAdmin), getSeries(user.id, isAdmin)])
-  const sharedSeries = isAdmin ? [] : await getSharedSeries(user.id)
-  const sharedEvents = isAdmin ? [] : await getSharedEvents(user.id, sharedSeries.map(s => s.id))
+  const access = isAdmin ? [] : await prisma.resourceAccess.findMany({ where: { userId: user.id }, select: { eventId: true, seriesId: true } })
+  const sharedEventIds = access.map(a => a.eventId).filter((id): id is string => !!id)
+  const sharedSeriesIds = access.map(a => a.seriesId).filter((id): id is string => !!id)
+
+  const [ownEvents, sharedEvents, series] = await Promise.all([
+    prisma.event.findMany({ where: { seriesId: null, ...(isAdmin ? {} : { ownerId: user.id }) }, include: EVENT_SUMMARY, orderBy: { date: 'asc' } }),
+    sharedEventIds.length > 0
+      ? prisma.event.findMany({ where: { id: { in: sharedEventIds }, ownerId: { not: user.id } }, include: EVENT_SUMMARY, orderBy: { date: 'asc' } })
+      : Promise.resolve([]),
+    prisma.eventSeries.findMany({
+      where: isAdmin ? {} : { OR: [{ ownerId: user.id }, { id: { in: sharedSeriesIds } }] },
+      include: { owner: { select: { email: true } }, events: { include: EVENT_SUMMARY, orderBy: { date: 'asc' } } },
+      orderBy: { createdAt: 'asc' }
+    })
+  ])
+
+  // Freigegebene Termine einer Reihe, die hier schon als Ganzes steht, nicht doppelt zeigen
+  const seriesIds = new Set(series.map(s => s.id))
+  const all = [...ownEvents.map(e => ({ e, shared: null as string | null })), ...sharedEvents.filter(e => !e.seriesId || !seriesIds.has(e.seriesId)).map(e => ({ e, shared: e.owner.email }))]
+  const upcoming = all.filter(x => !isPastEvent(x.e)).sort((a, b) => a.e.date.getTime() - b.e.date.getTime()).map(x => toRow(x.e, user.email, x.shared))
+  const past = all.filter(x => isPastEvent(x.e)).sort((a, b) => b.e.date.getTime() - a.e.date.getTime()).map(x => toRow(x.e, user.email, x.shared))
 
   return (
-    <main className="min-h-screen bg-gray-100 dark:bg-gray-900 py-12 px-4">
-      <div className="max-w-4xl mx-auto space-y-8">
-
-        <div className="flex justify-between items-center bg-white dark:bg-gray-800 p-6 rounded-lg shadow flex-wrap gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">RSVP-Verwaltung</h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400">Eingeloggt als {user.email} <span className="text-gray-400 dark:text-gray-500">({ROLE_LABELS[user.role]})</span></p>
-          </div>
-          <div className="flex gap-4 flex-wrap">
-            <PushSubscribeButton vapidPublicKey={process.env.VAPID_PUBLIC_KEY || null} />
-            <Link href="/admin/account" className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition text-sm font-medium flex items-center">
-              ⚙️ Konto-Einstellungen
-            </Link>
-            {guestUser && (
-              <Link href="/mein-konto" className="bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 px-4 py-2 rounded hover:bg-emerald-200 dark:hover:bg-emerald-900 transition text-sm font-medium flex items-center">
-                🔀 Mein Konto ({guestUser.email})
-              </Link>
-            )}
-            {isAdmin && (
-              <Link href="/admin/users" className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition text-sm font-medium flex items-center">
-                👥 Kontenverwaltung
-              </Link>
-            )}
-            {!isModerator && (
-              <Link href="/admin/create-user" className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition text-sm font-medium flex items-center">
-                + Konto anlegen
-              </Link>
-            )}
-            {!isModerator && (
-              <Link href="/admin/series/create" className="bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 px-4 py-2 rounded hover:bg-purple-200 dark:hover:bg-purple-900 transition text-sm font-medium flex items-center">
-                + Neue Reihe
-              </Link>
-            )}
-            {!isModerator && (
-              <Link href="/admin/create" className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition text-sm font-medium flex items-center">
-                + Neues Event
-              </Link>
-            )}
-            <form action={logoutUser}>
-              <button type="submit" className="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-4 py-2 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition text-sm font-medium">
-                Abmelden
-              </button>
-            </form>
-          </div>
-        </div>
-
-        {events.length === 0 && series.length === 0 && sharedSeries.length === 0 && sharedEvents.length === 0 && (
-          <p className="text-center text-gray-500 dark:text-gray-400 italic bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-            {isModerator
-              ? 'Dir wurde noch kein Event oder keine Reihe freigegeben.'
-              : 'Noch keine Events oder Reihen. Leg oben dein erstes Event an.'}
-          </p>
+    <AdminShell user={user}>
+      <PageHeader
+        title="Events"
+        subtitle={isAdmin ? 'Alle Events und Reihen aller Konten' : isModerator ? 'Für dich freigegebene Events und Reihen' : undefined}
+        actions={!isModerator && (
+          <>
+            <ButtonLink href="/admin/series/create">+ Neue Reihe</ButtonLink>
+            <ButtonLink href="/admin/create" variant="primary">+ Neues Event</ButtonLink>
+          </>
         )}
+      />
 
-        {events.map(event => (
-          <EventRsvpCard
-            key={event.id}
-            event={event}
-            requireVerification={event.requireVerification}
-            access="owner"
-            ownerEmail={isAdmin && event.owner.email !== user.email ? event.owner.email : undefined}
-          />
-        ))}
+      {all.length === 0 && series.length === 0 && (
+        <EmptyState>
+          {isModerator ? 'Dir wurde noch kein Event und keine Reihe freigegeben.' : 'Noch keine Events. Leg mit „+ Neues Event“ dein erstes an.'}
+        </EmptyState>
+      )}
 
-        {series.length > 0 && (
-          <div className="space-y-6">
-            <h2 className="text-lg font-bold text-gray-700 dark:text-gray-300 border-b border-gray-300 dark:border-gray-700 pb-2">
-              {isAdmin ? 'Veranstaltungsreihen (alle Konten)' : 'Veranstaltungsreihen'}
-            </h2>
+      {upcoming.length > 0 && (
+        <section className="mb-8" aria-labelledby="upcoming">
+          <h2 id="upcoming" className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Anstehend</h2>
+          <div className="grid gap-3">{upcoming.map(r => <EventRow key={r.id} event={r} />)}</div>
+        </section>
+      )}
 
-            {series.map(s => (
-              <div key={s.id} className="bg-purple-50 dark:bg-purple-950 border border-purple-200 dark:border-purple-800 rounded-lg p-4 space-y-4">
-                <div className="flex justify-between items-start bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm">
-                  <div>
-                    <h3 className="text-lg font-bold text-purple-900 dark:text-purple-300">{s.title}</h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Reihen-Slug: <span className="font-mono bg-gray-100 dark:bg-gray-700 px-1 py-0.5 rounded">/reihe/{s.slug}</span></p>
-                    {isAdmin && s.owner.email !== user.email && (
-                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Eigentümer: {s.owner.email}</p>
-                    )}
-                    {s.description && <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">{s.description}</p>}
+      {series.length > 0 && (
+        <section className="mb-8" aria-labelledby="series">
+          <h2 id="series" className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Reihen</h2>
+          <div className="grid gap-4">
+            {series.map(s => {
+              const next = s.events.filter(e => !isPastEvent(e))
+              return (
+                <div key={s.id} className="rounded-xl border border-purple-200 bg-purple-50/50 p-3 dark:border-purple-900 dark:bg-purple-950/30" data-testid="series-card">
+                  <div className="mb-2 flex flex-wrap items-center gap-2 px-1">
+                    <Link href={`/admin/series/${s.id}`} className="font-semibold text-purple-900 hover:underline dark:text-purple-200">{s.title}</Link>
+                    <Badge tone="purple">Reihe · {s.events.length} Termine</Badge>
+                    {!isAdmin && s.ownerId !== user.id && <Badge tone="teal" title={`freigegeben von ${s.owner.email}`}>freigegeben</Badge>}
+                    {isAdmin && s.owner.email !== user.email && <span className="text-xs text-gray-500">{s.owner.email}</span>}
+                    <Link href={`/admin/series/${s.id}`} className="ml-auto text-sm text-purple-800 hover:underline dark:text-purple-300">Alle Termine →</Link>
                   </div>
-                  <div className="flex gap-2 flex-wrap justify-end">
-                    <Link href={`/admin/series/${s.id}`} className="px-3 py-1 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 text-sm font-medium rounded hover:bg-purple-200 dark:hover:bg-purple-800 transition">
-                      ⚙️ Verwalten
-                    </Link>
-                    <DeleteSeriesButton seriesId={s.id} />
-                  </div>
+                  {next.length === 0
+                    ? <p className="px-1 pb-1 text-sm text-gray-500 dark:text-gray-400">Kein anstehender Termin.</p>
+                    : <div className="grid gap-2">{next.slice(0, 2).map(e => <EventRow key={e.id} event={toRow(e, user.email)} />)}</div>}
+                  {next.length > 2 && <p className="px-1 pt-2 text-xs text-gray-500 dark:text-gray-400">… und {next.length - 2} weitere anstehende Termine</p>}
                 </div>
-
-                <div className="pl-4 border-l-4 border-purple-200 dark:border-purple-800 space-y-6">
-                  <SeriesTermine
-                    events={s.events}
-                    requireVerification={s.requireVerification}
-                    access="owner"
-                    empty={<p className="text-sm text-purple-700 dark:text-purple-300 italic">Noch keine Termine in dieser Reihe.</p>}
-                  />
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
-        )}
+        </section>
+      )}
 
-        {sharedSeries.length > 0 && (
-          <div className="space-y-6">
-            <h2 className="text-lg font-bold text-gray-700 dark:text-gray-300 border-b border-gray-300 dark:border-gray-700 pb-2">Für dich freigegebene Reihen</h2>
-
-            {sharedSeries.map(s => (
-              <div key={s.id} className="bg-teal-50 dark:bg-teal-950 border border-teal-200 dark:border-teal-800 rounded-lg p-4 space-y-4">
-                <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm">
-                  <h3 className="text-lg font-bold text-teal-900 dark:text-teal-300">{s.title}</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Reihen-Slug: <span className="font-mono bg-gray-100 dark:bg-gray-700 px-1 py-0.5 rounded">/reihe/{s.slug}</span></p>
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Eigentümer: {s.owner.email}</p>
-                  {s.description && <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">{s.description}</p>}
-                </div>
-
-                <div className="pl-4 border-l-4 border-teal-200 dark:border-teal-800 space-y-6">
-                  <SeriesTermine
-                    events={s.events}
-                    requireVerification={s.requireVerification}
-                    access="moderator"
-                    empty={<p className="text-sm text-teal-700 dark:text-teal-300 italic">Noch keine Termine in dieser Reihe.</p>}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {sharedEvents.length > 0 && (
-          <div className="space-y-6">
-            <h2 className="text-lg font-bold text-gray-700 dark:text-gray-300 border-b border-gray-300 dark:border-gray-700 pb-2">Für dich freigegebene Events</h2>
-
-            {sharedEvents.map(event => (
-              <EventRsvpCard
-                key={event.id}
-                event={event}
-                requireVerification={event.requireVerification}
-                access="moderator"
-                ownerEmail={event.owner.email}
-              />
-            ))}
-          </div>
-        )}
-
-      </div>
-    </main>
+      {past.length > 0 && (
+        <details className="group" data-testid="past-events">
+          <summary className="mb-3 cursor-pointer list-none text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            <span className="inline-block transition group-open:rotate-90">▸</span> Vergangen ({past.length})
+          </summary>
+          <div className="grid gap-3">{past.map(r => <EventRow key={r.id} event={r} muted />)}</div>
+        </details>
+      )}
+    </AdminShell>
   )
 }

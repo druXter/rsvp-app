@@ -89,8 +89,9 @@ test('Gäste wählen pro Person, Kleinkinder ohne Menü; Verwaltung, Küchenübe
 
   // Verwaltung: Menüspalte, Link zur Küchenübersicht
   await login(page, owner.email)
-  await expect(page.getByText('Anna: Hauptgang: Fisch, Dessert: Eis; Ben: Hauptgang: Vegetarisch, Dessert: Obst')).toBeVisible()
-  await page.getByRole('link', { name: /Küchenübersicht/ }).first().click()
+  await page.goto(`/admin/events/${event.id}/gaeste`)
+  await expect(page.getByTestId('guest-menu')).toHaveText('Anna: Hauptgang: Fisch, Dessert: Eis; Ben: Hauptgang: Vegetarisch, Dessert: Obst')
+  await page.getByRole('link', { name: 'Küche' }).click()
   await expect(page.getByTestId('kitchen-totals')).toContainText('3 Personen mit festem Platz: 1 Erwachsene, 1 Kinder, 1 Kleinkinder')
   const courses = page.getByTestId('kitchen-courses')
   await expect(courses.getByRole('row', { name: /^Fisch 1 0 1$/ })).toBeVisible()

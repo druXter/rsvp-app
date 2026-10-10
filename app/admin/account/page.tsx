@@ -1,6 +1,5 @@
 // app/admin/account/page.tsx
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
 import { getCurrentUser } from '../../lib/auth'
 import { ROLE_LABELS } from '../../lib/permissions'
 import { changePassword, requestEmailChange, cancelEmailChange, unlinkIdentity } from '../actions'
@@ -8,6 +7,8 @@ import { prisma } from '../../lib/prisma'
 import { getIdps, idpLabel } from '../../lib/suite'
 import SubmitButton from '../../ui/submit-button'
 import AuthError from '../../ui/auth-error'
+import AdminShell from '../admin-shell'
+import { PageHeader, inputClass } from '../../ui/kit'
 
 /**
  * Konto-Einstellungen für eingeloggte Admin-Konten (jeder Rolle inkl. Admin): Passwort
@@ -35,16 +36,9 @@ export default async function AccountPage({
   const linkable = getIdps().filter(idp => !identities.some(i => i.issuer === idp.issuer))
 
   return (
-    <main className="min-h-screen bg-gray-100 dark:bg-gray-900 py-12 px-4">
-      <div className="max-w-md mx-auto space-y-6">
-
-        <div className="flex justify-between items-center bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Konto-Einstellungen</h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400">{user.email} <span className="text-gray-400 dark:text-gray-500">({ROLE_LABELS[user.role]})</span></p>
-          </div>
-          <Link href="/admin" className="text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition text-sm">← Dashboard</Link>
-        </div>
+    <AdminShell user={user} width="narrow">
+      <div className="space-y-6">
+        <PageHeader title="Konto-Einstellungen" subtitle={<>{user.email} ({ROLE_LABELS[user.role]})</>} back={{ href: '/admin', label: 'Alle Events' }} />
 
         {passwordChanged && (
           <div className="p-3 bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 text-sm rounded">Passwort erfolgreich geändert. Andere angemeldete Geräte wurden abgemeldet.</div>
@@ -85,11 +79,11 @@ export default async function AccountPage({
           <form action={changePassword} className="space-y-3">
             <div>
               <label htmlFor="currentPassword" className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Aktuelles Passwort</label>
-              <input id="currentPassword" type="password" name="currentPassword" required className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 rounded text-gray-900 dark:text-gray-100" />
+              <input id="currentPassword" type="password" name="currentPassword" required className={inputClass} />
             </div>
             <div>
               <label htmlFor="newPassword" className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Neues Passwort</label>
-              <input id="newPassword" type="password" name="newPassword" required minLength={10} className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 rounded text-gray-900 dark:text-gray-100" placeholder="Mindestens 10 Zeichen" />
+              <input id="newPassword" type="password" name="newPassword" required minLength={10} className={inputClass} placeholder="Mindestens 10 Zeichen" />
             </div>
             <SubmitButton>Passwort ändern</SubmitButton>
           </form>
@@ -100,11 +94,11 @@ export default async function AccountPage({
           <form action={requestEmailChange} className="space-y-3">
             <div>
               <label htmlFor="currentPasswordForEmail" className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Aktuelles Passwort</label>
-              <input id="currentPasswordForEmail" type="password" name="currentPassword" required className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 rounded text-gray-900 dark:text-gray-100" />
+              <input id="currentPasswordForEmail" type="password" name="currentPassword" required className={inputClass} />
             </div>
             <div>
               <label htmlFor="newEmail" className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Neue E-Mail-Adresse</label>
-              <input id="newEmail" type="email" name="newEmail" required className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 rounded text-gray-900 dark:text-gray-100" />
+              <input id="newEmail" type="email" name="newEmail" required className={inputClass} />
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Wird erst nach Bestätigung über einen an diese Adresse geschickten Link wirksam.</p>
             </div>
             <SubmitButton>Bestätigungslink anfordern</SubmitButton>
@@ -144,6 +138,6 @@ export default async function AccountPage({
         )}
 
       </div>
-    </main>
+    </AdminShell>
   )
 }

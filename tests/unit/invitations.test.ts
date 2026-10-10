@@ -19,6 +19,7 @@ describe('Einladungen (docs/KONZEPT-EINLADUNGEN.md)', () => {
     expect(() => parseInvitationLines('A; x@y.de; z@y.de')).toThrow('zwei E-Mail')
     expect(() => parseInvitationLines('A; Anna; Ben')).toThrow('mehreren Feldern')
     expect(() => parseInvitationLines('A; Anna (Oma)')).toThrow('keine Altersgruppe')
+    expect(() => parseInvitationLines('A; Anna (constructor)')).toThrow('keine Altersgruppe')
     expect(() => parseInvitationLines('A; +11')).toThrow('höchstens +10')
     expect(() => parseInvitationLines(`A; ${Array.from({ length: 21 }, (_, i) => `P${i}`).join(', ')}`)).toThrow('höchstens 20')
   })

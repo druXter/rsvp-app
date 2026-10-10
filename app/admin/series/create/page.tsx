@@ -1,10 +1,11 @@
 // app/admin/series/create/page.tsx
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
 import { createEventSeries } from '../../actions'
 import { getCurrentUser } from '../../../lib/auth'
 import SubmitButton from '../../../ui/submit-button'
 import ThemeSection, { themeClasses } from '../../../ui/theme-section'
+import AdminShell from '../../admin-shell'
+import { PageHeader, inputClass } from '../../../ui/kit'
 
 export default async function CreateEventSeriesPage() {
   const user = await getCurrentUser()
@@ -12,15 +13,9 @@ export default async function CreateEventSeriesPage() {
   if (user.role === 'MODERATOR') redirect('/admin')
 
   return (
-    <main className="min-h-screen bg-gray-100 dark:bg-gray-900 py-12 px-4">
-      <div className="max-w-2xl mx-auto bg-white dark:bg-gray-800 p-8 rounded-lg shadow space-y-6 text-gray-900 dark:text-gray-100">
-
-        <div className="flex justify-between items-center border-b pb-4">
-          <h1 className="text-2xl font-bold">Neue Veranstaltungsreihe anlegen</h1>
-          <Link href="/admin" className="text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition">
-            Zurück
-          </Link>
-        </div>
+    <AdminShell user={user} width="narrow">
+      <PageHeader title="Neue Reihe" back={{ href: '/admin', label: 'Alle Events' }} subtitle="Für regelmäßige Termine mit einem gemeinsamen Gäste-Profil (z.B. Stammtisch, Training)." />
+      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800 space-y-6 text-gray-900 dark:text-gray-100">
 
         <p className="text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 p-3 rounded border border-gray-200 dark:border-gray-700">
           Eine Reihe bündelt mehrere Termine unter einer gemeinsamen Übersichtsseite. Kontaktdaten,
@@ -31,18 +26,18 @@ export default async function CreateEventSeriesPage() {
         <form action={createEventSeries} className="space-y-4">
           <div>
             <label htmlFor="title" className="block text-sm font-medium mb-1">Titel der Reihe</label>
-            <input id="title" type="text" name="title" required className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded" placeholder="z.B. Stammtisch 2026" />
+            <input id="title" type="text" name="title" required className={inputClass} placeholder="z.B. Stammtisch 2026" />
           </div>
 
           <div>
             <label htmlFor="slug" className="block text-sm font-medium mb-1">URL-Wort (Slug)</label>
-            <input id="slug" type="text" name="slug" required className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded" placeholder="z.B. stammtisch" />
+            <input id="slug" type="text" name="slug" required className={inputClass} placeholder="z.B. stammtisch" />
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Die Reihe ist dann unter domain.de/reihe/slug erreichbar.</p>
           </div>
 
           <div>
             <label htmlFor="description" className="block text-sm font-medium mb-1">Beschreibung</label>
-            <textarea id="description" name="description" rows={3} className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded" placeholder="Kurze Beschreibung der Reihe..."></textarea>
+            <textarea id="description" name="description" rows={3} className={inputClass} placeholder="Kurze Beschreibung der Reihe..."></textarea>
           </div>
 
           <div className="space-y-3 pt-4 border-t border-gray-200 dark:border-gray-700">
@@ -100,6 +95,6 @@ export default async function CreateEventSeriesPage() {
         </form>
 
       </div>
-    </main>
+    </AdminShell>
   )
 }

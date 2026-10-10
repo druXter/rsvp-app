@@ -39,7 +39,7 @@ export async function addInvitations(_prev: InvitationFormState, formData: FormD
   const existing = await prisma.invitation.count({ where: { eventId: access.event.id } })
   if (existing + inputs.length > INVITATION_LIMITS.invitations) return { error: `Höchstens ${INVITATION_LIMITS.invitations} Einladungen pro Termin.` }
   await createInvitations(access.event.id, inputs)
-  revalidatePath(`/admin/einladungen/${access.event.id}`)
+  revalidatePath(`/admin/events/${access.event.id}/einladungen`)
   return { added: inputs.length }
 }
 
@@ -62,8 +62,8 @@ export async function saveInvitation(_prev: InvitationFormState, formData: FormD
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'Ungültige Eingabe.' }
   }
-  revalidatePath(`/admin/einladungen/${invitation.eventId}`)
-  revalidatePath('/admin')
+  revalidatePath(`/admin/events/${invitation.eventId}/einladungen`)
+  revalidatePath('/admin', 'layout')
   return { saved: true }
 }
 
@@ -72,8 +72,8 @@ export async function removeInvitation(formData: FormData) {
   const invitation = await prisma.invitation.findUnique({ where: { id: formString(formData, 'invitationId', 50) } })
   if (!invitation || !(await editableEvent(invitation.eventId))) return
   await deleteInvitation(invitation.id)
-  revalidatePath(`/admin/einladungen/${invitation.eventId}`)
-  revalidatePath('/admin')
+  revalidatePath(`/admin/events/${invitation.eventId}/einladungen`)
+  revalidatePath('/admin', 'layout')
 }
 
 /**
@@ -107,8 +107,8 @@ export async function sendInvitations(formData: FormData) {
       if (!invitationId) await prisma.invitation.update({ where: { id: invitation.id }, data: { sentAt: null } })
     }
   }
-  revalidatePath(`/admin/einladungen/${eventId}`)
-  redirect(`/admin/einladungen/${eventId}?gesendet=${sent}`)
+  revalidatePath(`/admin/events/${eventId}/einladungen`)
+  redirect(`/admin/events/${eventId}/einladungen?gesendet=${sent}`)
 }
 
 /** Erinnerung an alle Haushalte ohne Antwort (mit E-Mail). Nur Owner und Admins. */
@@ -118,6 +118,6 @@ export async function remindInvitations(formData: FormData) {
   const event = await prisma.event.findUnique({ where: { id: eventId } })
   if (!event || event.seriesId || !isOwnerOrAdmin(user, event.ownerId)) return
   const sent = await sendInvitationRemindersForEvent(eventId)
-  revalidatePath(`/admin/einladungen/${eventId}`)
-  redirect(`/admin/einladungen/${eventId}?erinnert=${sent}`)
+  revalidatePath(`/admin/events/${eventId}/einladungen`)
+  redirect(`/admin/events/${eventId}/einladungen?erinnert=${sent}`)
 }

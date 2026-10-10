@@ -1,7 +1,7 @@
 // app/admin/series/[id]/edit/page.tsx
 import { PrismaClient } from '@prisma/client'
-import { redirect } from 'next/navigation'
-import Link from 'next/link'
+import { notFound, redirect } from 'next/navigation'
+import { Notice, inputClass } from '../../../../ui/kit'
 import { updateEventSeries } from '../../../actions'
 import { getCurrentUser } from '../../../../lib/auth'
 import { isOwnerOrAdmin, hasSeriesModeratorOrAbove } from '../../../../lib/permissions'
@@ -17,13 +17,13 @@ export default async function EditEventSeriesPage({
   searchParams
 }: {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ shareError?: string; guestError?: string }>
+  searchParams: Promise<{ shareError?: string; guestError?: string; gespeichert?: string }>
 }) {
   const user = await getCurrentUser()
   if (!user) redirect('/admin/login')
 
   const { id } = await params
-  const { shareError, guestError } = await searchParams
+  const { shareError, guestError, gespeichert } = await searchParams
   const series = await prisma.eventSeries.findUnique({
     where: { id },
     include: {
@@ -36,19 +36,12 @@ export default async function EditEventSeriesPage({
   const isModerator = !!series && !isOwner && (await hasSeriesModeratorOrAbove(user, series))
 
   if (!series || (!isOwner && !isModerator)) {
-    return <div className="p-8">Reihe nicht gefunden.</div>
+    return notFound()
   }
 
   return (
-    <main className="min-h-screen bg-gray-100 dark:bg-gray-900 py-12 px-4">
-      <div className="max-w-2xl mx-auto bg-white dark:bg-gray-800 p-8 rounded-lg shadow space-y-6 text-gray-900 dark:text-gray-100">
-
-        <div className="flex justify-between items-center border-b pb-4">
-          <h1 className="text-2xl font-bold">{isOwner ? 'Reihe bearbeiten' : 'Mitglieder verwalten'}</h1>
-          <Link href={`/admin/series/${series.id}`} className="text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition">
-            {isOwner ? 'Abbrechen' : '← Zurück'}
-          </Link>
-        </div>
+    <div className="mx-auto max-w-3xl space-y-6">
+        {gespeichert && <Notice tone="success" role="status">✅ Gespeichert.</Notice>}
 
         {series.requireGuestUser && (
           <p className="text-xs bg-violet-50 dark:bg-violet-950 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800 rounded p-2">
@@ -57,22 +50,23 @@ export default async function EditEventSeriesPage({
         )}
 
         {isOwner && (
-        <form id="edit-series-form" action={updateEventSeries} className="space-y-4">
+        <form id="edit-series-form" action={updateEventSeries} className="space-y-4 rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Einstellungen der Reihe</h2>
           <input type="hidden" name="seriesId" value={series.id} />
 
           <div>
             <label htmlFor="title" className="block text-sm font-medium mb-1">Titel der Reihe</label>
-            <input id="title" type="text" name="title" defaultValue={series.title} required className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded" />
+            <input id="title" type="text" name="title" defaultValue={series.title} required className={inputClass} />
           </div>
 
           <div>
             <label htmlFor="slug" className="block text-sm font-medium mb-1">URL-Wort (Slug)</label>
-            <input id="slug" type="text" name="slug" defaultValue={series.slug} required className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded" />
+            <input id="slug" type="text" name="slug" defaultValue={series.slug} required className={inputClass} />
           </div>
 
           <div>
             <label htmlFor="description" className="block text-sm font-medium mb-1">Beschreibung</label>
-            <textarea id="description" name="description" defaultValue={series.description || ''} rows={3} className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded"></textarea>
+            <textarea id="description" name="description" defaultValue={series.description || ''} rows={3} className={inputClass}></textarea>
           </div>
 
           <div className="space-y-3 pt-4 border-t border-gray-200 dark:border-gray-700">
@@ -114,7 +108,7 @@ export default async function EditEventSeriesPage({
 
             <div>
               <label htmlFor="eventPin" className={`block text-sm font-medium mb-1 ${themeClasses('indigo').heading}`}>Reihen-PIN / Passwort (Optional)</label>
-              <input id="eventPin" type="text" name="eventPin" defaultValue={series.eventPin || ''} className={`w-full border ${themeClasses('indigo').border} p-2 rounded outline-none ${themeClasses('indigo').borderFocus}`} placeholder="leer lassen für öffentliche Reihe" />
+              <input id="eventPin" type="text" name="eventPin" defaultValue={series.eventPin || ''} className={inputClass} placeholder="leer lassen für öffentliche Reihe" />
             </div>
           </ThemeSection>
 
@@ -136,7 +130,6 @@ export default async function EditEventSeriesPage({
           members={series.guestMembers.map(m => ({ membershipId: m.id, email: m.guestUser.email, name: m.guestUser.name }))}
           error={guestError}
         />
-      </div>
-    </main>
+    </div>
   )
 }

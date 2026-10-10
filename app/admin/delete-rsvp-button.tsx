@@ -2,6 +2,7 @@
 'use client'
 
 import { deleteRsvp } from './actions'
+import { buttonClass } from '../ui/kit'
 
 /**
  * Kompakter Button zum Löschen einer einzelnen Gast-Antwort (RSVP) aus der Dashboard-Tabelle.
@@ -16,8 +17,8 @@ export default function DeleteRsvpButton({ rsvpId }: { rsvpId: string }) {
         onClick={(e) => { 
           if (!confirm('Diese Antwort wirklich unwiderruflich löschen?')) e.preventDefault() 
         }}
-        className="px-2 py-1 bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300 text-xs font-bold rounded hover:bg-red-200 dark:hover:bg-red-900 transition"
-        title="Antwort löschen"
+        className={buttonClass('danger', 'sm')}
+        title="Antwort löschen" aria-label="Antwort löschen"
       >
         🗑️
       </button>

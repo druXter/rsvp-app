@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import { BASE_URL, REDIRECT_PORT, UNREACHABLE_IDP } from '../../playwright.config'
-import { createAccount, PASSWORD, uniqueIp } from './helpers'
+import { createAccount, PASSWORD, uniqueIp, logout
+} from './helpers'
 
 // Bevorzugter Anbieter (SUITE_LOGIN_REDIRECT, Idee Q5 der Suite): Die zweite Instanz aus
 // playwright.config.ts hat einen bevorzugten Anbieter, der nicht erreichbar ist. Ihre Login-Seite
@@ -47,7 +48,7 @@ test('lokaler Login bleibt erreichbar (ohne JavaScript sichtbar); Abmelden führ
   await js.getByRole('button', { name: 'Einloggen' }).click()
   await js.waitForURL(url => url.pathname === '/admin')
 
-  await js.getByRole('button', { name: 'Abmelden' }).click()
+  await logout(js)
   await js.waitForURL(url => url.pathname === '/admin/login' && url.searchParams.get('local') === '1')
   await expect(passwordField(js)).toBeVisible()
   expect(new URL(js.url()).origin).toBe(REDIRECT)

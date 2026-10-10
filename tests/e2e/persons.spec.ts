@@ -143,14 +143,15 @@ test('Verwaltung: Begleitungen bearbeiten (ohne Höchstmaß), Übersicht, Einlas
   await page.locator('select[name="companion_1_age"]').selectOption('INFANT')
   await page.getByLabel('Allergien der 2. Begleitung').fill('Ei')
   await page.getByRole('button', { name: 'Änderungen speichern' }).click()
-  await page.waitForURL('**/admin')
+  await page.waitForURL(`**/admin/events/${event.id}/gaeste`)
   const persons = await prisma.rsvpPerson.findMany({ where: { rsvpId: rsvp.id }, orderBy: { position: 'asc' } })
   expect(persons.map(p => [p.name, p.ageGroup, p.dietaryOption, p.allergies])).toEqual([
     ['Erika', 'ADULT', null, null], ['Max', 'ADULT', 'Vegan', null], ['Mia', 'INFANT', null, 'Ei']
   ])
 
-  await expect(page.getByTestId('seated-persons').first()).toContainText('2 Personen mit Platz von 10')
-  await expect(page.getByText('Max (Vegan); Mia (Kleinkind, Ei)')).toBeVisible()
+  await expect(page.getByTestId('guest-persons')).toHaveText('+ Max (Vegan); Mia (Kleinkind, Ei)')
+  await page.goto(`/admin/events/${event.id}`)
+  await expect(page.getByTestId('stat-confirmed')).toContainText('2 Personen · 2 von 10 Plätzen')
 
   await page.goto(`/admin/checkin/${rsvp.id}`)
   await expect(page.getByTestId('checkin-persons')).toContainText('3 Personen: Erika, Max, Mia (Kleinkind)')

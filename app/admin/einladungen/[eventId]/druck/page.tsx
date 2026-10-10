@@ -8,7 +8,7 @@ import { hasEventModeratorOrAbove } from '../../../../lib/permissions'
 import { formatPersonList } from '../../../../lib/invitations'
 import { invitationLink } from '../../../../lib/invitation-store'
 import { formatDeadline } from '../../../../lib/rsvp-deadline'
-import PrintButton from '../../../kueche/[eventId]/print-button'
+import PrintButton from '../../../events/[id]/kueche/print-button'
 
 /**
  * Druckliste der Einladungen (docs/KONZEPT-EINLADUNGEN.md, Abschnitt 3): pro Haushalt eine Karte mit Personen,
@@ -38,7 +38,7 @@ export default async function InvitationPrintPage({ params }: { params: Promise<
         <h1 className="text-xl font-bold">Druckliste: {event.title}</h1>
         <div className="flex gap-4 items-center">
           <PrintButton />
-          <Link href={`/admin/einladungen/${event.id}`} className="text-sm text-gray-600 hover:underline">Zurück zu den Einladungen</Link>
+          <Link href={`/admin/events/${event.id}/einladungen`} className="text-sm text-gray-600 hover:underline">Zurück zu den Einladungen</Link>
         </div>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 print:grid-cols-2">

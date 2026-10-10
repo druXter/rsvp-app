@@ -169,8 +169,8 @@ test('Haushalt antwortet pro Person über seinen Link; ohne Link nur der Titel',
   await page.goto(`/admin/einladungen/${event.id}`)
   await expect(page.getByTestId('invitation')).toContainText('✓ Anna · ✗ Benjamin · ✓ Clara (Kind) · ✓ Max +')
   await expect(page.getByTestId('invitation-summary')).toContainText('3 kommen (2 Erwachsene, 1 Kinder, 0 Kleinkinder), 1 kommen nicht, 0 offen')
-  await page.goto('/admin')
-  await expect(page.getByText('✓ Anna (Vegan); ✗ Benjamin; ✓ Clara (Kind); ✓ Max')).toBeVisible()
+  await page.goto(`/admin/events/${event.id}/gaeste`)
+  await expect(page.getByTestId('guest-persons')).toHaveText('✓ Anna (Vegan); ✗ Benjamin; ✓ Clara (Kind); ✓ Max')
 
   // Gästeliste für Eingeladene: Haushalt mit den Namen der Kommenden
   await guest.goto(`/${event.slug}?token=${family.participant.editToken}`)
@@ -261,7 +261,7 @@ test('Plätze im Einladungsmodus: Haushalt als Ganzes, Kleinkinder ohne Platz; L
   await page.goto(`/admin/edit-rsvp/${bRsvp.id}`)
   await expect(page.getByTestId('household-note')).toContainText('Familie B')
   await page.getByRole('button', { name: 'Änderungen speichern' }).click()
-  await page.waitForURL('**/admin')
+  await page.waitForURL(`**/admin/events/${event.id}/gaeste`)
   expect((await prisma.rsvpPerson.findMany({ where: { rsvpId: bRsvp.id }, orderBy: { position: 'asc' } })).map(p => [p.name, p.isAttending])).toEqual([['Bea', true], ['Bob', true]])
   expect((await prisma.rsvp.findUniqueOrThrow({ where: { id: bRsvp.id } })).isAttending).toBe(true)
 })

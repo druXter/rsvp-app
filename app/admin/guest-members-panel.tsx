@@ -1,6 +1,7 @@
 // app/admin/guest-members-panel.tsx
 import { addGuestUserToSeries, removeGuestUserFromSeries } from './actions'
 import ThemeSection, { themeClasses } from '../ui/theme-section'
+import { buttonClass, inputClass } from '../ui/kit'
 
 type Member = { membershipId: string; email: string; name: string }
 
@@ -53,9 +54,9 @@ export default function GuestMembersPanel({
           name="email"
           required
           placeholder="nutzer@domain.de"
-          className={`flex-1 border ${c.border} p-2 rounded text-sm text-gray-900 dark:text-gray-100`}
+          className={inputClass}
         />
-        <button type="submit" className="bg-emerald-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-emerald-700 transition">
+        <button type="submit" className={buttonClass('secondary')}>
           Hinzufügen
         </button>
       </form>

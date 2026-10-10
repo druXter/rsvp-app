@@ -182,8 +182,9 @@ test('Bezahlstatus: Owner und freigegebene Moderator*innen ja, andere nicht; Ers
   await prisma.rsvp.update({ where: { id: rsvp.id }, data: { ticketCategoryId: stud.id, amountCents: 2500, paymentReference: 'E2E-' + randomBytes(4).toString('hex').toUpperCase() } })
 
   await login(page, owner.email)
-  await page.goto('/admin')
+  await page.goto(`/admin/events/${event.id}`)
   await expect(page.getByTestId('ticket-summary')).toContainText('offen 25,00 €')
+  await page.goto(`/admin/events/${event.id}/gaeste`)
   const markPaid = await readForm(page, 'form:has(input[name="paymentAction"][value="paid-transfer"])')
   const paymentOf = () => prisma.rsvp.findUniqueOrThrow({ where: { id: rsvp.id } })
 
@@ -213,7 +214,7 @@ test('Bezahlstatus: Owner und freigegebene Moderator*innen ja, andere nicht; Ers
   await prisma.rsvp.update({ where: { id: rsvp.id }, data: { isAttending: false } })
   await submitForm(page, markPaid, { paymentAction: 'refunded' })
   expect((await paymentOf()).refundedAt).not.toBeNull()
-  await page.goto('/admin')
+  await page.goto(`/admin/events/${event.id}/gaeste`)
   await expect(page.getByTestId('payment-cell')).toContainText('Erstattet')
 
   // Zurücksetzen nur bei "bezahlt" (nicht erstattet)
@@ -234,8 +235,9 @@ test('Zahlfrist: überfällig markiert, Stornieren nur bei überfällig, Warteli
   await prisma.rsvp.update({ where: { id: waiting.rsvp.id }, data: ticket })
 
   await login(page, owner.email)
-  await page.goto('/admin')
+  await page.goto(`/admin/events/${event.id}`)
   await expect(page.getByTestId('ticket-summary')).toContainText('1 überfällig')
+  await page.goto(`/admin/events/${event.id}/gaeste`)
   const cancel = await readForm(page, 'form:has(button:has-text("Stornieren"))')
 
   // Nicht überfällig: Stornieren wirkt nicht
@@ -376,8 +378,8 @@ test('Kontoauszug-Import: Vorschau, nur passende vorausgewählt, Bestätigen mar
   ].join('\n')
 
   await login(page, owner.email)
-  await page.goto('/admin')
-  await page.locator(`a[href="/admin/zahlungen/${event.id}"]`).click()
+  await page.goto(`/admin/events/${event.id}`)
+  await page.getByRole('link', { name: '📄 Kontoauszug abgleichen' }).click()
   await page.getByLabel(/Kontoauszug/).setInputFiles({ name: 'umsaetze.csv', mimeType: 'text/csv', buffer: Buffer.from(csv, 'latin1') })
   await page.getByRole('button', { name: 'Abgleichen' }).click()
   const preview = page.getByTestId('import-preview')
@@ -450,7 +452,7 @@ test('Zahlungserinnerung: automatisch einmal vor Fristende, per Knopf nur für O
 
   // Knopf: Moderator*in mit Freigabe darf es nicht (Massenversand wie beim Reminder nur Owner/Admin)
   await login(page, owner.email)
-  await page.goto('/admin')
+  await page.goto(`/admin/events/${event.id}`)
   const button = await readForm(page, 'form:has(button:has-text("Zahlungserinnerung an"))')
   const helper = await createAccount('MODERATOR')
   await prisma.resourceAccess.create({ data: { userId: helper.id, eventId: event.id } })

@@ -90,6 +90,7 @@ test('QR-Check-in-Seite: fremde Konten checken nicht ein, Moderator*in der Reihe
 test('Einchecken per Server Action (toggleAttendance): nur mit Moderator-Rechten auf genau dieses Event', async ({ browser }) => {
   const s = await scenario(browser)
   const ownerPage = await s.pageFor(s.owner)
+  await ownerPage.goto(`/admin/events/${s.event.id}/gaeste`)
   const toggle = await readForm(ownerPage, 'form:has(input[name="rsvpId"]):has(button:has-text("Nicht da"))')
   const attended = async (id: string) => (await prisma.rsvp.findUniqueOrThrow({ where: { id } })).hasAttended
 
@@ -112,9 +113,8 @@ test('Event löschen und weiter freigeben: nur Owner/Admin, nicht Moderator*inne
   const victim = await createEvent(s.owner)
   await prisma.resourceAccess.create({ data: { userId: s.eventMod.id, eventId: victim.id } })
   const ownerPage = await s.pageFor(s.owner)
-  const deleteForm = await readForm(ownerPage, 'form:has(input[name="eventId"]):has(button:has-text("Löschen"))')
-
   await ownerPage.goto(`/admin/edit/${victim.id}`)
+  const deleteForm = await readForm(ownerPage, 'form:has(input[name="eventId"]):has(button:has-text("Event löschen"))')
   const shareForm = await readForm(ownerPage, 'form:has(input[name="eventId"]):has(input[name="email"])')
 
   const eventModPage = await s.pageFor(s.eventMod)
@@ -129,7 +129,7 @@ test('Event löschen und weiter freigeben: nur Owner/Admin, nicht Moderator*inne
 
   // Positivkontrollen
   const shared = await submitForm(ownerPage, shareForm, { eventId: victim.id, email: s.stranger.email })
-  expect(locationOf(shared)?.pathname).toBe(`/admin/edit/${victim.id}`)
+  expect(locationOf(shared)?.pathname).toBe(`/admin/events/${victim.id}/einstellungen`)
   expect(await prisma.resourceAccess.count({ where: { userId: s.stranger.id, eventId: victim.id } })).toBe(1)
   await submitForm(ownerPage, deleteForm, { eventId: victim.id })
   expect(await prisma.event.findUnique({ where: { id: victim.id } })).toBeNull()
