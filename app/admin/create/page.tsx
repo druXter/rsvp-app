@@ -5,6 +5,7 @@ import { createEvent } from '../actions'
 import { getCurrentUser } from '../../lib/auth'
 import SubmitButton from '../../ui/submit-button'
 import TicketSettingsSection, { SeatingPaymentToggle } from '../ticket-settings-section'
+import MenuSettingsSection from '../menu-settings-section'
 import ThemeSection, { themeClasses } from '../../ui/theme-section'
 import { allowedSeatingOrigin } from '../../lib/seating'
 import { allowedTimelineOrigin } from '../../lib/timeline'
@@ -197,6 +198,8 @@ export default async function CreateEventPage() {
               <textarea id="bringSlots" name="bringSlots" rows={4} className={`w-full border ${themeClasses('emerald').border} bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded outline-none ${themeClasses('emerald').borderFocus}`} placeholder={'2x Salat\n3x Getränke\nNachtisch'} />
             </div>
           </ThemeSection>
+
+          <MenuSettingsSection />
 
           <TicketSettingsSection />
 

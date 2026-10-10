@@ -2,7 +2,7 @@
 import { PrismaClient } from '@prisma/client'
 import { getGuestUserFromApiToken, apiError } from '../../../../../lib/api-auth'
 import { performRsvpSubmission, RsvpInputError } from '../../../../../lib/rsvp-submission'
-import { cleanCompanion, MAX_COMPANIONS, type CompanionInput } from '../../../../../lib/persons'
+import { cleanCompanion, cleanSelection, MAX_COMPANIONS, type CompanionInput } from '../../../../../lib/persons'
 
 const prisma = new PrismaClient()
 
@@ -69,6 +69,8 @@ export async function POST(
         additionalInfo: typeof body.additionalInfo === 'string' ? body.additionalInfo : null,
         declineReason: typeof body.declineReason === 'string' ? body.declineReason : null,
         companions: readApiCompanions(body),
+        // Menüwahl (Gang-ID -> Option), ohne Feld bleibt die bisherige
+        menu: body.menu !== undefined ? cleanSelection(body.menu) : undefined,
         bringingItem: typeof body.bringingItem === 'string' ? body.bringingItem : null,
         customAnswers,
         // Ticketkategorie (app/lib/tickets.ts) - ohne Feld gilt die bisherige der Antwort
@@ -94,7 +96,7 @@ export async function POST(
 }
 
 /**
- * Begleitungen aus dem Body: `companions` als Liste `[{name, ageGroup, dietaryOption, allergies}]`, oder wie
+ * Begleitungen aus dem Body: `companions` als Liste `[{name, ageGroup, dietaryOption, allergies, menu}]`, oder wie
  * früher `plusOne`/`plusOneName` als Kurzform für genau eine. Ohne beide Felder bleiben die bisherigen.
  * Einträge ohne Namen zählen nicht; mehr als erlaubt lehnt performRsvpSubmission ab.
  */

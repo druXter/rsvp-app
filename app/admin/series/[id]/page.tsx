@@ -22,10 +22,11 @@ export default async function SeriesDetailPage({ params }: { params: Promise<{ i
       events: {
         include: {
           rsvps: {
-            include: { participant: true, persons: true },
+            include: { participant: true, persons: { include: { menuChoices: true } } },
             orderBy: { createdAt: 'desc' }
           },
-          ticketCategories: { orderBy: { position: 'asc' }, select: { id: true, label: true, capacity: true } }
+          ticketCategories: { orderBy: { position: 'asc' }, select: { id: true, label: true, capacity: true } },
+          menuCourses: { orderBy: { position: 'asc' }, select: { id: true, label: true } }
         },
         orderBy: { date: 'asc' }
       },

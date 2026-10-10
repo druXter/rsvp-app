@@ -15,7 +15,8 @@ import { syncBringClaims } from './bring-list'
 import { hasRoom, loadCapacity } from './tickets'
 import { generatePaymentReference, paymentInfoOf, syncPaymentDue } from './payment'
 import { fillFreeSeats, shouldSuppressConfirmationEmail } from './waitlist'
-import { companionsOf, seatsOf, type CompanionInput } from './persons'
+import { companionsOf, menuOf, seatsOf, type CompanionInput } from './persons'
+import { courseOptions, isCompleteSelection, validSelection, type MenuSelection } from './menu'
 
 const prisma = new PrismaClient()
 
@@ -41,6 +42,8 @@ export type RsvpSubmissionInput = {
    * Begleitungen, Client-API ohne Feld) - dann bleiben die bisherigen der Antwort.
    */
   companions?: CompanionInput[]
+  /** Menüwahl der anmeldenden Person (app/lib/menu.ts). undefined = nicht gesendet, die bisherige bleibt. */
+  menu?: MenuSelection
   bringingItem?: string | null
   customAnswers?: string[]
   /**
@@ -93,7 +96,7 @@ export async function performRsvpSubmission(
 
   const event = await prisma.event.findUnique({
     where: { id: eventId },
-    include: { series: true, toolLinks: TOOL_LINKS, ticketCategories: true }
+    include: { series: true, toolLinks: TOOL_LINKS, ticketCategories: true, menuCourses: { orderBy: { position: 'asc' } } }
   })
   if (!event) throw new Error('Event nicht gefunden')
 
@@ -144,7 +147,7 @@ export async function performRsvpSubmission(
   const existingRsvp = existingParticipant
     ? await prisma.rsvp.findUnique({
         where: { eventId_participantId: { eventId, participantId: existingParticipant.id } },
-        include: { persons: { orderBy: { position: 'asc' } } }
+        include: { persons: { orderBy: { position: 'asc' }, include: { menuChoices: true } } }
       })
     : null
 
@@ -211,12 +214,20 @@ export async function performRsvpSubmission(
   const existingPersons = existingRsvp?.persons ?? []
   const existingCompanions = companionsOf(existingPersons)
   const maxCompanions = categories.length > 0 ? 0 : Math.max(event.maxCompanions, existingCompanions.length)
-  const usesPersons = maxCompanions > 0 || existingPersons.length > 0
+  const menu = event.menuCourses.map(c => ({ id: c.id, label: c.label, options: courseOptions(c.options) }))
+  const usesPersons = maxCompanions > 0 || existingPersons.length > 0 || menu.length > 0
   const companions = input.companions ?? existingCompanions
   if (companions.length > maxCompanions) {
     throw new RsvpInputError(maxCompanions === 0 ? 'Für diesen Termin sind keine Begleitungen vorgesehen.' : `Höchstens ${maxCompanions} Begleitung${maxCompanions === 1 ? '' : 'en'} möglich.`)
   }
-  const companionRows = companions.map(c => ({ ...c, isAttending }))
+  // Menü (docs/KONZEPT-EINLADUNGEN.md): Bei einer Zusage wählt jede Person außer Kleinkindern pro Gang eine Option.
+  // Gespeichert wird nur, was es im Menü dieses Termins gibt.
+  const ownMenu = validSelection(menu, input.menu ?? (existingPersons[0] ? menuOf(existingPersons[0]) : {}))
+  const companionRows = companions.map(c => ({ ...c, isAttending, menu: c.ageGroup === 'INFANT' ? {} : validSelection(menu, c.menu) }))
+  if (isAttending && menu.length > 0) {
+    const missing = [{ name, ageGroup: 'ADULT', menu: ownMenu }, ...companionRows].find(p => p.ageGroup !== 'INFANT' && !isCompleteSelection(menu, p.menu))
+    if (missing) throw new RsvpInputError(`Bitte wähle das Menü für ${missing.name || 'alle Personen'} (jeder Gang).`)
+  }
   const seats = usesPersons ? seatsOf([{ isAttending, ageGroup: 'ADULT' }, ...companionRows]) : 1
   const previousSeats = seatsOf(existingPersons)
 
@@ -354,7 +365,7 @@ export async function performRsvpSubmission(
   // Personen der Antwort: die anmeldende (Angaben vom Participant) und ihre Begleitungen, alle neu geschrieben
   if (usesPersons) {
     await savePersons(savedRsvp.id, [
-      { name: participant.name, ageGroup: 'ADULT', isAttending, dietaryOption: participant.dietaryOption, allergies: participant.allergies },
+      { name: participant.name, ageGroup: 'ADULT', isAttending, dietaryOption: participant.dietaryOption, allergies: participant.allergies, menu: ownMenu },
       ...companionRows
     ])
   }
@@ -450,13 +461,18 @@ export async function performRsvpSubmission(
     canOpenTimeline
   }}
 
-/** Ersetzt die Personen einer Antwort (Position = Reihenfolge). */
+/**
+ * Ersetzt die Personen einer Antwort (Position = Reihenfolge) samt Menüwahl. `menu` muss schon geprüft sein
+ * (validSelection): nur Gänge dieses Termins.
+ */
 export async function savePersons(
   rsvpId: string,
-  persons: readonly { name: string | null; ageGroup: string; isAttending: boolean; dietaryOption: string | null; allergies: string | null }[]
+  persons: readonly { name: string | null; ageGroup: string; isAttending: boolean; dietaryOption: string | null; allergies: string | null; menu?: MenuSelection }[]
 ) {
   await prisma.$transaction([
     prisma.rsvpPerson.deleteMany({ where: { rsvpId } }),
-    prisma.rsvpPerson.createMany({ data: persons.map((p, position) => ({ rsvpId, position, ...p })) })
+    ...persons.map(({ menu = {}, ...p }, position) => prisma.rsvpPerson.create({
+      data: { rsvpId, position, ...p, menuChoices: { create: Object.entries(menu).map(([courseId, option]) => ({ courseId, option })) } }
+    }))
   ])
 }

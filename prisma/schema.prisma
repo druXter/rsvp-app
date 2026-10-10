@@ -192,7 +192,9 @@ model Event {
 
   // Begleitungen und Angaben pro Person (Idee L2/L3 der Suite, docs/KONZEPT-EINLADUNGEN.md, app/lib/persons.ts):
   // bis zu so viele weitere Personen pro Antwort, 0 = keine. Ersetzt formConfig.askPlusOne (migrate-persons.js).
-  maxCompanions Int @default(0)
+  maxCompanions Int          @default(0)
+  // Menü mit Gängen, Wahl pro Person (Idee L3, app/lib/menu.ts). Ohne Gänge keine Menüwahl.
+  menuCourses   MenuCourse[]
 
   // Verknüpfungen mit anderen Tools der Suite (Seating, später Zeitplan) - höchstens eine je
   // Tool-Typ, siehe EventToolLink.
@@ -311,17 +313,44 @@ model Rsvp {
 // anmeldende Person selbst (Name, Essen und Allergien gespiegelt vom Participant), danach die Begleitungen.
 // ageGroup: ADULT | CHILD | INFANT - Kleinkinder brauchen keinen eigenen Platz (Kapazität, Seating).
 model RsvpPerson {
-  id            String  @id @default(cuid())
+  id            String       @id @default(cuid())
   rsvpId        String
-  rsvp          Rsvp    @relation(fields: [rsvpId], references: [id], onDelete: Cascade)
+  rsvp          Rsvp         @relation(fields: [rsvpId], references: [id], onDelete: Cascade)
   position      Int
   name          String?
-  ageGroup      String  @default("ADULT")
+  ageGroup      String       @default("ADULT")
   isAttending   Boolean
   dietaryOption String?
   allergies     String?
+  menuChoices   MenuChoice[]
 
   @@index([rsvpId])
+}
+
+// Ein Gang des Menüs (docs/KONZEPT-EINLADUNGEN.md, app/lib/menu.ts): "Hauptgang" mit Optionen als JSON-Array.
+// Gespeichert per Abgleich nach Bezeichnung; ein Gang oder eine Option mit Wahl lässt sich nicht entfernen.
+model MenuCourse {
+  id       String       @id @default(cuid())
+  eventId  String
+  event    Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  label    String
+  options  String
+  position Int
+  choices  MenuChoice[]
+
+  @@index([eventId])
+}
+
+// Die Wahl einer Person für einen Gang (Text der Option).
+model MenuChoice {
+  personId String
+  person   RsvpPerson @relation(fields: [personId], references: [id], onDelete: Cascade)
+  courseId String
+  course   MenuCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  option   String
+
+  @@id([personId, courseId])
+  @@index([courseId])
 }
 
 // Ein Gerät (Browser), auf dem sich EIN BESTIMMTER Nutzer für Web-Push-Benachrichtigungen

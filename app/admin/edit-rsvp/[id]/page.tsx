@@ -8,7 +8,9 @@ import { getCurrentUser } from '../../../lib/auth'
 import { hasEventModeratorOrAbove } from '../../../lib/permissions'
 import SubmitButton from '../../../ui/submit-button'
 import CompanionFields from '../../../ui/companion-fields'
-import { companionsOf, MAX_COMPANIONS } from '../../../lib/persons'
+import { companionsOf, MAX_COMPANIONS, menuOf } from '../../../lib/persons'
+import { menuForForm } from '../../../lib/menu-store'
+import MenuSelects from '../../../ui/menu-selects'
 
 const prisma = new PrismaClient()
 
@@ -22,13 +24,14 @@ export default async function EditRsvpPage({ params }: { params: Promise<{ id: s
 
   // Die spezifische Antwort aus der Datenbank abrufen (inkl. des geteilten Gast-Profils)
   const { id } = await params
-  const rsvp = await prisma.rsvp.findUnique({ where: { id }, include: { participant: true, persons: true, event: { include: { ticketCategories: { orderBy: { position: 'asc' } } } } } })
+  const rsvp = await prisma.rsvp.findUnique({ where: { id }, include: { participant: true, persons: { orderBy: { position: 'asc' }, include: { menuChoices: true } }, event: { include: { ticketCategories: { orderBy: { position: 'asc' } } } } } })
 
   if (!rsvp || !(await hasEventModeratorOrAbove(user, rsvp.event))) return <div className="p-8 dark:text-gray-100">Antwort nicht gefunden.</div>
 
   const participant = rsvp.participant
   // Begleitungen: wie in updateAdminRsvp, nicht bei Ticketkategorien
   const showCompanions = rsvp.event.ticketCategories.length === 0 && (rsvp.event.maxCompanions > 0 || rsvp.persons.length > 0)
+  const menu = await menuForForm(rsvp.event.id)
 
   return (
     <main className="min-h-screen bg-gray-100 dark:bg-gray-900 py-12 px-4">
@@ -81,9 +84,17 @@ export default async function EditRsvpPage({ params }: { params: Promise<{ id: s
             </div>
           </div>
 
+          {menu.length > 0 && (
+            <fieldset className="pt-4 border-t dark:border-gray-700">
+              <legend className="block text-sm font-medium mb-1">Menü von {participant.name}</legend>
+              <input type="hidden" name="menuShown" value="1" />
+              <MenuSelects courses={menu} prefix="menu_" selection={rsvp.persons[0] ? menuOf(rsvp.persons[0]) : {}} who="" required={false} />
+            </fieldset>
+          )}
+
           {showCompanions && (
             <div className="pt-4 border-t dark:border-gray-700">
-              <CompanionFields max={MAX_COMPANIONS} initial={companionsOf(rsvp.persons)} askDiet askAllergies />
+              <CompanionFields max={MAX_COMPANIONS} initial={companionsOf(rsvp.persons)} askDiet askAllergies menu={menu} menuRequired={false} />
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Hier gilt weder das Höchstmaß des Termins ({rsvp.event.maxCompanions}) noch die Kapazität (wie „Zulassen“).</p>
             </div>
           )}

@@ -8,7 +8,7 @@
  * müssen hier als Literale stehen (nicht z.B. `bg-${color}-50` zusammengebaut), damit
  * Tailwinds Build-Scan sie findet.
  */
-export type ThemeColor = 'yellow' | 'sky' | 'teal' | 'indigo' | 'rose' | 'emerald' | 'purple' | 'gray' | 'amber' | 'cyan' | 'violet' | 'lime' | 'fuchsia' | 'pink'
+export type ThemeColor = 'yellow' | 'sky' | 'teal' | 'indigo' | 'rose' | 'emerald' | 'purple' | 'gray' | 'amber' | 'cyan' | 'violet' | 'lime' | 'fuchsia' | 'pink' | 'orange'
 
 const THEME_CLASSES: Record<ThemeColor, {
   box: string
@@ -32,6 +32,7 @@ const THEME_CLASSES: Record<ThemeColor, {
   lime:    { box: 'bg-lime-50 dark:bg-lime-950',       heading: 'text-lime-900 dark:text-lime-100',       text: 'text-lime-700 dark:text-lime-300',       accent: 'text-lime-600 dark:text-lime-400',       border: 'border-lime-300 dark:border-lime-800',       borderFocus: 'focus:border-lime-500 dark:focus:border-lime-500' },
   fuchsia: { box: 'bg-fuchsia-50 dark:bg-fuchsia-950', heading: 'text-fuchsia-900 dark:text-fuchsia-100', text: 'text-fuchsia-700 dark:text-fuchsia-300', accent: 'text-fuchsia-600 dark:text-fuchsia-400', border: 'border-fuchsia-300 dark:border-fuchsia-800', borderFocus: 'focus:border-fuchsia-500 dark:focus:border-fuchsia-500' },
   pink:    { box: 'bg-pink-50 dark:bg-pink-950',       heading: 'text-pink-900 dark:text-pink-100',       text: 'text-pink-700 dark:text-pink-300',       accent: 'text-pink-600 dark:text-pink-400',       border: 'border-pink-300 dark:border-pink-800',       borderFocus: 'focus:border-pink-500 dark:focus:border-pink-500' },
+  orange:  { box: 'bg-orange-50 dark:bg-orange-950',   heading: 'text-orange-900 dark:text-orange-100',   text: 'text-orange-700 dark:text-orange-300',   accent: 'text-orange-600 dark:text-orange-400',   border: 'border-orange-300 dark:border-orange-800',   borderFocus: 'focus:border-orange-500 dark:focus:border-orange-500' },
 }
 
 /**

@@ -8,12 +8,14 @@ import { claimedLabels } from '../lib/bring-list'
 import PaymentCell from './payment-cell'
 import { formatEuro, formatPaymentDate, paymentState } from '../lib/payment-state'
 import { describePerson, personsOf, seatsOf } from '../lib/persons'
+import { describeSelection } from '../lib/menu'
 
-type RsvpWithParticipant = Rsvp & { participant: Participant; persons?: RsvpPerson[]; bringClaims?: { slot: { label: string; position: number } }[] }
+type RsvpWithParticipant = Rsvp & { participant: Participant; persons?: (RsvpPerson & { menuChoices?: { courseId: string; option: string }[] })[]; bringClaims?: { slot: { label: string; position: number } }[] }
 export type EventForCard = Event & {
   rsvps: RsvpWithParticipant[]
   bringSlots?: { label: string; quantity: number; _count: { claims: number } }[]
   ticketCategories?: { id: string; label: string; capacity: number | null }[]
+  menuCourses?: { id: string; label: string }[]
 }
 
 /**
@@ -43,6 +45,7 @@ export default function EventRsvpCard({
   const checkedInCount = event.rsvps.filter(r => r.hasAttended).length
   // Begleitungen (docs/KONZEPT-EINLADUNGEN.md): Personen mit festem Platz, nur wenn es welche gibt
   const withPersons = event.maxCompanions > 0 || event.rsvps.some(r => (r.persons?.length ?? 0) > 0)
+  const menuCourses = event.menuCourses ?? []
   const seatedPersons = event.rsvps.filter(r => r.isAttending && !r.isOnWaitlist).reduce((sum, r) => sum + seatsOf(r.persons), 0)
   const customQuestions: string[] = event.formConfig ? (JSON.parse(event.formConfig).customQuestions || []) : []
 
@@ -166,6 +169,14 @@ export default function EventRsvpCard({
           </div>
         )}
 
+        {(withPersons || menuCourses.length > 0) && (
+          <p className="text-sm mb-3">
+            <Link href={`/admin/kueche/${event.id}`} className="px-2 py-1 text-xs font-medium rounded border border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-950 text-orange-700 dark:text-orange-300 hover:bg-orange-100 dark:hover:bg-orange-900 transition">
+              🍽️ Küchenübersicht{menuCourses.length > 0 ? ' (Menü, Allergien)' : ' (Essen, Allergien)'}
+            </Link>
+          </p>
+        )}
+
         {event.bringSlots && event.bringSlots.length > 0 && (
           <p className="text-sm text-gray-700 dark:text-gray-300 mb-3" data-testid="bring-summary">
             🍕 Mitbringliste: {event.bringSlots.map(s => `${s.label} ${s._count.claims}/${s.quantity}`).join(' · ')}
@@ -185,6 +196,7 @@ export default function EventRsvpCard({
                   <th className="p-2">E-Mail</th>
                   <th className="p-2">Handy</th>
                   <th className="p-2">Begleitungen</th>
+                  {menuCourses.length > 0 && <th className="p-2">Menü</th>}
                   <th className="p-2">Essen</th>
                   <th className="p-2">Allergien</th>
                   <th className="p-2">Alkohol</th>
@@ -283,6 +295,14 @@ export default function EventRsvpCard({
                     <td className="p-2 text-gray-600 dark:text-gray-400">
                       {personsOf(rsvp, rsvp.participant).slice(1).map(p => describePerson(p)).join('; ') || '-'}
                     </td>
+
+                    {menuCourses.length > 0 && (
+                      <td className="p-2 text-gray-600 dark:text-gray-400 text-xs">
+                        {rsvp.isAttending
+                          ? personsOf(rsvp, rsvp.participant).filter(p => p.isAttending && p.ageGroup !== 'INFANT').map(p => `${p.name || 'Begleitung'}: ${describeSelection(menuCourses, p.menu) || 'offen'}`).join('; ')
+                          : '-'}
+                      </td>
+                    )}
 
                     <td className="p-2 text-gray-600 dark:text-gray-400">{rsvp.participant.dietaryOption || '-'}</td>
 

@@ -9,6 +9,8 @@ import ShareAccessPanel from '../../share-access-panel'
 import SubmitButton from '../../../ui/submit-button'
 import { formatBringSlots } from '../../../lib/bring-list'
 import TicketSettingsSection, { SeatingPaymentToggle } from '../../ticket-settings-section'
+import MenuSettingsSection from '../../menu-settings-section'
+import { courseOptions } from '../../../lib/menu'
 import ThemeSection, { themeClasses } from '../../../ui/theme-section'
 import { allowedSeatingOrigin } from '../../../lib/seating'
 import { allowedTimelineOrigin } from '../../../lib/timeline'
@@ -29,7 +31,7 @@ export default async function EditEventPage({ params, searchParams }: { params: 
   const { shareError } = await searchParams
   const event = await prisma.event.findUnique({
     where: { id },
-    include: { sharedWith: { include: { user: { select: { email: true } } } }, toolLinks: TOOL_LINKS, bringSlots: { orderBy: { position: 'asc' } }, ticketCategories: { orderBy: { position: 'asc' } } }
+    include: { sharedWith: { include: { user: { select: { email: true } } } }, toolLinks: TOOL_LINKS, bringSlots: { orderBy: { position: 'asc' } }, ticketCategories: { orderBy: { position: 'asc' } }, menuCourses: { orderBy: { position: 'asc' } } }
   })
 
   if (!event || !isOwnerOrAdmin(user, event.ownerId)) {
@@ -221,6 +223,8 @@ export default async function EditEventPage({ params, searchParams }: { params: 
               <textarea id="bringSlots" name="bringSlots" rows={4} defaultValue={formatBringSlots(event.bringSlots)} className={`w-full border ${themeClasses('emerald').border} bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded outline-none ${themeClasses('emerald').borderFocus}`} placeholder={'2x Salat\n3x Getränke\nNachtisch'} />
             </div>
           </ThemeSection>
+
+          <MenuSettingsSection courses={event.menuCourses.map(c => ({ label: c.label, options: courseOptions(c.options) }))} />
 
           <TicketSettingsSection event={event} />
 

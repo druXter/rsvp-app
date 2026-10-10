@@ -15,13 +15,15 @@ const prisma = new PrismaClient()
 
 const rsvpInclude = {
   rsvps: {
-    include: { participant: true, persons: true, bringClaims: { select: { slot: { select: { label: true, position: true } } } } },
+    include: { participant: true, persons: { include: { menuChoices: true } }, bringClaims: { select: { slot: { select: { label: true, position: true } } } } },
     orderBy: { createdAt: 'desc' as const }
   },
   // Mitbringliste: Stand je Eintrag für die Übersicht der Karte
   bringSlots: { orderBy: { position: 'asc' as const }, select: { label: true, quantity: true, _count: { select: { claims: true } } } },
   // Tickets: Kategorien für Übersicht und Spalte "Ticket / Zahlung"
-  ticketCategories: { orderBy: { position: 'asc' as const }, select: { id: true, label: true, capacity: true } }
+  ticketCategories: { orderBy: { position: 'asc' as const }, select: { id: true, label: true, capacity: true } },
+  // Menü: Gänge für die Spalte "Menü" und den Link zur Küchenübersicht
+  menuCourses: { orderBy: { position: 'asc' as const }, select: { id: true, label: true } }
 }
 
 /**

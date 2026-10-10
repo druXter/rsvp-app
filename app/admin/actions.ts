@@ -27,7 +27,9 @@ import { fillFreeSeats } from '../lib/waitlist'
 import { BANK_IMPORT_MAX_BYTES, decodeStatement } from '../lib/bank-import'
 import { buildImportPreview, type ImportPreview } from '../lib/payment-import'
 import { sendPaymentRemindersForEvent } from '../lib/payment-reminder'
-import { companionsOf, MAX_COMPANIONS, readCompanions, seatsOf } from '../lib/persons'
+import { companionsOf, MAX_COMPANIONS, menuOf, readCompanions, seatsOf } from '../lib/persons'
+import { courseOptions, readMenu, readMenuSelection, validSelection } from '../lib/menu'
+import { assertMenuChangeable, saveMenu } from '../lib/menu-store'
 import { savePersons } from '../lib/rsvp-submission'
 
 const prisma = new PrismaClient()
@@ -458,6 +460,7 @@ export async function createEvent(formData: FormData) {
   const ticketing = await readTicketing(formData, null)
   const maxCompanions = readMaxCompanions(formData)
   await assertCompanionsAllowed(maxCompanions, ticketing.ticketCategories, null)
+  const menu = readMenu(formData)
 
   // Abfrage-Optionen für die Gäste als JSON-String speichern
   const formConfig = JSON.stringify({
@@ -503,6 +506,7 @@ export async function createEvent(formData: FormData) {
   await saveToolLinks(created.id, toolLinks)
   await saveBringSlots(created.id, bringSlots)
   await saveTicketCategories(created.id, ticketing.ticketCategories)
+  await saveMenu(created.id, menu)
 
   // Cache leeren und zum Dashboard umleiten
   revalidatePath('/admin')
@@ -579,6 +583,8 @@ export async function updateEvent(formData: FormData) {
   const ticketing = await readTicketing(formData, id)
   const maxCompanions = readMaxCompanions(formData)
   await assertCompanionsAllowed(maxCompanions, ticketing.ticketCategories, id)
+  const menu = readMenu(formData)
+  await assertMenuChangeable(id, menu)
 
   const formConfig = JSON.stringify({
     askEmail: formData.get('askEmail') === 'on',
@@ -627,6 +633,7 @@ export async function updateEvent(formData: FormData) {
   // Geänderter oder entfernter Link leert, was das bisherige Tool-Event gemeldet hat (z.B. Plätze)
   await saveToolLinks(id, toolLinks)
   await saveBringSlots(id, bringSlots)
+  await saveMenu(id, menu)
   await applyTicketing(id, ticketing, ticketing.seatingRequiresPayment !== undefined && ticketing.seatingRequiresPayment !== existingEvent.seatingRequiresPayment)
 
   if (notifyGuests && changes.length > 0) {
@@ -684,7 +691,7 @@ export async function updateAdminRsvp(formData: FormData) {
   const companionsInput = readCompanions(formData)
   const bringingItem = formData.get('bringingItem') as string || null
 
-  const existingRsvp = await prisma.rsvp.findUnique({ where: { id }, include: { persons: true, event: { include: { ticketCategories: true } } } })
+  const existingRsvp = await prisma.rsvp.findUnique({ where: { id }, include: { persons: { orderBy: { position: 'asc' }, include: { menuChoices: true } }, event: { include: { ticketCategories: true, menuCourses: true } } } })
   if (!existingRsvp || !(await hasEventModeratorOrAbove(user, existingRsvp.event))) return
 
   // Ticketkategorie: Die Verwaltung darf sie jederzeit ändern, auch in eine volle (wie "Zulassen"). Vor der
@@ -701,10 +708,16 @@ export async function updateAdminRsvp(formData: FormData) {
   }
   const paymentReference = existingRsvp.paymentReference ?? (amountCents ? generatePaymentReference(existingRsvp.event.slug) : null)
   // Begleitungen (docs/KONZEPT-EINLADUNGEN.md): Die Verwaltung darf über das Höchstmaß des Termins hinaus
-  // eintragen (wie "Zulassen", ohne Platzprüfung), nur nicht bei Ticketkategorien.
-  const usesPersons = categories.length === 0 && (existingRsvp.event.maxCompanions > 0 || existingRsvp.persons.length > 0)
-  const companions = (companionsInput ?? companionsOf(existingRsvp.persons)).slice(0, MAX_COMPANIONS)
-  const persons = [{ name, ageGroup: 'ADULT', isAttending, dietaryOption, allergies }, ...companions.map(c => ({ ...c, isAttending }))]
+  // eintragen (wie "Zulassen", ohne Platzprüfung), nur nicht bei Ticketkategorien. Das Menü muss sie nicht
+  // vollständig wählen, gespeichert wird nur, was es im Menü des Termins gibt.
+  const menu = existingRsvp.event.menuCourses.map(c => ({ id: c.id, label: c.label, options: courseOptions(c.options) }))
+  const usesPersons = (categories.length === 0 && existingRsvp.event.maxCompanions > 0) || existingRsvp.persons.length > 0 || menu.length > 0
+  const companions = categories.length > 0 ? [] : (companionsInput ?? companionsOf(existingRsvp.persons)).slice(0, MAX_COMPANIONS)
+  const ownMenu = readMenuSelection(formData, 'menu_') ?? (existingRsvp.persons[0] ? menuOf(existingRsvp.persons[0]) : {})
+  const persons = [
+    { name, ageGroup: 'ADULT', isAttending, dietaryOption, allergies, menu: validSelection(menu, ownMenu) },
+    ...companions.map(c => ({ ...c, isAttending, menu: c.ageGroup === 'INFANT' ? {} : validSelection(menu, c.menu) }))
+  ]
 
   await prisma.participant.update({
     where: { id: existingRsvp.participantId },
@@ -1192,6 +1205,8 @@ export async function updateSeriesTermin(formData: FormData) {
   const ticketing = await readTicketing(formData, id)
   const maxCompanions = readMaxCompanions(formData)
   await assertCompanionsAllowed(maxCompanions, ticketing.ticketCategories, id)
+  const menu = readMenu(formData)
+  await assertMenuChangeable(id, menu)
 
   const formConfig = JSON.stringify({
     askEmail: false,
@@ -1221,6 +1236,7 @@ export async function updateSeriesTermin(formData: FormData) {
   // Geänderter oder entfernter Link leert, was das bisherige Tool-Event gemeldet hat (z.B. Plätze)
   await saveToolLinks(id, toolLinks)
   await saveBringSlots(id, bringSlots)
+  await saveMenu(id, menu)
   await applyTicketing(id, ticketing, ticketing.seatingRequiresPayment !== undefined && ticketing.seatingRequiresPayment !== existingEvent.seatingRequiresPayment)
 
   if (notifyGuests && changes.length > 0) {

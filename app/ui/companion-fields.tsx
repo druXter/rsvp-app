@@ -2,35 +2,43 @@
 'use client'
 
 import { useState } from 'react'
-import { AGE_GROUPS, AGE_GROUP_LABEL, DIET_OPTIONS, type CompanionInput } from '../lib/persons'
+import { AGE_GROUPS, AGE_GROUP_LABEL, DIET_OPTIONS, asAgeGroup, type CompanionInput } from '../lib/persons'
+import type { MenuCourseForForm } from '../lib/menu'
+import MenuSelects from './menu-selects'
 
 const INPUT = 'w-full border border-gray-300 p-2 rounded-md bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100'
 
 /**
- * Begleitungen mit Name, Altersgruppe und - wenn der Termin danach fragt - Essen und Allergien (app/lib/persons.ts,
+ * Begleitungen mit Name, Altersgruppe und - wenn der Termin danach fragt - Essen, Allergien und Menü (app/lib/persons.ts,
  * docs/KONZEPT-EINLADUNGEN.md). Für das Gästeformular und die Verwaltung (edit-rsvp). Die Felder heißen
- * companion_<i>_name/_age/_diet/_allergies, readCompanions liest sie; companionsShown sagt dem Server, dass die
- * Liste angezeigt wurde (ohne bleiben die bisherigen Begleitungen).
+ * companion_<i>_name/_age/_diet/_allergies/_menu_<Gang-ID>, readCompanions liest sie; companionsShown sagt dem
+ * Server, dass die Liste angezeigt wurde (ohne bleiben die bisherigen Begleitungen). Kleinkinder wählen kein Menü.
  */
 export default function CompanionFields({
   max,
   initial,
   askDiet,
   askAllergies,
+  menu = [],
+  menuRequired = true,
   heading = 'Begleitungen'
 }: {
   max: number
   initial: CompanionInput[]
   askDiet: boolean
   askAllergies: boolean
+  menu?: MenuCourseForForm[]
+  menuRequired?: boolean
   heading?: string
 }) {
   // Schlüssel pro Zeile, damit das Entfernen einer Zeile nicht die Eingaben der folgenden verschiebt
   const [rows, setRows] = useState(() => initial.map((companion, i) => ({ key: i, companion })))
   const [nextKey, setNextKey] = useState(initial.length)
+  // Altersgruppe je Zeile, damit die Menüwahl bei Kleinkindern verschwindet
+  const [ages, setAges] = useState<Record<number, string>>(() => Object.fromEntries(initial.map((c, i) => [i, c.ageGroup])))
 
   const add = () => {
-    setRows([...rows, { key: nextKey, companion: { name: '', ageGroup: 'ADULT', dietaryOption: null, allergies: null } }])
+    setRows([...rows, { key: nextKey, companion: { name: '', ageGroup: 'ADULT', dietaryOption: null, allergies: null, menu: {} } }])
     setNextKey(nextKey + 1)
   }
 
@@ -50,7 +58,7 @@ export default function CompanionFields({
             </div>
             <div>
               <label htmlFor={`companion_${i}_age`} className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Alter</label>
-              <select id={`companion_${i}_age`} name={`companion_${i}_age`} defaultValue={companion.ageGroup} className={INPUT}>
+              <select id={`companion_${i}_age`} name={`companion_${i}_age`} defaultValue={companion.ageGroup} onChange={e => setAges({ ...ages, [key]: e.target.value })} className={INPUT}>
                 {AGE_GROUPS.map(group => <option key={group} value={group}>{AGE_GROUP_LABEL[group]}</option>)}
               </select>
             </div>
@@ -70,6 +78,9 @@ export default function CompanionFields({
                 <input name={`companion_${i}_allergies`} defaultValue={companion.allergies ?? ''} maxLength={300} aria-label={`Allergien der ${i + 1}. Begleitung`} placeholder="Allergien (optional)" className={INPUT} />
               )}
             </div>
+          )}
+          {menu.length > 0 && asAgeGroup(ages[key] ?? companion.ageGroup) !== 'INFANT' && (
+            <MenuSelects courses={menu} prefix={`companion_${i}_menu_`} selection={companion.menu} who={`für ${companion.name || `die ${i + 1}. Begleitung`}`} required={menuRequired} />
           )}
         </div>
       ))}

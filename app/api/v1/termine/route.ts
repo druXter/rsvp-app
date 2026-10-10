@@ -1,7 +1,8 @@
 // app/api/v1/termine/route.ts
 import { PrismaClient } from '@prisma/client'
 import { getGuestUserFromApiToken, apiError } from '../../../lib/api-auth'
-import { companionsOf } from '../../../lib/persons'
+import { companionsOf, menuOf } from '../../../lib/persons'
+import { courseOptions } from '../../../lib/menu'
 
 const prisma = new PrismaClient()
 
@@ -21,7 +22,7 @@ export async function GET(request: Request) {
     include: {
       series: {
         include: {
-          events: { where: { date: { gte: new Date() } }, orderBy: { date: 'asc' } }
+          events: { where: { date: { gte: new Date() } }, orderBy: { date: 'asc' }, include: { menuCourses: { orderBy: { position: 'asc' } } } }
         }
       }
     }
@@ -29,7 +30,7 @@ export async function GET(request: Request) {
 
   const participants = await prisma.participant.findMany({
     where: { guestUserId: guestUser.id },
-    include: { rsvps: { include: { persons: { orderBy: { position: 'asc' } } } } }
+    include: { rsvps: { include: { persons: { orderBy: { position: 'asc' }, include: { menuChoices: true } } } } }
   })
   const rsvpByEventId = new Map(
     participants.flatMap(p => p.rsvps.map(r => [r.eventId, r] as const))
@@ -54,6 +55,8 @@ export async function GET(request: Request) {
           description: event.description,
           maxCapacity: event.maxCapacity,
           maxCompanions: event.maxCompanions,
+          // Menü: Gänge mit Optionen, beim Antworten als menu bzw. companions[].menu {Gang-ID: Option}
+          menuCourses: event.menuCourses.map(c => ({ id: c.id, label: c.label, options: courseOptions(c.options) })),
           url: `/reihe/${m.series.slug}/${event.slug}`,
           myRsvp: rsvp
             ? {
@@ -61,6 +64,8 @@ export async function GET(request: Request) {
                 isOnWaitlist: rsvp.isOnWaitlist,
                 // Begleitungen (alle Personen außer der eigenen), plusOne/plusOneName als Kurzform von früher
                 companions: companionsOf(rsvp.persons),
+                // Eigene Menüwahl (Gang-ID -> Option), die der Begleitungen steht in companions[].menu
+                menu: rsvp.persons[0] ? menuOf(rsvp.persons[0]) : {},
                 plusOne: rsvp.persons.length > 1,
                 plusOneName: rsvp.persons[1]?.name ?? null,
                 bringingItem: rsvp.bringingItem,

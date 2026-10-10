@@ -115,7 +115,7 @@ export default function DatenschutzPage() {
           <h2 className="font-bold text-lg">4. Angaben im RSVP-Formular</h2>
           <p className="mt-2">
             Je nach Konfiguration der jeweiligen Veranstaltung fragen wir Name (Pflichtfeld), E-Mail-Adresse,
-            Handynummer, Essenswunsch, Begleitungen, Alkohol-Präferenz, Mitbringsel (als Freitext oder als Eintrag aus
+            Handynummer, Essenswunsch, Menüwahl, Begleitungen, Alkohol-Präferenz, Mitbringsel (als Freitext oder als Eintrag aus
             einer Mitbringliste, z.B. „Salat“) und freie Zusatzfragen ab. Diese
             Angaben verwenden wir ausschließlich zur Organisation und Durchführung der jeweiligen Veranstaltung. Wir
             geben deine Daten nicht an Dritte außerhalb der in Punkt 16 genannten Auftragsverarbeiter weiter.
@@ -131,7 +131,7 @@ export default function DatenschutzPage() {
           <p className="mt-2">
             <strong>Begleitungen:</strong> Lässt eine Veranstaltung Begleitungen zu, gibst du für jede Person, die du
             mitbringst, ihren Namen und ihre Altersgruppe (erwachsen, Kind, Kleinkind) an und, je nach Veranstaltung,
-            ihren Essenswunsch und ihre Allergien. Das gilt auch für Kinder. Bitte gib diese Angaben nur an, wenn die
+            ihren Essenswunsch, ihre Allergien und ihre Menüwahl. Das gilt auch für Kinder. Bitte gib diese Angaben nur an, wenn die
             Personen (bei Kindern die Sorgeberechtigten) damit einverstanden sind; für Allergien gilt das oben Gesagte
             entsprechend. Wir verwenden die Angaben wie deine eigenen nur zur Organisation der Veranstaltung (Plätze,
             Verpflegung, Einlass) und löschen sie zusammen mit deiner Antwort.

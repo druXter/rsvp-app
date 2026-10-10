@@ -9,6 +9,7 @@ import { formatPaymentDate, paymentDue, paymentMailParts } from './payment'
 import { formatEuro } from './payment-state'
 import { prisma } from './prisma'
 import { describePerson, personsOf } from './persons'
+import { describeSelection } from './menu'
 
 // Den Mail-Transporter mit den Daten aus der .env initialisieren
 const transporter = nodemailer.createTransport({
@@ -153,9 +154,17 @@ export async function sendConfirmationEmail(participant: Participant, rsvp: Rsvp
     ? `${baseUrl()}/api/timeline-link/${event.id}?token=${encodeURIComponent(participant.editToken)}`
     : null
 
-  // Begleitungen (docs/KONZEPT-EINLADUNGEN.md): wer mit angemeldet ist, samt Angaben
-  const companions = rsvp.isAttending
-    ? personsOf({ isAttending: true, persons: await prisma.rsvpPerson.findMany({ where: { rsvpId: rsvp.id } }) }, participant).slice(1).filter(p => p.isAttending).map(p => describePerson(p))
+  // Begleitungen und Menü (docs/KONZEPT-EINLADUNGEN.md): wer mit angemeldet ist, samt Angaben und Wahl
+  const [personRows, courses] = rsvp.isAttending
+    ? await Promise.all([
+        prisma.rsvpPerson.findMany({ where: { rsvpId: rsvp.id }, include: { menuChoices: true } }),
+        prisma.menuCourse.findMany({ where: { eventId: event.id }, orderBy: { position: 'asc' } })
+      ])
+    : [[], []]
+  const persons = personsOf({ isAttending: true, persons: personRows }, participant).filter(p => p.isAttending)
+  const companions = persons.slice(1).map(p => describePerson(p))
+  const menuLines = courses.length > 0
+    ? persons.filter(p => p.ageGroup !== 'INFANT').map(p => `${p.name || 'Begleitung'}: ${describeSelection(courses, p.menu) || 'noch nicht gewählt'}`)
     : []
 
   // Betreff und Text je nach Zusage oder Absage anpassen
@@ -171,7 +180,7 @@ ${rsvp.isAttending
   ? 'Wir freuen uns sehr, dass du dabei bist! Im Anhang findest du eine Kalenderdatei (.ics), damit du dir den Termin direkt abspeichern kannst, sowie deinen persönlichen Einlass-QR-Code - bitte am Einlass bereithalten.'
   : 'Schade, dass du nicht dabei sein kannst. Falls sich deine Pläne doch noch ändern sollten, kannst du deine Antwort jederzeit anpassen.'}
 
-${companions.length > 0 ? `Mit dir angemeldet: ${companions.join('; ')}\n\n` : ''}${payment ? `${payment.text}\n\n` : ''}${seatAfterPayment ? 'Deinen Sitzplatz kannst du wählen, sobald deine Zahlung eingegangen ist - dann bekommst du eine Mail mit dem Link.\n\n' : ''}${seatLink ? `Deinen Sitzplatz kannst du hier wählen:\n${seatLink}\n\n` : ''}${timelineLink ? `Den Ablauf des Events findest du im Zeitplan:\n${timelineLink}\n\n` : ''}Du kannst deine Antwort und alle optionalen Angaben jederzeit über diesen persönlichen Link bearbeiten:
+${companions.length > 0 ? `Mit dir angemeldet: ${companions.join('; ')}\n\n` : ''}${menuLines.length > 0 ? `Menü:\n${menuLines.join('\n')}\n\n` : ''}${payment ? `${payment.text}\n\n` : ''}${seatAfterPayment ? 'Deinen Sitzplatz kannst du wählen, sobald deine Zahlung eingegangen ist - dann bekommst du eine Mail mit dem Link.\n\n' : ''}${seatLink ? `Deinen Sitzplatz kannst du hier wählen:\n${seatLink}\n\n` : ''}${timelineLink ? `Den Ablauf des Events findest du im Zeitplan:\n${timelineLink}\n\n` : ''}Du kannst deine Antwort und alle optionalen Angaben jederzeit über diesen persönlichen Link bearbeiten:
 ${personalLink}${seriesHintText(event, participant)}
 
 Viele Grüße,
@@ -185,6 +194,7 @@ Dein Event-Team`
         ? 'Wir freuen uns sehr, dass du dabei bist! Im Anhang findest du eine Kalenderdatei (.ics), damit du dir den Termin direkt abspeichern kannst.'
         : 'Schade, dass du nicht dabei sein kannst. Falls sich deine Pläne doch noch ändern sollten, kannst du deine Antwort jederzeit anpassen.'}</p>
       ${companions.length > 0 ? `<p>Mit dir angemeldet: ${companions.map(escapeHtml).join('; ')}</p>` : ''}
+      ${menuLines.length > 0 ? `<p>🍽️ Menü:<br>${menuLines.map(escapeHtml).join('<br>')}</p>` : ''}
       ${payment ? payment.html : ''}
       ${seatAfterPayment ? '<p>🪑 Deinen Sitzplatz kannst du wählen, sobald deine Zahlung eingegangen ist - dann bekommst du eine Mail mit dem Link.</p>' : ''}
       ${qrAttachment ? `

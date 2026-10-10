@@ -17,6 +17,8 @@ import type { PaymentInfo } from '../lib/payment'
 import PaymentBox from '../ui/payment-box'
 import CompanionFields from '../ui/companion-fields'
 import type { CompanionInput } from '../lib/persons'
+import type { MenuCourseForForm, MenuSelection } from '../lib/menu'
+import MenuSelects from '../ui/menu-selects'
 
 export default function RsvpForm({
   eventId,
@@ -36,7 +38,9 @@ export default function RsvpForm({
   payment = null,
   seatAfterPayment = false,
   maxCompanions = 0,
-  companions = []
+  companions = [],
+  menu = [],
+  ownMenu = {}
 }: {
   eventId: string;
   formConfig: string | null;
@@ -69,6 +73,9 @@ export default function RsvpForm({
   // Begleitungen (app/lib/guest-persons.ts): wie viele möglich sind (0 = keine) und die bisherigen der Antwort.
   maxCompanions?: number;
   companions?: CompanionInput[];
+  // Menü (app/lib/menu.ts): Gänge des Termins und die bisherige eigene Wahl.
+  menu?: MenuCourseForForm[];
+  ownMenu?: MenuSelection;
 }) {
   const [isAttending, setIsAttending] = useState<boolean | null>(rsvp ? rsvp.isAttending : null)
   const [submittedToken, setSubmittedToken] = useState<string | null>(null)
@@ -358,9 +365,17 @@ export default function RsvpForm({
             </div>
           )}
 
+          {menu.length > 0 && (
+            <fieldset>
+              <legend className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Dein Menü</legend>
+              <input type="hidden" name="menuShown" value="1" />
+              <MenuSelects courses={menu} prefix="menu_" selection={ownMenu} who="" />
+            </fieldset>
+          )}
+
           {/* Begleitungen (bei Ticketkategorien ist maxCompanions 0: jede Person meldet sich selbst an) */}
           {maxCompanions > 0 && (
-            <CompanionFields max={maxCompanions} initial={companions} askDiet={!!config.askDiet} askAllergies={!!config.askAllergies} />
+            <CompanionFields max={maxCompanions} initial={companions} askDiet={!!config.askDiet} askAllergies={!!config.askAllergies} menu={menu} />
           )}
 
           {config.askAlcohol && (
