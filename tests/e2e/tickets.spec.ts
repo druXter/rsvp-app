@@ -5,6 +5,7 @@ import {
   BASE_URL, TEST_SEATING_BASE_URL, TEST_SEATING_SECRET, cookieHeader, createAccount, createApiToken, createEvent, createGuestUser,
   createRsvp, createSeries, createTermin, decodeCouplingToken, linkTool, locationOf, login, prisma, readForm, signCouplingToken, submitForm
 } from './helpers'
+import { TEST_CRON_SECRET } from '../../playwright.config'
 
 // Tickets und Bezahlung (docs/KONZEPT-TICKETS.md, app/lib/tickets.ts, app/lib/payment.ts, app/lib/waitlist.ts):
 // Kategorien mit Preis und Kontingent im Termin-Formular, Auswahl und Warteliste je Kategorie, Zahlungsdaten
@@ -349,4 +350,115 @@ test('Client-API: Kategorie Pflicht bei Terminen mit Kategorien', async ({ reque
   expect(body.payment.transfer.reference).toMatch(/^TERMIN[A-Z0-9]{0,2}-/)
   // Ohne Feld gilt danach die bisherige Kategorie
   expect((await post({ isAttending: true })).status()).toBe(200)
+})
+
+test('Kontoauszug-Import: Vorschau, nur passende vorausgewählt, Bestätigen markiert; fremde Zusagen und Konten nicht', async ({ page, browser }) => {
+  const owner = await createAccount('CREATOR')
+  const { event, categories: [stud] } = await ticketEvent(owner, [{ label: 'Studierende', priceCents: 2500 }])
+  const make = async (name: string, reference: string, extra = {}) => {
+    const { rsvp } = await createRsvp(event, { name })
+    return prisma.rsvp.update({ where: { id: rsvp.id }, data: { ticketCategoryId: stud.id, amountCents: 2500, paymentReference: reference, ...extra } })
+  }
+  const code = () => Array.from({ length: 8 }, () => 'ABCDEFGHJKMNPQRSTUVWXYZ'[Math.floor(Math.random() * 23)]).join('')
+  const paula = await make('Paula', `E2EIMP-${code()}`)
+  const otto = await make('Otto', `E2EIMP-${code()}`)
+  const done = await make('Schon bezahlt', `E2EIMP-${code()}`, { paidAt: new Date('2026-10-01T00:00:00Z'), paymentMethod: 'CASH' })
+  const { event: other, categories: [otherCat] } = await ticketEvent(owner, [{ label: 'Fremd', priceCents: 2500 }])
+  const foreign = await createRsvp(other, { name: 'Fremd' })
+  await prisma.rsvp.update({ where: { id: foreign.rsvp.id }, data: { ticketCategoryId: otherCat.id, amountCents: 2500, paymentReference: `E2EIMP-${code()}` } })
+
+  const csv = [
+    '"Buchungstag";"Verwendungszweck";"Name";"Betrag"',
+    `"10.10.26";"${paula.paymentReference!.toLowerCase().replace('-', ' ')}";"Paula Müller";"25,00"`,
+    `"10.10.26";"${otto.paymentReference}";"Otto";"20,00"`,
+    `"10.10.26";"${done.paymentReference}";"Schon";"25,00"`
+  ].join('\n')
+
+  await login(page, owner.email)
+  await page.goto('/admin')
+  await page.locator(`a[href="/admin/zahlungen/${event.id}"]`).click()
+  await page.getByLabel(/Kontoauszug/).setInputFiles({ name: 'umsaetze.csv', mimeType: 'text/csv', buffer: Buffer.from(csv, 'latin1') })
+  await page.getByRole('button', { name: 'Abgleichen' }).click()
+  const preview = page.getByTestId('import-preview')
+  await expect(preview).toContainText('4 Buchungen gelesen, 3 Verwendungszweck(e) gefunden')
+  await expect(page.getByRole('checkbox', { name: 'Paula als bezahlt markieren' })).toBeChecked()
+  await expect(page.getByRole('checkbox', { name: 'Otto als bezahlt markieren' })).not.toBeChecked()
+  await expect(page.getByRole('checkbox', { name: 'Schon bezahlt als bezahlt markieren' })).toBeDisabled()
+  await expect(preview).toContainText('Betrag abweichend (20,00')
+  // Nichts gespeichert, bevor bestätigt wird
+  expect((await prisma.rsvp.findUniqueOrThrow({ where: { id: paula.id } })).paidAt).toBeNull()
+
+  // Bestätigen über die Seite - die Anfrage wird mitgeschnitten, um sie danach verändert abzuspielen
+  const captured = page.waitForRequest(r => r.method() === 'POST' && !!r.headers()['next-action'] && (r.postData() ?? '').includes(paula.id))
+  await page.getByRole('button', { name: 'Ausgewählte als bezahlt markieren' }).click()
+  await expect(page.getByRole('status')).toContainText('1 Zahlung(en) als bezahlt markiert')
+  expect(await prisma.rsvp.findUniqueOrThrow({ where: { id: paula.id } })).toMatchObject({ paymentMethod: 'TRANSFER' })
+  expect((await prisma.rsvp.findUniqueOrThrow({ where: { id: otto.id } })).paidAt).toBeNull()
+  expect((await prisma.rsvp.findUniqueOrThrow({ where: { id: done.id } })).paymentMethod).toBe('CASH')
+
+  const request = await captured
+  const replay = async (as: Page, rsvpId: string) => as.request.post(request.url(), {
+    headers: {
+      'next-action': request.headers()['next-action'], 'content-type': request.headers()['content-type'], accept: 'text/x-component',
+      origin: BASE_URL, ...(await cookieHeader(as.context()))
+    },
+    data: request.postDataBuffer()!.toString('utf8').replaceAll(paula.id, rsvpId),
+    maxRedirects: 0
+  })
+  // Fremdes Konto ohne Freigabe: Seite 404, Bestätigung wirkt nicht
+  const stranger = await createAccount('MODERATOR')
+  const strangerPage = await (await browser.newContext()).newPage()
+  await login(strangerPage, stranger.email)
+  expect((await strangerPage.goto(`/admin/zahlungen/${event.id}`))!.status()).toBe(404)
+  await replay(strangerPage, otto.id)
+  expect((await prisma.rsvp.findUniqueOrThrow({ where: { id: otto.id } })).paidAt).toBeNull()
+  // Zusage eines anderen Termins untergeschoben: wird übergangen
+  await replay(page, foreign.rsvp.id)
+  expect((await prisma.rsvp.findUniqueOrThrow({ where: { id: foreign.rsvp.id } })).paidAt).toBeNull()
+  // Positivkontrolle für das Abspielen: Owner markiert Otto auf demselben Weg
+  await replay(page, otto.id)
+  expect((await prisma.rsvp.findUniqueOrThrow({ where: { id: otto.id } })).paidAt).not.toBeNull()
+})
+
+test('Zahlungserinnerung: automatisch einmal vor Fristende, per Knopf nur für Owner', async ({ page, browser, request }) => {
+  const owner = await createAccount('CREATOR')
+  const { event, categories: [stud] } = await ticketEvent(owner, [{ label: 'Studierende', priceCents: 2500 }], { paymentDueDays: 14, paymentReminderDays: 3 })
+  const ticket = { ticketCategoryId: stud.id, amountCents: 2500 }
+  const make = async (name: string, data: object) => {
+    const { rsvp } = await createRsvp(event, { name })
+    return prisma.rsvp.update({ where: { id: rsvp.id }, data: { ...ticket, paymentReference: `E2EREM-${randomBytes(4).toString('hex').toUpperCase()}`, ...data } })
+  }
+  const soon = await make('Bald fällig', { paymentDueAt: new Date(Date.now() + 2 * DAY) })
+  const later = await make('Später fällig', { paymentDueAt: new Date(Date.now() + 10 * DAY) })
+  const paid = await make('Bezahlt', { paymentDueAt: new Date(Date.now() + DAY), paidAt: new Date(), paymentMethod: 'TRANSFER' })
+  const { event: noAuto, categories: [noAutoCat] } = await ticketEvent(owner, [{ label: 'X', priceCents: 1000 }], { paymentDueDays: 14 })
+  const manualOnly = await createRsvp(noAuto, { name: 'Ohne Automatik' })
+  await prisma.rsvp.update({ where: { id: manualOnly.rsvp.id }, data: { ticketCategoryId: noAutoCat.id, amountCents: 1000, paymentReference: 'E2EREM-NOAUTO' + randomBytes(2).toString('hex'), paymentDueAt: new Date(Date.now() + DAY) } })
+  const remindedAt = async (id: string) => (await prisma.rsvp.findUniqueOrThrow({ where: { id } })).paymentReminderSentAt
+
+  const cron = () => request.get(`/api/cron/reminders?secret=${TEST_CRON_SECRET}`)
+  expect((await cron()).status()).toBe(200)
+  const first = await remindedAt(soon.id)
+  expect(first).not.toBeNull()
+  expect(await remindedAt(later.id)).toBeNull()
+  expect(await remindedAt(paid.id)).toBeNull()
+  expect(await remindedAt(manualOnly.rsvp.id)).toBeNull()
+  // Kein zweites Mal für dieselbe Frist
+  await cron()
+  expect(await remindedAt(soon.id)).toEqual(first)
+
+  // Knopf: Moderator*in mit Freigabe darf es nicht (Massenversand wie beim Reminder nur Owner/Admin)
+  await login(page, owner.email)
+  await page.goto('/admin')
+  const button = await readForm(page, 'form:has(button:has-text("Zahlungserinnerung an"))')
+  const helper = await createAccount('MODERATOR')
+  await prisma.resourceAccess.create({ data: { userId: helper.id, eventId: event.id } })
+  const helperPage = await (await browser.newContext()).newPage()
+  await login(helperPage, helper.email)
+  await submitForm(helperPage, button)
+  expect(await remindedAt(later.id)).toBeNull()
+  // Positivkontrolle: Owner erinnert alle offenen, Bezahlte nicht
+  await submitForm(page, button)
+  expect(await remindedAt(later.id)).not.toBeNull()
+  expect(await remindedAt(paid.id)).toBeNull()
 })

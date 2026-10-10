@@ -1,7 +1,7 @@
 // app/admin/event-rsvp-card.tsx
 import Link from 'next/link'
 import { Event, Rsvp, Participant } from '@prisma/client'
-import { sendReminder, resendVerificationEmail, promoteFromWaitlist, toggleAttendance } from './actions'
+import { sendReminder, resendVerificationEmail, promoteFromWaitlist, toggleAttendance, sendPaymentReminders } from './actions'
 import DeleteButton from './delete-button'
 import DeleteRsvpButton from './delete-rsvp-button'
 import { claimedLabels } from '../lib/bring-list'
@@ -51,6 +51,7 @@ export default function EventRsvpCard({
   const sum = (filter: (s: ReturnType<typeof paymentState>) => boolean) => states.filter(x => filter(x.state)).reduce((total, x) => total + (x.r.amountCents ?? 0), 0)
   const overdueCount = states.filter(x => x.state === 'overdue').length
   const refundOpenCount = states.filter(x => x.state === 'refund-open').length
+  const dueCount = states.filter(x => x.state === 'open' || x.state === 'overdue').length
 
   return (
     <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
@@ -145,6 +146,19 @@ export default function EventRsvpCard({
               {overdueCount > 0 && <span className="text-red-600 dark:text-red-400 font-semibold"> · {overdueCount} überfällig</span>}
               {refundOpenCount > 0 && <span className="text-amber-700 dark:text-amber-400 font-semibold"> · {refundOpenCount} Erstattung offen</span>}
             </p>
+            <div className="flex flex-wrap gap-2 pt-1">
+              <Link href={`/admin/zahlungen/${event.id}`} className="px-2 py-1 text-xs font-medium rounded border border-pink-200 dark:border-pink-800 bg-pink-50 dark:bg-pink-950 text-pink-700 dark:text-pink-300 hover:bg-pink-100 dark:hover:bg-pink-900 transition">
+                📄 Kontoauszug abgleichen
+              </Link>
+              {isOwner && dueCount > 0 && (
+                <form action={sendPaymentReminders}>
+                  <input type="hidden" name="eventId" value={event.id} />
+                  <button type="submit" className="px-2 py-1 text-xs font-medium rounded border border-pink-200 dark:border-pink-800 bg-pink-50 dark:bg-pink-950 text-pink-700 dark:text-pink-300 hover:bg-pink-100 dark:hover:bg-pink-900 transition">
+                    💶 Zahlungserinnerung an {dueCount} offene senden
+                  </button>
+                </form>
+              )}
+            </div>
           </div>
         )}
 

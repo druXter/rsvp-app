@@ -185,6 +185,8 @@ model Event {
   paymentBic             String?
   // Zahlfrist in Tagen ab festem Platz - nur Anzeige, nichts verfällt automatisch.
   paymentDueDays         Int?
+  // Automatische Zahlungserinnerung so viele Tage vor Ablauf der Frist (Cron /api/cron/reminders), null = aus.
+  paymentReminderDays    Int?
   // Zusage zählt bei Seating erst nach Zahlung (isSeatingConfirmed), nur mit Seating-Link wirksam.
   seatingRequiresPayment Boolean          @default(false)
 
@@ -282,14 +284,16 @@ model Rsvp {
   // Tickets und Bezahlung (docs/KONZEPT-TICKETS.md). amountCents wird beim Wählen der Kategorie aus deren
   // Preis übernommen und danach festgeschrieben; null/0 = nichts zu zahlen. paymentDueAt setzt
   // syncPaymentDue, sobald der Platz fest ist. paymentMethod: TRANSFER | CASH.
-  ticketCategoryId String?
-  ticketCategory   TicketCategory? @relation(fields: [ticketCategoryId], references: [id], onDelete: SetNull)
-  amountCents      Int?
-  paymentReference String?         @unique
-  paymentDueAt     DateTime?
-  paidAt           DateTime?
-  paymentMethod    String?
-  refundedAt       DateTime?
+  ticketCategoryId      String?
+  ticketCategory        TicketCategory? @relation(fields: [ticketCategoryId], references: [id], onDelete: SetNull)
+  amountCents           Int?
+  paymentReference      String?         @unique
+  paymentDueAt          DateTime?
+  paidAt                DateTime?
+  paymentMethod         String?
+  refundedAt            DateTime?
+  // Letzte Zahlungserinnerung (automatisch oder per Knopf), wird mit einer neuen Frist zurückgesetzt.
+  paymentReminderSentAt DateTime?
 
   @@unique([eventId, participantId])
 }

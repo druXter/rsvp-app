@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server'
 import { sendReminderEmail } from '../../../lib/mail'
 import { sendReminderPush } from '../../../lib/push'
 import { safeEqual } from '../../../lib/tokens'
+import { sendDuePaymentReminders } from '../../../lib/payment-reminder'
 
 const prisma = new PrismaClient()
 
@@ -80,5 +81,9 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.json({ success: true, processedEvents: sentCount })
+  // 6. Zahlungserinnerungen vor Ablauf der Zahlfrist (Tickets, app/lib/payment-reminder.ts) - je Zusage
+  // und Frist einmal, unabhängig von den Event-Erinnerungen oben
+  const paymentReminders = await sendDuePaymentReminders(now)
+
+  return NextResponse.json({ success: true, processedEvents: sentCount, paymentReminders })
 }

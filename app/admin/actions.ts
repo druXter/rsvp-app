@@ -4,7 +4,7 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
-import { PrismaClient, Role } from '@prisma/client'
+import { PrismaClient, Role, type Event, type EventSeries, type Participant, type Rsvp } from '@prisma/client'
 import { randomUUID } from 'crypto'
 import { sanitizeNextPath } from 'suite-kit'
 import { sendReminderEmail, sendWaitlistPromotedEmail, sendConfirmationEmail, sendVerificationEmail, sendPasswordResetEmail, sendEmailChangeConfirmation, sendPaymentReceivedEmail, sendPaymentCancelledEmail } from '../lib/mail'
@@ -24,6 +24,9 @@ import { deleteOrphanedParticipants } from '../lib/participants'
 import { assertCategoriesRemovable, readTicketCategories, saveTicketCategories, type TicketCategoryInput } from '../lib/tickets'
 import { generatePaymentReference, paymentDue, paymentState, readPaymentSettings, syncPaymentDue, type PaymentSettings } from '../lib/payment'
 import { fillFreeSeats } from '../lib/waitlist'
+import { BANK_IMPORT_MAX_BYTES, decodeStatement } from '../lib/bank-import'
+import { buildImportPreview, type ImportPreview } from '../lib/payment-import'
+import { sendPaymentRemindersForEvent } from '../lib/payment-reminder'
 
 const prisma = new PrismaClient()
 
@@ -762,17 +765,7 @@ export async function setPaymentStatus(formData: FormData) {
 
   let changed = 0
   if ((action === 'paid-transfer' || action === 'paid-cash') && paymentDue(rsvp)) {
-    changed = (await prisma.rsvp.updateMany({
-      where: { id, paidAt: null },
-      data: { paidAt: now, paymentMethod: action === 'paid-cash' ? 'CASH' : 'TRANSFER', refundedAt: null }
-    })).count
-    if (changed === 1 && action === 'paid-transfer' && rsvp.participant.email) {
-      try {
-        await sendPaymentReceivedEmail(rsvp.participant, { ...rsvp, paidAt: now, paymentMethod: 'TRANSFER' }, rsvp.event)
-      } catch (error) {
-        console.error('Fehler beim Versand der Zahlungsbestätigung:', error)
-      }
-    }
+    changed = await markPaid(rsvp, action === 'paid-cash' ? 'CASH' : 'TRANSFER') ? 1 : 0
   } else if (action === 'unpaid' && state === 'paid') {
     changed = (await prisma.rsvp.updateMany({ where: { id, paidAt: { not: null }, refundedAt: null }, data: { paidAt: null, paymentMethod: null } })).count
     await syncPaymentDue({ rsvpIds: [id] })
@@ -784,6 +777,78 @@ export async function setPaymentStatus(formData: FormData) {
 
   // "Sitzplatzwahl erst nach Zahlung": bezahlt bzw. zurückgesetzt ändert, ob die Zusage bei Seating zählt
   if (changed === 1) notifyLinkedToolsOfRsvps([id])
+  revalidatePath('/admin')
+}
+
+/**
+ * Markiert eine offene Zahlung als bezahlt - atomar (nur wenn paidAt noch leer ist), bei Überweisung mit Mail
+ * "Zahlung eingegangen". Gemeinsam für den Knopf in der Gästeliste und den Kontoauszug-Import. Die Rechte
+ * prüft der Aufrufer. true = diese Anfrage hat markiert.
+ */
+async function markPaid(
+  rsvp: Rsvp & { participant: Participant; event: Event & { series: EventSeries | null } },
+  method: 'TRANSFER' | 'CASH'
+): Promise<boolean> {
+  const now = new Date()
+  const changed = await prisma.rsvp.updateMany({ where: { id: rsvp.id, paidAt: null }, data: { paidAt: now, paymentMethod: method, refundedAt: null } })
+  if (changed.count !== 1) return false
+  if (method === 'TRANSFER' && rsvp.participant.email) {
+    try {
+      await sendPaymentReceivedEmail(rsvp.participant, { ...rsvp, paidAt: now, paymentMethod: method }, rsvp.event)
+    } catch (error) {
+      console.error('Fehler beim Versand der Zahlungsbestätigung:', error)
+    }
+  }
+  return true
+}
+
+export type BankImportState = { error?: string; fileName?: string; preview?: ImportPreview } | null
+
+/**
+ * Kontoauszug-Import, Schritt 1 (app/admin/zahlungen/[eventId]): liest die hochgeladene Datei NUR im Speicher
+ * (nie gespeichert - sie enthält fremde Kontodaten) und liefert die Vorschau. Markiert noch nichts.
+ */
+export async function previewBankImport(_prev: BankImportState, formData: FormData): Promise<BankImportState> {
+  const user = await requireUser()
+  const eventId = formData.get('eventId') as string
+  const event = await prisma.event.findUnique({ where: { id: eventId } })
+  if (!event || !(await hasEventModeratorOrAbove(user, event))) return { error: 'Kein Zugriff auf diesen Termin.' }
+
+  const file = formData.get('statement')
+  if (!(file instanceof File) || file.size === 0) return { error: 'Bitte wähle eine Datei aus.' }
+  if (file.size > BANK_IMPORT_MAX_BYTES) return { error: 'Die Datei ist zu groß (höchstens 1,5 MB). Exportiere nur den Zeitraum seit dem Start der Anmeldung.' }
+  const text = decodeStatement(new Uint8Array(await file.arrayBuffer()))
+  return { fileName: file.name, preview: await buildImportPreview(eventId, text) }
+}
+
+/**
+ * Kontoauszug-Import, Schritt 2: markiert die ausgewählten Zusagen als per Überweisung bezahlt (mit Mail).
+ * Nur Zusagen DIESES Termins mit offener Zahlung - fremde oder schon bezahlte IDs werden übergangen.
+ */
+export async function confirmBankImport(formData: FormData) {
+  const user = await requireUser()
+  const eventId = formData.get('eventId') as string
+  const event = await prisma.event.findUnique({ where: { id: eventId } })
+  if (!event || !(await hasEventModeratorOrAbove(user, event))) return
+
+  const ids = [...new Set(formData.getAll('rsvpId').map(String))].slice(0, 2000)
+  const rsvps = await prisma.rsvp.findMany({ where: { id: { in: ids }, eventId }, include: { participant: true, event: { include: { series: true } } } })
+  const marked: string[] = []
+  for (const rsvp of rsvps) {
+    if (paymentDue(rsvp) && await markPaid(rsvp, 'TRANSFER')) marked.push(rsvp.id)
+  }
+  if (marked.length > 0) notifyLinkedToolsOfRsvps(marked)
+  revalidatePath('/admin')
+  redirect(`/admin/zahlungen/${eventId}?markiert=${marked.length}`)
+}
+
+/** Knopf "Zahlungserinnerung senden": an alle offenen Zahlungen eines Termins (nur Owner/Admin, wie Reminder). */
+export async function sendPaymentReminders(formData: FormData) {
+  const user = await requireUser()
+  const eventId = formData.get('eventId') as string
+  const event = await prisma.event.findUnique({ where: { id: eventId } })
+  if (!event || !isOwnerOrAdmin(user, event.ownerId)) return
+  await sendPaymentRemindersForEvent(eventId)
   revalidatePath('/admin')
 }
 

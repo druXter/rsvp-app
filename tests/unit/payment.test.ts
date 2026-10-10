@@ -35,9 +35,9 @@ describe('readPaymentSettings', () => {
 
   it('liest und normalisiert', () => {
     expect(readPaymentSettings(form({ paymentRecipient: ' Fachschaft ', paymentIban: 'de89 3704 0044 0532 0130 00', paymentBic: 'cobadeff', paymentDueDays: '14' }), true))
-      .toEqual({ paymentRecipient: 'Fachschaft', paymentIban: 'DE89370400440532013000', paymentBic: 'COBADEFF', paymentDueDays: 14 })
+      .toEqual({ paymentRecipient: 'Fachschaft', paymentIban: 'DE89370400440532013000', paymentBic: 'COBADEFF', paymentDueDays: 14, paymentReminderDays: null })
     expect(readPaymentSettings(form({ paymentRecipient: '', paymentIban: '', paymentBic: '', paymentDueDays: '' }), false))
-      .toEqual({ paymentRecipient: null, paymentIban: null, paymentBic: null, paymentDueDays: null })
+      .toEqual({ paymentRecipient: null, paymentIban: null, paymentBic: null, paymentDueDays: null, paymentReminderDays: null })
   })
 
   it('Pflicht bei Preisen, Prüfungen', () => {
@@ -91,5 +91,14 @@ describe('Zahlstatus', () => {
   it('bezahlt und abgesagt: Erstattung', () => {
     expect(paymentState({ ...base, isAttending: false, paidAt: now }, now)).toBe('refund-open')
     expect(paymentState({ ...base, isAttending: false, paidAt: now, refundedAt: now }, now)).toBe('refunded')
+  })
+})
+
+describe('readPaymentSettings: Zahlungserinnerung', () => {
+  it('nur mit Zahlfrist, 1 bis 60 Tage', () => {
+    expect(readPaymentSettings(form({ paymentRecipient: '', paymentIban: '', paymentDueDays: '14', paymentReminderDays: '3' }), false))
+      .toMatchObject({ paymentDueDays: 14, paymentReminderDays: 3 })
+    expect(() => readPaymentSettings(form({ paymentRecipient: '', paymentIban: '', paymentReminderDays: '3' }), false)).toThrow(/Zahlfrist/)
+    expect(() => readPaymentSettings(form({ paymentRecipient: '', paymentIban: '', paymentDueDays: '14', paymentReminderDays: '0' }), false)).toThrow(/Zahlungserinnerung/)
   })
 })

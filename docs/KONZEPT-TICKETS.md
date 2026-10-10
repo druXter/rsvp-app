@@ -81,6 +81,25 @@ sobald eine Kategorie einen Preis über 0 hat.
   *Bar kassiert – einlassen* und *Ohne Zahlung einlassen*. Bezahlte und kostenlose Zusagen checken wie bisher beim
   Aufruf ein.
 
+### Kontoauszug-Import
+
+Unter „📄 Kontoauszug abgleichen“ (`/admin/zahlungen/[eventId]`, alle, die Zahlungen markieren dürfen) wird der
+Umsatz-Export der Bank hochgeladen: CSV in beliebigem Bankformat oder CAMT.053 (XML), UTF-8 oder Windows-1252,
+höchstens 1,5 MB. Statt Spalten zu deuten, wird jede Buchung als Text nach den Verwendungszwecken des Termins
+durchsucht (ohne Bindestriche und Groß-/Kleinschreibung, auch über Zeilenumbrüche im Feld). Die Vorschau zeigt je
+Treffer Name, Betrag und ob der erwartete Betrag als Gutschrift in der Buchung steht; vorausgewählt sind nur offene
+Zahlungen mit passendem Betrag. Doppelte Buchungen und unbekannte Codes mit dem Präfix des Termins (Tippfehler, mit
+Vorschlag bei einem abweichenden Zeichen) werden gemeldet. Erst die Bestätigung markiert („bezahlt, Überweisung“,
+mit Mail). Die Datei wird nur im Arbeitsspeicher gelesen und nie gespeichert.
+
+### Zahlungserinnerung
+
+Optional pro Termin `paymentReminderDays` (braucht eine Zahlfrist): Der Cron `/api/cron/reminders` schickt jeder
+offenen Zahlung einmal pro Frist so viele Tage vor Fristende eine Mail mit Zahlungsdaten und GiroCode (nach Ablauf
+mit dem Hinweis „überfällig“) und eine Push-Nachricht. Dazu ein Knopf „Zahlungserinnerung an N offene senden“ in der
+Gästeliste (nur Owner/Admin, wie der Event-Reminder). Eine neue Frist (z. B. erneute Zusage) setzt die Erinnerung
+zurück.
+
 ### Rückerstattung
 
 Nur Statusverwaltung: Eine bezahlte Absage erscheint als „Erstattung offen“, die Verwaltung überweist selbst und
@@ -117,6 +136,7 @@ paymentRecipient       String?
 paymentIban            String?
 paymentBic             String?
 paymentDueDays         Int?
+paymentReminderDays    Int?
 seatingRequiresPayment Boolean @default(false)
 
 // Rsvp
@@ -127,6 +147,7 @@ paymentDueAt     DateTime? // gesetzt, sobald der Platz fest und eine Zahlung f�
 paidAt           DateTime?
 paymentMethod    String?   // TRANSFER | CASH
 refundedAt       DateTime?
+paymentReminderSentAt DateTime?
 ```
 
 Alle Spalten sind neu und optional, `prisma db push` reicht (keine Datenmigration).
@@ -154,9 +175,10 @@ Jeder Schritt mit Unit-Tests (reine Funktionen: Parser, IBAN, GiroCode, Platzreg
 
 ## 8. Später
 
-* **Kontoauszug-Import** (CSV der Bank, Verwendungszweck → Zusage, Vorschau vor dem Markieren).
-* Zahlungserinnerung per Mail vor Ablauf der Frist.
 * Begleitungen und Angaben pro Person (L2/L3).
+* Online-Zahlung (z. B. PayPal), siehe Bewertung in `suite-kit/docs/IDEEN.md`.
+
+Kontoauszug-Import und Zahlungserinnerung sind seit 2026-10-10 umgesetzt (Abschnitt 3).
 
 ## Entschieden (2026-10-10)
 

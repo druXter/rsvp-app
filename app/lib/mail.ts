@@ -703,3 +703,37 @@ export async function sendPaymentCancelledEmail(participant: Participant, rsvp: 
     envelope: { from: process.env.SMTP_USER, to: participant.email! }
   })
 }
+
+/**
+ * Zahlungserinnerung (app/lib/payment-reminder.ts): automatisch vor Ablauf der Frist oder per Knopf in der
+ * Verwaltung. Enthält dieselben Zahlungsdaten samt GiroCode wie die Bestätigung; nach Ablauf der Frist mit
+ * dem Hinweis, dass die Veranstaltung den Platz freigeben kann.
+ */
+export async function sendPaymentReminderEmail(participant: Participant, rsvp: Rsvp, event: EventWithSeries) {
+  const payment = await paymentMailParts(rsvp, event)
+  if (!payment) return
+  const personalLink = personalEventLink(event, participant)
+  const overdue = !!rsvp.paymentDueAt && rsvp.paymentDueAt < new Date()
+  const intro = overdue
+    ? `für deine Anmeldung zu "${event.title}" ist die Zahlfrist abgelaufen und wir haben noch keine Zahlung erhalten. Bitte überweise jetzt, sonst kann die Veranstaltung deinen Platz freigeben.`
+    : `für deine Anmeldung zu "${event.title}" ist die Zahlung noch offen. Bitte denk an die Überweisung.`
+
+  await transporter.sendMail({
+    from: process.env.SMTP_FROM,
+    to: participant.email!,
+    subject: `${overdue ? 'Zahlung überfällig' : 'Zahlungserinnerung'}: ${event.title}`,
+    text: `Hallo ${participant.name},\n\n${intro} Falls du schon überwiesen hast, ist alles gut - die Zahlung ist dann nur noch nicht verbucht.\n\n${payment.text}\n\nDeine Anmeldung findest du hier:\n${personalLink}\n\nViele Grüße,\nDein Event-Team`,
+    html: `
+      <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
+        <h2>${overdue ? 'Zahlung überfällig' : 'Zahlungserinnerung'} 💶</h2>
+        <p>Hallo ${participant.name},</p>
+        <p>${intro} Falls du schon überwiesen hast, ist alles gut - die Zahlung ist dann nur noch nicht verbucht.</p>
+        ${payment.html}
+        <p>Deine Anmeldung findest du <a href="${personalLink}">hier</a>.</p>
+        <p>Viele Grüße,<br>Dein Event-Team</p>
+      </div>
+    `,
+    attachments: [payment.attachment],
+    envelope: { from: process.env.SMTP_USER, to: participant.email! }
+  })
+}

@@ -17,6 +17,7 @@ export type PaymentSettings = {
   paymentIban: string | null
   paymentBic: string | null
   paymentDueDays: number | null
+  paymentReminderDays: number | null
 }
 
 export function normalizeIban(value: string): string {
@@ -57,6 +58,7 @@ export function readPaymentSettings(formData: FormData, needsPayment: boolean): 
   const ibanInput = normalizeIban(String(formData.get('paymentIban') ?? ''))
   const bicInput = String(formData.get('paymentBic') ?? '').replace(/\s+/g, '').toUpperCase()
   const dueInput = String(formData.get('paymentDueDays') ?? '').trim()
+  const reminderInput = String(formData.get('paymentReminderDays') ?? '').trim()
 
   if (recipient.length > 70) throw new Error('Bezahlung: Der Name der Empfänger*in darf höchstens 70 Zeichen haben (Vorgabe für Überweisungen).')
   if (ibanInput && !isValidIban(ibanInput)) throw new Error('Bezahlung: Die IBAN ist ungültig (Prüfsumme stimmt nicht).')
@@ -69,7 +71,13 @@ export function readPaymentSettings(formData: FormData, needsPayment: boolean): 
     if (!/^\d+$/.test(dueInput) || Number(dueInput) < 1 || Number(dueInput) > 365) throw new Error('Bezahlung: Die Zahlfrist muss zwischen 1 und 365 Tagen liegen.')
     paymentDueDays = Number(dueInput)
   }
-  return { paymentRecipient: recipient || null, paymentIban: ibanInput || null, paymentBic: bicInput || null, paymentDueDays }
+  let paymentReminderDays: number | null = null
+  if (reminderInput) {
+    if (!/^\d+$/.test(reminderInput) || Number(reminderInput) < 1 || Number(reminderInput) > 60) throw new Error('Bezahlung: Die Zahlungserinnerung muss zwischen 1 und 60 Tagen vor Fristende liegen.')
+    if (paymentDueDays === null) throw new Error('Bezahlung: Eine automatische Zahlungserinnerung braucht eine Zahlfrist.')
+    paymentReminderDays = Number(reminderInput)
+  }
+  return { paymentRecipient: recipient || null, paymentIban: ibanInput || null, paymentBic: bicInput || null, paymentDueDays, paymentReminderDays }
 }
 
 // --- Verwendungszweck und GiroCode ------------------------------------------------------------------
@@ -128,9 +136,13 @@ export async function syncPaymentDue(where: { rsvpIds: string[] } | { eventId: s
     }
   })
   for (const r of rsvps) {
-    const data: { paymentDueAt?: Date | null; paymentReference?: string } = {}
+    const data: { paymentDueAt?: Date | null; paymentReference?: string; paymentReminderSentAt?: null } = {}
     const due = !r.paidAt && !!r.amountCents && r.isAttending && !r.isOnWaitlist
-    if (due && !r.paymentDueAt && r.event.paymentDueDays) data.paymentDueAt = new Date(Date.now() + r.event.paymentDueDays * 24 * 60 * 60 * 1000)
+    if (due && !r.paymentDueAt && r.event.paymentDueDays) {
+      data.paymentDueAt = new Date(Date.now() + r.event.paymentDueDays * 24 * 60 * 60 * 1000)
+      // Neue Frist, neue Erinnerung (z. B. erneute Zusage nach einer Stornierung)
+      data.paymentReminderSentAt = null
+    }
     else if (!due && r.paymentDueAt && !r.paidAt) data.paymentDueAt = null
     if (r.amountCents && !r.paymentReference) data.paymentReference = generatePaymentReference(r.event.slug)
     if (Object.keys(data).length > 0) await prisma.rsvp.update({ where: { id: r.id }, data })

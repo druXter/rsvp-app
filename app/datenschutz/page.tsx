@@ -138,7 +138,10 @@ export default function DatenschutzPage() {
             Deine Bankdaten (IBAN, Kontoinhaber) erfahren wir dabei nicht und speichern sie nicht; der GiroCode auf
             deiner Seite und in der Bestätigungsmail enthält nur die Daten des Empfängerkontos, den Betrag und den
             Verwendungszweck und wird erst in deiner Banking-App ausgewertet. Nach Zahlungseingang bekommst du eine
-            Bestätigung per E-Mail (bei einer Barzahlung am Einlass nicht). Rechtsgrundlage ist Art. 6 Abs. 1 lit. b
+            Bestätigung per E-Mail (bei einer Barzahlung am Einlass nicht). Ist die Zahlung offen, können wir dich vor
+            Ablauf der Frist per E-Mail und, falls aktiviert, per Push daran erinnern. Gleichen Veranstalter:innen
+            Zahlungen über einen Kontoauszug ab, wird die Datei nur für diesen Abgleich gelesen und nicht gespeichert;
+            gespeichert wird allein, dass deine Zahlung eingegangen ist. Rechtsgrundlage ist Art. 6 Abs. 1 lit. b
             DSGVO (Abwicklung deiner Anmeldung).
           </p>
           <p className="mt-2">

@@ -134,6 +134,15 @@ export async function sendEventChangedPush(
  * als die Mail enthält sie bewusst keinen .ics-Anhang und keinen QR-Check-in-Code - beides
  * bleibt über den verlinkten personalEventLink() auf der Termin-Seite abrufbar.
  */
+/** Zahlungserinnerung (app/lib/payment-reminder.ts) - neben der Mail, wie alle Erinnerungen. */
+export async function sendPaymentReminderPush(event: EventWithSeries, participant: Participant, amount: string, dueAt: string | null) {
+  await sendPushToParticipant(participant.id, {
+    title: `💶 Zahlung offen: ${event.title}`,
+    body: `${amount}${dueAt ? ` · bitte bis ${dueAt} überweisen` : ''}`,
+    url: personalEventLink(event, participant)
+  })
+}
+
 export async function sendConfirmationPush(event: EventWithSeries, participant: Participant) {
   const formattedDate = formatEventDate(event, 'short')
   await sendPushToParticipant(participant.id, {

@@ -9,6 +9,7 @@ type TicketSettings = {
   paymentIban: string | null
   paymentBic: string | null
   paymentDueDays: number | null
+  paymentReminderDays: number | null
 }
 
 const input = `w-full border ${themeClasses('pink').border} bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded outline-none ${themeClasses('pink').borderFocus}`
@@ -44,8 +45,12 @@ export default function TicketSettingsSection({ event }: { event?: TicketSetting
           <label htmlFor="paymentDueDays" className={label}>Zahlfrist in Tagen (Optional)</label>
           <input id="paymentDueDays" name="paymentDueDays" type="number" min={1} max={365} defaultValue={event?.paymentDueDays ?? ''} className={input} placeholder="z. B. 14" />
         </div>
+        <div>
+          <label htmlFor="paymentReminderDays" className={label}>Zahlungserinnerung, Tage vor Fristende (Optional)</label>
+          <input id="paymentReminderDays" name="paymentReminderDays" type="number" min={1} max={60} defaultValue={event?.paymentReminderDays ?? ''} className={input} placeholder="z. B. 3" />
+        </div>
       </div>
-      <p className={`text-xs ${themeClasses('pink').text}`}>Empfänger*in und IBAN sind Pflicht, sobald eine Kategorie etwas kostet. Die Frist zählt ab dem festen Platz und wird nur angezeigt: Überfällige Zusagen könnt ihr in der Gästeliste stornieren, nichts verfällt automatisch.</p>
+      <p className={`text-xs ${themeClasses('pink').text}`}>Empfänger*in und IBAN sind Pflicht, sobald eine Kategorie etwas kostet. Die Frist zählt ab dem festen Platz und wird nur angezeigt: Überfällige Zusagen könnt ihr in der Gästeliste stornieren, nichts verfällt automatisch. Mit Zahlungserinnerung bekommen offene Zahlungen einmal pro Frist automatisch eine Mail (und Push), braucht den Cronjob der Erinnerungen; per Knopf in der Gästeliste geht das jederzeit.</p>
     </ThemeSection>
   )
 }

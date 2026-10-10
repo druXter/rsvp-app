@@ -70,5 +70,5 @@ test('Erinnerungen: nur fällige Events mit Automatik, danach nie ein zweites Ma
   // Idempotent: ein zweiter Lauf fasst das bereits erledigte Event nicht mehr an.
   const second = await request.get(`/api/cron/reminders?secret=${TEST_CRON_SECRET}`)
   expect(second.status()).toBe(200)
-  expect(await second.json()).toEqual({ success: true, processedEvents: 0 })
+  expect(await second.json()).toMatchObject({ success: true, processedEvents: 0 })
 })

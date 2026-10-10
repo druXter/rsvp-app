@@ -8,6 +8,13 @@ const nextConfig: NextConfig = {
   // stattdessen auf natives, funktionsloses HTML-Formularverhalten zurückfallen.
   // Betrifft nur `next dev` - für Produktion (Docker) ohne Wirkung.
   allowedDevOrigins: ['192.168.178.126'],
+  // Kontoauszug-Import (app/admin/zahlungen/[eventId]) schickt die Datei per Server Action. Standard ist 1 MB,
+  // die Datei darf bis 1,5 MB groß sein (BANK_IMPORT_MAX_BYTES), dazu kommt der Overhead von multipart.
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '2mb',
+    },
+  },
   async headers() {
     // Bei mehreren passenden Regeln gewinnt für denselben Header die SPÄTERE - die Reihenfolge
     // unten ist also wichtig: erst die allgemeinen, dann die Ausnahmen für sensible Bereiche.
