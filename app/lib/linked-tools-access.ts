@@ -1,5 +1,5 @@
 // app/lib/linked-tools-access.ts
-import type { Participant, Rsvp } from '@prisma/client'
+import type { Participant, Rsvp, RsvpPerson } from '@prisma/client'
 import { prisma } from './prisma'
 import { getCurrentGuestUser } from './guest-auth'
 import { hasEventPinAccess } from './pin'
@@ -26,7 +26,7 @@ export type ToolLinkAccess =
     event: { id: string }
     tool: ConfiguredTool
     link: ToolLink
-    rsvp: Rsvp
+    rsvp: Rsvp & { persons: RsvpPerson[] }
     participant: Participant
   }
 
@@ -64,7 +64,7 @@ export async function resolveToolLinkAccess(
   }
 
   const rsvp = participant
-    ? await prisma.rsvp.findUnique({ where: { eventId_participantId: { eventId: event.id, participantId: participant.id } } })
+    ? await prisma.rsvp.findUnique({ where: { eventId_participantId: { eventId: event.id, participantId: participant.id } }, include: { persons: true } })
     : null
 
   // Ein Token, zu dem es hier eine Rsvp gibt, gehört nachweislich zu diesem Termin

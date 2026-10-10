@@ -5,6 +5,7 @@ import { getCurrentUser } from '../../lib/auth'
 import { hasEventModeratorOrAbove } from '../../lib/permissions'
 import { claimedLabels } from '../../lib/bring-list'
 import { PAYMENT_STATE_LABEL, paymentState } from '../../lib/payment-state'
+import { describePerson, personsOf } from '../../lib/persons'
 
 const prisma = new PrismaClient()
 
@@ -24,7 +25,7 @@ export async function GET(request: Request) {
 
   const event = await prisma.event.findUnique({
     where: { id: eventId },
-    include: { rsvps: { include: { participant: true, ticketCategory: { select: { label: true } }, bringClaims: { select: { slot: { select: { label: true, position: true } } } } } }, series: true, toolLinks: { select: { type: true } }, _count: { select: { ticketCategories: true } } }
+    include: { rsvps: { include: { participant: true, persons: true, ticketCategory: { select: { label: true } }, bringClaims: { select: { slot: { select: { label: true, position: true } } } } } }, series: true, toolLinks: { select: { type: true } }, _count: { select: { ticketCategories: true } } }
   })
 
   if (!event || !(await hasEventModeratorOrAbove(user, event))) return new NextResponse("Event nicht gefunden", { status: 404 })
@@ -45,8 +46,8 @@ export async function GET(request: Request) {
       "E-Mail",
       "Verifizierung", // <-- NEU
       "Handy",
-      "Begleitung",
-      "Name der Begleitung",
+      "Personen",
+      "Begleitungen",
       "Essen",
       "Allergien",
       "Alkohol",
@@ -61,6 +62,7 @@ export async function GET(request: Request) {
 
   event.rsvps.forEach(rsvp => {
     const participant = rsvp.participant
+    const persons = personsOf(rsvp, participant)
 
     // Verifizierungs-Status berechnen
     let verificationStatus = "";
@@ -77,8 +79,9 @@ export async function GET(request: Request) {
       verificationStatus, // <-- NEU
       participant.phone || "",
 
-      rsvp.plusOne ? "Ja" : "Nein",
-      rsvp.plusOneName || "",
+      // Personen der Antwort (docs/KONZEPT-EINLADUNGEN.md): Anzahl und Begleitungen mit Angaben
+      String(persons.length),
+      persons.slice(1).map(p => describePerson(p)).join("; "),
 
       participant.dietaryOption || "",
       participant.allergies || "",

@@ -5,6 +5,7 @@
 // Kategorien verhält sich ein Termin wie bisher. Die Platzregel (hasRoom) gilt für alle Wege, die einen
 // festen Platz vergeben: Antworten, Nachrücken (app/lib/waitlist.ts) und Verifizierung.
 import { prisma } from './prisma'
+import { seatsOf } from './persons'
 
 export { formatEuro } from './payment-state'
 
@@ -106,21 +107,24 @@ export async function saveTicketCategories(eventId: string, categories: TicketCa
 
 // --- Platzregel ---------------------------------------------------------------------------------
 
-export type SeatHolder = { id: string; isAttending: boolean; isOnWaitlist: boolean; ticketCategoryId: string | null }
+/** `seats`: Plätze, die die Antwort braucht (zusagende Personen ohne Kleinkinder, seatsOf), ohne Angabe 1. */
+export type SeatHolder = { id: string; isAttending: boolean; isOnWaitlist: boolean; ticketCategoryId: string | null; seats?: number }
 export type CapacityLimits = { maxCapacity: number | null; categories: readonly { id: string; capacity: number | null }[] }
 
 const isFixed = (r: SeatHolder) => r.isAttending && !r.isOnWaitlist
+const seatCount = (rsvps: readonly SeatHolder[]) => rsvps.reduce((sum, r) => sum + (r.seats ?? 1), 0)
 
 /**
- * Hat eine Zusage der Kategorie `categoryId` noch einen festen Platz? Der Termin insgesamt (maxCapacity)
- * und die Kategorie (capacity) müssen beide Platz haben. `excludeRsvpId`: die Antwort selbst zählt nicht
- * mit (beim Ändern einer bestehenden Antwort).
+ * Hat eine Zusage der Kategorie `categoryId` mit `seats` Personen noch einen festen Platz? Der Termin insgesamt
+ * (maxCapacity) und die Kategorie (capacity) müssen beide Platz für alle haben - Plätze zählen Personen, nicht
+ * Antworten (docs/KONZEPT-EINLADUNGEN.md). `excludeRsvpId`: die Antwort selbst zählt nicht mit (beim Ändern
+ * einer bestehenden Antwort).
  */
-export function hasRoom(limits: CapacityLimits, rsvps: readonly SeatHolder[], categoryId: string | null, excludeRsvpId?: string | null): boolean {
+export function hasRoom(limits: CapacityLimits, rsvps: readonly SeatHolder[], categoryId: string | null, excludeRsvpId?: string | null, seats = 1): boolean {
   const fixed = rsvps.filter(r => isFixed(r) && r.id !== excludeRsvpId)
-  if (limits.maxCapacity !== null && fixed.length >= limits.maxCapacity) return false
+  if (limits.maxCapacity !== null && seatCount(fixed) + seats > limits.maxCapacity) return false
   const category = categoryId ? limits.categories.find(c => c.id === categoryId) : undefined
-  if (category && category.capacity !== null && fixed.filter(r => r.ticketCategoryId === category.id).length >= category.capacity) return false
+  if (category && category.capacity !== null && seatCount(fixed.filter(r => r.ticketCategoryId === category.id)) + seats > category.capacity) return false
   return true
 }
 
@@ -128,10 +132,11 @@ export function hasRoom(limits: CapacityLimits, rsvps: readonly SeatHolder[], ca
 /**
  * Wer rückt als Nächstes nach? Die am längsten wartende Zusage (`waiting` ist nach createdAt sortiert und
  * schon auf nachrückberechtigte gefiltert), für die gerade Platz ist - eine volle Kategorie blockiert also
- * nicht die Wartenden einer anderen.
+ * nicht die Wartenden einer anderen, eine große Gruppe nicht die Einzelnen dahinter.
  */
 export function nextToPromote<T extends SeatHolder>(limits: CapacityLimits, rsvps: readonly SeatHolder[], waiting: readonly T[]): T | null {
-  return waiting.find(r => hasRoom(limits, rsvps, r.ticketCategoryId, r.id)) ?? null
+  const seatsOfWaiting = (r: T) => rsvps.find(s => s.id === r.id)?.seats ?? r.seats ?? 1
+  return waiting.find(r => hasRoom(limits, rsvps, r.ticketCategoryId, r.id, seatsOfWaiting(r))) ?? null
 }
 
 /** Grenzen und belegte Plätze eines Termins aus der Datenbank, für hasRoom. */
@@ -141,10 +146,11 @@ export async function loadCapacity(eventId: string): Promise<{ limits: CapacityL
     select: {
       maxCapacity: true,
       ticketCategories: { select: { id: true, capacity: true } },
-      rsvps: { select: { id: true, isAttending: true, isOnWaitlist: true, ticketCategoryId: true } }
+      rsvps: { select: { id: true, isAttending: true, isOnWaitlist: true, ticketCategoryId: true, persons: { select: { isAttending: true, ageGroup: true } } } }
     }
   })
-  return { limits: { maxCapacity: event.maxCapacity, categories: event.ticketCategories }, rsvps: event.rsvps }
+  const rsvps = event.rsvps.map(({ persons, ...r }) => ({ ...r, seats: seatsOf(persons) }))
+  return { limits: { maxCapacity: event.maxCapacity, categories: event.ticketCategories }, rsvps }
 }
 
 /**
@@ -161,7 +167,7 @@ export async function ticketCategoriesForForm(eventId: string, ownRsvpId: string
     label: c.label,
     priceCents: c.priceCents,
     capacity: c.capacity,
-    taken: rsvps.filter(r => isFixed(r) && r.ticketCategoryId === c.id).length,
+    taken: seatCount(rsvps.filter(r => isFixed(r) && r.ticketCategoryId === c.id)),
     full: !hasRoom(limits, rsvps, c.id, ownRsvpId)
   }))
 }

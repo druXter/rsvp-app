@@ -115,7 +115,7 @@ export default function DatenschutzPage() {
           <h2 className="font-bold text-lg">4. Angaben im RSVP-Formular</h2>
           <p className="mt-2">
             Je nach Konfiguration der jeweiligen Veranstaltung fragen wir Name (Pflichtfeld), E-Mail-Adresse,
-            Handynummer, Essenswunsch, Begleitperson, Alkohol-Präferenz, Mitbringsel (als Freitext oder als Eintrag aus
+            Handynummer, Essenswunsch, Begleitungen, Alkohol-Präferenz, Mitbringsel (als Freitext oder als Eintrag aus
             einer Mitbringliste, z.B. „Salat“) und freie Zusatzfragen ab. Diese
             Angaben verwenden wir ausschließlich zur Organisation und Durchführung der jeweiligen Veranstaltung. Wir
             geben deine Daten nicht an Dritte außerhalb der in Punkt 16 genannten Auftragsverarbeiter weiter.
@@ -127,6 +127,14 @@ export default function DatenschutzPage() {
             freiwillige Ausfüllen dieses Feldes erteilst (Art. 9 Abs. 2 lit. a DSGVO). Du kannst diese Einwilligung
             jederzeit mit Wirkung für die Zukunft widerrufen, z.B. indem du deine Angabe über deinen persönlichen Link
             entfernst oder deine Daten vollständig löschst (siehe Punkt 18).
+          </p>
+          <p className="mt-2">
+            <strong>Begleitungen:</strong> Lässt eine Veranstaltung Begleitungen zu, gibst du für jede Person, die du
+            mitbringst, ihren Namen und ihre Altersgruppe (erwachsen, Kind, Kleinkind) an und, je nach Veranstaltung,
+            ihren Essenswunsch und ihre Allergien. Das gilt auch für Kinder. Bitte gib diese Angaben nur an, wenn die
+            Personen (bei Kindern die Sorgeberechtigten) damit einverstanden sind; für Allergien gilt das oben Gesagte
+            entsprechend. Wir verwenden die Angaben wie deine eigenen nur zur Organisation der Veranstaltung (Plätze,
+            Verpflegung, Einlass) und löschen sie zusammen mit deiner Antwort.
           </p>
           <p className="mt-2">
             <strong>Tickets und Bezahlung:</strong> Bietet eine Veranstaltung Ticketkategorien an (z.B.
@@ -265,11 +273,11 @@ export default function DatenschutzPage() {
             E-Mail-Bestätigung verlangt, bestätigt, und falls die Veranstalter:innen die Sitzplatzwahl erst nach der
             Zahlung freigeben, bezahlt) übermitteln wir an Seating: eine Kennung deiner Antwort, deinen{' '}
             <strong>Namen</strong>, deine <strong>E-Mail-Adresse</strong> (nur, falls du eine angegeben hast) und den{' '}
-            <strong>Namen deiner Begleitung</strong> (nur, falls angegeben) - und zwar
+            die <strong>Namen deiner Begleitungen</strong> (ohne Kleinkinder, die keinen eigenen Platz brauchen) - und zwar
           </p>
           <ul className="list-disc ml-6 mt-2 space-y-1">
             <li>wenn du auf &quot;Sitzplatz wählen&quot; klickst, in einem kryptographisch signierten, nur 15 Minuten gültigen Link;</li>
-            <li>wenn sich deine Antwort ändert (Zusage, Absage, Warteliste, Nachrücken, Änderung von Name oder Begleitung, Löschung), als direkte Meldung von Server zu Server, damit eine dort gebuchte Platzwahl angepasst oder storniert wird - bei einer Absage oder Löschung nur mit dem Hinweis, dass die Zusage nicht mehr gilt;</li>
+            <li>wenn sich deine Antwort ändert (Zusage, Absage, Warteliste, Nachrücken, Änderung von Name oder Begleitungen, Löschung), als direkte Meldung von Server zu Server, damit eine dort gebuchte Platzwahl angepasst oder storniert wird - bei einer Absage oder Löschung nur mit dem Hinweis, dass die Zusage nicht mehr gilt;</li>
             <li>wenn Seating für die Sitzordnung die aktuelle Liste der Zusagen dieses Termins abruft.</li>
           </ul>
           <p className="mt-2">

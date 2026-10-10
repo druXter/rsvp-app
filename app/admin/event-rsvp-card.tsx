@@ -1,14 +1,15 @@
 // app/admin/event-rsvp-card.tsx
 import Link from 'next/link'
-import { Event, Rsvp, Participant } from '@prisma/client'
+import { Event, Rsvp, Participant, RsvpPerson } from '@prisma/client'
 import { sendReminder, resendVerificationEmail, promoteFromWaitlist, toggleAttendance, sendPaymentReminders } from './actions'
 import DeleteButton from './delete-button'
 import DeleteRsvpButton from './delete-rsvp-button'
 import { claimedLabels } from '../lib/bring-list'
 import PaymentCell from './payment-cell'
 import { formatEuro, formatPaymentDate, paymentState } from '../lib/payment-state'
+import { describePerson, personsOf, seatsOf } from '../lib/persons'
 
-type RsvpWithParticipant = Rsvp & { participant: Participant; bringClaims?: { slot: { label: string; position: number } }[] }
+type RsvpWithParticipant = Rsvp & { participant: Participant; persons?: RsvpPerson[]; bringClaims?: { slot: { label: string; position: number } }[] }
 export type EventForCard = Event & {
   rsvps: RsvpWithParticipant[]
   bringSlots?: { label: string; quantity: number; _count: { claims: number } }[]
@@ -40,6 +41,9 @@ export default function EventRsvpCard({
   const decliningCount = event.rsvps.filter(r => !r.isAttending).length
   const confirmedCount = event.rsvps.filter(r => r.isAttending && !r.isOnWaitlist).length
   const checkedInCount = event.rsvps.filter(r => r.hasAttended).length
+  // Begleitungen (docs/KONZEPT-EINLADUNGEN.md): Personen mit festem Platz, nur wenn es welche gibt
+  const withPersons = event.maxCompanions > 0 || event.rsvps.some(r => (r.persons?.length ?? 0) > 0)
+  const seatedPersons = event.rsvps.filter(r => r.isAttending && !r.isOnWaitlist).reduce((sum, r) => sum + seatsOf(r.persons), 0)
   const customQuestions: string[] = event.formConfig ? (JSON.parse(event.formConfig).customQuestions || []) : []
 
   // Tickets und Bezahlung (docs/KONZEPT-TICKETS.md): Spalte nur, wenn der Termin Kategorien oder Beträge hat
@@ -75,7 +79,7 @@ export default function EventRsvpCard({
                 <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Eigentümer: {ownerEmail}</p>
               )}
               <div className="mt-2 flex gap-4 text-sm font-semibold">
-                <span className="text-green-600">✅ Zusagen: {attendingCount}</span>
+                <span className="text-green-600">✅ Zusagen: {attendingCount}{withPersons && <span data-testid="seated-persons"> ({seatedPersons} {seatedPersons === 1 ? 'Person' : 'Personen'} mit Platz{event.maxCapacity !== null ? ` von ${event.maxCapacity}` : ''})</span>}</span>
                 <span className="text-red-600">❌ Absagen: {decliningCount}</span>
                 {event.enableCheckin && (
                   <span className="text-blue-600">🎫 Eingecheckt: {checkedInCount}/{confirmedCount}</span>
@@ -180,7 +184,7 @@ export default function EventRsvpCard({
                   {withTickets && <th className="p-2">Ticket / Zahlung</th>}
                   <th className="p-2">E-Mail</th>
                   <th className="p-2">Handy</th>
-                  <th className="p-2">Begleitung</th>
+                  <th className="p-2">Begleitungen</th>
                   <th className="p-2">Essen</th>
                   <th className="p-2">Allergien</th>
                   <th className="p-2">Alkohol</th>
@@ -277,9 +281,7 @@ export default function EventRsvpCard({
                     <td className="p-2 text-gray-600 dark:text-gray-400">{rsvp.participant.phone || '-'}</td>
 
                     <td className="p-2 text-gray-600 dark:text-gray-400">
-                      {rsvp.plusOne
-                        ? `Ja ${rsvp.plusOneName ? '(' + rsvp.plusOneName + ')' : ''}`
-                        : '-'}
+                      {personsOf(rsvp, rsvp.participant).slice(1).map(p => describePerson(p)).join('; ') || '-'}
                     </td>
 
                     <td className="p-2 text-gray-600 dark:text-gray-400">{rsvp.participant.dietaryOption || '-'}</td>

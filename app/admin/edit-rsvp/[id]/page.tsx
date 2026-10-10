@@ -7,6 +7,8 @@ import { updateAdminRsvp } from '../../actions'
 import { getCurrentUser } from '../../../lib/auth'
 import { hasEventModeratorOrAbove } from '../../../lib/permissions'
 import SubmitButton from '../../../ui/submit-button'
+import CompanionFields from '../../../ui/companion-fields'
+import { companionsOf, MAX_COMPANIONS } from '../../../lib/persons'
 
 const prisma = new PrismaClient()
 
@@ -20,11 +22,13 @@ export default async function EditRsvpPage({ params }: { params: Promise<{ id: s
 
   // Die spezifische Antwort aus der Datenbank abrufen (inkl. des geteilten Gast-Profils)
   const { id } = await params
-  const rsvp = await prisma.rsvp.findUnique({ where: { id }, include: { participant: true, event: { include: { ticketCategories: { orderBy: { position: 'asc' } } } } } })
+  const rsvp = await prisma.rsvp.findUnique({ where: { id }, include: { participant: true, persons: true, event: { include: { ticketCategories: { orderBy: { position: 'asc' } } } } } })
 
   if (!rsvp || !(await hasEventModeratorOrAbove(user, rsvp.event))) return <div className="p-8 dark:text-gray-100">Antwort nicht gefunden.</div>
 
   const participant = rsvp.participant
+  // Begleitungen: wie in updateAdminRsvp, nicht bei Ticketkategorien
+  const showCompanions = rsvp.event.ticketCategories.length === 0 && (rsvp.event.maxCompanions > 0 || rsvp.persons.length > 0)
 
   return (
     <main className="min-h-screen bg-gray-100 dark:bg-gray-900 py-12 px-4">
@@ -77,19 +81,12 @@ export default async function EditRsvpPage({ params }: { params: Promise<{ id: s
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 pt-4 border-t dark:border-gray-700">
-            <div>
-              <label htmlFor="plusOne" className="block text-sm font-medium mb-1">Begleitung (+1)?</label>
-              <select id="plusOne" name="plusOne" defaultValue={rsvp.plusOne ? 'true' : 'false'} className="w-full border border-gray-300 dark:border-gray-600 p-2 rounded bg-white dark:bg-gray-800 dark:text-gray-100">
-                <option value="true">Ja</option>
-                <option value="false">Nein</option>
-              </select>
+          {showCompanions && (
+            <div className="pt-4 border-t dark:border-gray-700">
+              <CompanionFields max={MAX_COMPANIONS} initial={companionsOf(rsvp.persons)} askDiet askAllergies />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Hier gilt weder das Höchstmaß des Termins ({rsvp.event.maxCompanions}) noch die Kapazität (wie „Zulassen“).</p>
             </div>
-            <div>
-              <label htmlFor="plusOneName" className="block text-sm font-medium mb-1">Name d. Begleitung</label>
-              <input id="plusOneName" type="text" name="plusOneName" defaultValue={rsvp.plusOneName || ''} className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded" />
-            </div>
-          </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <div>

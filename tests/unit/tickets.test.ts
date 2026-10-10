@@ -75,4 +75,29 @@ describe('Platzregel', () => {
     // Kontingent "stud" frei: w1 zuerst (FIFO)
     expect(nextToPromote(limits, rsvps.filter(r => r.id !== 'a'), queue)?.id).toBe('w1')
   })
+
+  it('Plätze zählen Personen: eine Antwort braucht so viele Plätze, wie sie Personen hat (docs/KONZEPT-EINLADUNGEN.md)', () => {
+    const open = { maxCapacity: 5, categories: [] }
+    const family = { ...fixed('f', null), seats: 3 }
+    expect(hasRoom(open, [family], null, null, 2)).toBe(true)
+    expect(hasRoom(open, [family], null, null, 3)).toBe(false)
+    expect(hasRoom(open, [family, fixed('a', null)], null)).toBe(true)
+    expect(hasRoom(open, [family, fixed('a', null), fixed('b', null)], null)).toBe(false)
+    // Beim Ändern zählt die eigene Antwort nicht: aus 3 werden 5 Personen
+    expect(hasRoom(open, [family], null, 'f', 5)).toBe(true)
+    expect(hasRoom(open, [family, fixed('a', null)], null, 'f', 5)).toBe(false)
+    // 0 Plätze (nur Kleinkinder) belegen nichts
+    expect(hasRoom(open, [family, { ...fixed('k', null), seats: 0 }, fixed('a', null), fixed('b', null)], null, null, 0)).toBe(true)
+  })
+
+  it('Nachrücken nach Personen: eine zu große Gruppe blockiert die Einzelnen dahinter nicht', () => {
+    const open = { maxCapacity: 4, categories: [] }
+    const rsvps = [{ ...fixed('a', null), seats: 2 }, { ...waiting('big', null), seats: 3 }, waiting('single', null)]
+    const queue = rsvps.filter(r => r.isOnWaitlist)
+    expect(nextToPromote(open, rsvps, queue)?.id).toBe('single')
+    // Mit genug Platz zuerst die Gruppe (FIFO)
+    expect(nextToPromote({ maxCapacity: 5, categories: [] }, rsvps, queue)?.id).toBe('big')
+    // seats steht nur in der Liste der belegten Plätze (wie aus loadCapacity), nicht in der Warteschlange
+    expect(nextToPromote(open, rsvps, [waiting('big', null), waiting('single', null)])?.id).toBe('single')
+  })
 })

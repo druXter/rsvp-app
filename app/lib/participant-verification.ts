@@ -44,10 +44,11 @@ export async function verifyParticipantByToken(token: string): Promise<{ editTok
   for (const rsvp of pendingRsvps) {
     let finalIsOnWaitlist = rsvp.isOnWaitlist
 
-    // Platzregel wie überall (Gesamtkapazität und Kontingent der Kategorie, app/lib/tickets.ts)
+    // Platzregel wie überall (Gesamtkapazität und Kontingent der Kategorie, Plätze pro Person, app/lib/tickets.ts)
     if (rsvp.isOnWaitlist) {
       const { limits, rsvps } = await loadCapacity(rsvp.eventId)
-      if (hasRoom(limits, rsvps, rsvp.ticketCategoryId, rsvp.id)) finalIsOnWaitlist = false
+      const seats = rsvps.find(r => r.id === rsvp.id)?.seats ?? 1
+      if (hasRoom(limits, rsvps, rsvp.ticketCategoryId, rsvp.id, seats)) finalIsOnWaitlist = false
     }
 
     await prisma.rsvp.update({

@@ -121,9 +121,10 @@ export default async function EditEventPage({ params, searchParams }: { params: 
               <span>Alkohol-Präferenz abfragen (Ja/Nein)</span>
             </label>
 
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" name="askPlusOne" defaultChecked={config.askPlusOne} className="w-4 h-4" />
-              <span>Begleitperson (+1) abfragen</span>
+            <label className="flex flex-wrap items-center gap-2">
+              <span>Begleitungen pro Anmeldung: bis zu</span>
+              <input type="number" name="maxCompanions" min={0} max={20} defaultValue={event.maxCompanions} className="w-16 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-gray-100 p-1 rounded" />
+              <span className="text-xs text-gray-500 dark:text-gray-400">(0 = keine, mit Namen und Altersgruppe; nicht bei Ticketkategorien)</span>
             </label>
             
             <label className="flex items-center gap-2 cursor-pointer">

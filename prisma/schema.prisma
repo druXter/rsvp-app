@@ -190,6 +190,10 @@ model Event {
   // Zusage zählt bei Seating erst nach Zahlung (isSeatingConfirmed), nur mit Seating-Link wirksam.
   seatingRequiresPayment Boolean          @default(false)
 
+  // Begleitungen und Angaben pro Person (Idee L2/L3 der Suite, docs/KONZEPT-EINLADUNGEN.md, app/lib/persons.ts):
+  // bis zu so viele weitere Personen pro Antwort, 0 = keine. Ersetzt formConfig.askPlusOne (migrate-persons.js).
+  maxCompanions Int @default(0)
+
   // Verknüpfungen mit anderen Tools der Suite (Seating, später Zeitplan) - höchstens eine je
   // Tool-Typ, siehe EventToolLink.
   toolLinks EventToolLink[]
@@ -268,6 +272,7 @@ model Rsvp {
   additionalInfo String?
   declineReason  String?
   customAnswers  String?
+  // Veraltet seit den Begleitungen (RsvpPerson), nur noch für migrate-persons.js - entfällt mit einem späteren Update.
   plusOne        Boolean      @default(false)
   plusOneName    String?
   bringingItem   String?
@@ -295,7 +300,28 @@ model Rsvp {
   // Letzte Zahlungserinnerung (automatisch oder per Knopf), wird mit einer neuen Frist zurückgesetzt.
   paymentReminderSentAt DateTime?
 
+  // Personen der Antwort (docs/KONZEPT-EINLADUNGEN.md): die anmeldende Person (Position 0) und ihre Begleitungen.
+  // Leer bei Terminen ohne Begleitungen - dann ist die Antwort genau eine Person (personsOf in app/lib/persons.ts).
+  persons RsvpPerson[]
+
   @@unique([eventId, participantId])
+}
+
+// Eine Person einer Antwort (docs/KONZEPT-EINLADUNGEN.md). Position 0 ist bei offener Anmeldung die
+// anmeldende Person selbst (Name, Essen und Allergien gespiegelt vom Participant), danach die Begleitungen.
+// ageGroup: ADULT | CHILD | INFANT - Kleinkinder brauchen keinen eigenen Platz (Kapazität, Seating).
+model RsvpPerson {
+  id            String  @id @default(cuid())
+  rsvpId        String
+  rsvp          Rsvp    @relation(fields: [rsvpId], references: [id], onDelete: Cascade)
+  position      Int
+  name          String?
+  ageGroup      String  @default("ADULT")
+  isAttending   Boolean
+  dietaryOption String?
+  allergies     String?
+
+  @@index([rsvpId])
 }
 
 // Ein Gerät (Browser), auf dem sich EIN BESTIMMTER Nutzer für Web-Push-Benachrichtigungen

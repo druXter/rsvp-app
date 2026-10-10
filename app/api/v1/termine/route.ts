@@ -1,6 +1,7 @@
 // app/api/v1/termine/route.ts
 import { PrismaClient } from '@prisma/client'
 import { getGuestUserFromApiToken, apiError } from '../../../lib/api-auth'
+import { companionsOf } from '../../../lib/persons'
 
 const prisma = new PrismaClient()
 
@@ -28,7 +29,7 @@ export async function GET(request: Request) {
 
   const participants = await prisma.participant.findMany({
     where: { guestUserId: guestUser.id },
-    include: { rsvps: true }
+    include: { rsvps: { include: { persons: { orderBy: { position: 'asc' } } } } }
   })
   const rsvpByEventId = new Map(
     participants.flatMap(p => p.rsvps.map(r => [r.eventId, r] as const))
@@ -52,13 +53,16 @@ export async function GET(request: Request) {
           location: event.location,
           description: event.description,
           maxCapacity: event.maxCapacity,
+          maxCompanions: event.maxCompanions,
           url: `/reihe/${m.series.slug}/${event.slug}`,
           myRsvp: rsvp
             ? {
                 isAttending: rsvp.isAttending,
                 isOnWaitlist: rsvp.isOnWaitlist,
-                plusOne: rsvp.plusOne,
-                plusOneName: rsvp.plusOneName,
+                // Begleitungen (alle Personen außer der eigenen), plusOne/plusOneName als Kurzform von früher
+                companions: companionsOf(rsvp.persons),
+                plusOne: rsvp.persons.length > 1,
+                plusOneName: rsvp.persons[1]?.name ?? null,
                 bringingItem: rsvp.bringingItem,
                 drinksAlcohol: rsvp.drinksAlcohol,
                 additionalInfo: rsvp.additionalInfo,

@@ -32,7 +32,7 @@ export async function confirmedGuests(event: LinkedEvent): Promise<SeatingGuest[
       isOnWaitlist: false,
       ...(requireVerification ? { participant: { isVerified: true } } : {})
     },
-    include: { participant: { select: { name: true, email: true, isVerified: true } } },
+    include: { participant: { select: { name: true, email: true, isVerified: true } }, persons: { select: { position: true, name: true, ageGroup: true, isAttending: true } } },
     orderBy: { createdAt: 'asc' },
     take: 5000
   })

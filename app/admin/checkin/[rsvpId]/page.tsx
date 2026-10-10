@@ -6,6 +6,7 @@ import { checkInAtDoor, toggleAttendance } from '../../actions'
 import { formatEuro, paymentDue, paymentState } from '../../../lib/payment-state'
 import { getCurrentUser } from '../../../lib/auth'
 import { hasEventModeratorOrAbove } from '../../../lib/permissions'
+import { attendingNames, personsOf } from '../../../lib/persons'
 
 const prisma = new PrismaClient()
 
@@ -23,7 +24,7 @@ export default async function CheckinPage({ params }: { params: Promise<{ rsvpId
   const { rsvpId } = await params
   const rsvp = await prisma.rsvp.findUnique({
     where: { id: rsvpId },
-    include: { participant: true, event: true, ticketCategory: { select: { label: true } } }
+    include: { participant: true, persons: true, event: true, ticketCategory: { select: { label: true } } }
   })
 
   if (!rsvp) {
@@ -88,6 +89,12 @@ export default async function CheckinPage({ params }: { params: Promise<{ rsvpId
         <span className="text-6xl block mb-4">{statusIcon}</span>
         <h1 className={`text-2xl font-bold ${statusColor}`}>{statusTitle}</h1>
         <p className="text-xl font-medium text-gray-900 dark:text-gray-100 mt-3">{rsvp.participant.name}</p>
+        {/* Personen der Antwort (docs/KONZEPT-EINLADUNGEN.md): eingecheckt wird die Antwort als Ganzes */}
+        {rsvp.persons.filter(p => p.isAttending).length > 1 && (
+          <p className="text-lg font-semibold text-gray-800 dark:text-gray-200 mt-1" data-testid="checkin-persons">
+            {rsvp.persons.filter(p => p.isAttending).length} Personen: {attendingNames(personsOf(rsvp, rsvp.participant))}
+          </p>
+        )}
         <p className="text-gray-500 dark:text-gray-400">{rsvp.event.title}</p>
 
         {/* Ticket und Zahlung (Kategorie groß, damit man sie am Einlass sofort sieht) */}

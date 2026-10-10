@@ -11,6 +11,7 @@ import { clientIp, pinRules, refund, reserve } from './lib/throttle'
 import { safeEqual } from './lib/tokens'
 import { notifyLinkedToolsBeforeDelete } from './lib/linked-tools-notify'
 import { verifyParticipantByToken, type VerifiedRsvp } from './lib/participant-verification'
+import { readCompanions } from './lib/persons'
 
 const prisma = new PrismaClient()
 
@@ -38,8 +39,8 @@ export async function submitRsvp(formData: FormData) {
         drinksAlcohol: formData.has('drinksAlcohol') ? formData.get('drinksAlcohol') === 'true' : null,
         additionalInfo: formData.get('additionalInfo') as string || null,
         declineReason: formData.get('declineReason') as string || null,
-        plusOne: formData.get('plusOne') === 'true',
-        plusOneName: formData.get('plusOneName') as string || null,
+        // Begleitungen (app/lib/persons.ts): nur wenn das Formular sie angezeigt hat
+        companions: readCompanions(formData),
         bringingItem: formData.get('bringingItem') as string || null,
         // Bis zu 3 frei definierbare Zusatzfragen, positionsbasiert (siehe readCustomQuestions)
         customAnswers: [0, 1, 2].map(i => (formData.get(`customAnswer_${i}`) as string) || ''),

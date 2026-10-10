@@ -12,6 +12,7 @@ import PhotoLinkBanner from '../../../ui/photo-link-banner'
 import { photoLinkVisible } from '../../../lib/photo-link'
 import { bringSlotsForForm, claimedLabels } from '../../../lib/bring-list'
 import { getCurrentGuestUser } from '../../../lib/guest-auth'
+import { guestPersons } from '../../../lib/guest-persons'
 import { guestTicketing } from '../../../lib/guest-ticketing'
 import { TOOL_LINKS } from '../../../lib/linked-tools-store'
 import { isTimelineConfirmed, timelineLinkOf } from '../../../lib/timeline'
@@ -23,8 +24,7 @@ type PublicRsvp = Prisma.RsvpGetPayload<{
     id: true
     isAttending: true
     isOnWaitlist: true
-    plusOne: true
-    plusOneName: true
+    persons: { select: { position: true, name: true, ageGroup: true, isAttending: true } }
     bringingItem: true
     declineReason: true
     createdAt: true
@@ -142,8 +142,7 @@ export default async function SeriesEventPage({
         id: true,
         isAttending: true,
         isOnWaitlist: true,
-        plusOne: true,
-        plusOneName: true,
+        persons: { select: { position: true, name: true, ageGroup: true, isAttending: true }, orderBy: { position: 'asc' } },
         bringingItem: true,
         declineReason: true,
         createdAt: true,
@@ -187,6 +186,7 @@ export default async function SeriesEventPage({
           formConfig={mergedConfig}
           participant={participant}
           rsvp={existingRsvp}
+          {...await guestPersons(event, existingRsvp)}
           {...await guestTicketing(event, existingRsvp, !!participant?.isVerified, series.requireVerification)}
           seatingLabel={existingRsvp?.seatingLabel ?? null}
           canOpenTimeline={!!timelineLinkOf(event) && !!existingRsvp && isTimelineConfirmed(existingRsvp, { isVerified: !!participant?.isVerified }, series.requireVerification)}
@@ -208,8 +208,8 @@ export default async function SeriesEventPage({
                   <li key={guest.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-100 dark:border-gray-700">
                     <div>
                       <span className="font-bold text-gray-800 dark:text-gray-100">{guest.participant.name}</span>
-                      {guest.plusOne && guest.plusOneName && (
-                        <span className="text-gray-500 dark:text-gray-400 text-sm ml-1">(+ {guest.plusOneName})</span>
+                      {guest.persons.length > 1 && guest.isAttending && (
+                        <span className="text-gray-500 dark:text-gray-400 text-sm ml-1">(+ {guest.persons.slice(1).map(p => p.name || 'Begleitung').join(', ')})</span>
                       )}
 
                       {guest.isAttending && (guest.bringingItem || guest.bringClaims.length > 0) && (

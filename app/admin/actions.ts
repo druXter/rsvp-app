@@ -27,6 +27,8 @@ import { fillFreeSeats } from '../lib/waitlist'
 import { BANK_IMPORT_MAX_BYTES, decodeStatement } from '../lib/bank-import'
 import { buildImportPreview, type ImportPreview } from '../lib/payment-import'
 import { sendPaymentRemindersForEvent } from '../lib/payment-reminder'
+import { companionsOf, MAX_COMPANIONS, readCompanions, seatsOf } from '../lib/persons'
+import { savePersons } from '../lib/rsvp-submission'
 
 const prisma = new PrismaClient()
 
@@ -42,6 +44,27 @@ function readCustomQuestions(formData: FormData): string[] {
   ]
     .map(q => (q || '').trim())
     .filter(q => q !== '')
+}
+
+/**
+ * "Begleitungen pro Anmeldung: bis zu N" (docs/KONZEPT-EINLADUNGEN.md), 0 bis MAX_COMPANIONS. Ersetzt die
+ * frühere Checkbox askPlusOne in formConfig. undefined, wenn das Formular das Feld nicht hat (bleibt unverändert).
+ */
+function readMaxCompanions(formData: FormData): number | undefined {
+  if (!formData.has('maxCompanions')) return undefined
+  const value = parseInt(formString(formData, 'maxCompanions', 10), 10)
+  return Number.isFinite(value) ? Math.min(Math.max(value, 0), MAX_COMPANIONS) : 0
+}
+
+/**
+ * Begleitungen und Ticketkategorien schließen sich aus (docs/KONZEPT-EINLADUNGEN.md): Bei Kategorien meldet sich
+ * jede Person selbst an, damit Kategorie, Betrag und Einlass pro Person stimmen. Wirft, bevor etwas gespeichert ist.
+ */
+async function assertCompanionsAllowed(maxCompanions: number | undefined, categories: TicketCategoryInput[] | null, eventId: string | null) {
+  const companions = maxCompanions ?? (eventId ? (await prisma.event.findUnique({ where: { id: eventId }, select: { maxCompanions: true } }))?.maxCompanions ?? 0 : 0)
+  if (companions === 0) return
+  const hasCategories = categories ? categories.length > 0 : !!eventId && (await prisma.ticketCategory.count({ where: { eventId } })) > 0
+  if (hasCategories) throw new Error('Begleitungen und Ticketkategorien schließen sich aus: Bei Kategorien meldet sich jede Person selbst an. Bitte eines von beiden entfernen.')
 }
 
 /**
@@ -433,6 +456,8 @@ export async function createEvent(formData: FormData) {
   // Verknüpfte Tools (Seating, siehe app/lib/linked-tools-store.ts) - wirft bei ungültigem Link, bevor etwas angelegt ist
   const toolLinks = readToolLinks(formData)
   const ticketing = await readTicketing(formData, null)
+  const maxCompanions = readMaxCompanions(formData)
+  await assertCompanionsAllowed(maxCompanions, ticketing.ticketCategories, null)
 
   // Abfrage-Optionen für die Gäste als JSON-String speichern
   const formConfig = JSON.stringify({
@@ -440,7 +465,6 @@ export async function createEvent(formData: FormData) {
     askPhone: formData.get('askPhone') === 'on',
     askDiet: formData.get('askDiet') === 'on',
     askAlcohol: formData.get('askAlcohol') === 'on',
-    askPlusOne: formData.get('askPlusOne') === 'on',
     askBringingItem: formData.get('askBringingItem') === 'on',
     askAllergies: formData.get('askAllergies') === 'on',
     customQuestions: readCustomQuestions(formData),
@@ -471,6 +495,7 @@ export async function createEvent(formData: FormData) {
       pollLabel,
       photoUrl,
       datePending,
+      maxCompanions,
       ...(ticketing.payment ?? {}),
       seatingRequiresPayment: ticketing.seatingRequiresPayment ?? false
     }
@@ -552,13 +577,14 @@ export async function updateEvent(formData: FormData) {
   const bringSlots = readBringSlots(formData)
   const toolLinks = readToolLinks(formData)
   const ticketing = await readTicketing(formData, id)
+  const maxCompanions = readMaxCompanions(formData)
+  await assertCompanionsAllowed(maxCompanions, ticketing.ticketCategories, id)
 
   const formConfig = JSON.stringify({
     askEmail: formData.get('askEmail') === 'on',
     askPhone: formData.get('askPhone') === 'on',
     askDiet: formData.get('askDiet') === 'on',
     askAlcohol: formData.get('askAlcohol') === 'on',
-    askPlusOne: formData.get('askPlusOne') === 'on',
     askBringingItem: formData.get('askBringingItem') === 'on',
     askAllergies: formData.get('askAllergies') === 'on',
     customQuestions: readCustomQuestions(formData),
@@ -592,6 +618,7 @@ export async function updateEvent(formData: FormData) {
       pollLabel,
       photoUrl,
       datePending,
+      maxCompanions,
       ...(ticketing.payment ?? {}),
       ...(ticketing.seatingRequiresPayment !== undefined ? { seatingRequiresPayment: ticketing.seatingRequiresPayment } : {}),
       ...(changes.length > 0 ? { icsSequence: { increment: 1 } } : {})
@@ -654,11 +681,10 @@ export async function updateAdminRsvp(formData: FormData) {
   const additionalInfo = formData.get('additionalInfo') as string || null
   const declineReason = formData.get('declineReason') as string || null
 
-  const plusOne = formData.get('plusOne') === 'true'
-  const plusOneName = formData.get('plusOneName') as string || null
+  const companionsInput = readCompanions(formData)
   const bringingItem = formData.get('bringingItem') as string || null
 
-  const existingRsvp = await prisma.rsvp.findUnique({ where: { id }, include: { event: { include: { ticketCategories: true } } } })
+  const existingRsvp = await prisma.rsvp.findUnique({ where: { id }, include: { persons: true, event: { include: { ticketCategories: true } } } })
   if (!existingRsvp || !(await hasEventModeratorOrAbove(user, existingRsvp.event))) return
 
   // Ticketkategorie: Die Verwaltung darf sie jederzeit ändern, auch in eine volle (wie "Zulassen"). Vor der
@@ -674,7 +700,11 @@ export async function updateAdminRsvp(formData: FormData) {
     amountCents = categories.find(c => c.id === ticketCategoryId)?.priceCents ?? null
   }
   const paymentReference = existingRsvp.paymentReference ?? (amountCents ? generatePaymentReference(existingRsvp.event.slug) : null)
-  const allowPlusOne = isAttending && categories.length === 0
+  // Begleitungen (docs/KONZEPT-EINLADUNGEN.md): Die Verwaltung darf über das Höchstmaß des Termins hinaus
+  // eintragen (wie "Zulassen", ohne Platzprüfung), nur nicht bei Ticketkategorien.
+  const usesPersons = categories.length === 0 && (existingRsvp.event.maxCompanions > 0 || existingRsvp.persons.length > 0)
+  const companions = (companionsInput ?? companionsOf(existingRsvp.persons)).slice(0, MAX_COMPANIONS)
+  const persons = [{ name, ageGroup: 'ADULT', isAttending, dietaryOption, allergies }, ...companions.map(c => ({ ...c, isAttending }))]
 
   await prisma.participant.update({
     where: { id: existingRsvp.participantId },
@@ -690,12 +720,11 @@ export async function updateAdminRsvp(formData: FormData) {
       paymentReference,
       drinksAlcohol: isAttending ? drinksAlcohol : null,
       additionalInfo: isAttending ? additionalInfo : null,
-      plusOne: allowPlusOne ? plusOne : false,
-      plusOneName: allowPlusOne && plusOne ? plusOneName : null,
       bringingItem: isAttending ? bringingItem : null,
       declineReason: isAttending ? null : declineReason
     }
   })
+  if (usesPersons) await savePersons(id, persons)
   await syncPaymentDue({ rsvpIds: [id] })
 
   // Absage gibt beanspruchte Einträge der Mitbringliste frei
@@ -704,8 +733,9 @@ export async function updateAdminRsvp(formData: FormData) {
   // Name/Adresse/Begleitung/Zu-/Absage können sich geändert haben
   notifyLinkedToolsOfRsvps([id])
 
-  // Ein fester Platz wird frei (Absage oder andere Kategorie): Wartende rücken nach
-  if (existingRsvp.isAttending && !existingRsvp.isOnWaitlist && (!isAttending || ticketCategoryId !== existingRsvp.ticketCategoryId)) {
+  // Ein fester Platz wird frei (Absage, andere Kategorie oder weniger Personen): Wartende rücken nach
+  const fewerSeats = usesPersons && seatsOf(persons) < seatsOf(existingRsvp.persons)
+  if (existingRsvp.isAttending && !existingRsvp.isOnWaitlist && (!isAttending || ticketCategoryId !== existingRsvp.ticketCategoryId || fewerSeats)) {
     await fillFreeSeats(existingRsvp.eventId)
   }
 
@@ -1101,7 +1131,6 @@ export async function addTerminToSeries(formData: FormData) {
     askDiet: false,
     askAllergies: false,
     askAlcohol: formData.get('askAlcohol') === 'on',
-    askPlusOne: formData.get('askPlusOne') === 'on',
     askBringingItem: formData.get('askBringingItem') === 'on',
     customQuestions: readCustomQuestions(formData),
   })
@@ -1122,6 +1151,7 @@ export async function addTerminToSeries(formData: FormData) {
       autoReminder,
       reminderDays,
       maxCapacity,
+      maxCompanions: readMaxCompanions(formData),
       enableCheckin
     }
   })
@@ -1160,6 +1190,8 @@ export async function updateSeriesTermin(formData: FormData) {
   const bringSlots = readBringSlots(formData)
   const toolLinks = readToolLinks(formData)
   const ticketing = await readTicketing(formData, id)
+  const maxCompanions = readMaxCompanions(formData)
+  await assertCompanionsAllowed(maxCompanions, ticketing.ticketCategories, id)
 
   const formConfig = JSON.stringify({
     askEmail: false,
@@ -1167,7 +1199,6 @@ export async function updateSeriesTermin(formData: FormData) {
     askDiet: false,
     askAllergies: false,
     askAlcohol: formData.get('askAlcohol') === 'on',
-    askPlusOne: formData.get('askPlusOne') === 'on',
     askBringingItem: formData.get('askBringingItem') === 'on',
     customQuestions: readCustomQuestions(formData),
   })
@@ -1181,7 +1212,7 @@ export async function updateSeriesTermin(formData: FormData) {
     where: { id },
     data: {
       title, slug, date, location, description, duration, formConfig, autoReminder, reminderDays, maxCapacity, enableCheckin,
-      pollUrl, pollLabel, datePending, photoUrl,
+      pollUrl, pollLabel, datePending, photoUrl, maxCompanions,
       ...(ticketing.payment ?? {}),
       ...(ticketing.seatingRequiresPayment !== undefined ? { seatingRequiresPayment: ticketing.seatingRequiresPayment } : {}),
       ...(changes.length > 0 ? { icsSequence: { increment: 1 } } : {})

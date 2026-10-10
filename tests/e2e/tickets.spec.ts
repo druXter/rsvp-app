@@ -80,14 +80,14 @@ test('Kategorien und Konto im Termin-Formular; Fehler ändern nichts; Kategorie 
 test('Gäste wählen eine Kategorie; Kontingent je Kategorie, Warteliste und Nachrücken; Zahlungsdaten', async ({ browser }) => {
   const owner = await createAccount('CREATOR')
   const { event } = await ticketEvent(owner, [{ label: 'Studierende', priceCents: 2500, capacity: 1 }, { label: 'Gäste', priceCents: 3550 }], {
-    formConfig: JSON.stringify({ askEmail: false, askPhone: false, askDiet: false, askAlcohol: false, askPlusOne: true })
+    formConfig: JSON.stringify({ askEmail: false, askPhone: false, askDiet: false, askAlcohol: false }), maxCompanions: 2
   })
 
   const anna = await newGuest(browser)
   await anna.goto(`/${event.slug}`)
   await anna.locator('input[name="isAttending"][value="true"]').check()
   // Bei Kategorien keine Begleitung
-  await expect(anna.getByText('Bringst du eine Begleitperson mit?')).toHaveCount(0)
+  await expect(anna.getByTestId('companions')).toHaveCount(0)
   await expect(anna.getByText('(noch 1 frei)')).toBeVisible()
   await answer(anna, event.slug, 'Anna', 'Studierende')
   await expect(anna.getByText('Danke für deine Anmeldung!')).toBeVisible()
@@ -96,7 +96,8 @@ test('Gäste wählen eine Kategorie; Kontingent je Kategorie, Warteliste und Nac
   await expect(box).toContainText('DE89 3704 0044 0532 0130 00')
   await expect(box.getByRole('img', { name: 'GiroCode für die Überweisung' })).toBeVisible()
   const annaRsvp = await rsvpOf(event.id, 'Anna')
-  expect(annaRsvp).toMatchObject({ amountCents: 2500, isOnWaitlist: false, plusOne: false })
+  expect(annaRsvp).toMatchObject({ amountCents: 2500, isOnWaitlist: false })
+  expect(await prisma.rsvpPerson.count({ where: { rsvpId: annaRsvp.id } })).toBe(0)
   expect(annaRsvp.paymentReference).toMatch(/^E2E[A-Z0-9]{0,5}-[A-Z0-9]{8}$/)
   await expect(box.getByTestId('payment-reference')).toHaveText(annaRsvp.paymentReference!)
 

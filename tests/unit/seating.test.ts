@@ -113,13 +113,22 @@ describe('verifyMessage', () => {
 })
 
 describe('Inhalte an Seating', () => {
+  const person = (position: number, name: string | null, extra: { ageGroup?: string; isAttending?: boolean } = {}) =>
+    ({ position, name, ageGroup: extra.ageGroup ?? 'ADULT', isAttending: extra.isAttending ?? true })
+
   it('guestOf: Name bereinigt und nie leer, Begleitung als Name oder null, zu lange Adresse fällt weg', () => {
-    expect(guestOf({ id: 'r1', plusOne: true, plusOneName: ' Max ' }, { name: ' Erika  Muster ', email: 'erika@example.test' }))
+    expect(guestOf({ id: 'r1', persons: [person(0, ' Erika  Muster '), person(1, ' Max ')] }, { name: 'Erika', email: 'erika@example.test' }))
       .toEqual({ rsvpId: 'r1', name: 'Erika Muster', email: 'erika@example.test', companions: ['Max'] })
-    expect(guestOf({ id: 'r1', plusOne: true, plusOneName: null }, { name: '   ', email: null }))
+    expect(guestOf({ id: 'r1', persons: [person(0, '  '), person(1, null)] }, { name: '   ', email: null }))
       .toEqual({ rsvpId: 'r1', name: 'Gast', email: null, companions: [null] })
-    expect(guestOf({ id: 'r1', plusOne: false, plusOneName: 'Max' }, { name: 'x'.repeat(300), email: `${'a'.repeat(250)}@x.de` }))
+    expect(guestOf({ id: 'r1' }, { name: 'x'.repeat(300), email: `${'a'.repeat(250)}@x.de` }))
       .toMatchObject({ name: 'x'.repeat(100), email: null, companions: [] })
+  })
+
+  it('guestOf: nur zusagende Personen ohne Kleinkinder, in Reihenfolge, die erste zusagende ist der Name', () => {
+    const persons = [person(2, 'Clara', { ageGroup: 'CHILD' }), person(3, 'Dora', { ageGroup: 'INFANT' }), person(0, 'Anna', { isAttending: false }), person(1, 'Ben')]
+    expect(guestOf({ id: 'r1', persons }, { name: 'Familie Muster', email: null }))
+      .toEqual({ rsvpId: 'r1', name: 'Ben', email: null, companions: ['Clara'] })
   })
 
   it('isSeatingConfirmed: nur Zusage, nicht Warteliste, bei Verifizierungspflicht nur verifiziert', () => {

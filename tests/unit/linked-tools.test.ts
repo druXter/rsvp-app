@@ -146,7 +146,7 @@ describe('Webhook nur an verknüpfte Tools', () => {
     }, input.secret)
   }))
   const rsvp = (toolLinks: RsvpState['event']['toolLinks']): RsvpState => ({
-    id: 'cmrsvpanswer0000001', isAttending: true, isOnWaitlist: false, plusOne: false, plusOneName: null, amountCents: null, paidAt: null,
+    id: 'cmrsvpanswer0000001', isAttending: true, isOnWaitlist: false, persons: [], amountCents: null, paidAt: null,
     participant: { name: 'Erika', email: null, isVerified: true },
     event: { id: rsvpEventId, requireVerification: false, seatingRequiresPayment: false, series: null, toolLinks }
   })
@@ -204,8 +204,7 @@ describe('Webhook nur an verknüpfte Tools', () => {
     it('rsvp-change byte-gleich zur bisherigen Nachricht an <Seating>/api/rsvp-webhook', () => {
       const seatingEventId = 'cmseatingevent00001'
       const state = rsvp([{ type: 'seating', url: `https://plaetze.example.test/rsvp/${seatingEventId}`, remoteEventId: seatingEventId }])
-      state.plusOne = true
-      state.plusOneName = 'Max'
+      state.persons = [{ position: 0, name: 'Erika', ageGroup: 'ADULT', isAttending: true }, { position: 1, name: 'Max', ageGroup: 'ADULT', isAttending: true }]
       const [delivery] = deliveriesFor(state, false)
       expect(delivery.url).toBe('https://plaetze.example.test/api/rsvp-webhook')
       expect(delivery.body).toBe(createMessage('rsvp-change', {

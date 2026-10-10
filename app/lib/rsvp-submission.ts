@@ -15,6 +15,7 @@ import { syncBringClaims } from './bring-list'
 import { hasRoom, loadCapacity } from './tickets'
 import { generatePaymentReference, paymentInfoOf, syncPaymentDue } from './payment'
 import { fillFreeSeats, shouldSuppressConfirmationEmail } from './waitlist'
+import { companionsOf, seatsOf, type CompanionInput } from './persons'
 
 const prisma = new PrismaClient()
 
@@ -35,8 +36,11 @@ export type RsvpSubmissionInput = {
   drinksAlcohol?: boolean | null
   additionalInfo?: string | null
   declineReason?: string | null
-  plusOne?: boolean
-  plusOneName?: string | null
+  /**
+   * Begleitungen (app/lib/persons.ts, docs/KONZEPT-EINLADUNGEN.md). undefined = nicht gesendet (Formular ohne
+   * Begleitungen, Client-API ohne Feld) - dann bleiben die bisherigen der Antwort.
+   */
+  companions?: CompanionInput[]
   bringingItem?: string | null
   customAnswers?: string[]
   /**
@@ -84,7 +88,7 @@ export async function performRsvpSubmission(
     eventId, editToken, name, isAttending,
     phone = null, dietaryOption = null, allergies = null, emailInput = null,
     drinksAlcohol = null, additionalInfo = null, declineReason = null,
-    plusOne = false, plusOneName = null, bringingItem = null
+    bringingItem = null
   } = input
 
   const event = await prisma.event.findUnique({
@@ -139,7 +143,8 @@ export async function performRsvpSubmission(
   // (z.B. wenn er über seinen Reihen-Link zum ersten Mal auf einen NEUEN Termin antwortet)
   const existingRsvp = existingParticipant
     ? await prisma.rsvp.findUnique({
-        where: { eventId_participantId: { eventId, participantId: existingParticipant.id } }
+        where: { eventId_participantId: { eventId, participantId: existingParticipant.id } },
+        include: { persons: { orderBy: { position: 'asc' } } }
       })
     : null
 
@@ -200,17 +205,36 @@ export async function performRsvpSubmission(
     }
   }
 
-  // Kapazitätsprüfung & Warteliste - ausschließlich pro Termin, Gesamtkapazität und Kontingent der Kategorie
-  // (hasRoom in app/lib/tickets.ts). Ein fester Platz bleibt, solange die Kategorie gleich bleibt; ein Wechsel
-  // in eine volle Kategorie wird abgelehnt statt den Platz stillschweigend gegen die Warteliste zu tauschen.
+  // Begleitungen (docs/KONZEPT-EINLADUNGEN.md): Mit Ticketkategorien meldet sich jede Person selbst an (Kategorie,
+  // Betrag und Einlass pro Person). Hat die Verwaltung das Höchstmaß gesenkt, darf eine Antwort ihre bisherigen
+  // behalten, aber keine hinzufügen. Ohne Feld bleiben die bisherigen. Eine Absage behält sie für eine erneute Zusage.
+  const existingPersons = existingRsvp?.persons ?? []
+  const existingCompanions = companionsOf(existingPersons)
+  const maxCompanions = categories.length > 0 ? 0 : Math.max(event.maxCompanions, existingCompanions.length)
+  const usesPersons = maxCompanions > 0 || existingPersons.length > 0
+  const companions = input.companions ?? existingCompanions
+  if (companions.length > maxCompanions) {
+    throw new RsvpInputError(maxCompanions === 0 ? 'Für diesen Termin sind keine Begleitungen vorgesehen.' : `Höchstens ${maxCompanions} Begleitung${maxCompanions === 1 ? '' : 'en'} möglich.`)
+  }
+  const companionRows = companions.map(c => ({ ...c, isAttending }))
+  const seats = usesPersons ? seatsOf([{ isAttending, ageGroup: 'ADULT' }, ...companionRows]) : 1
+  const previousSeats = seatsOf(existingPersons)
+
+  // Kapazitätsprüfung & Warteliste - ausschließlich pro Termin, Gesamtkapazität und Kontingent der Kategorie, Plätze
+  // pro Person (hasRoom in app/lib/tickets.ts). Ein fester Platz bleibt, solange Kategorie gleich und Personen
+  // nicht mehr werden; ein Wechsel in eine volle Kategorie oder zusätzliche Personen ohne Platz werden abgelehnt,
+  // statt den Platz stillschweigend gegen die Warteliste zu tauschen.
   const wasFixed = !!existingRsvp && existingRsvp.isAttending && !existingRsvp.isOnWaitlist
   let isOnWaitlist = false
-  if (isAttending && !(wasFixed && previousCategoryId === ticketCategoryId)) {
+  if (isAttending && !(wasFixed && previousCategoryId === ticketCategoryId && seats <= previousSeats)) {
     const { limits, rsvps } = await loadCapacity(eventId)
-    if (!hasRoom(limits, rsvps, ticketCategoryId, existingRsvp?.id)) {
-      if (wasFixed) {
+    if (!hasRoom(limits, rsvps, ticketCategoryId, existingRsvp?.id, seats)) {
+      if (wasFixed && previousCategoryId !== ticketCategoryId) {
         const label = categories.find(c => c.id === ticketCategoryId)?.label ?? ''
         throw new RsvpInputError(`Die Kategorie „${label}“ ist ausgebucht. Deine bisherige Anmeldung bleibt bestehen.`)
+      }
+      if (wasFixed) {
+        throw new RsvpInputError(`Für ${seats} Personen ist leider kein Platz mehr frei. Deine bisherige Anmeldung bleibt bestehen.`)
       }
       isOnWaitlist = true
     }
@@ -284,8 +308,6 @@ export async function performRsvpSubmission(
     ? JSON.stringify(customQuestions.map((_, i) => input.customAnswers?.[i] || ''))
     : null
 
-  // Bei Kategorien meldet sich jede Person selbst an (Kategorie, Betrag und Einlass pro Person) - keine Begleitung
-  const allowPlusOne = isAttending && categories.length === 0
   const rsvpData = {
     isAttending,
     ticketCategoryId,
@@ -296,8 +318,6 @@ export async function performRsvpSubmission(
     paymentDueAt: wasFixed && isAttending && !isOnWaitlist ? existingRsvp!.paymentDueAt : null,
     drinksAlcohol: isAttending ? drinksAlcohol : null,
     additionalInfo: isAttending ? additionalInfo : null,
-    plusOne: allowPlusOne ? plusOne : false,
-    plusOneName: allowPlusOne && plusOne ? plusOneName : null,
     bringingItem: isAttending ? bringingItem : null,
     declineReason: isAttending ? null : declineReason,
     customAnswers,
@@ -323,12 +343,20 @@ export async function performRsvpSubmission(
     try {
       await sendPushToUser(event.ownerId, {
         title: isAttending ? 'Neue Zusage 🎉' : 'Neue Absage',
-        body: `${name} - ${event.title}`,
+        body: `${name}${companions.length > 0 ? ` (+${companions.length})` : ''} - ${event.title}`,
         url: '/admin'
       })
     } catch (error) {
       console.error("Fehler beim Push-Versand:", error)
     }
+  }
+
+  // Personen der Antwort: die anmeldende (Angaben vom Participant) und ihre Begleitungen, alle neu geschrieben
+  if (usesPersons) {
+    await savePersons(savedRsvp.id, [
+      { name: participant.name, ageGroup: 'ADULT', isAttending, dietaryOption: participant.dietaryOption, allergies: participant.allergies },
+      ...companionRows
+    ])
   }
 
   // Zahlfrist setzen bzw. entfernen, bevor die Bestätigung (mit Frist) verschickt wird
@@ -340,9 +368,9 @@ export async function performRsvpSubmission(
   // Mitbringliste: nur eine Zusage, die zählt (nicht auf der Warteliste), hält Einträge
   await syncBringClaims(savedRsvp.id, eventId, input.bringSlotIds, isAttending && !isOnWaitlist)
 
-  // Nachrücken, wenn ein fester Platz frei wird: Absage oder Wechsel der Kategorie (app/lib/waitlist.ts,
-  // benachrichtigt Nachrücker und verknüpfte Tools selbst)
-  if (wasFixed && (!isAttending || previousCategoryId !== ticketCategoryId)) {
+  // Nachrücken, wenn ein fester Platz frei wird: Absage, Wechsel der Kategorie oder weniger Personen
+  // (app/lib/waitlist.ts, benachrichtigt Nachrücker und verknüpfte Tools selbst)
+  if (wasFixed && (!isAttending || previousCategoryId !== ticketCategoryId || seats < previousSeats)) {
     await fillFreeSeats(eventId)
   }
 
@@ -421,3 +449,14 @@ export async function performRsvpSubmission(
     seatAfterPayment,
     canOpenTimeline
   }}
+
+/** Ersetzt die Personen einer Antwort (Position = Reihenfolge). */
+export async function savePersons(
+  rsvpId: string,
+  persons: readonly { name: string | null; ageGroup: string; isAttending: boolean; dietaryOption: string | null; allergies: string | null }[]
+) {
+  await prisma.$transaction([
+    prisma.rsvpPerson.deleteMany({ where: { rsvpId } }),
+    prisma.rsvpPerson.createMany({ data: persons.map((p, position) => ({ rsvpId, position, ...p })) })
+  ])
+}

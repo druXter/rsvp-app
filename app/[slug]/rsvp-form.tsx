@@ -15,6 +15,8 @@ import type { TicketCategoryForForm } from '../lib/tickets'
 import { formatEuro } from '../lib/payment-state'
 import type { PaymentInfo } from '../lib/payment'
 import PaymentBox from '../ui/payment-box'
+import CompanionFields from '../ui/companion-fields'
+import type { CompanionInput } from '../lib/persons'
 
 export default function RsvpForm({
   eventId,
@@ -32,7 +34,9 @@ export default function RsvpForm({
   bringSlots = [],
   ticketCategories = [],
   payment = null,
-  seatAfterPayment = false
+  seatAfterPayment = false,
+  maxCompanions = 0,
+  companions = []
 }: {
   eventId: string;
   formConfig: string | null;
@@ -62,9 +66,11 @@ export default function RsvpForm({
   payment?: PaymentInfo | null;
   // Sitzplatzwahl erst nach Zahlung (Event.seatingRequiresPayment): Hinweis statt "Sitzplatz wählen".
   seatAfterPayment?: boolean;
+  // Begleitungen (app/lib/guest-persons.ts): wie viele möglich sind (0 = keine) und die bisherigen der Antwort.
+  maxCompanions?: number;
+  companions?: CompanionInput[];
 }) {
   const [isAttending, setIsAttending] = useState<boolean | null>(rsvp ? rsvp.isAttending : null)
-  const [hasPlusOne, setHasPlusOne] = useState<boolean>(rsvp ? rsvp.plusOne : false)
   const [submittedToken, setSubmittedToken] = useState<string | null>(null)
 
   const [showVerifyScreen, setShowVerifyScreen] = useState<boolean>(false)
@@ -81,7 +87,7 @@ export default function RsvpForm({
 
   const config = formConfig
     ? JSON.parse(formConfig)
-    : { askEmail: false, askPhone: false, askDiet: true, askAlcohol: true, askPlusOne: false, askBringingItem: false, askAllergies: false }
+    : { askEmail: false, askPhone: false, askDiet: true, askAlcohol: true, askBringingItem: false, askAllergies: false }
 
   const customQuestions: string[] = config.customQuestions || []
   const existingCustomAnswers: string[] = rsvp?.customAnswers ? JSON.parse(rsvp.customAnswers) : []
@@ -251,7 +257,7 @@ export default function RsvpForm({
 
       {isGuestListVisible && (
         <p className="text-xs bg-blue-50 text-blue-800 p-3 rounded border border-blue-100 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
-          ℹ️ Für dieses Event ist eine öffentliche Gästeliste aktiv: Dein Name (nicht deine E-Mail, Telefonnummer oder Allergien) ist für andere Gäste sichtbar, sobald du zusagst.
+          ℹ️ Für dieses Event ist eine öffentliche Gästeliste aktiv: Dein Name{maxCompanions > 0 ? ' und die Namen deiner Begleitungen' : ''} (nicht deine E-Mail, Telefonnummer oder Allergien) {maxCompanions > 0 ? 'sind' : 'ist'} für andere Gäste sichtbar, sobald du zusagst.
         </p>
       )}
 
@@ -330,24 +336,6 @@ export default function RsvpForm({
             </div>
           )}
 
-          {/* Bei Ticketkategorien meldet sich jede Person selbst an (Kategorie, Betrag und Einlass pro Person) */}
-          {config.askPlusOne && ticketCategories.length === 0 && (
-            <fieldset className="space-y-2">
-              <legend className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Bringst du eine Begleitperson mit?</legend>
-              <div className="flex gap-4">
-                <label className="flex items-center gap-2">
-                  <input type="radio" name="plusOne" value="true" defaultChecked={rsvp?.plusOne === true} required onChange={() => setHasPlusOne(true)} className="w-4 h-4 text-blue-600" /> Ja
-                </label>
-                <label className="flex items-center gap-2">
-                  <input type="radio" name="plusOne" value="false" defaultChecked={rsvp?.plusOne === false} required onChange={() => setHasPlusOne(false)} className="w-4 h-4 text-blue-600" /> Nein
-                </label>
-              </div>
-              {hasPlusOne && (
-                <input type="text" name="plusOneName" defaultValue={rsvp?.plusOneName || ''} required className="w-full border border-gray-300 p-2 rounded-md mt-2 bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100" placeholder="Name der Begleitperson" />
-              )}
-            </fieldset>
-          )}
-
           {config.askDiet && (
             <div>
               <label htmlFor="dietaryOption" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Essenswunsch</label>
@@ -368,6 +356,11 @@ export default function RsvpForm({
                 Freiwillige Angabe zur Berücksichtigung bei der Verpflegung. Da dies ggf. ein Gesundheitsdatum ist, verarbeiten wir es nur auf Basis deiner Einwilligung durch das Ausfüllen dieses Feldes - jederzeit widerrufbar, z.B. über deinen persönlichen Link (siehe unsere <Link href="/datenschutz" className="underline">Datenschutzerklärung</Link>).
               </p>
             </div>
+          )}
+
+          {/* Begleitungen (bei Ticketkategorien ist maxCompanions 0: jede Person meldet sich selbst an) */}
+          {maxCompanions > 0 && (
+            <CompanionFields max={maxCompanions} initial={companions} askDiet={!!config.askDiet} askAllergies={!!config.askAllergies} />
           )}
 
           {config.askAlcohol && (

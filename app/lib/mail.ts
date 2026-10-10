@@ -7,6 +7,8 @@ import { generateCheckinQrBuffer } from './qrcode'
 import { findToolLink } from './linked-tools-store'
 import { formatPaymentDate, paymentDue, paymentMailParts } from './payment'
 import { formatEuro } from './payment-state'
+import { prisma } from './prisma'
+import { describePerson, personsOf } from './persons'
 
 // Den Mail-Transporter mit den Daten aus der .env initialisieren
 const transporter = nodemailer.createTransport({
@@ -151,6 +153,11 @@ export async function sendConfirmationEmail(participant: Participant, rsvp: Rsvp
     ? `${baseUrl()}/api/timeline-link/${event.id}?token=${encodeURIComponent(participant.editToken)}`
     : null
 
+  // Begleitungen (docs/KONZEPT-EINLADUNGEN.md): wer mit angemeldet ist, samt Angaben
+  const companions = rsvp.isAttending
+    ? personsOf({ isAttending: true, persons: await prisma.rsvpPerson.findMany({ where: { rsvpId: rsvp.id } }) }, participant).slice(1).filter(p => p.isAttending).map(p => describePerson(p))
+    : []
+
   // Betreff und Text je nach Zusage oder Absage anpassen
   const subject = rsvp.isAttending
     ? `Zusage bestätigt: ${event.title}`
@@ -164,7 +171,7 @@ ${rsvp.isAttending
   ? 'Wir freuen uns sehr, dass du dabei bist! Im Anhang findest du eine Kalenderdatei (.ics), damit du dir den Termin direkt abspeichern kannst, sowie deinen persönlichen Einlass-QR-Code - bitte am Einlass bereithalten.'
   : 'Schade, dass du nicht dabei sein kannst. Falls sich deine Pläne doch noch ändern sollten, kannst du deine Antwort jederzeit anpassen.'}
 
-${payment ? `${payment.text}\n\n` : ''}${seatAfterPayment ? 'Deinen Sitzplatz kannst du wählen, sobald deine Zahlung eingegangen ist - dann bekommst du eine Mail mit dem Link.\n\n' : ''}${seatLink ? `Deinen Sitzplatz kannst du hier wählen:\n${seatLink}\n\n` : ''}${timelineLink ? `Den Ablauf des Events findest du im Zeitplan:\n${timelineLink}\n\n` : ''}Du kannst deine Antwort und alle optionalen Angaben jederzeit über diesen persönlichen Link bearbeiten:
+${companions.length > 0 ? `Mit dir angemeldet: ${companions.join('; ')}\n\n` : ''}${payment ? `${payment.text}\n\n` : ''}${seatAfterPayment ? 'Deinen Sitzplatz kannst du wählen, sobald deine Zahlung eingegangen ist - dann bekommst du eine Mail mit dem Link.\n\n' : ''}${seatLink ? `Deinen Sitzplatz kannst du hier wählen:\n${seatLink}\n\n` : ''}${timelineLink ? `Den Ablauf des Events findest du im Zeitplan:\n${timelineLink}\n\n` : ''}Du kannst deine Antwort und alle optionalen Angaben jederzeit über diesen persönlichen Link bearbeiten:
 ${personalLink}${seriesHintText(event, participant)}
 
 Viele Grüße,
@@ -177,6 +184,7 @@ Dein Event-Team`
       <p>${rsvp.isAttending
         ? 'Wir freuen uns sehr, dass du dabei bist! Im Anhang findest du eine Kalenderdatei (.ics), damit du dir den Termin direkt abspeichern kannst.'
         : 'Schade, dass du nicht dabei sein kannst. Falls sich deine Pläne doch noch ändern sollten, kannst du deine Antwort jederzeit anpassen.'}</p>
+      ${companions.length > 0 ? `<p>Mit dir angemeldet: ${companions.map(escapeHtml).join('; ')}</p>` : ''}
       ${payment ? payment.html : ''}
       ${seatAfterPayment ? '<p>🪑 Deinen Sitzplatz kannst du wählen, sobald deine Zahlung eingegangen ist - dann bekommst du eine Mail mit dem Link.</p>' : ''}
       ${qrAttachment ? `
@@ -736,4 +744,9 @@ export async function sendPaymentReminderEmail(participant: Participant, rsvp: R
     attachments: [payment.attachment],
     envelope: { from: process.env.SMTP_USER, to: participant.email! }
   })
+}
+
+/** Für Text, den Gäste selbst eingeben, in HTML-Mails. */
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!)
 }

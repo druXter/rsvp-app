@@ -17,7 +17,7 @@ Ein schlankes, anpassbares und leistungsstarkes Event-Management-System, gebaut 
   * Auto-Nachrücken: Sagt ein Gast ab oder erhöht die Veranstalter:in die Kapazität, rücken wartende Gäste automatisch chronologisch nach und erhalten ihr Ticket per Mail.
   * Override durch die Verwaltung: Manuelles Zulassen von Gästen ("VIPs") an der Warteliste und Kapazitätsgrenze vorbei.
 * **Dynamische Formulare:** Bestimme pro Event, welche Felder deine Gäste ausfüllen sollen:
-  * Begleitperson (+1) inkl. Name
+  * Begleitungen: „bis zu N“ pro Event/Termin (0–20), jede mit Name, Altersgruppe (erwachsen, Kind, Kleinkind) und - wenn abgefragt - eigenem Essenswunsch und Allergien. Plätze zählen Personen (Kleinkinder nicht): Eine Anmeldung bekommt nur als Ganzes einen festen Platz, sonst kommt sie ganz auf die Warteliste; eine zu große Gruppe blockiert die Einzelnen dahinter nicht. Wer mit festem Platz Personen hinzufügen will, für die kein Platz mehr ist, bekommt eine Fehlermeldung, weniger Personen lassen Wartende nachrücken. Die Verwaltung kann Begleitungen über das Höchstmaß hinaus eintragen. Sichtbar in der Gästeliste, beim Einlass, im CSV-Export (Spalten „Personen“, „Begleitungen“) und bei Seating (alle Personen außer Kleinkindern). Nicht zusammen mit Ticketkategorien. Konzept: [docs/KONZEPT-EINLADUNGEN.md](docs/KONZEPT-EINLADUNGEN.md).
   * Essenspräferenzen (Vegan, Vegetarisch, Allesesser) & Allergien
   * Alkohol-Präferenz
   * Mitbringsel (Essen/Trinken)
@@ -238,7 +238,12 @@ Containerstart **vor** `prisma db push`, aber nur, wenn diese Übernahme gelaufe
 einem Hinweis ab, statt die Links zu verlieren. Wer von einer noch älteren Version kommt, startet deshalb erst einmal die
 Vorgängerversion (Commit `ca1bd37`) und spielt danach das Update ein. Ein Rollback legt die Spalten leer wieder an, die
 App liest sie ohnehin nicht. Lokal ohne Docker: `node migrate-drop-seating-columns.js && npx prisma db push && node
-migrate-token-hashes.js && node migrate-tool-links.js`.
+migrate-token-hashes.js && node migrate-tool-links.js && node migrate-persons.js`.
+
+**Update auf Begleitungen (Oktober 2026):** `migrate-persons.js` (`PRAGMA user_version` 3, nach `prisma db push`) stellt
+„Begleitperson (+1) abfragen“ (`formConfig.askPlusOne`) auf „bis zu 1 Begleitung“ (`Event.maxCompanions`) um und
+überträgt vorhandene Begleitungen (`Rsvp.plusOne`/`plusOneName`) in die Personenliste (`RsvpPerson`). Die beiden alten
+Spalten bleiben vorerst leer stehen und entfallen mit einem späteren Update.
 
 ## 🪑 Verknüpfung mit Seating (Sitzplätze)
 
@@ -266,7 +271,7 @@ Ein Termin (Einzel-Event oder Reihen-Termin) kann optional mit einem Event im se
 | `guest-list` | rsvp-app → Seating | Antwort darauf, `text/plain` | `guests` |
 | `placements` | Seating → rsvp-app | `POST /api/seating/placements`, `text/plain` | `placements`: vollständiger Stand `{ rsvpId, label }` |
 
-`companions` ist heute höchstens ein Eintrag (Begleitung, Name oder null). Die Endpunkte antworten mit 401 bei ungültiger Signatur, falscher Art, falschem Empfänger oder Ablauf, mit 404, wenn das Event nicht existiert oder seine Seating-Verknüpfung nicht genau auf die anfragende `seatingEventId` zeigt, und mit 413 bei zu großem Body (20 KB bzw. 2 MB).
+`companions` sind die weiteren zusagenden Personen einer Antwort außer Kleinkindern (Name oder null, rsvp-app schickt höchstens 20). Die Endpunkte antworten mit 401 bei ungültiger Signatur, falscher Art, falschem Empfänger oder Ablauf, mit 404, wenn das Event nicht existiert oder seine Seating-Verknüpfung nicht genau auf die anfragende `seatingEventId` zeigt, und mit 413 bei zu großem Body (20 KB bzw. 2 MB).
 
 ## 🕒 Verknüpfung mit Zeitplan
 

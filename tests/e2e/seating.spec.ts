@@ -73,7 +73,12 @@ test.describe('Sitzplatz wählen (/api/seating-link)', () => {
     const owner = await createAccount('CREATOR')
     const { event, seatingEventId } = await linkedEvent(owner)
     const confirmed = await createRsvp(event, { name: 'Erika Muster' })
-    await prisma.rsvp.update({ where: { id: confirmed.rsvp.id }, data: { plusOne: true, plusOneName: 'Max' } })
+    await prisma.rsvpPerson.createMany({ data: [
+      { rsvpId: confirmed.rsvp.id, position: 0, name: 'Erika Muster', isAttending: true },
+      { rsvpId: confirmed.rsvp.id, position: 1, name: 'Max', isAttending: true },
+      // Kleinkinder brauchen keinen Platz und gehen nicht an Seating
+      { rsvpId: confirmed.rsvp.id, position: 2, name: 'Mia', ageGroup: 'INFANT', isAttending: true }
+    ] })
     const waitlisted = await createRsvp(event, { isOnWaitlist: true })
     const declined = await createRsvp(event, { isAttending: false })
     const { event: other } = await linkedEvent(owner)
@@ -213,7 +218,10 @@ test.describe('Gästeliste (/api/seating/guest-list)', () => {
     const { event, seatingEventId } = await linkedEvent(owner, { requireVerification: true })
     const verified = await createRsvp(event, { name: 'Erika' })
     await prisma.participant.update({ where: { id: verified.participant.id }, data: { isVerified: true, email: 'erika@example.test' } })
-    await prisma.rsvp.update({ where: { id: verified.rsvp.id }, data: { plusOne: true, plusOneName: null } })
+    await prisma.rsvpPerson.createMany({ data: [
+      { rsvpId: verified.rsvp.id, position: 0, name: 'Erika', isAttending: true },
+      { rsvpId: verified.rsvp.id, position: 1, name: null, isAttending: true }
+    ] })
     const unverified = await createRsvp(event)
     const waitlisted = await createRsvp(event, { isOnWaitlist: true })
     await prisma.participant.update({ where: { id: waitlisted.participant.id }, data: { isVerified: true } })

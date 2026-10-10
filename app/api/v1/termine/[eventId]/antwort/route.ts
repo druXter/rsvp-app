@@ -2,6 +2,7 @@
 import { PrismaClient } from '@prisma/client'
 import { getGuestUserFromApiToken, apiError } from '../../../../../lib/api-auth'
 import { performRsvpSubmission, RsvpInputError } from '../../../../../lib/rsvp-submission'
+import { cleanCompanion, MAX_COMPANIONS, type CompanionInput } from '../../../../../lib/persons'
 
 const prisma = new PrismaClient()
 
@@ -67,8 +68,7 @@ export async function POST(
         drinksAlcohol: typeof body.drinksAlcohol === 'boolean' ? body.drinksAlcohol : null,
         additionalInfo: typeof body.additionalInfo === 'string' ? body.additionalInfo : null,
         declineReason: typeof body.declineReason === 'string' ? body.declineReason : null,
-        plusOne: body.plusOne === true,
-        plusOneName: typeof body.plusOneName === 'string' ? body.plusOneName : null,
+        companions: readApiCompanions(body),
         bringingItem: typeof body.bringingItem === 'string' ? body.bringingItem : null,
         customAnswers,
         // Ticketkategorie (app/lib/tickets.ts) - ohne Feld gilt die bisherige der Antwort
@@ -91,4 +91,23 @@ export async function POST(
     // Zahlungsdaten (Betrag, IBAN, Verwendungszweck, GiroCode als Data-URL), falls etwas zu zahlen ist - sonst null
     payment: result.payment
   })
+}
+
+/**
+ * Begleitungen aus dem Body: `companions` als Liste `[{name, ageGroup, dietaryOption, allergies}]`, oder wie
+ * früher `plusOne`/`plusOneName` als Kurzform für genau eine. Ohne beide Felder bleiben die bisherigen.
+ * Einträge ohne Namen zählen nicht; mehr als erlaubt lehnt performRsvpSubmission ab.
+ */
+function readApiCompanions(body: Record<string, unknown>): CompanionInput[] | undefined {
+  if (Array.isArray(body.companions)) {
+    return body.companions
+      .slice(0, MAX_COMPANIONS + 1)
+      .map(c => (c && typeof c === 'object' ? cleanCompanion(c as Record<string, unknown>) : null))
+      .filter((c): c is CompanionInput => c !== null)
+  }
+  if (typeof body.plusOne === 'boolean') {
+    const companion = body.plusOne ? cleanCompanion({ name: body.plusOneName || 'Begleitung' }) : null
+    return companion ? [companion] : []
+  }
+  return undefined
 }

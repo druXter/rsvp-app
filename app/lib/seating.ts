@@ -109,20 +109,25 @@ export function cleanName(value: string): string {
 }
 
 /**
- * Die Angaben einer Zusage, wie sie an Seating gehen. Name nie leer (Seating verlangt einen),
- * E-Mail nur, wenn sie in Seatings Grenze passt, Begleitungen heute höchstens eine
- * (plusOne/plusOneName) - ohne Namen als null.
+ * Die Angaben einer Zusage, wie sie an Seating gehen. Name nie leer (Seating verlangt einen), E-Mail nur, wenn
+ * sie in Seatings Grenze passt. Mit Personenliste (app/lib/persons.ts) ist `name` die erste zusagende Person und
+ * `companions` sind die weiteren - ohne Kleinkinder, die keinen eigenen Platz brauchen, Begleitungen ohne Namen
+ * als null. Ohne Personenliste ist die Antwort genau eine Person.
  */
 export function guestOf(
-  rsvp: { id: string; plusOne: boolean; plusOneName: string | null },
+  rsvp: { id: string; persons?: readonly { position: number; name: string | null; ageGroup: string; isAttending: boolean }[] | null },
   participant: { name: string; email: string | null }
 ): SeatingGuest {
   const email = participant.email?.trim() || null
+  const seated = [...(rsvp.persons ?? [])]
+    .sort((a, b) => a.position - b.position)
+    .filter(p => p.isAttending && p.ageGroup !== 'INFANT')
+  const name = (value: string | null | undefined) => cleanName(value || '').slice(0, MAX_NAME) || null
   return {
     rsvpId: rsvp.id,
-    name: cleanName(participant.name || '').slice(0, MAX_NAME) || 'Gast',
+    name: name(seated[0]?.name) || name(participant.name) || 'Gast',
     email: email && email.length <= MAX_EMAIL ? email : null,
-    companions: rsvp.plusOne ? [cleanName(rsvp.plusOneName || '').slice(0, MAX_NAME) || null] : []
+    companions: seated.slice(1).map(p => name(p.name))
   }
 }
 
@@ -235,7 +240,7 @@ export function seatingRsvpChange(input: {
   link: ToolLink
   secret: string
   rsvpEventId: string
-  rsvp: { id: string; isAttending: boolean; isOnWaitlist: boolean; plusOne: boolean; plusOneName: string | null; amountCents: number | null; paidAt: Date | null }
+  rsvp: { id: string; isAttending: boolean; isOnWaitlist: boolean; persons: { position: number; name: string | null; ageGroup: string; isAttending: boolean }[]; amountCents: number | null; paidAt: Date | null }
   participant: { name: string; email: string | null; isVerified: boolean }
   requireVerification: boolean
   seatingRequiresPayment: boolean

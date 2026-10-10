@@ -15,7 +15,7 @@ const prisma = new PrismaClient()
 
 const rsvpInclude = {
   rsvps: {
-    include: { participant: true, bringClaims: { select: { slot: { select: { label: true, position: true } } } } },
+    include: { participant: true, persons: true, bringClaims: { select: { slot: { select: { label: true, position: true } } } } },
     orderBy: { createdAt: 'desc' as const }
   },
   // Mitbringliste: Stand je Eintrag für die Übersicht der Karte

@@ -226,7 +226,8 @@ export default async function GuestAccountPage({
                 <li><code>POST /termine/&lt;terminId&gt;/antwort</code> - antworten, JSON-Body z.B. <code>{'{"isAttending": true}'}</code></li>
               </ul>
               <p className="text-xs">
-                Beim Antworten sind optional <code>plusOne</code>, <code>plusOneName</code>, <code>bringingItem</code>,{' '}
+                Beim Antworten sind optional <code>companions</code> (Liste mit <code>name</code>, <code>ageGroup</code>,{' '}
+                <code>dietaryOption</code>, <code>allergies</code>; kurz <code>plusOne</code>/<code>plusOneName</code>), <code>bringingItem</code>,{' '}
                 <code>drinksAlcohol</code>, <code>additionalInfo</code>, <code>declineReason</code> und{' '}
                 <code>customAnswers</code> erlaubt. Name und Kontaktdaten kommen immer aus deinem Konto.
                 Die Antwort enthält <code>isOnWaitlist</code> und - bei Terminen mit Einlasskontrolle -{' '}
