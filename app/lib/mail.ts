@@ -5,6 +5,8 @@ import { createEvent, DateArray } from 'ics'
 import { Event, EventSeries, GuestUser, Participant, Rsvp, User } from '@prisma/client'
 import { generateCheckinQrBuffer } from './qrcode'
 import { findToolLink } from './linked-tools-store'
+import { formatPaymentDate, paymentDue, paymentMailParts } from './payment'
+import { formatEuro } from './payment-state'
 
 // Den Mail-Transporter mit den Daten aus der .env initialisieren
 const transporter = nodemailer.createTransport({
@@ -133,9 +135,15 @@ export async function sendConfirmationEmail(participant: Participant, rsvp: Rsvp
     ? { filename: 'einlass-qrcode.png', content: await generateCheckinQrBuffer(rsvp.id), cid: 'checkinqr', contentType: 'image/png' }
     : null
 
+  // Zahlungsdaten samt GiroCode, falls für den festen Platz ein Betrag offen ist (app/lib/payment.ts)
+  const payment = rsvp.isAttending && !rsvp.isOnWaitlist ? await paymentMailParts(rsvp, event) : null
+
   // "Sitzplatz wählen" (Seating): frisch ausgestellt erst beim Klick, siehe
   // app/api/seating-link/[eventId]/route.ts - die Mail trägt nur den persönlichen editToken.
-  const seatLink = rsvp.isAttending && !rsvp.isOnWaitlist && await findToolLink(event.id, 'seating')
+  // Mit "Sitzplatzwahl erst nach Zahlung" kommt der Link erst mit der Mail "Zahlung eingegangen".
+  const hasSeating = rsvp.isAttending && !rsvp.isOnWaitlist && !!(await findToolLink(event.id, 'seating'))
+  const seatAfterPayment = hasSeating && event.seatingRequiresPayment && paymentDue(rsvp)
+  const seatLink = hasSeating && !seatAfterPayment
     ? `${baseUrl()}/api/seating-link/${event.id}?token=${encodeURIComponent(participant.editToken)}`
     : null
   // "Zeitplan" (Zeitplan-Tool) genauso: nur die Weiterleitung, nie das signierte Token selbst
@@ -156,7 +164,7 @@ ${rsvp.isAttending
   ? 'Wir freuen uns sehr, dass du dabei bist! Im Anhang findest du eine Kalenderdatei (.ics), damit du dir den Termin direkt abspeichern kannst, sowie deinen persönlichen Einlass-QR-Code - bitte am Einlass bereithalten.'
   : 'Schade, dass du nicht dabei sein kannst. Falls sich deine Pläne doch noch ändern sollten, kannst du deine Antwort jederzeit anpassen.'}
 
-${seatLink ? `Deinen Sitzplatz kannst du hier wählen:\n${seatLink}\n\n` : ''}${timelineLink ? `Den Ablauf des Events findest du im Zeitplan:\n${timelineLink}\n\n` : ''}Du kannst deine Antwort und alle optionalen Angaben jederzeit über diesen persönlichen Link bearbeiten:
+${payment ? `${payment.text}\n\n` : ''}${seatAfterPayment ? 'Deinen Sitzplatz kannst du wählen, sobald deine Zahlung eingegangen ist - dann bekommst du eine Mail mit dem Link.\n\n' : ''}${seatLink ? `Deinen Sitzplatz kannst du hier wählen:\n${seatLink}\n\n` : ''}${timelineLink ? `Den Ablauf des Events findest du im Zeitplan:\n${timelineLink}\n\n` : ''}Du kannst deine Antwort und alle optionalen Angaben jederzeit über diesen persönlichen Link bearbeiten:
 ${personalLink}${seriesHintText(event, participant)}
 
 Viele Grüße,
@@ -169,6 +177,8 @@ Dein Event-Team`
       <p>${rsvp.isAttending
         ? 'Wir freuen uns sehr, dass du dabei bist! Im Anhang findest du eine Kalenderdatei (.ics), damit du dir den Termin direkt abspeichern kannst.'
         : 'Schade, dass du nicht dabei sein kannst. Falls sich deine Pläne doch noch ändern sollten, kannst du deine Antwort jederzeit anpassen.'}</p>
+      ${payment ? payment.html : ''}
+      ${seatAfterPayment ? '<p>🪑 Deinen Sitzplatz kannst du wählen, sobald deine Zahlung eingegangen ist - dann bekommst du eine Mail mit dem Link.</p>' : ''}
       ${qrAttachment ? `
         <p style="text-align: center; margin: 30px 0;">
           <img src="cid:checkinqr" alt="Einlass-QR-Code" style="width: 220px; height: 220px;" />
@@ -200,7 +210,7 @@ Dein Event-Team`
     subject,
     text,
     html,
-    attachments: [icsAttachment, qrAttachment].filter((a): a is NonNullable<typeof a> => a !== null),
+    attachments: [icsAttachment, qrAttachment, payment?.attachment ?? null].filter((a): a is NonNullable<typeof a> => a !== null),
 
     // Zwingt Mail-Server, den korrekten technischen Absender zu akzeptieren
     envelope: {
@@ -636,4 +646,60 @@ Dein Event-Team`,
     console.error(`Fehler beim Senden der Änderungs-Mail an ${participant.email}:`, error)
     return false
   }
+}
+
+/**
+ * "Zahlung eingegangen" - nach dem Markieren einer Überweisung in der Verwaltung (setPaymentStatus). Bei
+ * "Sitzplatzwahl erst nach Zahlung" bringt erst diese Mail den Link zur Sitzplatzwahl.
+ */
+export async function sendPaymentReceivedEmail(participant: Participant, rsvp: Rsvp, event: EventWithSeries) {
+  const personalLink = personalEventLink(event, participant)
+  const amount = rsvp.amountCents ? formatEuro(rsvp.amountCents) : ''
+  const seatLink = event.seatingRequiresPayment && await findToolLink(event.id, 'seating')
+    ? `${baseUrl()}/api/seating-link/${event.id}?token=${encodeURIComponent(participant.editToken)}`
+    : null
+
+  await transporter.sendMail({
+    from: process.env.SMTP_FROM,
+    to: participant.email!,
+    subject: `Zahlung eingegangen: ${event.title}`,
+    text: `Hallo ${participant.name},\n\ndeine Zahlung über ${amount} (Verwendungszweck ${rsvp.paymentReference}) für "${event.title}" ist eingegangen. Danke!\n\n${seatLink ? `Jetzt kannst du deinen Sitzplatz wählen:\n${seatLink}\n\n` : ''}Deine Anmeldung findest du hier:\n${personalLink}\n\nViele Grüße,\nDein Event-Team`,
+    html: `
+      <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
+        <h2>Zahlung eingegangen ✅</h2>
+        <p>Hallo ${participant.name},</p>
+        <p>deine Zahlung über <strong>${amount}</strong> (Verwendungszweck <span style="font-family: monospace;">${rsvp.paymentReference}</span>) für <strong>${event.title}</strong> ist eingegangen. Danke!</p>
+        ${seatLink ? `
+        <p style="text-align: center; margin: 24px 0;">
+          <a href="${seatLink}" style="display: inline-block; background: #65a30d; color: #fff; font-weight: bold; padding: 10px 24px; border-radius: 6px; text-decoration: none;">🪑 Sitzplatz wählen</a>
+        </p>` : ''}
+        <p>Deine Anmeldung findest du <a href="${personalLink}">hier</a>.</p>
+        <p>Viele Grüße,<br>Dein Event-Team</p>
+      </div>
+    `,
+    envelope: { from: process.env.SMTP_USER, to: participant.email! }
+  })
+}
+
+/** Stornierung wegen abgelaufener Zahlfrist (cancelUnpaidRsvp) - nur auf Klick der Verwaltung, nie automatisch. */
+export async function sendPaymentCancelledEmail(participant: Participant, rsvp: Rsvp, event: EventWithSeries) {
+  const personalLink = personalEventLink(event, participant)
+  const due = rsvp.paymentDueAt ? ` bis zum ${formatPaymentDate(rsvp.paymentDueAt)}` : ''
+
+  await transporter.sendMail({
+    from: process.env.SMTP_FROM,
+    to: participant.email!,
+    subject: `Anmeldung storniert: ${event.title}`,
+    text: `Hallo ${participant.name},\n\nfür deine Anmeldung zu "${event.title}" ist${due} keine Zahlung eingegangen (Verwendungszweck ${rsvp.paymentReference}). Deshalb haben wir deinen Platz freigegeben.\n\nFalls du schon überwiesen hast, melde dich bitte bei der Veranstaltung. Über deinen persönlichen Link kannst du dich erneut anmelden, solange es Plätze gibt:\n${personalLink}\n\nViele Grüße,\nDein Event-Team`,
+    html: `
+      <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
+        <h2>Anmeldung storniert</h2>
+        <p>Hallo ${participant.name},</p>
+        <p>für deine Anmeldung zu <strong>${event.title}</strong> ist${due} keine Zahlung eingegangen (Verwendungszweck <span style="font-family: monospace;">${rsvp.paymentReference}</span>). Deshalb haben wir deinen Platz freigegeben.</p>
+        <p>Falls du schon überwiesen hast, melde dich bitte bei der Veranstaltung. Über deinen <a href="${personalLink}">persönlichen Link</a> kannst du dich erneut anmelden, solange es Plätze gibt.</p>
+        <p>Viele Grüße,<br>Dein Event-Team</p>
+      </div>
+    `,
+    envelope: { from: process.env.SMTP_USER, to: participant.email! }
+  })
 }

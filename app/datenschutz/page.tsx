@@ -129,6 +129,19 @@ export default function DatenschutzPage() {
             entfernst oder deine Daten vollständig löschst (siehe Punkt 18).
           </p>
           <p className="mt-2">
+            <strong>Tickets und Bezahlung:</strong> Bietet eine Veranstaltung Ticketkategorien an (z.B.
+            &quot;Studierende&quot;, &quot;Gäste&quot;), speichern wir an deiner Antwort die gewählte Kategorie, den zu
+            zahlenden Betrag und einen Verwendungszweck, über den die Veranstalter:innen deine Überweisung zuordnen.
+            Dazu kommen der Zahlungsstatus (offen, bezahlt, erstattet), die Zahlart (Überweisung oder bar), die
+            jeweiligen Zeitpunkte und gegebenenfalls eine Zahlfrist. Die Zahlung selbst läuft nicht über uns: Du
+            überweist direkt an das angezeigte Konto der Veranstalter:innen, und diese markieren den Eingang von Hand.
+            Deine Bankdaten (IBAN, Kontoinhaber) erfahren wir dabei nicht und speichern sie nicht; der GiroCode auf
+            deiner Seite und in der Bestätigungsmail enthält nur die Daten des Empfängerkontos, den Betrag und den
+            Verwendungszweck und wird erst in deiner Banking-App ausgewertet. Nach Zahlungseingang bekommst du eine
+            Bestätigung per E-Mail (bei einer Barzahlung am Einlass nicht). Rechtsgrundlage ist Art. 6 Abs. 1 lit. b
+            DSGVO (Abwicklung deiner Anmeldung).
+          </p>
+          <p className="mt-2">
             <strong>Veranstaltungsreihen:</strong> Gehört ein Termin zu einer Reihe, werden deine Kontakt- und
             Profilangaben einmalig für die gesamte Reihe gespeichert und für weitere Termine derselben Reihe
             wiederverwendet, damit du sie nicht bei jedem Termin erneut eingeben musst. Deine eigentliche Antwort
@@ -245,8 +258,9 @@ export default function DatenschutzPage() {
             nicht verknüpft, geht nichts an Seating.
           </p>
           <p className="mt-2">
-            Für eine <strong>bestätigte Zusage</strong> (nicht auf der Warteliste und, falls der Termin eine
-            E-Mail-Bestätigung verlangt, bestätigt) übermitteln wir an Seating: eine Kennung deiner Antwort, deinen{' '}
+            Für eine <strong>bestätigte Zusage</strong> (nicht auf der Warteliste, falls der Termin eine
+            E-Mail-Bestätigung verlangt, bestätigt, und falls die Veranstalter:innen die Sitzplatzwahl erst nach der
+            Zahlung freigeben, bezahlt) übermitteln wir an Seating: eine Kennung deiner Antwort, deinen{' '}
             <strong>Namen</strong>, deine <strong>E-Mail-Adresse</strong> (nur, falls du eine angegeben hast) und den{' '}
             <strong>Namen deiner Begleitung</strong> (nur, falls angegeben) - und zwar
           </p>
@@ -309,10 +323,11 @@ export default function DatenschutzPage() {
           <h2 className="font-bold text-lg">13. Zugriff durch Veranstalter:innen und Moderator:innen</h2>
           <p className="mt-2">
             Deine Angaben zu einer Veranstaltung (einschließlich E-Mail-Adresse, Handynummer, Essenswunsch und
-            Allergien) sind für die Veranstalter:in einsehbar, die diese Veranstaltung angelegt hat, und können von ihr
-            als Liste exportiert werden. Zusätzlich kann sie einzelnen weiteren Konten Moderations-Rechte für eine
-            bestimmte Veranstaltung oder Reihe einräumen; diese sehen dann dieselbe Gästeliste und können Antworten
-            pflegen sowie den Einlass abwickeln. Administrator:innen dieser Instanz haben technisch bedingt Zugriff auf
+            Allergien sowie Ticket- und Zahlungsstatus) sind für die Veranstalter:in einsehbar, die diese Veranstaltung
+            angelegt hat, und können von ihr als Liste exportiert werden. Zusätzlich kann sie einzelnen weiteren Konten
+            Moderations-Rechte für eine bestimmte Veranstaltung oder Reihe einräumen; diese sehen dann dieselbe
+            Gästeliste und können Antworten pflegen, Zahlungen als eingegangen markieren (z.B. an der Abendkasse) sowie
+            den Einlass abwickeln. Administrator:innen dieser Instanz haben technisch bedingt Zugriff auf
             alle Daten. Ein Zugriff durch andere Veranstalter:innen ohne eine solche Freigabe findet nicht statt.
           </p>
         </div>
@@ -401,7 +416,9 @@ export default function DatenschutzPage() {
             automatisch vollständig gelöscht - inklusive des Veranstaltungs-Datensatzes selbst, nicht nur deiner
             Antwort. Bei Veranstaltungsreihen bleibt dein Profil (Name, Kontaktdaten, Essenswunsch, Allergien)
             erhalten, solange du noch zu einem jüngeren Termin derselben Reihe geantwortet hast - sind alle deine
-            Termine der Reihe älter als 18 Monate, wird auch dieses Profil automatisch gelöscht.
+            Termine der Reihe älter als 18 Monate, wird auch dieses Profil automatisch gelöscht. Ticket- und
+            Zahlungsangaben (Punkt 4) hängen an deiner Antwort und werden mit ihr gelöscht; müssen Veranstalter:innen
+            Zahlungen länger nachweisen (z.B. für eine Vereinsbuchhaltung), sichern sie dafür selbst einen Export.
           </p>
           <p className="mt-2">
             Löschen Veranstalter:innen einen Termin oder deine Antwort schon vorher, werden deine Angaben dazu{' '}

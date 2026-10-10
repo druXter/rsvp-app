@@ -12,7 +12,7 @@ import PhotoLinkBanner from '../../../ui/photo-link-banner'
 import { photoLinkVisible } from '../../../lib/photo-link'
 import { bringSlotsForForm, claimedLabels } from '../../../lib/bring-list'
 import { getCurrentGuestUser } from '../../../lib/guest-auth'
-import { isSeatingConfirmed, seatingLinkOf } from '../../../lib/seating'
+import { guestTicketing } from '../../../lib/guest-ticketing'
 import { TOOL_LINKS } from '../../../lib/linked-tools-store'
 import { isTimelineConfirmed, timelineLinkOf } from '../../../lib/timeline'
 
@@ -187,7 +187,7 @@ export default async function SeriesEventPage({
           formConfig={mergedConfig}
           participant={participant}
           rsvp={existingRsvp}
-          canChooseSeat={!!seatingLinkOf(event) && !!existingRsvp && isSeatingConfirmed(existingRsvp, { isVerified: !!participant?.isVerified }, series.requireVerification)}
+          {...await guestTicketing(event, existingRsvp, !!participant?.isVerified, series.requireVerification)}
           seatingLabel={existingRsvp?.seatingLabel ?? null}
           canOpenTimeline={!!timelineLinkOf(event) && !!existingRsvp && isTimelineConfirmed(existingRsvp, { isVerified: !!participant?.isVerified }, series.requireVerification)}
           isGuestListVisible={series.isGuestListVisible}

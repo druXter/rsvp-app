@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { createEvent } from '../actions'
 import { getCurrentUser } from '../../lib/auth'
 import SubmitButton from '../../ui/submit-button'
+import TicketSettingsSection, { SeatingPaymentToggle } from '../ticket-settings-section'
 import ThemeSection, { themeClasses } from '../../ui/theme-section'
 import { allowedSeatingOrigin } from '../../lib/seating'
 import { allowedTimelineOrigin } from '../../lib/timeline'
@@ -196,6 +197,8 @@ export default async function CreateEventPage() {
             </div>
           </ThemeSection>
 
+          <TicketSettingsSection />
+
           {seatingOrigin && (
             <ThemeSection color="lime" title="Sitzplätze (Seating)" description="Verknüpft diesen Termin mit einem Event im Sitzplatz-Tool Seating. Den Link zeigt Seating in den Event-Einstellungen an, sobald dort die ID dieses Termins eingetragen ist - erst mit beiden Einträgen gilt die Verknüpfung. Zugesagte Gäste sehen dann „Sitzplatz wählen“ und später ihren Platz; Name, E-Mail (falls vorhanden) und Begleitung gehen dafür an Seating.">
               <div>
@@ -203,6 +206,7 @@ export default async function CreateEventPage() {
                 <input id="seatingUrl" type="url" name="seatingUrl" className={`w-full border ${themeClasses('lime').border} bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded outline-none ${themeClasses('lime').borderFocus}`} placeholder={`${seatingOrigin}/rsvp/…`} />
                 <p className={`text-xs ${themeClasses('lime').text} mt-1`}>Die ID für Seating gibt es erst nach dem Anlegen - den Link kannst du auch später beim Bearbeiten eintragen.</p>
               </div>
+              <SeatingPaymentToggle checked={false} />
             </ThemeSection>
           )}
 

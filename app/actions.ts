@@ -5,7 +5,7 @@ import { PrismaClient } from '@prisma/client'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { getCurrentGuestUser } from './lib/guest-auth'
-import { performRsvpSubmission } from './lib/rsvp-submission'
+import { performRsvpSubmission, RsvpInputError } from './lib/rsvp-submission'
 import { cookies } from 'next/headers'
 import { clientIp, pinRules, refund, reserve } from './lib/throttle'
 import { safeEqual } from './lib/tokens'
@@ -24,29 +24,37 @@ const prisma = new PrismaClient()
 export async function submitRsvp(formData: FormData) {
   const editToken = (formData.get('editToken') as string) || null
 
-  return performRsvpSubmission(
-    {
-      eventId: formData.get('eventId') as string,
-      editToken,
-      name: formData.get('name') as string,
-      isAttending: formData.get('isAttending') === 'true',
-      phone: formData.get('phone') as string || null,
-      dietaryOption: formData.get('dietaryOption') as string || null,
-      allergies: formData.get('allergies') as string || null,
-      emailInput: formData.get('email') as string || null,
-      drinksAlcohol: formData.has('drinksAlcohol') ? formData.get('drinksAlcohol') === 'true' : null,
-      additionalInfo: formData.get('additionalInfo') as string || null,
-      declineReason: formData.get('declineReason') as string || null,
-      plusOne: formData.get('plusOne') === 'true',
-      plusOneName: formData.get('plusOneName') as string || null,
-      bringingItem: formData.get('bringingItem') as string || null,
-      // Bis zu 3 frei definierbare Zusatzfragen, positionsbasiert (siehe readCustomQuestions)
-      customAnswers: [0, 1, 2].map(i => (formData.get(`customAnswer_${i}`) as string) || ''),
-      // Mitbringliste: nur wenn das Formular sie angezeigt hat (Markierungsfeld), sonst unangetastet
-      bringSlotIds: formData.has('bringSlotsShown') ? formData.getAll('bringSlot').map(String) : undefined
-    },
-    editToken ? null : await getCurrentGuestUser()
-  )
+  try {
+    return await performRsvpSubmission(
+      {
+        eventId: formData.get('eventId') as string,
+        editToken,
+        name: formData.get('name') as string,
+        isAttending: formData.get('isAttending') === 'true',
+        phone: formData.get('phone') as string || null,
+        dietaryOption: formData.get('dietaryOption') as string || null,
+        allergies: formData.get('allergies') as string || null,
+        emailInput: formData.get('email') as string || null,
+        drinksAlcohol: formData.has('drinksAlcohol') ? formData.get('drinksAlcohol') === 'true' : null,
+        additionalInfo: formData.get('additionalInfo') as string || null,
+        declineReason: formData.get('declineReason') as string || null,
+        plusOne: formData.get('plusOne') === 'true',
+        plusOneName: formData.get('plusOneName') as string || null,
+        bringingItem: formData.get('bringingItem') as string || null,
+        // Bis zu 3 frei definierbare Zusatzfragen, positionsbasiert (siehe readCustomQuestions)
+        customAnswers: [0, 1, 2].map(i => (formData.get(`customAnswer_${i}`) as string) || ''),
+        // Mitbringliste: nur wenn das Formular sie angezeigt hat (Markierungsfeld), sonst unangetastet
+        bringSlotIds: formData.has('bringSlotsShown') ? formData.getAll('bringSlot').map(String) : undefined,
+        // Ticketkategorie (app/lib/tickets.ts): nur wenn das Formular sie gesendet hat
+        ticketCategoryId: formData.has('ticketCategoryId') ? String(formData.get('ticketCategoryId')) : undefined
+      },
+      editToken ? null : await getCurrentGuestUser()
+    )
+  } catch (error) {
+    // Fehler, die Gäste selbst beheben können, als Meldung zurück ans Formular
+    if (error instanceof RsvpInputError) return { error: error.message }
+    throw error
+  }
 }
 
 /**

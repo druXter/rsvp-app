@@ -2,7 +2,8 @@
 import { PrismaClient } from '@prisma/client'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { toggleAttendance } from '../../actions'
+import { checkInAtDoor, toggleAttendance } from '../../actions'
+import { formatEuro, paymentDue, paymentState } from '../../../lib/payment-state'
 import { getCurrentUser } from '../../../lib/auth'
 import { hasEventModeratorOrAbove } from '../../../lib/permissions'
 
@@ -12,6 +13,8 @@ const prisma = new PrismaClient()
  * Gesicherte Route, die beim Scannen des Einlass-QR-Codes geöffnet wird.
  * Schlanke, große Ansicht fürs schnelle Scannen am Handy - markiert den Gast
  * direkt beim Aufrufen der Seite als anwesend (kein zusätzlicher Klick nötig).
+ * Ausnahme Abendkasse (docs/KONZEPT-TICKETS.md): Ist eine Zahlung offen, checkt die Seite NICHT ein,
+ * sondern bietet "Bar kassiert - einlassen" und "Ohne Zahlung einlassen" an (checkInAtDoor).
  */
 export default async function CheckinPage({ params }: { params: Promise<{ rsvpId: string }> }) {
   const user = await getCurrentUser()
@@ -20,7 +23,7 @@ export default async function CheckinPage({ params }: { params: Promise<{ rsvpId
   const { rsvpId } = await params
   const rsvp = await prisma.rsvp.findUnique({
     where: { id: rsvpId },
-    include: { participant: true, event: true }
+    include: { participant: true, event: true, ticketCategory: { select: { label: true } } }
   })
 
   if (!rsvp) {
@@ -51,6 +54,7 @@ export default async function CheckinPage({ params }: { params: Promise<{ rsvpId
   let statusTitle = 'Eingecheckt!'
   let statusColor = 'text-green-600'
   let canUndo = false
+  let collect = false
 
   if (!rsvp.event.enableCheckin) {
     statusIcon = '🚫'
@@ -64,6 +68,11 @@ export default async function CheckinPage({ params }: { params: Promise<{ rsvpId
     statusIcon = '⏳'
     statusTitle = 'Steht auf der Warteliste'
     statusColor = 'text-orange-600'
+  } else if (paymentDue(rsvp) && !rsvp.hasAttended) {
+    statusIcon = '💶'
+    statusTitle = `Offen: ${formatEuro(rsvp.amountCents!)}`
+    statusColor = 'text-pink-600 dark:text-pink-400'
+    collect = true
   } else {
     if (!rsvp.hasAttended) {
       await prisma.rsvp.update({ where: { id: rsvp.id }, data: { hasAttended: true, checkedInAt: new Date() } })
@@ -80,6 +89,33 @@ export default async function CheckinPage({ params }: { params: Promise<{ rsvpId
         <h1 className={`text-2xl font-bold ${statusColor}`}>{statusTitle}</h1>
         <p className="text-xl font-medium text-gray-900 dark:text-gray-100 mt-3">{rsvp.participant.name}</p>
         <p className="text-gray-500 dark:text-gray-400">{rsvp.event.title}</p>
+
+        {/* Ticket und Zahlung (Kategorie groß, damit man sie am Einlass sofort sieht) */}
+        {(rsvp.ticketCategory || rsvp.amountCents) && (
+          <div className="mt-5 p-4 rounded-lg border border-pink-300 bg-pink-50 dark:bg-pink-950 dark:border-pink-800" data-testid="checkin-ticket">
+            {rsvp.ticketCategory && <p className="text-2xl font-bold text-pink-900 dark:text-pink-100">{rsvp.ticketCategory.label}</p>}
+            {rsvp.amountCents ? (
+              <p className="text-sm text-pink-700 dark:text-pink-300">
+                {formatEuro(rsvp.amountCents)} · {{ paid: rsvp.paymentMethod === 'CASH' ? 'bar bezahlt' : 'bezahlt', open: 'nicht bezahlt', overdue: 'nicht bezahlt (Frist abgelaufen)', none: '', 'refund-open': 'Erstattung offen', refunded: 'erstattet' }[paymentState(rsvp)]}
+              </p>
+            ) : null}
+          </div>
+        )}
+
+        {collect && (
+          <div className="mt-6 space-y-3">
+            <form action={checkInAtDoor}>
+              <input type="hidden" name="rsvpId" value={rsvp.id} />
+              <input type="hidden" name="mode" value="cash" />
+              <button type="submit" className="w-full bg-pink-600 text-white font-bold py-3 rounded-lg hover:bg-pink-700 transition">💶 Bar kassiert - einlassen</button>
+            </form>
+            <form action={checkInAtDoor}>
+              <input type="hidden" name="rsvpId" value={rsvp.id} />
+              <input type="hidden" name="mode" value="without" />
+              <button type="submit" className="w-full text-sm text-gray-600 dark:text-gray-400 underline">Ohne Zahlung einlassen</button>
+            </form>
+          </div>
+        )}
 
         {/* Platz aus Seating (app/api/seating/placements) - groß, damit man ihn am Einlass sofort ansagen kann */}
         {rsvp.seatingLabel && rsvp.isAttending && !rsvp.isOnWaitlist && (

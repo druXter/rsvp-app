@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server'
 import { getCurrentUser } from '../../lib/auth'
 import { hasEventModeratorOrAbove } from '../../lib/permissions'
 import { claimedLabels } from '../../lib/bring-list'
+import { PAYMENT_STATE_LABEL, paymentState } from '../../lib/payment-state'
 
 const prisma = new PrismaClient()
 
@@ -23,7 +24,7 @@ export async function GET(request: Request) {
 
   const event = await prisma.event.findUnique({
     where: { id: eventId },
-    include: { rsvps: { include: { participant: true, bringClaims: { select: { slot: { select: { label: true, position: true } } } } } }, series: true, toolLinks: { select: { type: true } } }
+    include: { rsvps: { include: { participant: true, ticketCategory: { select: { label: true } }, bringClaims: { select: { slot: { select: { label: true, position: true } } } } } }, series: true, toolLinks: { select: { type: true } }, _count: { select: { ticketCategories: true } } }
   })
 
   if (!event || !(await hasEventModeratorOrAbove(user, event))) return new NextResponse("Event nicht gefunden", { status: 404 })
@@ -32,6 +33,9 @@ export async function GET(request: Request) {
   const customQuestions: string[] = event.formConfig ? (JSON.parse(event.formConfig).customQuestions || []) : []
   // Platz aus Seating nur als Spalte, wenn der Termin verknüpft ist (siehe app/api/seating/placements)
   const withSeating = event.toolLinks.some(l => l.type === 'seating')
+  // Tickets und Bezahlung (docs/KONZEPT-TICKETS.md) nur als Spalten, wenn der Termin Kategorien oder Beträge hat
+  const withTickets = event._count.ticketCategories > 0 || event.rsvps.some(r => r.amountCents)
+  const isoDate = (d: Date | null) => d ? d.toISOString().split('T')[0] : ''
 
   // CSV-Kopfzeile definieren (NEU: Spalte 'Verifizierung' hinzugefügt)
   const rows = [
@@ -50,6 +54,7 @@ export async function GET(request: Request) {
       "Anmerkungen / Grund",
       "Datum",
       ...(withSeating ? ["Sitzplatz"] : []),
+      ...(withTickets ? ["Kategorie", "Betrag", "Verwendungszweck", "Zahlstatus", "Bezahlt am", "Zahlart", "Erstattet am"] : []),
       ...customQuestions
     ]
   ]
@@ -86,6 +91,16 @@ export async function GET(request: Request) {
       rsvp.createdAt.toISOString().split('T')[0],
 
       ...(withSeating ? [rsvp.seatingLabel || ""] : []),
+
+      ...(withTickets ? [
+        rsvp.ticketCategory?.label || "",
+        rsvp.amountCents ? (rsvp.amountCents / 100).toFixed(2).replace('.', ',') : "",
+        rsvp.paymentReference || "",
+        rsvp.amountCents ? PAYMENT_STATE_LABEL[paymentState(rsvp)].replace('-', '') : "",
+        isoDate(rsvp.paidAt),
+        rsvp.paidAt ? (rsvp.paymentMethod === 'CASH' ? "Bar" : "Überweisung") : "",
+        isoDate(rsvp.refundedAt)
+      ] : []),
 
       ...customQuestions.map((_, i) => {
         const answers: string[] = rsvp.customAnswers ? JSON.parse(rsvp.customAnswers) : []

@@ -129,8 +129,18 @@ export function guestOf(
 /**
  * Wer bei Seating als zugesagt gilt - dieselbe Regel wie für alle verknüpften Tools
  * (isConfirmedRsvp in app/lib/linked-tools.ts): zugesagt, nicht Warteliste, ggf. verifiziert.
+ * Dazu "Sitzplatzwahl erst nach Zahlung" (Event.seatingRequiresPayment, docs/KONZEPT-TICKETS.md):
+ * Eine Zusage mit offenem Betrag zählt dann noch nicht. `requiresPayment` ist absichtlich Pflicht,
+ * damit keine Aufrufstelle den Schalter übersieht.
  */
-export const isSeatingConfirmed = isConfirmedRsvp
+export function isSeatingConfirmed(
+  rsvp: { isAttending: boolean; isOnWaitlist: boolean; amountCents: number | null; paidAt: Date | null },
+  participant: { isVerified: boolean },
+  requireVerification: boolean,
+  requiresPayment: boolean
+): boolean {
+  return isConfirmedRsvp(rsvp, participant, requireVerification) && !(requiresPayment && !!rsvp.amountCents && !rsvp.paidAt)
+}
 
 // --- Prüfen und Ausstellen -------------------------------------------------------------------
 
@@ -225,12 +235,13 @@ export function seatingRsvpChange(input: {
   link: ToolLink
   secret: string
   rsvpEventId: string
-  rsvp: { id: string; isAttending: boolean; isOnWaitlist: boolean; plusOne: boolean; plusOneName: string | null }
+  rsvp: { id: string; isAttending: boolean; isOnWaitlist: boolean; plusOne: boolean; plusOneName: string | null; amountCents: number | null; paidAt: Date | null }
   participant: { name: string; email: string | null; isVerified: boolean }
   requireVerification: boolean
+  seatingRequiresPayment: boolean
   deleted: boolean
 }): string {
-  const attending = !input.deleted && isSeatingConfirmed(input.rsvp, input.participant, input.requireVerification)
+  const attending = !input.deleted && isSeatingConfirmed(input.rsvp, input.participant, input.requireVerification, input.seatingRequiresPayment)
   return createMessage('rsvp-change', {
     aud: input.link.origin,
     seatingEventId: input.link.remoteEventId,

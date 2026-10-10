@@ -123,12 +123,22 @@ describe('Inhalte an Seating', () => {
   })
 
   it('isSeatingConfirmed: nur Zusage, nicht Warteliste, bei Verifizierungspflicht nur verifiziert', () => {
-    const yes = { isAttending: true, isOnWaitlist: false }
-    expect(isSeatingConfirmed(yes, { isVerified: false }, false)).toBe(true)
-    expect(isSeatingConfirmed(yes, { isVerified: false }, true)).toBe(false)
-    expect(isSeatingConfirmed(yes, { isVerified: true }, true)).toBe(true)
-    expect(isSeatingConfirmed({ isAttending: true, isOnWaitlist: true }, { isVerified: true }, false)).toBe(false)
-    expect(isSeatingConfirmed({ isAttending: false, isOnWaitlist: false }, { isVerified: true }, false)).toBe(false)
+    const yes = { isAttending: true, isOnWaitlist: false, amountCents: null, paidAt: null }
+    expect(isSeatingConfirmed(yes, { isVerified: false }, false, false)).toBe(true)
+    expect(isSeatingConfirmed(yes, { isVerified: false }, true, false)).toBe(false)
+    expect(isSeatingConfirmed(yes, { isVerified: true }, true, false)).toBe(true)
+    expect(isSeatingConfirmed({ ...yes, isOnWaitlist: true }, { isVerified: true }, false, false)).toBe(false)
+    expect(isSeatingConfirmed({ ...yes, isAttending: false }, { isVerified: true }, false, false)).toBe(false)
+  })
+
+  it('isSeatingConfirmed: mit "erst nach Zahlung" zählt ein offener Betrag nicht', () => {
+    const unpaid = { isAttending: true, isOnWaitlist: false, amountCents: 2500, paidAt: null }
+    expect(isSeatingConfirmed(unpaid, { isVerified: true }, false, false)).toBe(true)
+    expect(isSeatingConfirmed(unpaid, { isVerified: true }, false, true)).toBe(false)
+    expect(isSeatingConfirmed({ ...unpaid, paidAt: new Date() }, { isVerified: true }, false, true)).toBe(true)
+    // Kostenlose Kategorie: nichts zu zahlen
+    expect(isSeatingConfirmed({ ...unpaid, amountCents: 0 }, { isVerified: true }, false, true)).toBe(true)
+    expect(isSeatingConfirmed({ ...unpaid, amountCents: null }, { isVerified: true }, false, true)).toBe(true)
   })
 })
 

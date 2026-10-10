@@ -176,6 +176,18 @@ model Event {
   // Mitbringliste (Idee L5 der Suite), siehe BringSlot.
   bringSlots BringSlot[]
 
+  // Tickets und Bezahlung (Ideen L4/L1 der Suite, docs/KONZEPT-TICKETS.md, app/lib/tickets.ts und
+  // app/lib/payment.ts): Kategorien mit Preis und Kontingent. Ohne Kategorien ändert sich nichts.
+  ticketCategories       TicketCategory[]
+  // Zahlungsempfang per Überweisung (GiroCode). Pflicht, sobald eine Kategorie einen Preis hat.
+  paymentRecipient       String?
+  paymentIban            String?
+  paymentBic             String?
+  // Zahlfrist in Tagen ab festem Platz - nur Anzeige, nichts verfällt automatisch.
+  paymentDueDays         Int?
+  // Zusage zählt bei Seating erst nach Zahlung (isSeatingConfirmed), nur mit Seating-Link wirksam.
+  seatingRequiresPayment Boolean          @default(false)
+
   // Verknüpfungen mit anderen Tools der Suite (Seating, später Zeitplan) - höchstens eine je
   // Tool-Typ, siehe EventToolLink.
   toolLinks EventToolLink[]
@@ -266,6 +278,18 @@ model Rsvp {
   createdAt      DateTime     @default(now())
   // Beanspruchte Einträge der Mitbringliste (BringClaim), verschwinden mit der Rsvp.
   bringClaims    BringClaim[]
+
+  // Tickets und Bezahlung (docs/KONZEPT-TICKETS.md). amountCents wird beim Wählen der Kategorie aus deren
+  // Preis übernommen und danach festgeschrieben; null/0 = nichts zu zahlen. paymentDueAt setzt
+  // syncPaymentDue, sobald der Platz fest ist. paymentMethod: TRANSFER | CASH.
+  ticketCategoryId String?
+  ticketCategory   TicketCategory? @relation(fields: [ticketCategoryId], references: [id], onDelete: SetNull)
+  amountCents      Int?
+  paymentReference String?         @unique
+  paymentDueAt     DateTime?
+  paidAt           DateTime?
+  paymentMethod    String?
+  refundedAt       DateTime?
 
   @@unique([eventId, participantId])
 }
@@ -503,4 +527,20 @@ model BringClaim {
 
   @@unique([slotId, rsvpId])
   @@index([rsvpId])
+}
+
+// Ticketkategorie eines Termins (Idee L4 der Suite, app/lib/tickets.ts): Preis in Cent, optionales Kontingent
+// fester Plätze (zusätzlich zur Gesamtkapazität des Termins). Gespeichert per Abgleich nach Bezeichnung
+// (saveTicketCategories); eine Kategorie mit Antworten lässt sich nicht entfernen.
+model TicketCategory {
+  id         String @id @default(cuid())
+  eventId    String
+  event      Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  label      String
+  priceCents Int    @default(0)
+  capacity   Int?
+  position   Int
+  rsvps      Rsvp[]
+
+  @@index([eventId])
 }

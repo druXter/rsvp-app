@@ -27,19 +27,22 @@ export type RsvpState = {
   isOnWaitlist: boolean
   plusOne: boolean
   plusOneName: string | null
+  amountCents: number | null
+  paidAt: Date | null
   participant: { name: string; email: string | null; isVerified: boolean }
   event: {
     id: string
     requireVerification: boolean
+    seatingRequiresPayment: boolean
     series: { requireVerification: boolean } | null
     toolLinks: StoredToolLink[]
   }
 }
 
 const RSVP_STATE = {
-  id: true, isAttending: true, isOnWaitlist: true, plusOne: true, plusOneName: true,
+  id: true, isAttending: true, isOnWaitlist: true, plusOne: true, plusOneName: true, amountCents: true, paidAt: true,
   participant: { select: { name: true, email: true, isVerified: true } },
-  event: { select: { id: true, requireVerification: true, series: { select: { requireVerification: true } }, toolLinks: TOOL_LINKS } }
+  event: { select: { id: true, requireVerification: true, seatingRequiresPayment: true, series: { select: { requireVerification: true } }, toolLinks: TOOL_LINKS } }
 } as const
 
 /** Nur Zusagen, deren Termin überhaupt eine Verknüpfung hat - ob sie gilt, prüft linkedToolsOf. */
@@ -52,6 +55,8 @@ type ChangeInput = {
   rsvp: RsvpState
   participant: RsvpState['participant']
   requireVerification: boolean
+  /** Sitzplatzwahl erst nach Zahlung (nur für Seating von Bedeutung) */
+  seatingRequiresPayment: boolean
   deleted: boolean
 }
 
@@ -77,7 +82,8 @@ export function deliveriesFor(rsvp: RsvpState, deleted: boolean, tools: Notifiab
   return linkedToolsOf(rsvp.event, tools).map(({ tool, link }) => ({
     url: `${link.origin}${tool.definition.webhookPath}`,
     body: tool.rsvpChange({
-      link, secret: tool.secret, rsvpEventId: rsvp.event.id, rsvp, participant: rsvp.participant, requireVerification, deleted
+      link, secret: tool.secret, rsvpEventId: rsvp.event.id, rsvp, participant: rsvp.participant, requireVerification,
+      seatingRequiresPayment: rsvp.event.seatingRequiresPayment, deleted
     })
   }))
 }

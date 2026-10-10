@@ -146,9 +146,9 @@ describe('Webhook nur an verknüpfte Tools', () => {
     }, input.secret)
   }))
   const rsvp = (toolLinks: RsvpState['event']['toolLinks']): RsvpState => ({
-    id: 'cmrsvpanswer0000001', isAttending: true, isOnWaitlist: false, plusOne: false, plusOneName: null,
+    id: 'cmrsvpanswer0000001', isAttending: true, isOnWaitlist: false, plusOne: false, plusOneName: null, amountCents: null, paidAt: null,
     participant: { name: 'Erika', email: null, isVerified: true },
-    event: { id: rsvpEventId, requireVerification: false, series: null, toolLinks }
+    event: { id: rsvpEventId, requireVerification: false, seatingRequiresPayment: false, series: null, toolLinks }
   })
 
   it('Termin ohne Verknüpfung, mit unbekanntem Typ oder ungültigem Link: keine Meldung', () => {
@@ -213,6 +213,11 @@ describe('Webhook nur an verknüpfte Tools', () => {
         rsvpId: state.id, name: 'Erika', email: null, companions: ['Max'], attending: true
       }, alphaSecret, { now }))
       expect(openMessage(deliveriesFor(state, true)[0].body, alphaSecret)).toMatchObject({ attending: false })
+
+      // Sitzplatzwahl erst nach Zahlung: offener Betrag = attending false, bezahlt = true
+      const unpaid = { ...state, amountCents: 2500, event: { ...state.event, seatingRequiresPayment: true } }
+      expect(openMessage(deliveriesFor(unpaid, false)[0].body, alphaSecret)).toMatchObject({ attending: false })
+      expect(openMessage(deliveriesFor({ ...unpaid, paidAt: new Date() }, false)[0].body, alphaSecret)).toMatchObject({ attending: true })
     })
   })
 })

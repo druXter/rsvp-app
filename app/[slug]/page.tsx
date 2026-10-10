@@ -10,7 +10,7 @@ import PhotoLinkBanner from '../ui/photo-link-banner'
 import { photoLinkVisible } from '../lib/photo-link'
 import { bringSlotsForForm, claimedLabels } from '../lib/bring-list'
 import { getCurrentGuestUser } from '../lib/guest-auth'
-import { isSeatingConfirmed, seatingLinkOf } from '../lib/seating'
+import { guestTicketing } from '../lib/guest-ticketing'
 import { TOOL_LINKS } from '../lib/linked-tools-store'
 import { isTimelineConfirmed, timelineLinkOf } from '../lib/timeline'
 
@@ -176,7 +176,7 @@ export default async function EventPage({
         {/* Das eigentliche Formular */}
         <RsvpForm
           bringSlots={await bringSlotsForForm(event.id, existingRsvp?.id ?? null)}
-          canChooseSeat={!!seatingLinkOf(event) && !!existingRsvp && isSeatingConfirmed(existingRsvp, { isVerified: !!participant?.isVerified }, event.requireVerification)}
+          {...await guestTicketing(event, existingRsvp, !!participant?.isVerified, event.requireVerification)}
           seatingLabel={existingRsvp?.seatingLabel ?? null}
           canOpenTimeline={!!timelineLinkOf(event) && !!existingRsvp && isTimelineConfirmed(existingRsvp, { isVerified: !!participant?.isVerified }, event.requireVerification)}
           eventId={event.id}

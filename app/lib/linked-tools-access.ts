@@ -34,8 +34,8 @@ export async function resolveToolLinkAccess(
   request: Request,
   eventId: string,
   type: ToolType,
-  /** Zählt die Zusage bei diesem Tool? (Seating: isSeatingConfirmed) */
-  counts: (rsvp: Rsvp, participant: Participant, requireVerification: boolean) => boolean
+  /** Zählt die Zusage bei diesem Tool? (Seating: isSeatingConfirmed mit Event.seatingRequiresPayment) */
+  counts: (rsvp: Rsvp, participant: Participant, requireVerification: boolean, requiresPayment: boolean) => boolean
 ): Promise<ToolLinkAccess> {
   const token = new URL(request.url).searchParams.get('token') || null
   // BASE_URL statt request.url: Hinter einem Reverse Proxy zeigt request.url auf die interne Adresse des Containers.
@@ -73,7 +73,7 @@ export async function resolveToolLinkAccess(
   if (!tokenBelongsHere && !(await hasEventPinAccess(event))) return { ok: false, redirect: new URL(eventPage, base) }
 
   const requireVerification = event.series ? event.series.requireVerification : event.requireVerification
-  if (!participant || !rsvp || !counts(rsvp, participant, requireVerification)) {
+  if (!participant || !rsvp || !counts(rsvp, participant, requireVerification, event.seatingRequiresPayment)) {
     const back = new URL(eventPage, base)
     if (tokenBelongsHere && token) back.searchParams.set('token', token)
     return { ok: false, redirect: back }

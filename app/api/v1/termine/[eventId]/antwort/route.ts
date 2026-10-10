@@ -1,7 +1,7 @@
 // app/api/v1/termine/[eventId]/antwort/route.ts
 import { PrismaClient } from '@prisma/client'
 import { getGuestUserFromApiToken, apiError } from '../../../../../lib/api-auth'
-import { performRsvpSubmission } from '../../../../../lib/rsvp-submission'
+import { performRsvpSubmission, RsvpInputError } from '../../../../../lib/rsvp-submission'
 
 const prisma = new PrismaClient()
 
@@ -51,27 +51,35 @@ export async function POST(
     ? body.customAnswers.map(a => (typeof a === 'string' ? a : ''))
     : undefined
 
-  const result = await performRsvpSubmission(
-    {
-      eventId,
-      editToken: null,
-      skipPinCheck: true, // Mitgliedschaft (GuestUserSeries) wurde oben geprüft
-      name: guestUser.name,
-      isAttending: body.isAttending,
-      phone: guestUser.phone,
-      dietaryOption: guestUser.dietaryOption,
-      allergies: guestUser.allergies,
-      emailInput: guestUser.email,
-      drinksAlcohol: typeof body.drinksAlcohol === 'boolean' ? body.drinksAlcohol : null,
-      additionalInfo: typeof body.additionalInfo === 'string' ? body.additionalInfo : null,
-      declineReason: typeof body.declineReason === 'string' ? body.declineReason : null,
-      plusOne: body.plusOne === true,
-      plusOneName: typeof body.plusOneName === 'string' ? body.plusOneName : null,
-      bringingItem: typeof body.bringingItem === 'string' ? body.bringingItem : null,
-      customAnswers
-    },
-    guestUser
-  )
+  let result
+  try {
+    result = await performRsvpSubmission(
+      {
+        eventId,
+        editToken: null,
+        skipPinCheck: true, // Mitgliedschaft (GuestUserSeries) wurde oben geprüft
+        name: guestUser.name,
+        isAttending: body.isAttending,
+        phone: guestUser.phone,
+        dietaryOption: guestUser.dietaryOption,
+        allergies: guestUser.allergies,
+        emailInput: guestUser.email,
+        drinksAlcohol: typeof body.drinksAlcohol === 'boolean' ? body.drinksAlcohol : null,
+        additionalInfo: typeof body.additionalInfo === 'string' ? body.additionalInfo : null,
+        declineReason: typeof body.declineReason === 'string' ? body.declineReason : null,
+        plusOne: body.plusOne === true,
+        plusOneName: typeof body.plusOneName === 'string' ? body.plusOneName : null,
+        bringingItem: typeof body.bringingItem === 'string' ? body.bringingItem : null,
+        customAnswers,
+        // Ticketkategorie (app/lib/tickets.ts) - ohne Feld gilt die bisherige der Antwort
+        ticketCategoryId: typeof body.ticketCategoryId === 'string' ? body.ticketCategoryId : undefined
+      },
+      guestUser
+    )
+  } catch (error) {
+    if (error instanceof RsvpInputError) return apiError(400, error.message)
+    throw error
+  }
 
   return Response.json({
     isAttending: body.isAttending,
@@ -79,6 +87,8 @@ export async function POST(
     needsVerification: result.needsVerification,
     // Einlass-QR-Code als Data-URL, nur bei bestätigtem festen Platz auf einem Termin mit
     // aktivierter Einlasskontrolle - sonst null.
-    checkinQrCode: result.qrCode
+    checkinQrCode: result.qrCode,
+    // Zahlungsdaten (Betrag, IBAN, Verwendungszweck, GiroCode als Data-URL), falls etwas zu zahlen ist - sonst null
+    payment: result.payment
   })
 }

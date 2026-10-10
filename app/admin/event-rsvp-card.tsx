@@ -5,9 +5,15 @@ import { sendReminder, resendVerificationEmail, promoteFromWaitlist, toggleAtten
 import DeleteButton from './delete-button'
 import DeleteRsvpButton from './delete-rsvp-button'
 import { claimedLabels } from '../lib/bring-list'
+import PaymentCell from './payment-cell'
+import { formatEuro, formatPaymentDate, paymentState } from '../lib/payment-state'
 
 type RsvpWithParticipant = Rsvp & { participant: Participant; bringClaims?: { slot: { label: string; position: number } }[] }
-export type EventForCard = Event & { rsvps: RsvpWithParticipant[]; bringSlots?: { label: string; quantity: number; _count: { claims: number } }[] }
+export type EventForCard = Event & {
+  rsvps: RsvpWithParticipant[]
+  bringSlots?: { label: string; quantity: number; _count: { claims: number } }[]
+  ticketCategories?: { id: string; label: string; capacity: number | null }[]
+}
 
 /**
  * Eine einzelne Termin-Karte im Admin-Dashboard: Kopfzeile mit Kennzahlen/Aktionen,
@@ -35,6 +41,16 @@ export default function EventRsvpCard({
   const confirmedCount = event.rsvps.filter(r => r.isAttending && !r.isOnWaitlist).length
   const checkedInCount = event.rsvps.filter(r => r.hasAttended).length
   const customQuestions: string[] = event.formConfig ? (JSON.parse(event.formConfig).customQuestions || []) : []
+
+  // Tickets und Bezahlung (docs/KONZEPT-TICKETS.md): Spalte nur, wenn der Termin Kategorien oder Beträge hat
+  const categories = event.ticketCategories ?? []
+  const categoryLabel = new Map(categories.map(c => [c.id, c.label]))
+  const withTickets = categories.length > 0 || event.rsvps.some(r => r.amountCents)
+  const now = new Date()
+  const states = event.rsvps.map(r => ({ r, state: paymentState(r, now) }))
+  const sum = (filter: (s: ReturnType<typeof paymentState>) => boolean) => states.filter(x => filter(x.state)).reduce((total, x) => total + (x.r.amountCents ?? 0), 0)
+  const overdueCount = states.filter(x => x.state === 'overdue').length
+  const refundOpenCount = states.filter(x => x.state === 'refund-open').length
 
   return (
     <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
@@ -116,6 +132,22 @@ export default function EventRsvpCard({
           </a>
         </div>
 
+        {withTickets && (
+          <div className="text-sm text-gray-700 dark:text-gray-300 mb-3 space-y-1" data-testid="ticket-summary">
+            {categories.length > 0 && (
+              <p>🎟️ Tickets: {categories.map(c => {
+                const taken = event.rsvps.filter(r => r.ticketCategoryId === c.id && r.isAttending && !r.isOnWaitlist).length
+                return `${c.label} ${taken}${c.capacity !== null ? `/${c.capacity}` : ''}`
+              }).join(' · ')}</p>
+            )}
+            <p>
+              💶 Bezahlt {formatEuro(sum(s => s === 'paid'))} · offen {formatEuro(sum(s => s === 'open' || s === 'overdue'))}
+              {overdueCount > 0 && <span className="text-red-600 dark:text-red-400 font-semibold"> · {overdueCount} überfällig</span>}
+              {refundOpenCount > 0 && <span className="text-amber-700 dark:text-amber-400 font-semibold"> · {refundOpenCount} Erstattung offen</span>}
+            </p>
+          </div>
+        )}
+
         {event.bringSlots && event.bringSlots.length > 0 && (
           <p className="text-sm text-gray-700 dark:text-gray-300 mb-3" data-testid="bring-summary">
             🍕 Mitbringliste: {event.bringSlots.map(s => `${s.label} ${s._count.claims}/${s.quantity}`).join(' · ')}
@@ -131,6 +163,7 @@ export default function EventRsvpCard({
                 <tr className="border-b bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
                   <th className="p-2">Name</th>
                   <th className="p-2">Status</th>
+                  {withTickets && <th className="p-2">Ticket / Zahlung</th>}
                   <th className="p-2">E-Mail</th>
                   <th className="p-2">Handy</th>
                   <th className="p-2">Begleitung</th>
@@ -174,6 +207,21 @@ export default function EventRsvpCard({
                         <span className="text-red-500 font-bold">Abgesagt</span>
                       )}
                     </td>
+
+                    {withTickets && (
+                      <td className="p-2 text-xs">
+                        <PaymentCell
+                          rsvpId={rsvp.id}
+                          state={paymentState(rsvp, now)}
+                          categoryLabel={rsvp.ticketCategoryId ? categoryLabel.get(rsvp.ticketCategoryId) ?? null : null}
+                          amount={rsvp.amountCents ? formatEuro(rsvp.amountCents) : null}
+                          reference={rsvp.paymentReference}
+                          paidAt={rsvp.paidAt ? formatPaymentDate(rsvp.paidAt) : null}
+                          method={rsvp.paymentMethod}
+                          dueAt={rsvp.paymentDueAt ? formatPaymentDate(rsvp.paymentDueAt) : null}
+                        />
+                      </td>
+                    )}
 
                     <td className="p-2 text-gray-600 dark:text-gray-400">
                       <div className="flex flex-col items-start gap-1">

@@ -37,7 +37,7 @@ export async function confirmedGuests(event: LinkedEvent): Promise<SeatingGuest[
     take: 5000
   })
   return rsvps
-    .filter(r => isSeatingConfirmed(r, r.participant, requireVerification))
+    .filter(r => isSeatingConfirmed(r, r.participant, requireVerification, event.seatingRequiresPayment))
     .map(r => guestOf(r, r.participant))
 }
 

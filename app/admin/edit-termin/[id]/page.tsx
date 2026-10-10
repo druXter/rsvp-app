@@ -7,6 +7,7 @@ import { getCurrentUser } from '../../../lib/auth'
 import { isOwnerOrAdmin } from '../../../lib/permissions'
 import SubmitButton from '../../../ui/submit-button'
 import { formatBringSlots } from '../../../lib/bring-list'
+import TicketSettingsSection, { SeatingPaymentToggle } from '../../ticket-settings-section'
 import ThemeSection, { themeClasses } from '../../../ui/theme-section'
 import { allowedSeatingOrigin } from '../../../lib/seating'
 import { allowedTimelineOrigin } from '../../../lib/timeline'
@@ -24,7 +25,7 @@ export default async function EditSeriesTerminPage({ params }: { params: Promise
   if (!user) redirect('/admin/login')
 
   const { id } = await params
-  const event = await prisma.event.findUnique({ where: { id }, include: { series: true, toolLinks: TOOL_LINKS, bringSlots: { orderBy: { position: 'asc' } } } })
+  const event = await prisma.event.findUnique({ where: { id }, include: { series: true, toolLinks: TOOL_LINKS, bringSlots: { orderBy: { position: 'asc' } }, ticketCategories: { orderBy: { position: 'asc' } } } })
 
   if (!event || !event.series || !isOwnerOrAdmin(user, event.ownerId)) {
     return notFound()
@@ -172,6 +173,8 @@ export default async function EditSeriesTerminPage({ params }: { params: Promise
             </div>
           </ThemeSection>
 
+          <TicketSettingsSection event={event} />
+
           {seatingOrigin && (
             <ThemeSection color="lime" title="Sitzplätze (Seating)" description="Verknüpft diesen Termin mit einem Event im Sitzplatz-Tool Seating. Den Link zeigt Seating in den Event-Einstellungen an, sobald dort die ID dieses Termins eingetragen ist - erst mit beiden Einträgen gilt die Verknüpfung. Zugesagte Gäste sehen dann „Sitzplatz wählen“ und später ihren Platz; Name, E-Mail (falls vorhanden) und Begleitung gehen dafür an Seating.">
               <div>
@@ -179,6 +182,7 @@ export default async function EditSeriesTerminPage({ params }: { params: Promise
                 <input id="seatingUrl" type="url" name="seatingUrl" defaultValue={storedToolUrl(event.toolLinks, 'seating')} className={`w-full border ${themeClasses('lime').border} bg-white dark:bg-gray-800 dark:text-gray-100 p-2 rounded outline-none ${themeClasses('lime').borderFocus}`} placeholder={`${seatingOrigin}/rsvp/…`} />
                 <p className={`text-xs ${themeClasses('lime').text} mt-1`}>ID dieses Termins für Seating: <code className="select-all">{event.id}</code></p>
               </div>
+              <SeatingPaymentToggle checked={event.seatingRequiresPayment} />
             </ThemeSection>
           )}
 

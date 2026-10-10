@@ -2,6 +2,8 @@
 import { prisma } from './prisma'
 import { sendWaitlistEmail, sendConfirmationEmail } from './mail'
 import { notifyLinkedToolsOfRsvps } from './linked-tools-notify'
+import { hasRoom, loadCapacity } from './tickets'
+import { syncPaymentDue } from './payment'
 
 export type VerifiedRsvp = { title: string; slug: string; seriesSlug: string | null; isOnWaitlist: boolean }
 
@@ -42,19 +44,19 @@ export async function verifyParticipantByToken(token: string): Promise<{ editTok
   for (const rsvp of pendingRsvps) {
     let finalIsOnWaitlist = rsvp.isOnWaitlist
 
-    if (rsvp.isOnWaitlist && rsvp.event.maxCapacity !== null) {
-      const currentAttendeesCount = await prisma.rsvp.count({
-        where: { eventId: rsvp.eventId, isAttending: true, isOnWaitlist: false }
-      })
-      if (currentAttendeesCount < rsvp.event.maxCapacity) {
-        finalIsOnWaitlist = false
-      }
+    // Platzregel wie überall (Gesamtkapazität und Kontingent der Kategorie, app/lib/tickets.ts)
+    if (rsvp.isOnWaitlist) {
+      const { limits, rsvps } = await loadCapacity(rsvp.eventId)
+      if (hasRoom(limits, rsvps, rsvp.ticketCategoryId, rsvp.id)) finalIsOnWaitlist = false
     }
 
-    const updatedRsvp = await prisma.rsvp.update({
+    await prisma.rsvp.update({
       where: { id: rsvp.id },
       data: { isOnWaitlist: finalIsOnWaitlist }
     })
+    // Zahlfrist ab dem festen Platz, bevor die Bestätigung (mit Zahlungsdaten) rausgeht
+    await syncPaymentDue({ rsvpIds: [rsvp.id] })
+    const updatedRsvp = await prisma.rsvp.findUniqueOrThrow({ where: { id: rsvp.id } })
 
     try {
       if (updatedRsvp.isOnWaitlist) {

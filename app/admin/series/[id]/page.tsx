@@ -24,7 +24,8 @@ export default async function SeriesDetailPage({ params }: { params: Promise<{ i
           rsvps: {
             include: { participant: true },
             orderBy: { createdAt: 'desc' }
-          }
+          },
+          ticketCategories: { orderBy: { position: 'asc' }, select: { id: true, label: true, capacity: true } }
         },
         orderBy: { date: 'asc' }
       },

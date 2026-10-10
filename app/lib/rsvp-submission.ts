@@ -2,7 +2,7 @@
 import { PrismaClient, GuestUser } from '@prisma/client'
 import { revalidatePath } from 'next/cache'
 import { randomUUID } from 'crypto'
-import { sendConfirmationEmail, sendVerificationEmail, sendWaitlistPromotedEmail, sendWaitlistEmail } from './mail'
+import { sendConfirmationEmail, sendVerificationEmail, sendWaitlistEmail } from './mail'
 import { generateCheckinQrDataUrl } from './qrcode'
 import { sendPushToUser, sendConfirmationPush } from './push'
 import { notifyPollOfAttendanceChange } from './poll-notify'
@@ -12,6 +12,9 @@ import { isTimelineConfirmed, timelineLinkOf } from './timeline'
 import { isSeatingConfirmed, seatingLinkOf } from './seating'
 import { hasEventPinAccess } from './pin'
 import { syncBringClaims } from './bring-list'
+import { hasRoom, loadCapacity } from './tickets'
+import { generatePaymentReference, paymentInfoOf, syncPaymentDue } from './payment'
+import { fillFreeSeats, shouldSuppressConfirmationEmail } from './waitlist'
 
 const prisma = new PrismaClient()
 
@@ -42,6 +45,11 @@ export type RsvpSubmissionInput = {
    */
   bringSlotIds?: string[]
   /**
+   * Gewählte Ticketkategorie (app/lib/tickets.ts). undefined = nicht gesendet (Formular ohne Kategorien,
+   * Client-API ohne Feld) - dann gilt die bisherige Kategorie der Antwort.
+   */
+  ticketCategoryId?: string | null
+  /**
    * NUR für die Client-API (app/api/v1/): Der Aufrufer ist dort per API-Token ein Mitglied der Reihe
    * (GuestUserSeries, wird vor dem Aufruf geprüft), das die Reihe über die PIN-geschützte Registrierung
    * bzw. durch einen Creator betreten hat. Das Web-Formular setzt das NIE.
@@ -50,20 +58,11 @@ export type RsvpSubmissionInput = {
 }
 
 /**
- * Ob statt der Bestätigungs-Mail eine Push-Benachrichtigung (sendConfirmationPush) gehen
- * soll - der Gast hat das in seinem Nutzer-Konto so eingestellt (GuestUser.disableConfirmationEmails,
- * siehe /mein-konto/account), weil ihm die Info ohnehin per PWA-Push angezeigt wird. Betrifft
- * nur die Bestätigungs-Mail; anonyme editToken-Gäste ohne Konto (guestUserId null) bekommen
- * sie unverändert immer.
+ * Eingabefehler, die Gäste selbst beheben können (Kategorie fehlt oder ist ausgebucht). submitRsvp gibt die
+ * Meldung als { error } ans Formular zurück, die Client-API als 400 - eine gewöhnliche Exception käme im
+ * Produktivbetrieb nur als generische Fehlermeldung an.
  */
-async function shouldSuppressConfirmationEmail(participant: { guestUserId: string | null }) {
-  if (!participant.guestUserId) return false
-  const guestUser = await prisma.guestUser.findUnique({
-    where: { id: participant.guestUserId },
-    select: { disableConfirmationEmails: true }
-  })
-  return guestUser?.disableConfirmationEmails ?? false
-}
+export class RsvpInputError extends Error {}
 
 const ACCOUNT_REQUIRED_MESSAGE = 'Für dieses Event/diese Reihe ist ein Teilnehmendenkonto erforderlich. Bitte logge dich unter /mein-konto ein oder registriere dich zuerst.'
 
@@ -90,7 +89,7 @@ export async function performRsvpSubmission(
 
   const event = await prisma.event.findUnique({
     where: { id: eventId },
-    include: { rsvps: true, series: true, toolLinks: TOOL_LINKS }
+    include: { series: true, toolLinks: TOOL_LINKS, ticketCategories: true }
   })
   if (!event) throw new Error('Event nicht gefunden')
 
@@ -155,6 +154,28 @@ export async function performRsvpSubmission(
     if (!tokenBelongsHere) throw new Error(ACCOUNT_REQUIRED_MESSAGE)
   }
 
+  // Ticketkategorie (docs/KONZEPT-TICKETS.md): Pflicht für eine Zusage, sobald der Termin Kategorien hat. Nur
+  // Kategorien DIESES Termins zählen. Eine Absage behält die bisherige (Erstattung, erneute Zusage).
+  const categories = event.ticketCategories
+  const previousCategoryId = existingRsvp?.ticketCategoryId ?? null
+  let ticketCategoryId: string | null = previousCategoryId
+  if (isAttending && categories.length > 0) {
+    const requested = input.ticketCategoryId === undefined ? previousCategoryId : input.ticketCategoryId
+    const category = categories.find(c => c.id === requested)
+    if (!category) throw new RsvpInputError('Bitte wähle eine Ticketkategorie.')
+    if (existingRsvp?.paidAt && previousCategoryId !== null && category.id !== previousCategoryId) {
+      throw new RsvpInputError('Nach der Zahlung kann nur noch die Veranstaltung die Kategorie ändern.')
+    }
+    ticketCategoryId = category.id
+  }
+  // Betrag aus dem Preis der Kategorie - festgeschrieben, bis der Gast (vor der Zahlung) die Kategorie wechselt,
+  // damit eine spätere Preisänderung nur neue Zusagen trifft. Der Verwendungszweck bleibt für immer derselbe.
+  let amountCents = existingRsvp?.amountCents ?? null
+  if (isAttending && ticketCategoryId && !existingRsvp?.paidAt && (ticketCategoryId !== previousCategoryId || amountCents === null)) {
+    amountCents = categories.find(c => c.id === ticketCategoryId)!.priceCents
+  }
+  const paymentReference = existingRsvp?.paymentReference ?? (amountCents ? generatePaymentReference(event.slug) : null)
+
   // Einmal verifizierte E-Mails sind gesperrt (siehe rsvp-form.tsx: Feld wird readOnly).
   // Bei einer Absage behalten wir eine evtl. vorhandene (auch unverifizierte) E-Mail,
   // da sie bei Reihen für weitere Termine relevant bleibt. Fragt der Termin gar keine
@@ -179,16 +200,18 @@ export async function performRsvpSubmission(
     }
   }
 
-  // Kapazitätsprüfung & Warteliste - weiterhin ausschließlich pro Termin
+  // Kapazitätsprüfung & Warteliste - ausschließlich pro Termin, Gesamtkapazität und Kontingent der Kategorie
+  // (hasRoom in app/lib/tickets.ts). Ein fester Platz bleibt, solange die Kategorie gleich bleibt; ein Wechsel
+  // in eine volle Kategorie wird abgelehnt statt den Platz stillschweigend gegen die Warteliste zu tauschen.
+  const wasFixed = !!existingRsvp && existingRsvp.isAttending && !existingRsvp.isOnWaitlist
   let isOnWaitlist = false
-  if (isAttending && event.maxCapacity !== null) {
-    const currentAttendeesCount = event.rsvps.filter(r =>
-      r.isAttending && !r.isOnWaitlist && r.participantId !== existingParticipant?.id
-    ).length
-
-    if (existingRsvp && existingRsvp.isAttending && !existingRsvp.isOnWaitlist) {
-      isOnWaitlist = false // Behält seinen festen Platz
-    } else if (currentAttendeesCount >= event.maxCapacity) {
+  if (isAttending && !(wasFixed && previousCategoryId === ticketCategoryId)) {
+    const { limits, rsvps } = await loadCapacity(eventId)
+    if (!hasRoom(limits, rsvps, ticketCategoryId, existingRsvp?.id)) {
+      if (wasFixed) {
+        const label = categories.find(c => c.id === ticketCategoryId)?.label ?? ''
+        throw new RsvpInputError(`Die Kategorie „${label}“ ist ausgebucht. Deine bisherige Anmeldung bleibt bestehen.`)
+      }
       isOnWaitlist = true
     }
   }
@@ -261,12 +284,20 @@ export async function performRsvpSubmission(
     ? JSON.stringify(customQuestions.map((_, i) => input.customAnswers?.[i] || ''))
     : null
 
+  // Bei Kategorien meldet sich jede Person selbst an (Kategorie, Betrag und Einlass pro Person) - keine Begleitung
+  const allowPlusOne = isAttending && categories.length === 0
   const rsvpData = {
     isAttending,
+    ticketCategoryId,
+    amountCents,
+    paymentReference,
+    // Die Frist läuft ab dem festen Platz: Wer ihn behält, behält sie; sonst setzt syncPaymentDue eine neue
+    // (z. B. erneute Zusage nach einer Stornierung wegen abgelaufener Frist)
+    paymentDueAt: wasFixed && isAttending && !isOnWaitlist ? existingRsvp!.paymentDueAt : null,
     drinksAlcohol: isAttending ? drinksAlcohol : null,
     additionalInfo: isAttending ? additionalInfo : null,
-    plusOne: isAttending ? plusOne : false,
-    plusOneName: isAttending && plusOne ? plusOneName : null,
+    plusOne: allowPlusOne ? plusOne : false,
+    plusOneName: allowPlusOne && plusOne ? plusOneName : null,
     bringingItem: isAttending ? bringingItem : null,
     declineReason: isAttending ? null : declineReason,
     customAnswers,
@@ -300,48 +331,19 @@ export async function performRsvpSubmission(
     }
   }
 
+  // Zahlfrist setzen bzw. entfernen, bevor die Bestätigung (mit Frist) verschickt wird
+  if (amountCents) {
+    await syncPaymentDue({ rsvpIds: [savedRsvp.id] })
+    savedRsvp = await prisma.rsvp.findUniqueOrThrow({ where: { id: savedRsvp.id } })
+  }
+
   // Mitbringliste: nur eine Zusage, die zählt (nicht auf der Warteliste), hält Einträge
   await syncBringClaims(savedRsvp.id, eventId, input.bringSlotIds, isAttending && !isOnWaitlist)
 
-  // Nachrück-Automatik, wenn man von "Kommt" auf "Kommt nicht" wechselt
-  let promotedRsvpId: string | null = null
-  if (existingRsvp && existingRsvp.isAttending && !existingRsvp.isOnWaitlist && !isAttending) {
-    if (event.maxCapacity !== null) {
-      const nextInLine = await prisma.rsvp.findFirst({
-        where: {
-          eventId,
-          isAttending: true,
-          isOnWaitlist: true,
-          ...(requireVerification ? { participant: { isVerified: true } } : {})
-        },
-        orderBy: { createdAt: 'asc' },
-        include: { participant: true }
-      })
-
-      if (nextInLine) {
-        const promotedRsvp = await prisma.rsvp.update({
-          where: { id: nextInLine.id },
-          data: { isOnWaitlist: false }
-        })
-        promotedRsvpId = promotedRsvp.id
-        if (nextInLine.participant.email) {
-          // Fehlgeschlagener Versand (z.B. unzustellbare Adresse des Nachrückers) darf die
-          // Absage der absagenden Person nicht scheitern lassen - gespeichert und
-          // nachgerückt ist zu diesem Zeitpunkt bereits alles. Gleiche Behandlung wie beim
-          // Gast-Mailversand weiter unten.
-          try {
-            await sendWaitlistPromotedEmail(nextInLine.participant, promotedRsvp, event)
-            if (await shouldSuppressConfirmationEmail(nextInLine.participant)) {
-              await sendConfirmationPush(event, nextInLine.participant)
-            } else {
-              await sendConfirmationEmail(nextInLine.participant, promotedRsvp, event)
-            }
-          } catch (error) {
-            console.error("Fehler beim Nachrücker-Mailversand:", error)
-          }
-        }
-      }
-    }
+  // Nachrücken, wenn ein fester Platz frei wird: Absage oder Wechsel der Kategorie (app/lib/waitlist.ts,
+  // benachrichtigt Nachrücker und verknüpfte Tools selbst)
+  if (wasFixed && (!isAttending || previousCategoryId !== ticketCategoryId)) {
+    await fillFreeSeats(eventId)
   }
 
   // Verknüpfte Abstimmung (falls vorhanden) über die neue Zu-/Absage informieren -
@@ -353,9 +355,9 @@ export async function performRsvpSubmission(
     console.error("Fehler bei der Abstimmungs-Benachrichtigung:", error)
   }
 
-  // Verknüpfte Tools (z.B. Seating) über die Änderung informieren - diese Zusage und
-  // einen evtl. Nachrücker. Läuft erst nach der Antwort (siehe linked-tools-notify.ts).
-  notifyLinkedToolsOfRsvps([savedRsvp.id, promotedRsvpId])
+  // Verknüpfte Tools (z.B. Seating) über die Änderung informieren. Läuft erst nach der Antwort (siehe
+  // linked-tools-notify.ts); Nachrücker meldet fillFreeSeats selbst.
+  notifyLinkedToolsOfRsvps([savedRsvp.id])
 
   // E-Mail Logik für den GAST
   if (participant.email && savedRsvp.isAttending) {
@@ -400,15 +402,22 @@ export async function performRsvpSubmission(
     : null
 
   // "Sitzplatz wählen" auf der Erfolgsseite - nur für eine Zusage, die bei Seating zählt
-  const canChooseSeat = !!seatingLinkOf(event) && isSeatingConfirmed(savedRsvp, participant, requireVerification)
+  const canChooseSeat = !!seatingLinkOf(event) && isSeatingConfirmed(savedRsvp, participant, requireVerification, event.seatingRequiresPayment)
+  // ...oder erst nach Zahlungseingang (Event.seatingRequiresPayment) - dann ein Hinweis statt des Knopfs
+  const seatAfterPayment = !!seatingLinkOf(event) && !canChooseSeat && isSeatingConfirmed(savedRsvp, participant, requireVerification, false)
   // "Zeitplan" ebenso - nur für eine Zusage, die dort zählt
   const canOpenTimeline = !!timelineLinkOf(event) && isTimelineConfirmed(savedRsvp, participant, requireVerification)
 
+  // Zahlungsdaten (Betrag, IBAN, Verwendungszweck, GiroCode) für die Erfolgsseite
+  const payment = await paymentInfoOf({ ...savedRsvp, ticketCategory: categories.find(c => c.id === savedRsvp.ticketCategoryId) ?? null }, event)
+
   return {
     editToken: participant.editToken,
+    payment,
     needsVerification,
     isOnWaitlist: savedRsvp.isOnWaitlist,
     qrCode,
     canChooseSeat,
+    seatAfterPayment,
     canOpenTimeline
   }}

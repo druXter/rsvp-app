@@ -19,7 +19,9 @@ const rsvpInclude = {
     orderBy: { createdAt: 'desc' as const }
   },
   // Mitbringliste: Stand je Eintrag für die Übersicht der Karte
-  bringSlots: { orderBy: { position: 'asc' as const }, select: { label: true, quantity: true, _count: { select: { claims: true } } } }
+  bringSlots: { orderBy: { position: 'asc' as const }, select: { label: true, quantity: true, _count: { select: { claims: true } } } },
+  // Tickets: Kategorien für Übersicht und Spalte "Ticket / Zahlung"
+  ticketCategories: { orderBy: { position: 'asc' as const }, select: { id: true, label: true, capacity: true } }
 }
 
 /**

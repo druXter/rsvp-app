@@ -7,7 +7,7 @@ import { revalidatePath } from 'next/cache'
 import { PrismaClient, Role } from '@prisma/client'
 import { randomUUID } from 'crypto'
 import { sanitizeNextPath } from 'suite-kit'
-import { sendReminderEmail, sendWaitlistPromotedEmail, sendConfirmationEmail, sendVerificationEmail, sendPasswordResetEmail, sendEmailChangeConfirmation } from '../lib/mail'
+import { sendReminderEmail, sendWaitlistPromotedEmail, sendConfirmationEmail, sendVerificationEmail, sendPasswordResetEmail, sendEmailChangeConfirmation, sendPaymentReceivedEmail, sendPaymentCancelledEmail } from '../lib/mail'
 import { requireUser, createSession, destroySession, SESSION_COOKIE } from '../lib/auth'
 import { generateToken, hashToken } from '../lib/tokens'
 import { hashPassword, validatePassword, verifyAgainstDummy, verifyPassword } from '../lib/password'
@@ -21,6 +21,9 @@ import { parsePhotoUrl } from '../lib/photo-link'
 import { readBringSlots, saveBringSlots } from '../lib/bring-list'
 import { notifyLinkedToolsBeforeDelete, notifyLinkedToolsOfRsvps } from '../lib/linked-tools-notify'
 import { deleteOrphanedParticipants } from '../lib/participants'
+import { assertCategoriesRemovable, readTicketCategories, saveTicketCategories, type TicketCategoryInput } from '../lib/tickets'
+import { generatePaymentReference, paymentDue, paymentState, readPaymentSettings, syncPaymentDue, type PaymentSettings } from '../lib/payment'
+import { fillFreeSeats } from '../lib/waitlist'
 
 const prisma = new PrismaClient()
 
@@ -52,6 +55,41 @@ function readPollLink(formData: FormData): { pollUrl: string | null; pollLabel: 
     // "Datum noch offen" ergibt nur mit einer verknüpften Terminabstimmung Sinn - ohne
     // pollUrl könnte nie jemand das Datum festlegen (siehe Event.datePending).
     datePending: !!pollUrlInput && formData.get('datePending') === 'on'
+  }
+}
+
+/**
+ * Tickets und Bezahlung aus dem Termin-Formular (docs/KONZEPT-TICKETS.md): Kategorien, Zahlungseinstellungen
+ * und der Seating-Schalter "erst nach Zahlung". Wirft, BEVOR etwas gespeichert ist (ungültige Zeile, IBAN,
+ * fehlendes Konto bei Preisen, Kategorie mit Antworten entfernt). Fehlt ein Abschnitt im Formular, bleibt er
+ * unangetastet (null bzw. undefined).
+ */
+async function readTicketing(formData: FormData, eventId: string | null): Promise<{
+  ticketCategories: TicketCategoryInput[] | null
+  payment: PaymentSettings | null
+  seatingRequiresPayment: boolean | undefined
+}> {
+  const ticketCategories = readTicketCategories(formData)
+  const needsPayment = ticketCategories
+    ? ticketCategories.some(c => c.priceCents > 0)
+    : !!eventId && (await prisma.ticketCategory.count({ where: { eventId, priceCents: { gt: 0 } } })) > 0
+  const payment = readPaymentSettings(formData, needsPayment)
+  if (eventId) await assertCategoriesRemovable(eventId, ticketCategories)
+  const seatingRequiresPayment = formData.has('seatingRequiresPaymentShown') ? formData.get('seatingRequiresPayment') === 'on' : undefined
+  return { ticketCategories, payment, seatingRequiresPayment }
+}
+
+/** Nach dem Speichern eines Termins: Kategorien, Frist, Nachrücken und ggf. neuer Stand für Seating. */
+async function applyTicketing(eventId: string, ticketing: Awaited<ReturnType<typeof readTicketing>>, seatingGateChanged: boolean) {
+  await saveTicketCategories(eventId, ticketing.ticketCategories)
+  // Neue Frist gilt auch für schon offene Zusagen ohne Frist
+  await syncPaymentDue({ eventId })
+  // Höhere Kapazität oder größere Kontingente lassen Wartende nachrücken
+  await fillFreeSeats(eventId)
+  // "Sitzplatzwahl erst nach Zahlung" umgeschaltet: Seating bekommt für alle Zusagen den neuen Stand
+  if (seatingGateChanged) {
+    const rsvps = await prisma.rsvp.findMany({ where: { eventId }, select: { id: true } })
+    notifyLinkedToolsOfRsvps(rsvps.map(r => r.id))
   }
 }
 
@@ -391,6 +429,7 @@ export async function createEvent(formData: FormData) {
   const bringSlots = readBringSlots(formData)
   // Verknüpfte Tools (Seating, siehe app/lib/linked-tools-store.ts) - wirft bei ungültigem Link, bevor etwas angelegt ist
   const toolLinks = readToolLinks(formData)
+  const ticketing = await readTicketing(formData, null)
 
   // Abfrage-Optionen für die Gäste als JSON-String speichern
   const formConfig = JSON.stringify({
@@ -428,11 +467,14 @@ export async function createEvent(formData: FormData) {
       pollUrl,
       pollLabel,
       photoUrl,
-      datePending
+      datePending,
+      ...(ticketing.payment ?? {}),
+      seatingRequiresPayment: ticketing.seatingRequiresPayment ?? false
     }
   })
   await saveToolLinks(created.id, toolLinks)
   await saveBringSlots(created.id, bringSlots)
+  await saveTicketCategories(created.id, ticketing.ticketCategories)
 
   // Cache leeren und zum Dashboard umleiten
   revalidatePath('/admin')
@@ -506,6 +548,7 @@ export async function updateEvent(formData: FormData) {
   const photoUrl = parsePhotoUrl(formData.get('photoUrl') as string || '')
   const bringSlots = readBringSlots(formData)
   const toolLinks = readToolLinks(formData)
+  const ticketing = await readTicketing(formData, id)
 
   const formConfig = JSON.stringify({
     askEmail: formData.get('askEmail') === 'on',
@@ -546,15 +589,15 @@ export async function updateEvent(formData: FormData) {
       pollLabel,
       photoUrl,
       datePending,
+      ...(ticketing.payment ?? {}),
+      ...(ticketing.seatingRequiresPayment !== undefined ? { seatingRequiresPayment: ticketing.seatingRequiresPayment } : {}),
       ...(changes.length > 0 ? { icsSequence: { increment: 1 } } : {})
     }
   })
   // Geänderter oder entfernter Link leert, was das bisherige Tool-Event gemeldet hat (z.B. Plätze)
   await saveToolLinks(id, toolLinks)
   await saveBringSlots(id, bringSlots)
-
-  // Nach dem Speichern prüfen, ob durch eine Erhöhung der maxCapacity Leute nachrücken dürfen
-  await triggerWaitlistPromotion(id)
+  await applyTicketing(id, ticketing, ticketing.seatingRequiresPayment !== undefined && ticketing.seatingRequiresPayment !== existingEvent.seatingRequiresPayment)
 
   if (notifyGuests && changes.length > 0) {
     await notifyAttendeesOfChange(id, changes)
@@ -583,7 +626,7 @@ export async function deleteRsvp(formData: FormData) {
   await deleteOrphanedParticipants([rsvpToDelete.participantId])
 
   if (rsvpToDelete.isAttending && !rsvpToDelete.isOnWaitlist) {
-    await triggerWaitlistPromotion(rsvpToDelete.eventId)
+    await fillFreeSeats(rsvpToDelete.eventId)
   }
 
   revalidatePath('/admin')
@@ -612,8 +655,23 @@ export async function updateAdminRsvp(formData: FormData) {
   const plusOneName = formData.get('plusOneName') as string || null
   const bringingItem = formData.get('bringingItem') as string || null
 
-  const existingRsvp = await prisma.rsvp.findUnique({ where: { id }, include: { event: true } })
+  const existingRsvp = await prisma.rsvp.findUnique({ where: { id }, include: { event: { include: { ticketCategories: true } } } })
   if (!existingRsvp || !(await hasEventModeratorOrAbove(user, existingRsvp.event))) return
+
+  // Ticketkategorie: Die Verwaltung darf sie jederzeit ändern, auch in eine volle (wie "Zulassen"). Vor der
+  // Zahlung folgt der Betrag dem Preis der neuen Kategorie, danach bleibt der bezahlte Betrag stehen.
+  const categories = existingRsvp.event.ticketCategories
+  let ticketCategoryId = existingRsvp.ticketCategoryId
+  if (formData.has('ticketCategoryId')) {
+    const requested = categories.find(c => c.id === formData.get('ticketCategoryId'))
+    if (requested) ticketCategoryId = requested.id
+  }
+  let amountCents = existingRsvp.amountCents
+  if (ticketCategoryId !== existingRsvp.ticketCategoryId && !existingRsvp.paidAt) {
+    amountCents = categories.find(c => c.id === ticketCategoryId)?.priceCents ?? null
+  }
+  const paymentReference = existingRsvp.paymentReference ?? (amountCents ? generatePaymentReference(existingRsvp.event.slug) : null)
+  const allowPlusOne = isAttending && categories.length === 0
 
   await prisma.participant.update({
     where: { id: existingRsvp.participantId },
@@ -624,14 +682,18 @@ export async function updateAdminRsvp(formData: FormData) {
     where: { id },
     data: {
       isAttending,
+      ticketCategoryId,
+      amountCents,
+      paymentReference,
       drinksAlcohol: isAttending ? drinksAlcohol : null,
       additionalInfo: isAttending ? additionalInfo : null,
-      plusOne: isAttending ? plusOne : false,
-      plusOneName: isAttending && plusOne ? plusOneName : null,
+      plusOne: allowPlusOne ? plusOne : false,
+      plusOneName: allowPlusOne && plusOne ? plusOneName : null,
       bringingItem: isAttending ? bringingItem : null,
       declineReason: isAttending ? null : declineReason
     }
   })
+  await syncPaymentDue({ rsvpIds: [id] })
 
   // Absage gibt beanspruchte Einträge der Mitbringliste frei
   if (!isAttending) await prisma.bringClaim.deleteMany({ where: { rsvpId: id } })
@@ -639,9 +701,9 @@ export async function updateAdminRsvp(formData: FormData) {
   // Name/Adresse/Begleitung/Zu-/Absage können sich geändert haben
   notifyLinkedToolsOfRsvps([id])
 
-  // Wenn du als Admin jemanden nachträglich von "Kommt" auf "Kommt nicht" setzt:
-  if (existingRsvp.isAttending && !existingRsvp.isOnWaitlist && !isAttending) {
-    await triggerWaitlistPromotion(existingRsvp.eventId)
+  // Ein fester Platz wird frei (Absage oder andere Kategorie): Wartende rücken nach
+  if (existingRsvp.isAttending && !existingRsvp.isOnWaitlist && (!isAttending || ticketCategoryId !== existingRsvp.ticketCategoryId)) {
+    await fillFreeSeats(existingRsvp.eventId)
   }
 
   revalidatePath('/admin')
@@ -662,10 +724,13 @@ export async function promoteFromWaitlist(formData: FormData) {
   if (!rsvp || !rsvp.isOnWaitlist || !(await hasEventModeratorOrAbove(user, rsvp.event))) return
 
   // Admin-Override: Wir ändern den Status direkt auf einen festen Platz
-  const promotedRsvp = await prisma.rsvp.update({
+  await prisma.rsvp.update({
     where: { id },
     data: { isOnWaitlist: false }
   })
+  // Frist ab jetzt, bevor die Bestätigung (mit Zahlungsdaten) rausgeht
+  await syncPaymentDue({ rsvpIds: [id] })
+  const promotedRsvp = await prisma.rsvp.findUniqueOrThrow({ where: { id } })
   notifyLinkedToolsOfRsvps([id])
 
   // Erfolgs-Mails senden
@@ -677,51 +742,105 @@ export async function promoteFromWaitlist(formData: FormData) {
   revalidatePath('/admin')
 }
 
+
 /**
- * HILFSFUNKTION: Füllt freie Plätze mit Nachrückern von der Warteliste auf.
- * Funktioniert für einzelne freiwerdende Plätze UND wenn der Admin die Kapazität erhöht.
- * Wird ausschließlich von bereits Owner-geprüften Actions aufgerufen.
+ * Bezahlstatus einer Zusage setzen (docs/KONZEPT-TICKETS.md) - für Owner, Admins und Moderator*innen, damit
+ * Helfer*innen an der Abendkasse kassieren können. Jede Aktion gilt nur im passenden Zustand und wird atomar
+ * gesetzt (updateMany mit dem erwarteten Zustand in der Bedingung), damit ein Doppelklick nichts doppelt tut:
+ * paid-transfer/paid-cash nur bei offener Zahlung, unpaid nur bei bezahlt (nicht erstattet), refunded und
+ * refund-undo nur nach einer Absage mit Zahlung. Eine Überweisung bestätigt rsvp-app dem Gast per Mail.
  */
-async function triggerWaitlistPromotion(eventId: string) {
-  const event = await prisma.event.findUnique({
-    where: { id: eventId },
-    include: { rsvps: true, series: true }
-  })
-  if (!event || event.maxCapacity === null) return;
+export async function setPaymentStatus(formData: FormData) {
+  const user = await requireUser()
+  const id = formData.get('rsvpId') as string
+  const action = formData.get('paymentAction') as string
 
-  const requireVerification = event.series ? event.series.requireVerification : event.requireVerification
+  const rsvp = await prisma.rsvp.findUnique({ where: { id }, include: { event: { include: { series: true } }, participant: true } })
+  if (!rsvp || !(await hasEventModeratorOrAbove(user, rsvp.event))) return
+  const state = paymentState(rsvp)
+  const now = new Date()
 
-  // Aktuelle Anzahl der Leute mit festem Platz zählen
-  let currentAttendeesCount = event.rsvps.filter(r => r.isAttending && !r.isOnWaitlist).length;
-
-  // Solange Plätze frei sind...
-  while (currentAttendeesCount < event.maxCapacity) {
-    const nextInLine = await prisma.rsvp.findFirst({
-      where: {
-        eventId: event.id,
-        isAttending: true,
-        isOnWaitlist: true,
-        ...(requireVerification ? { participant: { isVerified: true } } : {})
-      },
-      orderBy: { createdAt: 'asc' }, // Derjenige, der am längsten wartet
-      include: { participant: true }
-    })
-
-    if (!nextInLine) break; // Niemand mehr auf der Warteliste
-
-    const promotedRsvp = await prisma.rsvp.update({
-      where: { id: nextInLine.id },
-      data: { isOnWaitlist: false }
-    })
-    notifyLinkedToolsOfRsvps([promotedRsvp.id])
-
-    if (nextInLine.participant.email) {
-      await sendWaitlistPromotedEmail(nextInLine.participant, promotedRsvp, event);
-      await sendConfirmationEmail(nextInLine.participant, promotedRsvp, event);
+  let changed = 0
+  if ((action === 'paid-transfer' || action === 'paid-cash') && paymentDue(rsvp)) {
+    changed = (await prisma.rsvp.updateMany({
+      where: { id, paidAt: null },
+      data: { paidAt: now, paymentMethod: action === 'paid-cash' ? 'CASH' : 'TRANSFER', refundedAt: null }
+    })).count
+    if (changed === 1 && action === 'paid-transfer' && rsvp.participant.email) {
+      try {
+        await sendPaymentReceivedEmail(rsvp.participant, { ...rsvp, paidAt: now, paymentMethod: 'TRANSFER' }, rsvp.event)
+      } catch (error) {
+        console.error('Fehler beim Versand der Zahlungsbestätigung:', error)
+      }
     }
-
-    currentAttendeesCount++; // Zähler für den nächsten Schleifendurchlauf erhöhen
+  } else if (action === 'unpaid' && state === 'paid') {
+    changed = (await prisma.rsvp.updateMany({ where: { id, paidAt: { not: null }, refundedAt: null }, data: { paidAt: null, paymentMethod: null } })).count
+    await syncPaymentDue({ rsvpIds: [id] })
+  } else if (action === 'refunded' && state === 'refund-open') {
+    changed = (await prisma.rsvp.updateMany({ where: { id, refundedAt: null }, data: { refundedAt: now } })).count
+  } else if (action === 'refund-undo' && state === 'refunded') {
+    changed = (await prisma.rsvp.updateMany({ where: { id, refundedAt: { not: null } }, data: { refundedAt: null } })).count
   }
+
+  // "Sitzplatzwahl erst nach Zahlung": bezahlt bzw. zurückgesetzt ändert, ob die Zusage bei Seating zählt
+  if (changed === 1) notifyLinkedToolsOfRsvps([id])
+  revalidatePath('/admin')
+}
+
+/**
+ * Einlass mit offener Zahlung (Check-in-Seite, app/admin/checkin/[rsvpId]): "Bar kassiert - einlassen" markiert
+ * bar bezahlt und checkt ein, "Ohne Zahlung einlassen" checkt nur ein. Nur für feste Plätze auf Terminen mit
+ * Check-in; Rechte wie beim Scannen (Moderator*innen eingeschlossen).
+ */
+export async function checkInAtDoor(formData: FormData) {
+  const user = await requireUser()
+  const id = formData.get('rsvpId') as string
+  const mode = formData.get('mode') as string
+
+  const rsvp = await prisma.rsvp.findUnique({ where: { id }, include: { event: true } })
+  if (!rsvp || !(await hasEventModeratorOrAbove(user, rsvp.event))) return
+  if (!rsvp.event.enableCheckin || !rsvp.isAttending || rsvp.isOnWaitlist) return
+
+  if (mode === 'cash' && paymentDue(rsvp)) {
+    const paid = await prisma.rsvp.updateMany({ where: { id, paidAt: null }, data: { paidAt: new Date(), paymentMethod: 'CASH' } })
+    if (paid.count === 1) notifyLinkedToolsOfRsvps([id])
+  }
+  await prisma.rsvp.updateMany({ where: { id, hasAttended: false }, data: { hasAttended: true, checkedInAt: new Date() } })
+
+  revalidatePath(`/admin/checkin/${id}`)
+  revalidatePath('/admin')
+}
+
+/**
+ * Überfällige, unbezahlte Zusage stornieren (Zahlfrist abgelaufen) - nur auf Klick, nie automatisch. Die
+ * Zusage wird zur Absage, der Gast bekommt eine Mail, Wartende rücken nach. Nur im Zustand "überfällig".
+ */
+export async function cancelUnpaidRsvp(formData: FormData) {
+  const user = await requireUser()
+  const id = formData.get('rsvpId') as string
+
+  const rsvp = await prisma.rsvp.findUnique({ where: { id }, include: { event: { include: { series: true } }, participant: true } })
+  if (!rsvp || !(await hasEventModeratorOrAbove(user, rsvp.event))) return
+  if (paymentState(rsvp) !== 'overdue') return
+
+  const cancelled = await prisma.rsvp.updateMany({
+    where: { id, isAttending: true, isOnWaitlist: false, paidAt: null },
+    // Kein Absagegrund: der stünde bei sichtbarer Gästeliste öffentlich neben dem Namen
+    data: { isAttending: false, declineReason: null, paymentDueAt: null, hasAttended: false, checkedInAt: null }
+  })
+  if (cancelled.count !== 1) return
+  await prisma.bringClaim.deleteMany({ where: { rsvpId: id } })
+  notifyLinkedToolsOfRsvps([id])
+
+  if (rsvp.participant.email) {
+    try {
+      await sendPaymentCancelledEmail(rsvp.participant, rsvp, rsvp.event)
+    } catch (error) {
+      console.error('Fehler beim Versand der Stornierung:', error)
+    }
+  }
+  await fillFreeSeats(rsvp.eventId)
+  revalidatePath('/admin')
 }
 
 /**
@@ -975,6 +1094,7 @@ export async function updateSeriesTermin(formData: FormData) {
   const photoUrl = parsePhotoUrl(formData.get('photoUrl') as string || '')
   const bringSlots = readBringSlots(formData)
   const toolLinks = readToolLinks(formData)
+  const ticketing = await readTicketing(formData, id)
 
   const formConfig = JSON.stringify({
     askEmail: false,
@@ -997,14 +1117,15 @@ export async function updateSeriesTermin(formData: FormData) {
     data: {
       title, slug, date, location, description, duration, formConfig, autoReminder, reminderDays, maxCapacity, enableCheckin,
       pollUrl, pollLabel, datePending, photoUrl,
+      ...(ticketing.payment ?? {}),
+      ...(ticketing.seatingRequiresPayment !== undefined ? { seatingRequiresPayment: ticketing.seatingRequiresPayment } : {}),
       ...(changes.length > 0 ? { icsSequence: { increment: 1 } } : {})
     }
   })
   // Geänderter oder entfernter Link leert, was das bisherige Tool-Event gemeldet hat (z.B. Plätze)
   await saveToolLinks(id, toolLinks)
   await saveBringSlots(id, bringSlots)
-
-  await triggerWaitlistPromotion(id)
+  await applyTicketing(id, ticketing, ticketing.seatingRequiresPayment !== undefined && ticketing.seatingRequiresPayment !== existingEvent.seatingRequiresPayment)
 
   if (notifyGuests && changes.length > 0) {
     await notifyAttendeesOfChange(id, changes)

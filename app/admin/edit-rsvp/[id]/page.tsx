@@ -1,4 +1,5 @@
 // app/admin/edit-rsvp/[id]/page.tsx
+import { formatEuro } from '../../../lib/payment-state'
 import { PrismaClient } from '@prisma/client'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
@@ -19,7 +20,7 @@ export default async function EditRsvpPage({ params }: { params: Promise<{ id: s
 
   // Die spezifische Antwort aus der Datenbank abrufen (inkl. des geteilten Gast-Profils)
   const { id } = await params
-  const rsvp = await prisma.rsvp.findUnique({ where: { id }, include: { participant: true, event: true } })
+  const rsvp = await prisma.rsvp.findUnique({ where: { id }, include: { participant: true, event: { include: { ticketCategories: { orderBy: { position: 'asc' } } } } } })
 
   if (!rsvp || !(await hasEventModeratorOrAbove(user, rsvp.event))) return <div className="p-8 dark:text-gray-100">Antwort nicht gefunden.</div>
 
@@ -51,6 +52,19 @@ export default async function EditRsvpPage({ params }: { params: Promise<{ id: s
               </select>
             </div>
           </div>
+
+          {rsvp.event.ticketCategories.length > 0 && (
+            <div>
+              <label htmlFor="ticketCategoryId" className="block text-sm font-medium mb-1">Ticketkategorie</label>
+              <select id="ticketCategoryId" name="ticketCategoryId" defaultValue={rsvp.ticketCategoryId ?? ''} className="w-full border border-gray-300 dark:border-gray-600 p-2 rounded bg-white dark:bg-gray-800 dark:text-gray-100">
+                {!rsvp.ticketCategoryId && <option value="">Keine</option>}
+                {rsvp.event.ticketCategories.map(c => <option key={c.id} value={c.id}>{c.label} ({formatEuro(c.priceCents)})</option>)}
+              </select>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Hier gilt kein Kontingent (wie „Zulassen“). {rsvp.paidAt ? 'Bereits bezahlt: Der Betrag bleibt bei einem Wechsel stehen.' : 'Der Betrag folgt dem Preis der neuen Kategorie.'}
+              </p>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <div>

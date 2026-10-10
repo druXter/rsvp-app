@@ -11,6 +11,10 @@ import PushSubscribeToggle from './push-subscribe-toggle'
 import SeatingBox from '../ui/seating-box'
 import TimelineBox from '../ui/timeline-box'
 import type { BringSlotForForm } from '../lib/bring-list'
+import type { TicketCategoryForForm } from '../lib/tickets'
+import { formatEuro } from '../lib/payment-state'
+import type { PaymentInfo } from '../lib/payment'
+import PaymentBox from '../ui/payment-box'
 
 export default function RsvpForm({
   eventId,
@@ -25,7 +29,10 @@ export default function RsvpForm({
   canChooseSeat = false,
   seatingLabel = null,
   canOpenTimeline = false,
-  bringSlots = []
+  bringSlots = [],
+  ticketCategories = [],
+  payment = null,
+  seatAfterPayment = false
 }: {
   eventId: string;
   formConfig: string | null;
@@ -49,6 +56,12 @@ export default function RsvpForm({
   canOpenTimeline?: boolean;
   // Mitbringliste (app/lib/bring-list.ts): Einträge mit belegt/gesamt und ob diese Antwort einen Platz hält.
   bringSlots?: BringSlotForForm[];
+  // Ticketkategorien (app/lib/tickets.ts): Preis, belegt und ob voll (die eigene Antwort zählt nicht mit).
+  ticketCategories?: TicketCategoryForForm[];
+  // Zahlungsdaten der bestehenden Antwort (app/lib/payment.ts, paymentInfoOf) - null, wenn nichts zu zahlen ist.
+  payment?: PaymentInfo | null;
+  // Sitzplatzwahl erst nach Zahlung (Event.seatingRequiresPayment): Hinweis statt "Sitzplatz wählen".
+  seatAfterPayment?: boolean;
 }) {
   const [isAttending, setIsAttending] = useState<boolean | null>(rsvp ? rsvp.isAttending : null)
   const [hasPlusOne, setHasPlusOne] = useState<boolean>(rsvp ? rsvp.plusOne : false)
@@ -60,6 +73,11 @@ export default function RsvpForm({
   const [qrCode, setQrCode] = useState<string | null>(null)
   const [seatAfterSubmit, setSeatAfterSubmit] = useState<boolean>(false)
   const [timelineAfterSubmit, setTimelineAfterSubmit] = useState<boolean>(false)
+  const [paymentAfterSubmit, setPaymentAfterSubmit] = useState<PaymentInfo | null>(null)
+  const [seatAfterPaymentSubmit, setSeatAfterPaymentSubmit] = useState<boolean>(false)
+  const [formError, setFormError] = useState<string | null>(null)
+  // Nach der Zahlung kann nur noch die Verwaltung die Kategorie ändern (performRsvpSubmission prüft das auch)
+  const categoryLocked = !!rsvp?.paidAt && !!rsvp.ticketCategoryId
 
   const config = formConfig
     ? JSON.parse(formConfig)
@@ -72,6 +90,11 @@ export default function RsvpForm({
     e.preventDefault()
     const formData = new FormData(e.currentTarget)
     const result = await submitRsvp(formData)
+    if ('error' in result) {
+      setFormError(result.error)
+      return
+    }
+    setFormError(null)
     setSubmittedToken(result.editToken)
 
     // Auslesen, ob der gelbe Screen gezeigt werden soll
@@ -87,6 +110,8 @@ export default function RsvpForm({
     }
     setSeatAfterSubmit(result.canChooseSeat)
     setTimelineAfterSubmit(result.canOpenTimeline)
+    setPaymentAfterSubmit(result.payment)
+    setSeatAfterPaymentSubmit(result.seatAfterPayment)
   }
 
   if (submittedToken) {
@@ -179,6 +204,8 @@ export default function RsvpForm({
           </a>
         )}
 
+        {paymentAfterSubmit && <PaymentBox payment={paymentAfterSubmit} />}
+        {seatAfterPaymentSubmit && <SeatAfterPaymentHint />}
         {seatAfterSubmit && <SeatingBox eventId={eventId} editToken={submittedToken} seatingLabel={seatingLabel} />}
         {timelineAfterSubmit && <TimelineBox eventId={eventId} editToken={submittedToken} />}
 
@@ -207,6 +234,8 @@ export default function RsvpForm({
     // Hydration das RSVP-Formular absenden lässt. Im Embed-Modus entfällt die Box-Optik.
     <div className={`space-y-6 text-gray-900 dark:text-gray-100 ${isEmbed ? '' : 'bg-white p-6 rounded-lg shadow dark:bg-gray-800'}`}>
     {/* Ohne ?token= kam der Participant über die Gast-Session - die Route löst ihn dann ebenfalls darüber auf */}
+    {payment && <PaymentBox payment={payment} />}
+    {seatAfterPayment && <SeatAfterPaymentHint />}
     {canChooseSeat && <SeatingBox eventId={eventId} editToken={usedUrlToken ? participant?.editToken : null} seatingLabel={seatingLabel} />}
     {canOpenTimeline && <TimelineBox eventId={eventId} editToken={usedUrlToken ? participant?.editToken : null} />}
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -248,6 +277,29 @@ export default function RsvpForm({
       {isAttending === true && (
         <div className="space-y-4 pt-4 border-t border-gray-200 dark:border-gray-700">
 
+          {ticketCategories.length > 0 && (
+            <fieldset>
+              <legend className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ticket</legend>
+              <div className="space-y-1">
+                {ticketCategories.map(category => {
+                  const own = rsvp?.ticketCategoryId === category.id
+                  const free = category.capacity !== null ? Math.max(category.capacity - category.taken, 0) : null
+                  return (
+                    <label key={category.id} className={`flex flex-wrap items-center gap-2 text-sm ${categoryLocked && !own ? 'text-gray-400 dark:text-gray-500' : 'text-gray-800 dark:text-gray-200 cursor-pointer'}`}>
+                      <input type="radio" name="ticketCategoryId" value={category.id} defaultChecked={own} required disabled={categoryLocked && !own} className="w-4 h-4" />
+                      <span>{category.label}</span>
+                      <span className="font-medium">{category.priceCents > 0 ? formatEuro(category.priceCents) : 'kostenlos'}</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        {category.full ? '(ausgebucht - Warteliste)' : free !== null ? `(noch ${free} frei)` : ''}
+                      </span>
+                    </label>
+                  )
+                })}
+              </div>
+              {categoryLocked && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Bezahlt - die Kategorie kann nur noch die Veranstaltung ändern.</p>}
+            </fieldset>
+          )}
+
           {config.askEmail && (
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">E-Mail Adresse</label>
@@ -278,7 +330,8 @@ export default function RsvpForm({
             </div>
           )}
 
-          {config.askPlusOne && (
+          {/* Bei Ticketkategorien meldet sich jede Person selbst an (Kategorie, Betrag und Einlass pro Person) */}
+          {config.askPlusOne && ticketCategories.length === 0 && (
             <fieldset className="space-y-2">
               <legend className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Bringst du eine Begleitperson mit?</legend>
               <div className="flex gap-4">
@@ -374,11 +427,20 @@ export default function RsvpForm({
 
       {isAttending === false && (
         <div className="space-y-4 pt-4 border-t dark:border-gray-700">
+          {payment?.state === 'paid' && (
+            <p className="text-sm bg-pink-50 text-pink-900 p-3 rounded border border-pink-200 dark:bg-pink-950 dark:text-pink-100 dark:border-pink-800">
+              💶 Du hast bereits bezahlt. Wenn du absagst, klärt die Veranstaltung die Erstattung mit dir.
+            </p>
+          )}
           <div>
             <label htmlFor="declineReason" className="block text-sm font-medium mb-1">Warum klappt es leider nicht? (Optional)</label>
             <textarea id="declineReason" name="declineReason" defaultValue={rsvp?.declineReason || ''} className="w-full border border-gray-300 p-2 rounded bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100" rows={2} placeholder="z.B. Sind leider im Urlaub..."></textarea>
           </div>
         </div>
+      )}
+
+      {formError && (
+        <p role="alert" className="text-sm bg-red-50 text-red-800 p-3 rounded border border-red-200 dark:bg-red-950 dark:text-red-300 dark:border-red-800">{formError}</p>
       )}
 
       <SubmitButton>{rsvp ? "Änderungen speichern" : "Antwort absenden"}</SubmitButton>
@@ -391,5 +453,14 @@ export default function RsvpForm({
       </div>
     )}
     </div>
+  )
+}
+
+/** Sitzplatzwahl erst nach Zahlung (Event.seatingRequiresPayment): statt "Sitzplatz wählen". Farbe lime = Sitzplatz. */
+function SeatAfterPaymentHint() {
+  return (
+    <p className="w-full mt-4 p-3 rounded-lg border border-lime-300 bg-lime-50 text-lime-900 dark:bg-lime-950 dark:border-lime-800 dark:text-lime-100 text-sm text-center">
+      🪑 Deinen Sitzplatz kannst du wählen, sobald deine Zahlung eingegangen ist. Du bekommst dann eine Mail mit dem Link.
+    </p>
   )
 }
