@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { prisma } from '../../../lib/prisma'
 import { getCurrentUser } from '../../../lib/auth'
 import { hasEventModeratorOrAbove, isOwnerOrAdmin } from '../../../lib/permissions'
+import { invitationsForEvent } from '../../../lib/invitation-store'
 
 /**
  * Event der Event-Seite samt Rechten - einmal pro Anfrage (cache), geteilt von Layout und Reitern. null, wenn es
@@ -21,19 +22,21 @@ export const loadAdminEvent = cache(async (id: string) => {
     }
   })
   if (!event || !(await hasEventModeratorOrAbove(user, event))) return null
-  return { user, event, isOwner: isOwnerOrAdmin(user, event.ownerId) }
+  // Einladungen, die für den Termin gelten: eigene bzw. bei Reihen die der Reihe für diesen Termin
+  const invitationCount = event.seriesId ? await prisma.invitation.count({ where: invitationsForEvent(event) }) : event._count.invitations
+  return { user, event, isOwner: isOwnerOrAdmin(user, event.ownerId), invitationCount }
 })
 
 export type AdminEvent = NonNullable<Awaited<ReturnType<typeof loadAdminEvent>>>
 
 /** Welche Reiter es für dieses Event gibt (nur Funktionen, die es nutzt). */
-export function eventTabs({ event, isOwner }: AdminEvent) {
+export function eventTabs({ event, isOwner, invitationCount }: AdminEvent) {
   const config = event.formConfig ? JSON.parse(event.formConfig) : {}
   const base = `/admin/events/${event.id}`
   return [
     { href: base, label: 'Übersicht', exact: true },
     { href: `${base}/gaeste`, label: `Gäste (${event._count.rsvps})` },
-    ...(event.inviteOnly || event._count.invitations > 0 ? [{ href: `${base}/einladungen`, label: 'Einladungen' }] : []),
+    ...(event.inviteOnly || invitationCount > 0 ? [{ href: `${base}/einladungen`, label: 'Einladungen' }] : []),
     ...(event._count.menuCourses > 0 || event.maxCompanions > 0 || config.askDiet || config.askAllergies || event.series?.askDiet || event.series?.askAllergies
       ? [{ href: `${base}/kueche`, label: 'Küche' }] : []),
     ...(event._count.ticketCategories > 0 ? [{ href: `${base}/zahlungen`, label: 'Zahlungen' }] : []),

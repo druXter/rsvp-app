@@ -5,7 +5,10 @@ import { notFound } from 'next/navigation'
 import { cookies } from 'next/headers'
 import Link from 'next/link'
 import PinForm from '../../[slug]/pin-form'
+import InvitationGate from '../../[slug]/invitation-gate'
 import { getCurrentGuestUser } from '../../lib/guest-auth'
+import { invitationCovers } from '../../lib/invitation-store'
+import { formatDeadline } from '../../lib/rsvp-deadline'
 
 const prisma = new PrismaClient()
 
@@ -46,9 +49,27 @@ export default async function SeriesOverviewPage({
 
   const token = typeof currentSearchParams?.token === 'string' ? currentSearchParams.token : undefined
   const tokenQuery = token ? `?token=${token}` : ''
-  const guestUser = await getCurrentGuestUser()
+
+  // Einladungsmodus (docs/KONZEPT-EINLADUNGEN.md): nur mit dem Link einer Einladung der Reihe - dann genau die
+  // Termine, zu denen der Haushalt eingeladen ist, mit seinem Stand
+  let invitation = null
+  if (series.inviteOnly) {
+    const participant = token ? await prisma.participant.findUnique({ where: { editToken: token }, select: { id: true } }) : null
+    invitation = participant
+      ? await prisma.invitation.findFirst({ where: { participantId: participant.id, seriesId: series.id }, include: { events: { select: { eventId: true } }, participant: { include: { rsvps: true } } } })
+      : null
+    if (!invitation) {
+      return (
+        <main className="min-h-screen bg-gray-50 dark:bg-gray-900">
+          <InvitationGate title={series.title} />
+        </main>
+      )
+    }
+  }
+
+  const guestUser = series.inviteOnly ? null : await getCurrentGuestUser()
   // Vergangene Termine (48 h nach Beginn) tauchen hier nicht mehr auf - die Termin-Seite selbst bleibt erreichbar.
-  const events = series.events.filter(event => !isArchived(event))
+  const events = series.events.filter(event => !isArchived(event) && (!invitation || invitationCovers(invitation, event)))
 
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-gray-900 py-10">
@@ -57,7 +78,9 @@ export default async function SeriesOverviewPage({
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{series.title}</h1>
           {series.description && <p className="text-gray-600 dark:text-gray-400 mt-2">{series.description}</p>}
 
-          {guestUser ? (
+          {invitation ? (
+            <p className="mt-4 font-semibold text-gray-800 dark:text-gray-200" data-testid="series-invitation">💌 Einladung für {invitation.label} - bitte sagt bei jedem Termin für jede Person zu oder ab.</p>
+          ) : guestUser ? (
             <p className="mt-4 text-sm text-gray-600 dark:text-gray-400">
               Eingeloggt als {guestUser.email} - <Link href="/mein-konto" className="text-blue-600 hover:underline font-medium">Zu deinem Konto</Link>
             </p>
@@ -77,6 +100,9 @@ export default async function SeriesOverviewPage({
                 const attendingCount = event.rsvps.filter(r => r.isAttending && !r.isOnWaitlist).length
                 const isFull = event.maxCapacity !== null && attendingCount >= event.maxCapacity
                 const formattedDate = formatEventDate(event)
+                // Stand des eingeladenen Haushalts zu diesem Termin
+                const answer = invitation?.participant.rsvps.find(r => r.eventId === event.id)
+                const deadline = formatDeadline(event.rsvpDeadline)
 
                 return (
                   <Link
@@ -90,7 +116,12 @@ export default async function SeriesOverviewPage({
                         <p className="text-sm text-gray-500 dark:text-gray-400">📅 {formattedDate}</p>
                         {event.location && <p className="text-sm text-gray-500 dark:text-gray-400">📍 {event.location}</p>}
                       </div>
-                      {event.maxCapacity !== null && (
+                      {invitation && (
+                        <span className={`text-xs font-bold px-2 py-1 rounded-full whitespace-nowrap ${!answer ? 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200' : answer.isAttending ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'}`} data-testid="termin-answer">
+                          {!answer ? (deadline ? `bitte antworten bis ${deadline}` : 'noch offen') : answer.isAttending ? (answer.isOnWaitlist ? 'Warteliste' : 'zugesagt') : 'abgesagt'}
+                        </span>
+                      )}
+                      {!invitation && event.maxCapacity !== null && (
                         <span className={`text-xs font-bold px-2 py-1 rounded-full whitespace-nowrap ${isFull ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'}`}>
                           {isFull ? 'Warteliste' : `${attendingCount}/${event.maxCapacity} Plätzen`}
                         </span>

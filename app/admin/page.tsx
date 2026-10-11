@@ -5,6 +5,7 @@ import type { Prisma } from '@prisma/client'
 import { prisma } from '../lib/prisma'
 import { getCurrentUser } from '../lib/auth'
 import { isPastEvent, summarizeEvent } from '../lib/event-summary'
+import { invitationsForTermin } from '../lib/invitations'
 import AdminShell from './admin-shell'
 import EventRow, { type EventRowData } from './event-row'
 import { Badge, ButtonLink, EmptyState, PageHeader } from '../ui/kit'
@@ -23,7 +24,8 @@ const EVENT_SUMMARY = {
 
 type SummaryEvent = Prisma.EventGetPayload<{ include: typeof EVENT_SUMMARY }>
 
-function toRow(event: SummaryEvent, viewerEmail: string, sharedBy: string | null = null): EventRowData {
+/** invitationCount: bei Reihen-Terminen die Einladungen der Reihe für diesen Termin (sonst die eigenen des Events). */
+function toRow(event: SummaryEvent, viewerEmail: string, sharedBy: string | null = null, invitationCount = event._count.invitations): EventRowData {
   return {
     id: event.id,
     title: event.title,
@@ -34,7 +36,7 @@ function toRow(event: SummaryEvent, viewerEmail: string, sharedBy: string | null
     inviteOnly: event.inviteOnly,
     hasTickets: event._count.ticketCategories > 0,
     hasMenu: event._count.menuCourses > 0,
-    summary: summarizeEvent(event.rsvps, event.inviteOnly ? event._count.invitations : null),
+    summary: summarizeEvent(event.rsvps, event.inviteOnly ? invitationCount : null),
     ownerEmail: !sharedBy && event.owner.email !== viewerEmail ? event.owner.email : null,
     sharedBy
   }
@@ -64,7 +66,7 @@ export default async function AdminDashboard() {
       : Promise.resolve([]),
     prisma.eventSeries.findMany({
       where: isAdmin ? {} : { OR: [{ ownerId: user.id }, { id: { in: sharedSeriesIds } }] },
-      include: { owner: { select: { email: true } }, events: { include: EVENT_SUMMARY, orderBy: { date: 'asc' } } },
+      include: { owner: { select: { email: true } }, events: { include: EVENT_SUMMARY, orderBy: { date: 'asc' } }, invitations: { select: { allEvents: true, events: { select: { eventId: true } } } } },
       orderBy: { createdAt: 'asc' }
     })
   ])
@@ -118,7 +120,7 @@ export default async function AdminDashboard() {
                   </div>
                   {next.length === 0
                     ? <p className="px-1 pb-1 text-sm text-gray-500 dark:text-gray-400">Kein anstehender Termin.</p>
-                    : <div className="grid gap-2">{next.slice(0, 2).map(e => <EventRow key={e.id} event={toRow(e, user.email)} />)}</div>}
+                    : <div className="grid gap-2">{next.slice(0, 2).map(e => <EventRow key={e.id} event={toRow(e, user.email, null, invitationsForTermin(s.invitations, e.id))} />)}</div>}
                   {next.length > 2 && <p className="px-1 pt-2 text-xs text-gray-500 dark:text-gray-400">… und {next.length - 2} weitere anstehende Termine</p>}
                 </div>
               )

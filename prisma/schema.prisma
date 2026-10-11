@@ -102,6 +102,13 @@ model EventSeries {
   // per direktem DB-Zugriff (z.B. Prisma Studio), ausdrücklich analog zu set-role.js.
   requireGuestUser Boolean @default(false)
 
+  // Einladungsmodus für die ganze Reihe (docs/KONZEPT-EINLADUNGEN.md, Abschnitt 3): eine Einladungsliste mit
+  // einem Link pro Haushalt für alle bzw. ausgewählte Termine. Wird auf Event.inviteOnly aller Termine gespiegelt
+  // (updateEventSeries, addTerminToSeries) - so gelten für jeden Termin dieselben Regeln wie bei Einzel-Events.
+  // Nicht mit PIN, Konto-Pflicht, Verifizierung oder Ticketkategorien.
+  inviteOnly  Boolean      @default(false)
+  invitations Invitation[]
+
   createdAt    DateTime          @default(now())
   events       Event[]
   participants Participant[]
@@ -192,17 +199,20 @@ model Event {
 
   // Begleitungen und Angaben pro Person (Idee L2/L3 der Suite, docs/KONZEPT-EINLADUNGEN.md, app/lib/persons.ts):
   // bis zu so viele weitere Personen pro Antwort, 0 = keine. Ersetzt formConfig.askPlusOne (migrate-persons.js).
-  maxCompanions    Int          @default(0)
+  maxCompanions       Int                  @default(0)
   // Menü mit Gängen, Wahl pro Person (Idee L3, app/lib/menu.ts). Ohne Gänge keine Menüwahl.
-  menuCourses      MenuCourse[]
+  menuCourses         MenuCourse[]
   // Einladungsmodus (Idee L2, app/lib/invitations.ts): Nur eingeladene Haushalte können antworten, über ihren
-  // persönlichen Link. Nur für Einzel-Events, nicht mit PIN, Konto-Pflicht, Verifizierung oder Ticketkategorien.
-  inviteOnly       Boolean      @default(false)
-  invitations      Invitation[]
+  // persönlichen Link. Nicht mit PIN, Konto-Pflicht, Verifizierung oder Ticketkategorien. Bei Reihen-Terminen
+  // gespiegelt von EventSeries.inviteOnly, die Einladungen hängen dann an der Reihe (invitationEvents: Auswahl).
+  inviteOnly          Boolean              @default(false)
+  invitations         Invitation[]
+  invitationEvents    InvitationEvent[]
+  invitationReminders InvitationReminder[]
   // Antwortfrist (app/lib/rsvp-deadline.ts): Ende des Tages (Ortszeit), danach ändern nur noch Verwaltung und
   // Nachrücken etwas. rsvpReminderDays: Erinnerung an Einladungen ohne Antwort so viele Tage vorher (Cron).
-  rsvpDeadline     DateTime?
-  rsvpReminderDays Int?
+  rsvpDeadline        DateTime?
+  rsvpReminderDays    Int?
 
   // Verknüpfungen mit anderen Tools der Suite (Seating, später Zeitplan) - höchstens eine je
   // Tool-Typ, siehe EventToolLink.
@@ -351,24 +361,57 @@ model RsvpPerson {
 
 // Eine Einladung an einen Haushalt (Idee L2, docs/KONZEPT-EINLADUNGEN.md, app/lib/invitations.ts). Legt sofort
 // einen Participant an - dessen editToken ist der persönliche Link. Löscht der Haushalt seine Daten, geht die
-// Einladung mit (Cascade).
+// Einladung mit (Cascade). Gehört entweder zu einem Einzel-Event (eventId) oder zu einer Reihe (seriesId, der
+// Participant ist dann einer der Reihe und der Link gilt für alle Termine, zu denen der Haushalt eingeladen ist).
 model Invitation {
-  id             String             @id @default(cuid())
-  eventId        String
-  event          Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  participantId  String             @unique
-  participant    Participant        @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  id             String               @id @default(cuid())
+  eventId        String?
+  event          Event?               @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  seriesId       String?
+  series         EventSeries?         @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  // Nur bei Reihen: true = zu allen Terminen (auch künftigen), sonst nur zu denen in `events`
+  allEvents      Boolean              @default(true)
+  events         InvitationEvent[]
+  participantId  String               @unique
+  participant    Participant          @relation(fields: [participantId], references: [id], onDelete: Cascade)
   label          String
   email          String?
   // Wie viele Personen der Haushalt selbst dazu eintragen darf ("+1")
-  extraPersons   Int                @default(0)
+  extraPersons   Int                  @default(0)
   // Nur für die Verwaltung
   note           String?
   sentAt         DateTime?
+  // Früher: Erinnerung vor der Frist gesendet - jetzt pro Termin in InvitationReminder (migrate-series-invitations.js)
   reminderSentAt DateTime?
-  createdAt      DateTime           @default(now())
+  createdAt      DateTime             @default(now())
   persons        InvitationPerson[]
+  reminders      InvitationReminder[]
 
+  @@index([eventId])
+  @@index([seriesId])
+}
+
+// Termine, zu denen eine Reihen-Einladung gilt (nur wenn Invitation.allEvents aus ist).
+model InvitationEvent {
+  invitationId String
+  invitation   Invitation @relation(fields: [invitationId], references: [id], onDelete: Cascade)
+  eventId      String
+  event        Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@id([invitationId, eventId])
+  @@index([eventId])
+}
+
+// Erinnerung an eine Einladung ohne Antwort, einmal pro Termin und Frist (app/lib/invitation-reminder.ts). Das
+// Anlegen der Zeile ist die atomare Beanspruchung; eine neue Frist löscht die Zeilen des Termins.
+model InvitationReminder {
+  invitationId String
+  invitation   Invitation @relation(fields: [invitationId], references: [id], onDelete: Cascade)
+  eventId      String
+  event        Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  sentAt       DateTime   @default(now())
+
+  @@id([invitationId, eventId])
   @@index([eventId])
 }
 

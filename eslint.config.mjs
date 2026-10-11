@@ -16,7 +16,7 @@ const eslintConfig = defineConfig([
   // (per `node create-user.js` etc. ausgeführt, siehe CLAUDE.md) statt Teil der
   // TypeScript/Next.js-App - require() ist hier die korrekte, keine zu ersetzende Syntax.
   {
-    files: ["create-user.js", "seed.js", "set-role.js", "migrate-token-hashes.js", "migrate-tool-links.js", "migrate-drop-seating-columns.js", "migrate-persons.js", "migrate-person-details.js"],
+    files: ["create-user.js", "seed.js", "set-role.js", "migrate-token-hashes.js", "migrate-tool-links.js", "migrate-drop-seating-columns.js", "migrate-persons.js", "migrate-person-details.js", "migrate-invitation-reminders.js"],
     rules: {
       "@typescript-eslint/no-require-imports": "off",
     },
@@ -29,6 +29,7 @@ const eslintConfig = defineConfig([
     "migrate-drop-seating-columns.js",
     "migrate-persons.js",
     "migrate-person-details.js",
+    "migrate-invitation-reminders.js",
     // Default ignores of eslint-config-next:
     ".next/**",
     "out/**",

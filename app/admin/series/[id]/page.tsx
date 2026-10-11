@@ -4,6 +4,7 @@ import type { Prisma } from '@prisma/client'
 import { prisma } from '../../../lib/prisma'
 import { addTerminToSeries } from '../../actions'
 import { summarizeEvent } from '../../../lib/event-summary'
+import { invitationsForTermin } from '../../../lib/invitations'
 import { splitArchived } from '../../../lib/event-date'
 import EventRow from '../../event-row'
 import DeleteSeriesButton from '../../delete-series-button'
@@ -27,10 +28,14 @@ export default async function SeriesTermine({ params }: { params: Promise<{ id: 
   if (!loaded) notFound()
   const { series, isOwner } = loaded
 
-  const events = await prisma.event.findMany({ where: { seriesId: series.id }, include: TERMIN_SUMMARY, orderBy: { date: 'asc' } })
+  const [events, invitations] = await Promise.all([
+    prisma.event.findMany({ where: { seriesId: series.id }, include: TERMIN_SUMMARY, orderBy: { date: 'asc' } }),
+    prisma.invitation.findMany({ where: { seriesId: series.id }, select: { allEvents: true, events: { select: { eventId: true } } } })
+  ])
   const row = (e: (typeof events)[number]) => ({
-    id: e.id, title: e.title, date: e.date, datePending: e.datePending, location: e.location, maxCapacity: e.maxCapacity, inviteOnly: false,
-    hasTickets: e._count.ticketCategories > 0, hasMenu: e._count.menuCourses > 0, summary: summarizeEvent(e.rsvps)
+    id: e.id, title: e.title, date: e.date, datePending: e.datePending, location: e.location, maxCapacity: e.maxCapacity, inviteOnly: e.inviteOnly,
+    hasTickets: e._count.ticketCategories > 0, hasMenu: e._count.menuCourses > 0,
+    summary: summarizeEvent(e.rsvps, e.inviteOnly ? invitationsForTermin(invitations, e.id) : null)
   })
   // Wie für Gäste: 48 Stunden nach Beginn wandert ein Termin ins Archiv (isArchived in app/lib/event-date.ts)
   const { current: upcoming, archived: past } = splitArchived(events)

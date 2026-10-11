@@ -143,8 +143,10 @@ export default function DatenschutzPage() {
             Diese Daten stammen also nicht von dir, sondern von den Veranstalter:innen (Art. 14 DSGVO); wir verwenden
             sie nur, um dir die Einladung zuzustellen und deine Antwort zuzuordnen. Jeder Haushalt bekommt einen
             persönlichen Link, über den ihr für jede Person zu- oder absagt, Namen korrigiert und - falls vorgesehen -
-            weitere Personen eintragt. Ohne diesen Link zeigt die Veranstaltungsseite nur den Titel. Über den Link kannst
-            du eure Daten auch selbst vollständig löschen; damit verschwindet auch die Einladung.
+            weitere Personen eintragt. Bei einer Reihe von Terminen (z.B. Polterabend, Trauung und Feier) gilt der Link
+            für alle Termine, zu denen ihr eingeladen seid; geantwortet wird pro Termin. Ohne diesen Link zeigt die
+            Veranstaltungsseite nur den Titel. Über den Link kannst du eure Daten auch selbst vollständig löschen; damit
+            verschwindet auch die Einladung.
           </p>
           <p className="mt-2">
             <strong>Antwortfrist:</strong> Legen die Veranstalter:innen eine Antwortfrist fest, kannst du deine Antwort
@@ -187,7 +189,7 @@ export default function DatenschutzPage() {
           <p className="mt-2">
             <strong>Einladungen:</strong> Haben die Veranstalter:innen für deinen Haushalt eine E-Mail-Adresse
             eingetragen, schicken wir dorthin die Einladung mit eurem persönlichen Link und - falls ihr bis kurz vor der
-            Antwortfrist noch nicht geantwortet habt - einmal eine Erinnerung.
+            Antwortfrist noch nicht geantwortet habt - einmal eine Erinnerung (bei einer Reihe pro Termin mit Frist).
           </p>
           <p className="mt-2">
             <strong>Änderungs-Mitteilungen:</strong> Ändert die Veranstalter:in nach deiner Zusage wesentliche Angaben

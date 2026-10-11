@@ -2,16 +2,14 @@
 import { notFound } from 'next/navigation'
 import { prisma } from '../../../../lib/prisma'
 import { formatPersonList, invitationStatus } from '../../../../lib/invitations'
-import { invitationLink } from '../../../../lib/invitation-store'
+import { invitationLink, invitationsForEvent } from '../../../../lib/invitation-store'
 import { formatDeadline } from '../../../../lib/rsvp-deadline'
 import { remindInvitations, sendInvitations } from '../../../invitation-actions'
-import { Badge, ButtonLink, Card, Notice, buttonClass, inputClass } from '../../../../ui/kit'
-import { loadAdminEvent } from '../event-access'
+import { ButtonLink, Card, Notice, buttonClass, inputClass } from '../../../../ui/kit'
+import { StateBadge, personTotals, personsLine } from '../../../invitation-status'
+import { loadAdminEvent, type AdminEvent } from '../event-access'
 import { AddInvitationsForm, DeleteInvitationButton, EditInvitationForm } from './invitation-forms'
 
-const STATE_LABEL = { open: 'offen', attending: 'zugesagt', waitlist: 'Warteliste', declined: 'abgesagt' }
-const STATE_TONE = { open: 'gray', attending: 'green', waitlist: 'orange', declined: 'red' } as const
-const PERSON_MARK = { yes: '✓', no: '✗', open: '?' }
 
 /**
  * Reiter "Einladungen" der Event-Seite (docs/KONZEPT-EINLADUNGEN.md, Abschnitt 3): Stand pro Haushalt und Person,
@@ -22,7 +20,9 @@ export default async function InvitationsPage({ params, searchParams }: { params
   const { id: eventId } = await params
   const { gesendet, erinnert } = await searchParams
   const loaded = await loadAdminEvent(eventId)
-  if (!loaded || loaded.event.seriesId) notFound()
+  if (!loaded) notFound()
+  // Termin einer Reihe: die Einladungen hängen an der Reihe, hier nur der Stand für diesen Termin
+  if (loaded.event.seriesId) return <TerminInvitations loaded={loaded} erinnert={erinnert} />
   const { event, isOwner: canSend } = loaded
 
   const invitations = await prisma.invitation.findMany({
@@ -38,8 +38,7 @@ export default async function InvitationsPage({ params, searchParams }: { params
     status: invitationStatus(invitation.persons, invitation.participant.rsvps[0] ?? null),
     link: invitationLink(event, invitation.participant)
   }))
-  const persons = rows.flatMap(r => r.status.persons)
-  const count = (filter: (p: (typeof persons)[number]) => boolean) => persons.filter(filter).length
+  const totals = personTotals(rows.map(r => r.status))
   const unsent = invitations.filter(i => i.email && !i.sentAt).length
   const openWithEmail = rows.filter(r => r.invitation.email && r.status.state === 'open').length
   const deadline = formatDeadline(event.rsvpDeadline)
@@ -56,9 +55,9 @@ export default async function InvitationsPage({ params, searchParams }: { params
 
         <Card>
           <p className="text-sm" data-testid="invitation-summary">
-            <strong>{invitations.length} Haushalte</strong> ({rows.filter(r => r.status.state === 'open').length} ohne Antwort) · Personen: {count(p => p.status === 'yes')} kommen
-            ({count(p => p.status === 'yes' && p.ageGroup === 'ADULT')} Erwachsene, {count(p => p.status === 'yes' && p.ageGroup === 'CHILD')} Kinder, {count(p => p.status === 'yes' && p.ageGroup === 'INFANT')} Kleinkinder),
-            {' '}{count(p => p.status === 'no')} kommen nicht, {count(p => p.status === 'open')} offen
+            <strong>{invitations.length} Haushalte</strong> ({rows.filter(r => r.status.state === 'open').length} ohne Antwort) · Personen: {totals.yes} kommen
+            ({totals.adults} Erwachsene, {totals.children} Kinder, {totals.infants} Kleinkinder),
+            {' '}{totals.no} kommen nicht, {totals.open} offen
             {deadline && <> · Antwortfrist: {deadline}</>}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
@@ -91,11 +90,10 @@ export default async function InvitationsPage({ params, searchParams }: { params
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-semibold text-gray-900 dark:text-gray-100">{invitation.label}</span>
-                      <Badge tone={STATE_TONE[status.state]}>{STATE_LABEL[status.state]}</Badge>
+                      <StateBadge state={status.state} />
                     </div>
                     <p className="text-sm text-gray-700 dark:text-gray-300">
-                      {status.persons.map(p => `${PERSON_MARK[p.status]} ${p.name}${p.ageGroup === 'CHILD' ? ' (Kind)' : p.ageGroup === 'INFANT' ? ' (Kleinkind)' : ''}${p.extra ? ' +' : ''}`).join(' · ')}
-                      {invitation.extraPersons > 0 && ` · bis zu ${invitation.extraPersons} weitere`}
+                      {personsLine(status, invitation.extraPersons)}
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
                       {invitation.email ?? 'keine E-Mail'}{invitation.sentAt ? ` · Mail gesendet am ${invitation.sentAt.toLocaleDateString('de-DE')}` : ''}
@@ -125,6 +123,65 @@ export default async function InvitationsPage({ params, searchParams }: { params
             ))}
           </ul>
         )}
+    </div>
+  )
+}
+
+/**
+ * Reiter "Einladungen" eines Reihen-Termins (docs/KONZEPT-EINLADUNGEN.md, Abschnitt 3): Stand der Haushalte, die zu
+ * diesem Termin eingeladen sind, und die Erinnerung für ihn. Anlegen und Bearbeiten auf der Seite der Reihe.
+ */
+async function TerminInvitations({ loaded, erinnert }: { loaded: AdminEvent; erinnert?: string }) {
+  const { event, isOwner: canSend } = loaded
+  const series = event.series!
+  if (!event.inviteOnly && loaded.invitationCount === 0) notFound()
+  const invitations = await prisma.invitation.findMany({
+    where: invitationsForEvent(event),
+    include: { persons: { orderBy: { position: 'asc' } }, participant: { include: { rsvps: { where: { eventId: event.id }, include: { persons: true } } } } },
+    orderBy: { createdAt: 'asc' }
+  })
+  const rows = invitations.map(invitation => ({
+    invitation,
+    status: invitationStatus(invitation.persons, invitation.participant.rsvps[0] ?? null),
+    link: invitationLink({ seriesSlug: series.slug, terminSlug: event.slug }, invitation.participant)
+  }))
+  const totals = personTotals(rows.map(r => r.status))
+  const openWithEmail = rows.filter(r => r.invitation.email && r.status.state === 'open').length
+  const deadline = formatDeadline(event.rsvpDeadline)
+
+  return (
+    <div className="space-y-6">
+      {erinnert !== undefined && <Notice tone="success" role="status">✅ {erinnert} Erinnerung(en) verschickt.</Notice>}
+      <Card>
+        <p className="text-sm" data-testid="invitation-summary">
+          <strong>{invitations.length} Haushalte</strong> zu diesem Termin eingeladen ({rows.filter(r => r.status.state === 'open').length} ohne Antwort) · Personen: {totals.yes} kommen
+          ({totals.adults} Erwachsene, {totals.children} Kinder, {totals.infants} Kleinkinder), {totals.no} kommen nicht, {totals.open} offen
+          {deadline && <> · Antwortfrist: {deadline}</>}
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <ButtonLink href={`/admin/series/${series.id}/einladungen`} size="sm">💌 Einladungen der Reihe verwalten</ButtonLink>
+          {canSend && openWithEmail > 0 && (
+            <form action={remindInvitations}>
+              <input type="hidden" name="eventId" value={event.id} />
+              <button type="submit" className={buttonClass('secondary', 'sm')}>⏰ Erinnerung an {openWithEmail} ohne Antwort senden</button>
+            </form>
+          )}
+        </div>
+      </Card>
+      {rows.length > 0 && (
+        <ul className="space-y-2" data-testid="invitations">
+          {rows.map(({ invitation, status, link }) => (
+            <li key={invitation.id} className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-800" data-testid="invitation">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-semibold text-gray-900 dark:text-gray-100">{invitation.label}</span>
+                <StateBadge state={status.state} />
+                <a href={link} target="_blank" rel="noopener" className="ml-auto text-xs text-blue-700 hover:underline dark:text-blue-300">Antwort ansehen</a>
+              </div>
+              <p className="text-sm text-gray-700 dark:text-gray-300">{personsLine(status, invitation.extraPersons)}</p>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }

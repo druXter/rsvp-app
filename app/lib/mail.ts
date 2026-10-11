@@ -765,28 +765,28 @@ export async function sendPaymentReminderEmail(participant: Participant, rsvp: R
  */
 export async function sendInvitationEmail(
   invitation: { label: string; email: string; persons: { name: string }[] },
-  event: Event,
+  occasion: { title: string; dates: string[] },
   link: string,
-  options: { reminder?: boolean; deadline?: string | null } = {}
+  options: { reminder?: boolean } = {}
 ) {
   const names = invitation.persons.map(p => p.name).join(', ')
   const intro = options.reminder
-    ? `ihr habt noch nicht geantwortet, ob ihr zu "${event.title}" kommt.`
-    : `wir laden euch herzlich ein: "${event.title}".`
-  const deadline = options.deadline ? `Bitte antwortet bis ${options.deadline}.` : 'Bitte gebt uns Bescheid, wer von euch kommt.'
-  const where = `${formatEventDate(event)}${event.location ? `, ${event.location}` : ''}`
+    ? `ihr habt noch nicht geantwortet, ob ihr zu "${occasion.title}" kommt.`
+    : `wir laden euch herzlich ein: "${occasion.title}".`
+  // Ein Termin (Einzel-Event) bzw. mehrere (Reihe) - je mit Ort und Frist (invitationOccasion)
+  const single = occasion.dates.length === 1
   await transporter.sendMail({
     from: process.env.SMTP_FROM,
     to: invitation.email,
-    subject: `${options.reminder ? 'Erinnerung an die Einladung' : 'Einladung'}: ${event.title}`,
+    subject: `${options.reminder ? 'Erinnerung an die Einladung' : 'Einladung'}: ${occasion.title}`,
     text: `Hallo ${invitation.label},
 
 ${intro}
 
-Wann und wo: ${where}
+${single ? `Wann und wo: ${occasion.dates[0]}` : `Termine:\n${occasion.dates.map(d => `- ${d}`).join('\n')}`}
 Eingeladen: ${names}
 
-${deadline} Über diesen persönlichen Link sagt ihr für jede Person zu oder ab:
+Bitte gebt uns Bescheid, wer von euch kommt. Über diesen persönlichen Link sagt ihr für jede Person zu oder ab:
 ${link}
 
 Viele Grüße`,
@@ -795,8 +795,10 @@ Viele Grüße`,
         <h2>${options.reminder ? 'Erinnerung an die Einladung' : 'Einladung'} 💌</h2>
         <p>Hallo ${escapeHtml(invitation.label)},</p>
         <p>${escapeHtml(intro)}</p>
-        <p><strong>Wann und wo:</strong> ${escapeHtml(where)}<br><strong>Eingeladen:</strong> ${escapeHtml(names)}</p>
-        <p>${escapeHtml(deadline)}</p>
+        ${single
+          ? `<p><strong>Wann und wo:</strong> ${escapeHtml(occasion.dates[0])}<br><strong>Eingeladen:</strong> ${escapeHtml(names)}</p>`
+          : `<p><strong>Termine:</strong></p><ul>${occasion.dates.map(d => `<li>${escapeHtml(d)}</li>`).join('')}</ul><p><strong>Eingeladen:</strong> ${escapeHtml(names)}</p>`}
+        <p>Bitte gebt uns Bescheid, wer von euch kommt.</p>
         <p style="text-align: center; margin: 30px 0;">
           <a href="${link}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">Jetzt antworten</a>
         </p>

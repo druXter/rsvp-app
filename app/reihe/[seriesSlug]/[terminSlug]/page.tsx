@@ -7,6 +7,8 @@ import Link from 'next/link'
 import RsvpForm from '../../../[slug]/rsvp-form'
 import PinForm from '../../../[slug]/pin-form'
 import GuestRequiredGate from '../../../[slug]/guest-required-gate'
+import InvitationGate from '../../../[slug]/invitation-gate'
+import { householdForForm, invitationOf } from '../../../lib/invitation-store'
 import PollResultBanner from '../../../ui/poll-result-banner'
 import PhotoLinkBanner from '../../../ui/photo-link-banner'
 import { photoLinkVisible } from '../../../lib/photo-link'
@@ -124,6 +126,21 @@ export default async function SeriesEventPage({
     }
   }
 
+  // Einladungsmodus der Reihe (docs/KONZEPT-EINLADUNGEN.md, von EventSeries.inviteOnly auf den Termin gespiegelt):
+  // nur mit dem Link einer Einladung, die diesen Termin einschließt - eine Gast-Session allein reicht nicht
+  let household = null
+  if (event.inviteOnly) {
+    const invitation = token && participant && 'id' in participant ? await invitationOf(participant.id, event) : null
+    if (!invitation) {
+      return (
+        <main className="min-h-screen bg-gray-50 dark:bg-gray-900">
+          <InvitationGate title={series.title} />
+        </main>
+      )
+    }
+    household = { label: invitation.label, rows: await householdForForm(invitation, existingRsvp?.id ?? null), extraPersons: invitation.extraPersons }
+  }
+
   // Reihenweite Profil-Felder (E-Mail/Handy/Essen/Allergien) mit den pro Termin
   // abgefragten Feldern (Alkohol/Begleitung/Mitbringsel) zu EINER Konfiguration mergen
   const perTerminConfig = event.formConfig ? JSON.parse(event.formConfig) : {}
@@ -192,6 +209,7 @@ export default async function SeriesEventPage({
           rsvp={existingRsvp}
           {...await guestPersons(event, existingRsvp)}
           deadline={event.rsvpDeadline ? { label: formatDeadline(event.rsvpDeadline)!, passed: deadlinePassed(event) } : null}
+          household={household}
           {...await guestTicketing(event, existingRsvp, !!participant?.isVerified, series.requireVerification)}
           seatingLabel={existingRsvp?.seatingLabel ?? null}
           canOpenTimeline={!!timelineLinkOf(event) && !!existingRsvp && isTimelineConfirmed(existingRsvp, { isVerified: !!participant?.isVerified }, series.requireVerification)}
@@ -213,7 +231,10 @@ export default async function SeriesEventPage({
                   <li key={guest.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-100 dark:border-gray-700">
                     <div>
                       <span className="font-bold text-gray-800 dark:text-gray-100">{guest.participant.name}</span>
-                      {guest.persons.length > 1 && guest.isAttending && (
+                      {event.inviteOnly && guest.isAttending && (
+                        <span className="text-gray-500 dark:text-gray-400 text-sm ml-1">({guest.persons.filter(p => p.isAttending).map(p => p.name).join(', ')})</span>
+                      )}
+                      {!event.inviteOnly && guest.persons.length > 1 && guest.isAttending && (
                         <span className="text-gray-500 dark:text-gray-400 text-sm ml-1">(+ {guest.persons.slice(1).map(p => p.name || 'Begleitung').join(', ')})</span>
                       )}
 

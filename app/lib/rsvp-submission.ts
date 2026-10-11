@@ -180,7 +180,7 @@ export async function performRsvpSubmission(
   // Einladungsmodus (docs/KONZEPT-EINLADUNGEN.md, Abschnitt 3): nur über den Link einer Einladung zu GENAU diesem
   // Termin. Der Haushalt antwortet pro Person; er sagt zu, wenn mindestens eine Person (nicht nur Kleinkinder)
   // kommt. Name der Antwort ist die Bezeichnung der Einladung.
-  const invitation = event.inviteOnly ? await invitationOf(existingParticipant?.id, eventId) : null
+  const invitation = event.inviteOnly ? await invitationOf(existingParticipant?.id, event) : null
   if (event.inviteOnly && !invitation) {
     throw new RsvpInputError('Für diesen Termin braucht es eine persönliche Einladung. Bitte nutze den Link aus deiner Einladung.')
   }

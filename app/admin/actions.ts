@@ -34,6 +34,8 @@ import { parseDeadline } from '../lib/rsvp-deadline'
 import { EVENT_PRESETS, presetOf, slugify } from '../lib/event-presets'
 import { savePersons } from '../lib/rsvp-submission'
 import { checkInAll, checkOutAll, togglePerson } from '../lib/checkin'
+import { resetInvitationReminders } from '../lib/invitation-reminder'
+import { invitationCovers } from '../lib/invitation-store'
 
 const prisma = new PrismaClient()
 
@@ -73,7 +75,7 @@ async function assertCompanionsAllowed(maxCompanions: number | undefined, catego
 }
 
 /**
- * Einladungsmodus (docs/KONZEPT-EINLADUNGEN.md, Abschnitt 3): nur für Einzel-Events und nicht zusammen mit PIN,
+ * Einladungsmodus (docs/KONZEPT-EINLADUNGEN.md, Abschnitt 3): für Einzel-Events und Reihen, nicht zusammen mit PIN,
  * Konto-Pflicht, E-Mail-Verifizierung oder Ticketkategorien - der persönliche Link ersetzt diese Zugänge, und
  * Kategorien gelten pro Person. Wirft, bevor etwas gespeichert ist.
  */
@@ -81,14 +83,18 @@ async function assertInviteOnlyAllowed(
   inviteOnly: boolean,
   settings: { eventPin: string | null; requireVerification: boolean; requireGuestUser: boolean },
   categories: TicketCategoryInput[] | null,
-  eventId: string | null
+  target: { eventId: string } | { seriesId: string } | null
 ) {
   if (!inviteOnly) return
+  // Kategorien aus dem Formular, sonst die gespeicherten des Termins bzw. aller Termine der Reihe
+  const hasCategories = categories
+    ? categories.length > 0
+    : !!target && (await prisma.ticketCategory.count({ where: 'seriesId' in target ? { event: { seriesId: target.seriesId } } : { eventId: target.eventId } })) > 0
   const conflicts = [
     settings.eventPin && 'PIN',
     settings.requireVerification && 'E-Mail-Verifizierung',
     settings.requireGuestUser && 'Teilnehmendenkonto-Pflicht',
-    (categories ? categories.length > 0 : !!eventId && (await prisma.ticketCategory.count({ where: { eventId } })) > 0) && 'Ticketkategorien'
+    hasCategories && 'Ticketkategorien'
   ].filter(Boolean)
   if (conflicts.length > 0) throw new Error(`Einladungsmodus: nicht zusammen mit ${conflicts.join(', ')}. Der persönliche Link ersetzt diese Zugänge.`)
 }
@@ -112,10 +118,8 @@ function readDeadlineSettings(formData: FormData): { rsvpDeadline?: Date | null;
 }
 
 /** Neue Antwortfrist: Erinnerungen an Einladungen gehen für die neue Frist noch einmal. */
-async function resetInvitationReminders(eventId: string, before: Date | null, after: Date | null | undefined) {
-  if (after !== undefined && (before?.getTime() ?? null) !== (after?.getTime() ?? null)) {
-    await prisma.invitation.updateMany({ where: { eventId }, data: { reminderSentAt: null } })
-  }
+async function resetRemindersOnNewDeadline(eventId: string, before: Date | null, after: Date | null | undefined) {
+  if (after !== undefined && (before?.getTime() ?? null) !== (after?.getTime() ?? null)) await resetInvitationReminders(eventId)
 }
 
 /**
@@ -608,7 +612,7 @@ export async function updateEvent(formData: FormData) {
   const deadline = readDeadlineSettings(formData)
   // Einladungsmodus nur über das Bearbeiten-Formular eines Einzel-Events (Feld fehlt = unverändert)
   const inviteOnly = formData.has('inviteOnlyShown') ? formData.get('inviteOnly') === 'on' : existingEvent.inviteOnly
-  await assertInviteOnlyAllowed(inviteOnly, { eventPin, requireVerification, requireGuestUser: existingEvent.requireGuestUser }, ticketing.ticketCategories, id)
+  await assertInviteOnlyAllowed(inviteOnly, { eventPin, requireVerification, requireGuestUser: existingEvent.requireGuestUser }, ticketing.ticketCategories, { eventId: id })
 
   const formConfig = JSON.stringify({
     askEmail: formData.get('askEmail') === 'on',
@@ -660,7 +664,7 @@ export async function updateEvent(formData: FormData) {
   await saveToolLinks(id, toolLinks)
   await saveBringSlots(id, bringSlots)
   await saveMenu(id, menu)
-  await resetInvitationReminders(id, existingEvent.rsvpDeadline, deadline.rsvpDeadline)
+  await resetRemindersOnNewDeadline(id, existingEvent.rsvpDeadline, deadline.rsvpDeadline)
   await applyTicketing(id, ticketing, ticketing.seatingRequiresPayment !== undefined && ticketing.seatingRequiresPayment !== existingEvent.seatingRequiresPayment)
 
   if (notifyGuests && changes.length > 0) {
@@ -739,8 +743,8 @@ export async function updateAdminRsvp(formData: FormData) {
   // vollständig wählen, gespeichert wird nur, was es im Menü des Termins gibt.
   const menu = existingRsvp.event.menuCourses.map(c => ({ id: c.id, label: c.label, options: courseOptions(c.options) }))
   // Antwort eines eingeladenen Haushalts: Personen und Zu-/Absage bleiben, wie der Haushalt sie gesetzt hat
-  const invitation = await prisma.invitation.findUnique({ where: { participantId: existingRsvp.participantId }, select: { eventId: true } })
-  const isHousehold = invitation?.eventId === existingRsvp.eventId
+  const invitation = await prisma.invitation.findUnique({ where: { participantId: existingRsvp.participantId }, include: { events: { select: { eventId: true } } } })
+  const isHousehold = !!invitation && invitationCovers(invitation, existingRsvp.event)
   const isAttending = isHousehold ? existingRsvp.isAttending : requestedAttending
   const usesPersons = !isHousehold && ((categories.length === 0 && existingRsvp.event.maxCompanions > 0) || existingRsvp.persons.length > 0 || menu.length > 0)
   const companions = categories.length > 0 ? [] : (companionsInput ?? companionsOf(existingRsvp.persons)).slice(0, MAX_COMPANIONS)
@@ -1108,13 +1112,19 @@ export async function updateEventSeries(formData: FormData) {
   const isGuestListVisible = formData.get('isGuestListVisible') === 'on'
   const eventPinInput = formData.get('eventPin') as string
   const eventPin = eventPinInput ? eventPinInput.trim() : null
+  // Einladungsmodus der Reihe (docs/KONZEPT-EINLADUNGEN.md): gilt für alle Termine, gespiegelt auf Event.inviteOnly
+  const inviteOnly = formData.has('inviteOnlyShown') ? formData.get('inviteOnly') === 'on' : existingSeries.inviteOnly
+  await assertInviteOnlyAllowed(inviteOnly, { eventPin, requireVerification, requireGuestUser: existingSeries.requireGuestUser }, null, { seriesId: id })
 
   const slug = slugInput.toLowerCase().replace(/[^a-z0-9-]/g, '-')
 
-  await prisma.eventSeries.update({
-    where: { id },
-    data: { title, slug, description, askEmail, askPhone, askDiet, askAllergies, requireVerification, isGuestListVisible, eventPin }
-  })
+  await prisma.$transaction([
+    prisma.eventSeries.update({
+      where: { id },
+      data: { title, slug, description, askEmail, askPhone, askDiet, askAllergies, requireVerification, isGuestListVisible, eventPin, inviteOnly }
+    }),
+    prisma.event.updateMany({ where: { seriesId: id }, data: { inviteOnly } })
+  ])
 
   revalidatePath('/admin', 'layout')
   redirect(`/admin/series/${id}/edit?gespeichert=1`)
@@ -1200,7 +1210,9 @@ export async function addTerminToSeries(formData: FormData) {
       reminderDays,
       maxCapacity,
       maxCompanions: readMaxCompanions(formData),
-      enableCheckin
+      enableCheckin,
+      // Einladungsmodus kommt von der Reihe (gespiegelt, siehe EventSeries.inviteOnly)
+      inviteOnly: series.inviteOnly
     }
   })
 
@@ -1240,6 +1252,8 @@ export async function updateSeriesTermin(formData: FormData) {
   const ticketing = await readTicketing(formData, id)
   const maxCompanions = readMaxCompanions(formData)
   await assertCompanionsAllowed(maxCompanions, ticketing.ticketCategories, id)
+  // Termin einer Reihe im Einladungsmodus: keine Ticketkategorien (die übrigen Zugänge regelt die Reihe)
+  await assertInviteOnlyAllowed(existingEvent.inviteOnly, { eventPin: null, requireVerification: false, requireGuestUser: false }, ticketing.ticketCategories, { eventId: id })
   const menu = readMenu(formData)
   await assertMenuChangeable(id, menu)
   const deadline = readDeadlineSettings(formData)
@@ -1273,7 +1287,7 @@ export async function updateSeriesTermin(formData: FormData) {
   await saveToolLinks(id, toolLinks)
   await saveBringSlots(id, bringSlots)
   await saveMenu(id, menu)
-  await resetInvitationReminders(id, existingEvent.rsvpDeadline, deadline.rsvpDeadline)
+  await resetRemindersOnNewDeadline(id, existingEvent.rsvpDeadline, deadline.rsvpDeadline)
   await applyTicketing(id, ticketing, ticketing.seatingRequiresPayment !== undefined && ticketing.seatingRequiresPayment !== existingEvent.seatingRequiresPayment)
 
   if (notifyGuests && changes.length > 0) {

@@ -112,6 +112,15 @@ export default async function EditEventSeriesPage({
             </div>
           </ThemeSection>
 
+          <ThemeSection color="indigo" title="Einladungen" description="Z. B. eine Hochzeit mit Polterabend, Standesamt, Feier und Brunch: ein persönlicher Link pro Haushalt für alle Termine, zu denen er eingeladen ist.">
+            <input type="hidden" name="inviteOnlyShown" value="1" />
+            <label className={`flex items-center gap-2 cursor-pointer text-sm font-medium ${themeClasses('indigo').heading}`}>
+              <input type="checkbox" name="inviteOnly" defaultChecked={series.inviteOnly} className={`w-4 h-4 ${themeClasses('indigo').accent}`} />
+              💌 Nur mit Einladung
+            </label>
+            <p className="mt-1 ml-6 text-xs text-gray-600 dark:text-gray-400">Gilt für alle Termine. Antworten nur über den Link einer Einladung (Reiter „Einladungen“), pro Person. Nicht zusammen mit PIN, E-Mail-Verifizierung, Konto-Pflicht oder Ticketkategorien.</p>
+          </ThemeSection>
+
         </form>
         )}
 

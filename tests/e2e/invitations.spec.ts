@@ -310,7 +310,8 @@ test('Erinnerung an Einladungen ohne Antwort: per Cron einmal vor der Frist, per
 
   const cron = async () => (await (await request.get(`/api/cron/reminders?secret=${TEST_CRON_SECRET}`)).json()).invitationReminders
   expect(await cron()).toBeGreaterThanOrEqual(1)
-  const reminded = (id: string) => prisma.invitation.findUniqueOrThrow({ where: { id } }).then(i => i.reminderSentAt)
+  // Pro Einladung und Termin (InvitationReminder)
+  const reminded = (id: string) => prisma.invitationReminder.findFirst({ where: { invitationId: id } }).then(r => r?.sentAt ?? null)
   expect(await reminded(silent.id)).not.toBeNull()
   expect(await reminded(answered.id)).toBeNull()
   expect(await reminded(noMail.id)).toBeNull()

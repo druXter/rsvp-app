@@ -8,8 +8,8 @@ import { Badge, ButtonLink } from '../../../ui/kit'
 import { loadAdminSeries } from './series-access'
 
 /**
- * Reihen-Seite der Verwaltung (docs/KONZEPT-OBERFLAECHE.md): Kopf der Reihe, Reiter "Termine" und "Einstellungen"
- * (für Moderator*innen nur "Mitglieder"). Jeder Termin hat seine eigene Event-Seite (/admin/events/[id]).
+ * Reihen-Seite der Verwaltung (docs/KONZEPT-OBERFLAECHE.md): Kopf der Reihe, Reiter "Termine", im Einladungsmodus
+ * "Einladungen" und "Einstellungen" (für Moderator*innen nur "Mitglieder"). Jeder Termin hat seine eigene Event-Seite (/admin/events/[id]).
  */
 export default async function SeriesLayout({ params, children }: { params: Promise<{ id: string }>; children: ReactNode }) {
   const { id } = await params
@@ -32,6 +32,7 @@ export default async function SeriesLayout({ params, children }: { params: Promi
               {series.eventPin && <Badge>PIN</Badge>}
               {series.requireVerification && <Badge tone="amber">E-Mail-Bestätigung</Badge>}
               {series.requireGuestUser && <Badge tone="indigo">nur mit Konto</Badge>}
+              {series.inviteOnly && <Badge tone="indigo">Nur mit Einladung</Badge>}
               {!isOwner && <Badge tone="teal">freigegeben von {series.owner.email}</Badge>}
             </div>
           </div>
@@ -40,6 +41,7 @@ export default async function SeriesLayout({ params, children }: { params: Promi
       </div>
       <nav className="-mx-4 mb-6 flex overflow-x-auto border-b border-gray-200 px-4 dark:border-gray-700" aria-label="Bereiche der Reihe">
         <NavLink href={base} exact variant="tab">Termine</NavLink>
+        {(series.inviteOnly || series._count.invitations > 0) && <NavLink href={`${base}/einladungen`} variant="tab">Einladungen</NavLink>}
         <NavLink href={`${base}/edit`} variant="tab">{isOwner ? 'Einstellungen und Mitglieder' : 'Mitglieder'}</NavLink>
       </nav>
       {children}

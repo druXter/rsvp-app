@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatPersonList, householdAttends, invitationStatus, parseInvitationLines, parsePersonList, readHousehold, resolveHousehold, type HouseholdPersonInput } from '../../app/lib/invitations'
+import { formatPersonList, householdAttends, invitationStatus, parseInvitationLines, parsePersonList, readHousehold, resolveHousehold, type HouseholdPersonInput, invitationCovers, invitationsForTermin } from '../../app/lib/invitations'
 import { deadlineInputValue, deadlinePassed, formatDeadline, parseDeadline } from '../../app/lib/rsvp-deadline'
 
 describe('Einladungen (docs/KONZEPT-EINLADUNGEN.md)', () => {
@@ -113,5 +113,27 @@ describe('Antwortfrist', () => {
     expect(parseDeadline('')).toBeNull()
     expect(() => parseDeadline('2027-02-30')).toThrow('gültiges Datum')
     expect(() => parseDeadline('morgen')).toThrow('gültiges Datum')
+  })
+})
+
+describe('Einladungen einer Reihe', () => {
+  const single = { eventId: 'e1', seriesId: null, allEvents: true, events: [] }
+  const all = { eventId: null, seriesId: 's1', allEvents: true, events: [] }
+  const some = { eventId: null, seriesId: 's1', allEvents: false, events: [{ eventId: 't2' }] }
+
+  it('invitationCovers: Einzel-Event nur sich selbst, Reihe alle bzw. ausgewählte Termine, nie fremde Reihen', () => {
+    expect(invitationCovers(single, { id: 'e1', seriesId: null })).toBe(true)
+    expect(invitationCovers(single, { id: 'e2', seriesId: null })).toBe(false)
+    expect(invitationCovers(all, { id: 't1', seriesId: 's1' })).toBe(true)
+    expect(invitationCovers(all, { id: 'x1', seriesId: 's2' })).toBe(false)
+    expect(invitationCovers(all, { id: 'e1', seriesId: null })).toBe(false)
+    expect(invitationCovers(some, { id: 't2', seriesId: 's1' })).toBe(true)
+    expect(invitationCovers(some, { id: 't1', seriesId: 's1' })).toBe(false)
+    expect(invitationCovers({ ...some, events: undefined }, { id: 't2', seriesId: 's1' })).toBe(false)
+  })
+
+  it('invitationsForTermin zählt alle und ausdrücklich ausgewählte', () => {
+    expect(invitationsForTermin([all, some, some], 't2')).toBe(3)
+    expect(invitationsForTermin([all, some], 't1')).toBe(1)
   })
 })

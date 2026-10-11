@@ -14,7 +14,7 @@ import { safeEqual } from './tokens'
  * Wie überall in dieser App gilt bei einem Termin einer Reihe die PIN der REIHE, die PIN am
  * Event-Datensatz ist dann wirkungslos (siehe CLAUDE.md "Effective settings").
  */
-type Series = { id: string; eventPin: string | null }
+type Series = { id: string; eventPin: string | null; inviteOnly?: boolean }
 type EventWithSeries = { id: string; eventPin: string | null; inviteOnly?: boolean; series?: Series | null }
 
 async function cookieMatches(cookieName: string, pin: string): Promise<boolean> {
@@ -23,17 +23,20 @@ async function cookieMatches(cookieName: string, pin: string): Promise<boolean> 
   return !!value && safeEqual(value, pin)
 }
 
+/** Reihen im Einladungsmodus (EventSeries.inviteOnly) wie hasEventPinAccess: nur über den persönlichen Link. */
 export async function hasSeriesPinAccess(series: Series): Promise<boolean> {
+  if (series.inviteOnly) return false
   return !series.eventPin || cookieMatches(`series_pin_${series.id}`, series.eventPin)
 }
 
 /**
- * Ein Termin im Einladungsmodus (Event.inviteOnly, docs/KONZEPT-EINLADUNGEN.md) verhält sich wie einer mit PIN,
- * die niemand kennt: Zugang gibt es nur über den persönlichen Link (tokenBelongsToEvent bzw. die Einladung).
+ * Ein Termin im Einladungsmodus (Event.inviteOnly, docs/KONZEPT-EINLADUNGEN.md - bei Reihen-Terminen von der Reihe
+ * gespiegelt) verhält sich wie einer mit PIN, die niemand kennt: Zugang gibt es nur über den persönlichen Link
+ * (tokenBelongsToEvent bzw. die Einladung). Deshalb vor der Reihen-PIN geprüft.
  */
 export async function hasEventPinAccess(event: EventWithSeries): Promise<boolean> {
-  if (event.series) return hasSeriesPinAccess(event.series)
   if (event.inviteOnly) return false
+  if (event.series) return hasSeriesPinAccess(event.series)
   return !event.eventPin || cookieMatches(`event_pin_${event.id}`, event.eventPin)
 }
 
@@ -42,10 +45,17 @@ export async function hasEventPinAccess(event: EventWithSeries): Promise<boolean
  * OHNE PIN-Cookie funktionieren - aber nur, wenn der Token wirklich zu einem Teilnehmer DIESES
  * Termins bzw. dieser Reihe gehört. Ein beliebiger oder fremder Token gilt nicht.
  */
-export async function tokenBelongsToEvent(token: string | null, event: { id: string; seriesId: string | null }): Promise<boolean> {
+export async function tokenBelongsToEvent(token: string | null, event: { id: string; seriesId: string | null; inviteOnly?: boolean }): Promise<boolean> {
   if (!token) return false
   const participant = await prisma.participant.findUnique({ where: { editToken: token } })
   if (!participant) return false
+  if (event.seriesId && event.inviteOnly) {
+    // Reihe mit Einladungen: nur ein Haushalt, der zu GENAU diesem Termin eingeladen ist (wie invitationsForEvent)
+    return participant.seriesId === event.seriesId && !!(await prisma.invitation.findFirst({
+      where: { participantId: participant.id, seriesId: event.seriesId, OR: [{ allEvents: true }, { events: { some: { eventId: event.id } } }] },
+      select: { id: true }
+    }))
+  }
   if (event.seriesId) return participant.seriesId === event.seriesId
   return !!(await prisma.rsvp.findUnique({
     where: { eventId_participantId: { eventId: event.id, participantId: participant.id } },

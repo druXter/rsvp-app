@@ -10,6 +10,7 @@ import SubmitButton from '../../../ui/submit-button'
 import CompanionFields from '../../../ui/companion-fields'
 import { companionsOf, MAX_COMPANIONS, menuOf } from '../../../lib/persons'
 import { menuForForm } from '../../../lib/menu-store'
+import { invitationCovers } from '../../../lib/invitation-store'
 import MenuSelects from '../../../ui/menu-selects'
 import AdminShell from '../../admin-shell'
 import { PageHeader, inputClass } from '../../../ui/kit'
@@ -33,8 +34,8 @@ export default async function EditRsvpPage({ params }: { params: Promise<{ id: s
   const participant = rsvp.participant
   // Begleitungen: wie in updateAdminRsvp, nicht bei Ticketkategorien
   // Antwort eines eingeladenen Haushalts: Personen und Zu-/Absage pro Person nur über den Einladungslink
-  const invitation = await prisma.invitation.findUnique({ where: { participantId: participant.id }, include: { event: { select: { slug: true } } } })
-  const household = invitation?.eventId === rsvp.eventId ? invitation : null
+  const invitation = await prisma.invitation.findUnique({ where: { participantId: participant.id }, include: { event: { select: { slug: true } }, series: { select: { slug: true } }, events: { select: { eventId: true } } } })
+  const household = invitation && invitationCovers(invitation, rsvp.event) ? invitation : null
   const showCompanions = !household && rsvp.event.ticketCategories.length === 0 && (rsvp.event.maxCompanions > 0 || rsvp.persons.length > 0)
   const menu = await menuForForm(rsvp.event.id)
 
@@ -88,8 +89,8 @@ export default async function EditRsvpPage({ params }: { params: Promise<{ id: s
           {household && (
             <p className="text-sm bg-indigo-50 text-indigo-900 p-3 rounded border border-indigo-200 dark:bg-indigo-950 dark:text-indigo-200 dark:border-indigo-800" data-testid="household-note">
               💌 Antwort des eingeladenen Haushalts „{household.label}“. Wer kommt, Essen und Menü pro Person bearbeitest du über den{' '}
-              <a href={`/${household.event.slug}?token=${participant.editToken}`} target="_blank" rel="noopener" className="underline">Einladungslink</a>, die Personen der Einladung unter{' '}
-              <Link href={`/admin/events/${rsvp.eventId}/einladungen`} className="underline">Einladungen</Link>.
+              <a href={household.series ? `/reihe/${household.series.slug}/${rsvp.event.slug}?token=${participant.editToken}` : `/${household.event!.slug}?token=${participant.editToken}`} target="_blank" rel="noopener" className="underline">Einladungslink</a>, die Personen der Einladung unter{' '}
+              <Link href={household.seriesId ? `/admin/series/${household.seriesId}/einladungen` : `/admin/events/${rsvp.eventId}/einladungen`} className="underline">Einladungen</Link>.
             </p>
           )}
 

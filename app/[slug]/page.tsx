@@ -135,7 +135,7 @@ export default async function EventPage({
   // Einladungsmodus (docs/KONZEPT-EINLADUNGEN.md): nur mit dem Link einer Einladung zu diesem Termin
   let household = null
   if (event.inviteOnly) {
-    const invitation = token && participant && 'id' in participant ? await invitationOf(participant.id, event.id) : null
+    const invitation = token && participant && 'id' in participant ? await invitationOf(participant.id, event) : null
     if (!invitation) {
       return (
         <main className="min-h-screen bg-gray-50 dark:bg-gray-900">

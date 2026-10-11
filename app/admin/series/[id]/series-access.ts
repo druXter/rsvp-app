@@ -9,7 +9,7 @@ import { hasSeriesModeratorOrAbove, isOwnerOrAdmin } from '../../../lib/permissi
 export const loadAdminSeries = cache(async (id: string) => {
   const user = await getCurrentUser()
   if (!user) redirect('/admin/login')
-  const series = await prisma.eventSeries.findUnique({ where: { id }, include: { owner: { select: { email: true } }, _count: { select: { events: true, guestMembers: true } } } })
+  const series = await prisma.eventSeries.findUnique({ where: { id }, include: { owner: { select: { email: true } }, _count: { select: { events: true, guestMembers: true, invitations: true } } } })
   if (!series) return null
   const isOwner = isOwnerOrAdmin(user, series.ownerId)
   if (!isOwner && !(await hasSeriesModeratorOrAbove(user, series))) return null

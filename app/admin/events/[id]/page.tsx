@@ -9,6 +9,7 @@ import { DATE_PENDING_TEXT } from '../../../lib/event-date'
 import { sendPaymentReminders, sendReminder } from '../../actions'
 import { Badge, ButtonLink, Card, Notice, Stat, buttonClass, inputClass } from '../../../ui/kit'
 import { guestPageOf, loadAdminEvent } from './event-access'
+import { invitationsForEvent } from '../../../lib/invitation-store'
 
 /**
  * Reiter "Übersicht" (docs/KONZEPT-OBERFLAECHE.md): Kennzahlen, Hinweise (Frist, Datum offen, ungesendete
@@ -19,7 +20,7 @@ export default async function EventOverview({ params }: { params: Promise<{ id: 
   const { id } = await params
   const loaded = await loadAdminEvent(id)
   if (!loaded) notFound()
-  const { event, isOwner } = loaded
+  const { event, isOwner, invitationCount } = loaded
 
   const [rsvps, categories, bringSlots, unsentInvitations] = await Promise.all([
     prisma.rsvp.findMany({
@@ -31,9 +32,9 @@ export default async function EventOverview({ params }: { params: Promise<{ id: 
     }),
     prisma.ticketCategory.findMany({ where: { eventId: event.id }, orderBy: { position: 'asc' } }),
     prisma.bringSlot.findMany({ where: { eventId: event.id }, orderBy: { position: 'asc' }, include: { _count: { select: { claims: true } } } }),
-    event.inviteOnly ? prisma.invitation.count({ where: { eventId: event.id, email: { not: null }, sentAt: null } }) : Promise.resolve(0)
+    event.inviteOnly ? prisma.invitation.count({ where: { AND: [invitationsForEvent(event), { email: { not: null }, sentAt: null }] } }) : Promise.resolve(0)
   ])
-  const s = summarizeEvent(rsvps, event.inviteOnly ? event._count.invitations : null)
+  const s = summarizeEvent(rsvps, event.inviteOnly ? invitationCount : null)
   const link = `${baseUrl()}${guestPageOf(event)}`
   const deadline = formatDeadline(event.rsvpDeadline)
   const base = `/admin/events/${event.id}`
@@ -50,7 +51,7 @@ export default async function EventOverview({ params }: { params: Promise<{ id: 
         <Stat label="Warteliste" value={s.waitlist} tone={s.waitlist > 0 ? 'orange' : undefined} testId="stat-waitlist" />
         <Stat label="Absagen" value={s.declined} testId="stat-declined" />
         {s.invitationsOpen !== null
-          ? <Stat label="Einladungen ohne Antwort" value={s.invitationsOpen} hint={`von ${event._count.invitations} Haushalten`} testId="stat-invitations" />
+          ? <Stat label="Einladungen ohne Antwort" value={s.invitationsOpen} hint={`von ${invitationCount} Haushalten`} testId="stat-invitations" />
           : event.enableCheckin
             ? <Stat label="Eingecheckt" value={`${s.checkedIn}/${s.attendees}`} hint="Personen" testId="stat-checkin" />
             : <Stat label="Antworten" value={rsvps.length} />}

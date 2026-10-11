@@ -28,7 +28,8 @@ export default async function RegisterGuestUserPage({
   const loginHref = `/mein-konto/login${next ? `?next=${encodeURIComponent(next)}` : ''}`
 
   const series = await prisma.eventSeries.findUnique({ where: { slug: seriesSlug } })
-  if (!series) notFound()
+  // Reihen im Einladungsmodus: keine Konten, der persönliche Link aus der Einladung ist der Zugang
+  if (!series || series.inviteOnly) notFound()
 
   let isAuthorized = true
   if (series.eventPin) {

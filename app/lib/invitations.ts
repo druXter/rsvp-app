@@ -210,3 +210,17 @@ export function invitationStatus(
   const state = !rsvp ? 'open' : !rsvp.isAttending ? 'declined' : rsvp.isOnWaitlist ? 'waitlist' : 'attending'
   return { state, persons }
 }
+
+/** Wie viele Einladungen einer Reihe für diesen Termin gelten (alle Termine oder ausdrücklich ausgewählt). */
+export function invitationsForTermin(invitations: readonly { allEvents: boolean; events: readonly { eventId: string }[] }[], eventId: string): number {
+  return invitations.filter(i => i.allEvents || i.events.some(e => e.eventId === eventId)).length
+}
+
+/** Gilt eine Einladung für diesen Termin? (wie invitationsForEvent in app/lib/invitation-store.ts, für eine geladene Einladung) */
+export function invitationCovers(
+  invitation: { eventId: string | null; seriesId: string | null; allEvents: boolean; events?: readonly { eventId: string }[] },
+  event: { id: string; seriesId: string | null }
+): boolean {
+  if (invitation.eventId) return invitation.eventId === event.id
+  return !!event.seriesId && invitation.seriesId === event.seriesId && (invitation.allEvents || !!invitation.events?.some(e => e.eventId === event.id))
+}

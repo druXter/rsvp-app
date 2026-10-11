@@ -46,8 +46,9 @@ Menü stehen pro Person.
 
 ### Einladungsmodus
 
-* Schalter pro Einzel-Termin (`inviteOnly`). Nicht für Reihen, nicht zusammen mit „nur mit Konto“, PIN oder
-  E-Mail-Verifizierung (der persönliche Link ersetzt diese Zugänge) und nicht mit Ticketkategorien.
+* Schalter pro Einzel-Event (`inviteOnly`) bzw. für eine ganze Reihe (`EventSeries.inviteOnly`, siehe unten). Nicht
+  zusammen mit „nur mit Konto“, PIN oder E-Mail-Verifizierung (der persönliche Link ersetzt diese Zugänge) und nicht
+  mit Ticketkategorien.
 * Ohne persönlichen Link zeigt die Event-Seite nur den Titel und „Nur mit persönlicher Einladung“ – keine
   Beschreibung, kein Ort, keine Gästeliste. Eine Antwort ohne Einladungslink lehnt der Server ab.
 
@@ -84,6 +85,27 @@ Menü stehen pro Person.
 
 Status pro Einladung: *offen* · *zugesagt (3 von 4)* · *abgesagt*, dazu Summen (Haushalte, Personen zugesagt,
 abgesagt, offen; Erwachsene, Kinder, Kleinkinder) und „Mail gesendet am …“.
+
+### Reihen (seit 2026-10-11)
+
+Für eine Hochzeit mit mehreren Terminen (Polterabend, Standesamt, Feier, Brunch) gibt es **eine Einladungsliste
+für die Reihe** mit einem Link pro Haushalt:
+
+* Schalter „Nur mit Einladung“ in den Einstellungen der Reihe. Er wird auf `Event.inviteOnly` aller Termine
+  gespiegelt (auch neu angelegter), damit jeder Termin denselben Regeln folgt wie ein Einzel-Event (Antwort,
+  Sperre, Gästeliste, Mails, Erinnerung). Nicht, solange ein Termin Ticketkategorien hat; ein Termin der Reihe
+  bekommt dann auch keine.
+* `Invitation.seriesId` statt `eventId`, der Participant ist einer der Reihe (`seriesId`), sein Link führt auf die
+  Seite der Reihe (`/reihe/{slug}?token=…`). Pro Einladung „alle Termine (auch künftige)“ (`allEvents`) oder nur
+  ausgewählte (`InvitationEvent`). Werden Termine abgewählt, fallen die Antworten zu ihnen weg.
+* Die Seite der Reihe zeigt mit Link nur die Termine, zu denen der Haushalt eingeladen ist, mit seinem Stand
+  (offen / zugesagt / abgesagt, Frist). Ohne passenden Link nur den Titel; Konto-Registrierung gibt es nicht.
+  Geantwortet wird pro Termin und Person wie bei Einzel-Events; Antworten zu anderen Terminen lehnt der Server ab.
+* Verwaltung: Reiter „Einladungen“ der Reihe (Stand pro Termin, Anlegen mit Auswahl der Termine, Bearbeiten, Mail
+  mit allen Terminen, Druckliste `/admin/einladungen/reihe/[seriesId]/druck`). Der Reiter „Einladungen“ eines
+  Termins zeigt den Stand für diesen Termin und verschickt seine Erinnerung.
+* Erinnerungen vor der Antwortfrist gelten pro Termin (`InvitationReminder`, einmal pro Einladung und Termin, eine
+  neue Frist setzt sie zurück) und verlinken direkt auf den Termin.
 
 ## 4. Angaben pro Person und Menü (L3)
 
@@ -216,7 +238,6 @@ Antwort nach Fristende).
 
 ## 9. Später
 
-* Einladungsmodus für Reihen.
 
 ## Abweichungen bei der Umsetzung
 
