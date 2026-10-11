@@ -64,7 +64,7 @@ export function readToolLinks(formData: FormData): ToolLinkInput[] {
  */
 const ON_RELINK: Record<ToolType, (tx: Prisma.TransactionClient, eventId: string) => Promise<unknown>> = {
   // Plätze aus Seating: geleert, bis das neue Seating-Event seinen Stand meldet (syncedAt wird mit der Zeile zurückgesetzt)
-  seating: (tx, eventId) => tx.rsvp.updateMany({ where: { eventId, seatingLabel: { not: null } }, data: { seatingLabel: null } }),
+  seating: (tx, eventId) => tx.rsvp.updateMany({ where: { eventId, OR: [{ seatingLabel: { not: null } }, { seatingPersons: { not: null } }] }, data: { seatingLabel: null, seatingPersons: null } }),
   // Zeitplan meldet nichts zurück - hier gibt es nichts zu leeren
   timeline: async () => {}
 }

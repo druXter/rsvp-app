@@ -80,5 +80,24 @@ describe('Küchenübersicht', () => {
     expect(report.diets).toEqual([{ label: 'ohne Angabe', count: 3 }, { label: 'Vegan', count: 1 }])
     // Getränke: nur Erwachsene (Ben ist ein Kind), Dora ohne Angabe
     expect(report.drinks).toEqual({ alcohol: 1, alcoholFree: 1 })
+    // Ohne Tisch pro Person aus Seating keine Liste pro Tisch
+    expect(report.tables).toEqual([])
+  })
+
+  it('Küchenliste pro Tisch: Tische natürlich sortiert, Wahl pro Tisch, Personen ohne Tisch zuletzt', () => {
+    const places = (...tables: string[]) => JSON.stringify(tables.map((table, index) => ({ index, table, seat: null })))
+    const report = buildKitchenReport(courses, [
+      rsvp('Familie A', 'Tisch 10', [person(0, 'Anna', 'ADULT', 'Fisch', { allergies: 'Nüsse' }), person(1, 'Ben', 'CHILD', 'Fleisch'), person(2, 'Mia', 'INFANT', null)], { seatingPersons: places('Tisch 10', 'Kindertisch') }),
+      rsvp('Carl', 'Tisch 2', [person(0, 'Carl', 'ADULT', 'Fisch')], { seatingPersons: places('Tisch 2') }),
+      rsvp('Dora', null, [person(0, 'Dora', 'ADULT', null)])
+    ])
+    expect(report.tables.map(t => [t.table, t.persons.map(p => p.name)])).toEqual([
+      ['Kindertisch', ['Ben']], ['Tisch 2', ['Carl']], ['Tisch 10', ['Anna', 'Mia']], [null, ['Dora']]
+    ])
+    const tisch10 = report.tables[2]
+    expect(tisch10.totals).toEqual({ ADULT: 1, CHILD: 0, INFANT: 1 })
+    expect(tisch10.courses[0]).toMatchObject({ label: 'Hauptgang', counts: [{ option: 'Fisch', count: 1 }], missing: 0 })
+    expect(report.tables[3].courses[0]).toMatchObject({ counts: [], missing: 1 })
+    expect(report.persons.map(p => [p.name, p.table])).toEqual([['Ben', 'Kindertisch'], ['Carl', 'Tisch 2'], ['Anna', 'Tisch 10'], ['Mia', 'Tisch 10'], ['Dora', null]])
   })
 })

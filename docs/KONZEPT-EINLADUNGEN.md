@@ -96,6 +96,12 @@ abgesagt, offen; Erwachsene, Kinder, Kleinkinder) und „Mail gesendet am …“
 * **Küchenübersicht** (`/admin/kueche/[eventId]`, alle mit Zugriff auf die Gästeliste): Anzahl je Option pro Gang,
   getrennt nach Erwachsenen und Kindern, Liste aller Personen mit Essen, Allergien, Menü und Sitzplatz (sortiert
   nach `seatingLabel`), Druckansicht und CSV mit einer Zeile pro Person.
+* **Küchenliste pro Tisch** (seit 2026-10-11): Seating meldet mit den Platzierungen, wo bekannt, Tisch und Platz pro
+  Person (`placements[].persons`, `Rsvp.seatingPersons`, Index wie `guestOf`: zusagende Personen ohne Kleinkinder).
+  In der Sitzordnung sitzt jede Person an ihrem Platz, sonst sitzen alle am Tisch, wenn die Buchung an genau einem
+  Tisch liegt. Kleinkinder sitzen am Tisch der ersten Person. Die Küche zeigt pro Tisch Personen, Wahl pro Gang und
+  Allergien (druckbar, ein Tisch pro Kasten), die Personen-CSV hat die Spalte „Tisch“. Ohne Angaben aus Seating
+  bleibt es beim Platztext pro Antwort.
 
 ## 5. Antwortfrist
 
@@ -210,7 +216,6 @@ Antwort nach Fristende).
 
 ## 9. Später
 
-* Küchenliste pro Tisch: braucht vom Seating-Vertrag den Tisch pro Person statt nur des Platztexts pro Antwort.
 * Einladungsmodus für Reihen.
 
 ## Abweichungen bei der Umsetzung

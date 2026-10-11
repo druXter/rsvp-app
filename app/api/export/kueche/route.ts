@@ -7,7 +7,7 @@ import { loadKitchenReport } from '../../../lib/kitchen'
 import { AGE_GROUP_LABEL } from '../../../lib/persons'
 
 /**
- * Personen-CSV der Küchenübersicht (app/lib/kitchen.ts): eine Zeile pro Person mit festem Platz, mit Platz,
+ * Personen-CSV der Küchenübersicht (app/lib/kitchen.ts): eine Zeile pro Person mit festem Platz, mit Tisch, Platz,
  * Altersgruppe, Menüwahl pro Gang, Essen, Allergien und Alkohol. Für alle mit Zugriff auf die Gästeliste.
  */
 export async function GET(request: Request) {
@@ -19,9 +19,9 @@ export async function GET(request: Request) {
 
   const report = await loadKitchenReport(event.id)
   const rows = [
-    ['Platz', 'Name', 'Antwort', 'Alter', ...report.courses.map(c => c.label), 'Essen', 'Allergien', 'Alkohol'],
+    ['Tisch', 'Platz', 'Name', 'Antwort', 'Alter', ...report.courses.map(c => c.label), 'Essen', 'Allergien', 'Alkohol'],
     ...report.persons.map(p => [
-      p.seat ?? '', p.name, p.answer, AGE_GROUP_LABEL[p.ageGroup].replace(/ \(.*\)$/, ''),
+      p.table ?? '', p.seat ?? '', p.name, p.answer, AGE_GROUP_LABEL[p.ageGroup].replace(/ \(.*\)$/, ''),
       ...report.courses.map(c => p.menu[c.id] ?? ''), p.dietaryOption ?? '', p.allergies ?? '',
       p.drinksAlcohol === true ? 'Ja' : p.drinksAlcohol === false ? 'Nein' : ''
     ])

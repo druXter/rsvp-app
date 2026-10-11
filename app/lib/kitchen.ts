@@ -1,11 +1,13 @@
 // app/lib/kitchen.ts
 //
 // Küchenübersicht (docs/KONZEPT-EINLADUNGEN.md, Abschnitt 4): Wer mit festem Platz kommt, was jede Person
-// gewählt hat, Essen und Allergien - pro Gang gezählt nach Erwachsenen und Kindern. Für die Seite
-// /admin/kueche/[eventId] und die Personen-CSV. buildKitchenReport ist rein, loadKitchenReport liest die Datenbank.
+// gewählt hat, Essen und Allergien - pro Gang gezählt nach Erwachsenen und Kindern, mit Seating auch pro Tisch.
+// Für die Seite /admin/events/[id]/kueche und die Personen-CSV. buildKitchenReport ist rein, loadKitchenReport liest
+// die Datenbank.
 import { prisma } from './prisma'
 import { personsOf, type AgeGroup } from './persons'
 import { courseOptions, type MenuCourseForForm, type MenuSelection } from './menu'
+import { placesOfPersons } from './seating'
 
 export type KitchenPerson = {
   /** Name der Antwort (anmeldende Person bzw. Haushalt) */
@@ -17,8 +19,19 @@ export type KitchenPerson = {
   menu: MenuSelection
   /** Alkohol ja/nein (nur Erwachsene) */
   drinksAlcohol: boolean | null
-  /** Platz aus Seating ("Tisch 7, Plätze 3, 4"), pro Antwort */
+  /** Tisch der Person aus Seating, wenn bekannt */
+  table: string | null
+  /** Platz aus Seating: der eigene ("Tisch 7, Platz 3"), sonst der der Antwort ("Tisch 7, Plätze 3, 4") */
   seat: string | null
+}
+
+/** Ein Tisch der Küchenliste: Personen in Sitzreihenfolge und die Wahl pro Gang (Erwachsene und Kinder zusammen). */
+export type KitchenTable = {
+  /** null: Personen ohne bekannten Tisch */
+  table: string | null
+  persons: KitchenPerson[]
+  totals: Record<AgeGroup, number>
+  courses: { id: string; label: string; counts: { option: string; count: number }[]; missing: number }[]
 }
 
 export type KitchenReport = {
@@ -28,6 +41,8 @@ export type KitchenReport = {
   diets: { label: string; count: number }[]
   /** Erwachsene mit Alkohol / nur alkoholfrei (ohne Angabe zählt nicht) */
   drinks: { alcohol: number; alcoholFree: number }
+  /** Pro Tisch - leer, solange Seating für niemanden einen Tisch gemeldet hat */
+  tables: KitchenTable[]
 }
 
 type KitchenRsvp = {
@@ -35,6 +50,7 @@ type KitchenRsvp = {
   isOnWaitlist: boolean
   drinksAlcohol?: boolean | null
   seatingLabel: string | null
+  seatingPersons?: string | null
   participant: { name: string; dietaryOption: string | null; allergies: string | null }
   persons?: { position: number; name: string | null; ageGroup: string; isAttending: boolean; dietaryOption: string | null; allergies: string | null; drinksAlcohol?: boolean | null; menuChoices?: { courseId: string; option: string }[] }[]
 }
@@ -42,12 +58,21 @@ type KitchenRsvp = {
 export function buildKitchenReport(courses: readonly MenuCourseForForm[], rsvps: readonly KitchenRsvp[]): KitchenReport {
   const persons: KitchenPerson[] = rsvps
     .filter(r => r.isAttending && !r.isOnWaitlist)
-    .flatMap(r => personsOf(r, r.participant)
-      .filter(p => p.isAttending)
-      .map(p => ({ answer: r.participant.name, name: p.name || 'Begleitung', ageGroup: p.ageGroup, dietaryOption: p.dietaryOption, allergies: p.allergies, menu: p.menu, drinksAlcohol: p.drinksAlcohol, seat: r.seatingLabel })))
-  // Nach Platz (ohne Platz zuletzt), dann Antwort - die Reihenfolge innerhalb einer Antwort bleibt
+    .flatMap(r => {
+      const all = personsOf(r, r.participant)
+      const places = placesOfPersons(all, r.seatingPersons ?? null)
+      return all
+        .map((p, i) => ({ p, place: places[i] }))
+        .filter(({ p }) => p.isAttending)
+        .map(({ p, place }) => ({
+          answer: r.participant.name, name: p.name || 'Begleitung', ageGroup: p.ageGroup, dietaryOption: p.dietaryOption, allergies: p.allergies,
+          menu: p.menu, drinksAlcohol: p.drinksAlcohol, table: place.table, seat: place.seat ?? r.seatingLabel
+        }))
+    })
+  // Nach Tisch, dann Platz (ohne zuletzt), dann Antwort - die Reihenfolge innerhalb einer Antwort bleibt
+  const natural = (a: string | null, b: string | null) => (a === null ? 1 : 0) - (b === null ? 1 : 0) || (a ?? '').localeCompare(b ?? '', 'de', { numeric: true })
   const order = persons.map((p, i) => ({ p, i }))
-  order.sort((a, b) => (a.p.seat === null ? 1 : 0) - (b.p.seat === null ? 1 : 0) || (a.p.seat ?? '').localeCompare(b.p.seat ?? '', 'de', { numeric: true }) || a.p.answer.localeCompare(b.p.answer, 'de') || a.i - b.i)
+  order.sort((a, b) => natural(a.p.table, b.p.table) || natural(a.p.seat, b.p.seat) || a.p.answer.localeCompare(b.p.answer, 'de') || a.i - b.i)
   const sorted = order.map(o => o.p)
 
   const eating = sorted.filter(p => p.ageGroup !== 'INFANT')
@@ -71,8 +96,33 @@ export function buildKitchenReport(courses: readonly MenuCourseForForm[], rsvps:
       INFANT: sorted.filter(p => p.ageGroup === 'INFANT').length
     },
     diets: [...dietCounts].map(([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count),
-    drinks: { alcohol: sorted.filter(p => p.drinksAlcohol === true).length, alcoholFree: sorted.filter(p => p.drinksAlcohol === false).length }
+    drinks: { alcohol: sorted.filter(p => p.drinksAlcohol === true).length, alcoholFree: sorted.filter(p => p.drinksAlcohol === false).length },
+    tables: sorted.some(p => p.table) ? groupByTable(courses, sorted) : []
   }
+}
+
+/** Küchenliste pro Tisch: Tische in natürlicher Reihenfolge ("Tisch 2" vor "Tisch 10"), Personen ohne Tisch zuletzt. */
+function groupByTable(courses: readonly MenuCourseForForm[], persons: readonly KitchenPerson[]): KitchenTable[] {
+  const groups = new Map<string | null, KitchenPerson[]>()
+  for (const p of persons) groups.set(p.table, [...(groups.get(p.table) ?? []), p])
+  return [...groups].map(([table, members]) => {
+    const eating = members.filter(p => p.ageGroup !== 'INFANT')
+    return {
+      table,
+      persons: members,
+      totals: {
+        ADULT: members.filter(p => p.ageGroup === 'ADULT').length,
+        CHILD: members.filter(p => p.ageGroup === 'CHILD').length,
+        INFANT: members.filter(p => p.ageGroup === 'INFANT').length
+      },
+      courses: courses.map(course => ({
+        id: course.id,
+        label: course.label,
+        counts: course.options.map(option => ({ option, count: eating.filter(p => p.menu[course.id] === option).length })).filter(c => c.count > 0),
+        missing: eating.filter(p => !p.menu[course.id] || !course.options.includes(p.menu[course.id])).length
+      }))
+    }
+  })
 }
 
 export async function loadKitchenReport(eventId: string): Promise<KitchenReport> {

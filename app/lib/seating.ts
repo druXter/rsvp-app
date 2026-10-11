@@ -51,7 +51,9 @@ export type SeatingEnvelope = {
 
 /** Eine Person mit Zusage, wie Seating sie erwartet (Link zur Platzwahl, Änderung, Gästeliste). */
 export type SeatingGuest = { rsvpId: string; name: string; email: string | null; companions: (string | null)[] }
-export type SeatingPlacement = { rsvpId: string; label: string }
+/** Wo eine Person sitzt (index wie in guestOf: 0 = name, 1.. = companions), soweit Seating es weiß. */
+export type SeatingPersonPlace = { index: number; table: string | null; seat: string | null }
+export type SeatingPlacement = { rsvpId: string; label: string; persons?: SeatingPersonPlace[] }
 
 // --- Konfiguration --------------------------------------------------------------------------
 
@@ -158,6 +160,26 @@ type Content<T extends SeatingMessageType> =
 
 export type SeatingMessage<T extends SeatingMessageType> = SeatingEnvelope & { typ: T } & Content<T>
 
+const PERSON_KEY = /^(guest|companion-(\d{1,2}))$/
+const MAX_PLACE = 200
+
+/** Tisch/Platz pro Person (Seating: rules.ts personPlaces) - "guest" ist Index 0, "companion-N" Index N. */
+function readPersonPlaces(value: unknown): SeatingPersonPlace[] | null {
+  if (!Array.isArray(value) || value.length > 50) return null
+  const result: SeatingPersonPlace[] = []
+  for (const entry of value) {
+    if (!isRecord(entry) || typeof entry.key !== 'string') return null
+    const key = entry.key.match(PERSON_KEY)
+    if (!key) return null
+    const place = (v: unknown) => (v === null ? null : typeof v === 'string' && v.length <= MAX_PLACE ? cleanName(v) || null : undefined)
+    const table = place(entry.table)
+    const seat = place(entry.seat)
+    if (table === undefined || seat === undefined) return null
+    result.push({ index: key[2] ? Number(key[2]) : 0, table, seat })
+  }
+  return result
+}
+
 function readPlacements(value: unknown): SeatingPlacement[] | null {
   if (!Array.isArray(value) || value.length > MAX_ENTRIES) return null
   const result: SeatingPlacement[] = []
@@ -165,9 +187,39 @@ function readPlacements(value: unknown): SeatingPlacement[] | null {
     if (!isRecord(entry)) return null
     if (typeof entry.rsvpId !== 'string' || !SEATING_ID.test(entry.rsvpId)) return null
     if (typeof entry.label !== 'string' || entry.label.length > MAX_LABEL) return null
-    result.push({ rsvpId: entry.rsvpId, label: cleanName(entry.label) })
+    // persons ist optional (ältere Seating-Versionen schicken es nicht), aber wenn vorhanden, dann gültig
+    const persons = entry.persons === undefined ? undefined : readPersonPlaces(entry.persons)
+    if (persons === null) return null
+    result.push({ rsvpId: entry.rsvpId, label: cleanName(entry.label), ...(persons ? { persons } : {}) })
   }
   return result
+}
+
+/**
+ * Tisch und Platz jeder Person einer Antwort aus Rsvp.seatingPersons - in der Reihenfolge von personsOf, für die
+ * Küchenliste pro Tisch. Seating kennt nur Personen mit Platz (guestOf: zusagend, ohne Kleinkinder); Kleinkinder
+ * sitzen am Tisch der ersten Person der Antwort. Unbekannt: null.
+ */
+export function placesOfPersons(
+  persons: readonly { isAttending: boolean; ageGroup: string }[],
+  stored: string | null
+): { table: string | null; seat: string | null }[] {
+  let places: SeatingPersonPlace[] = []
+  try {
+    const parsed = stored ? JSON.parse(stored) : []
+    if (Array.isArray(parsed)) places = parsed.filter((p): p is SeatingPersonPlace => isRecord(p) && typeof p.index === 'number')
+  } catch {
+    places = []
+  }
+  const byIndex = new Map(places.map(p => [p.index, p]))
+  let seated = 0
+  const result = persons.map(p => {
+    if (!p.isAttending || p.ageGroup === 'INFANT') return null
+    const place = byIndex.get(seated++)
+    return { table: place?.table ?? null, seat: place?.seat ?? null }
+  })
+  const firstTable = result.find(r => r?.table)?.table ?? null
+  return result.map((r, i) => r ?? { table: persons[i].isAttending ? firstTable : null, seat: null })
 }
 
 function readGuest(value: Record<string, unknown>): SeatingGuest | null {

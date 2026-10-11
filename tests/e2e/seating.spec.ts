@@ -239,7 +239,8 @@ test.describe('Gästeliste (/api/seating/guest-list)', () => {
 })
 
 test.describe('Platzierungen (/api/seating/placements)', () => {
-  const placements = (event: Event, seatingEventId: string, list: { rsvpId: string; label: string }[], overrides: Record<string, unknown> = {}) =>
+  type Place = { key: string; table: string | null; seat: string | null }
+  const placements = (event: Event, seatingEventId: string, list: { rsvpId: string; label: string; persons?: Place[] }[], overrides: Record<string, unknown> = {}) =>
     sign({ ...envelope('placements', event, seatingEventId, overrides), placements: list })
   const labelOf = async (rsvpId: string) => (await prisma.rsvp.findUniqueOrThrow({ where: { id: rsvpId } })).seatingLabel
 
@@ -302,6 +303,53 @@ test.describe('Platzierungen (/api/seating/placements)', () => {
     const [header, row] = (await csv.text()).replace('﻿', '').split('\n')
     expect(header.split(';')).toContain('Sitzplatz')
     expect(row).toContain('"Tisch 4, Platz 12"')
+  })
+})
+
+test.describe('Küchenliste pro Tisch (placements mit persons)', () => {
+  const placements = (event: Event, seatingEventId: string, list: object[], overrides: Record<string, unknown> = {}) =>
+    sign({ ...envelope('placements', event, seatingEventId, overrides), placements: list })
+
+  test('Tisch pro Person aus Seating: Küche pro Tisch und CSV; ungültige Angaben lehnen die Meldung ab, neue Meldung ersetzt', async ({ page, request }) => {
+    const owner = await createAccount('CREATOR')
+    const { event, seatingEventId } = await linkedEvent(owner, { maxCompanions: 2 })
+    const course = await prisma.menuCourse.create({ data: { eventId: event.id, label: 'Hauptgang', options: JSON.stringify(['Fisch', 'Fleisch']), position: 0 } })
+    const person = (rsvpId: string, position: number, name: string, option: string, ageGroup = 'ADULT') =>
+      prisma.rsvpPerson.create({ data: { rsvpId, position, name, ageGroup, isAttending: true, menuChoices: { create: { courseId: course.id, option } } } })
+    const family = await createRsvp(event, { name: 'Anna' })
+    await person(family.rsvp.id, 0, 'Anna', 'Fisch')
+    await person(family.rsvp.id, 1, 'Ben', 'Fleisch', 'CHILD')
+    const carl = await createRsvp(event, { name: 'Carl' })
+    await person(carl.rsvp.id, 0, 'Carl', 'Fisch')
+
+    // Kaputte Angaben pro Person: ganze Meldung abgelehnt, nichts gesetzt
+    const bad = await post(request, '/api/seating/placements', placements(event, seatingEventId, [{ rsvpId: carl.rsvp.id, label: 'Tisch 2', persons: [{ key: 'admin', table: 'Tisch 2', seat: null }] }]))
+    expect(bad.status()).toBe(401)
+    expect((await prisma.rsvp.findUniqueOrThrow({ where: { id: carl.rsvp.id } })).seatingLabel).toBeNull()
+
+    const iat = nowSeconds()
+    expect((await post(request, '/api/seating/placements', placements(event, seatingEventId, [
+      { rsvpId: family.rsvp.id, label: 'Tisch 10, Platz 1; Kindertisch, Platz 4', persons: [{ key: 'guest', table: 'Tisch 10', seat: 'Tisch 10, Platz 1' }, { key: 'companion-1', table: 'Kindertisch', seat: 'Kindertisch, Platz 4' }] },
+      { rsvpId: carl.rsvp.id, label: 'Tisch 2', persons: [{ key: 'guest', table: 'Tisch 2', seat: null }] }
+    ], { iat }))).status()).toBe(200)
+
+    await login(page, owner.email)
+    await page.goto(`/admin/events/${event.id}/kueche`)
+    const tables = page.getByTestId('kitchen-table')
+    await expect(tables).toHaveCount(3)
+    await expect(tables.nth(0)).toContainText('Kindertisch · 1 Person (1 Kinder)')
+    await expect(tables.nth(0)).toContainText('Hauptgang: 1× Fleisch')
+    await expect(tables.nth(1)).toContainText('Tisch 2')
+    await expect(tables.nth(2)).toContainText('Tisch 10')
+    await expect(tables.nth(2)).toContainText('Hauptgang: 1× Fisch')
+    const csv = await (await page.request.get(`/api/export/kueche?eventId=${event.id}`, { headers: await cookieHeader(page.context()) })).text()
+    expect(csv).toContain('"Kindertisch";"Kindertisch, Platz 4";"Ben";"Anna";"Kind";"Fleisch"')
+
+    // Neuer Stand ohne persons (z. B. Seating vor diesem Update): Tische pro Person entfallen
+    expect((await post(request, '/api/seating/placements', placements(event, seatingEventId, [{ rsvpId: carl.rsvp.id, label: 'Tisch 2' }], { iat: iat + 1 }))).status()).toBe(200)
+    expect((await prisma.rsvp.findMany({ where: { eventId: event.id }, select: { seatingPersons: true } })).every(r => r.seatingPersons === null)).toBe(true)
+    await page.reload()
+    await expect(page.getByTestId('kitchen-tables')).toHaveCount(0)
   })
 })
 

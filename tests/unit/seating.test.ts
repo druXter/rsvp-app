@@ -2,7 +2,7 @@ import { createHmac } from 'node:crypto'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   MAX_TOKEN_AGE_SECONDS, createMessage, guestOf, isSeatingConfirmed, openMessage, originOf, parseSeatingUrl,
-  readLimitedText, seatingSecret, signMessage, verifyMessage
+  placesOfPersons, readLimitedText, seatingSecret, signMessage, verifyMessage
 } from '../../app/lib/seating'
 
 // Vertrag mit Seating (app/lib/seating.ts). Die Werte stammen aus Seatings eigenem
@@ -93,6 +93,14 @@ describe('verifyMessage', () => {
     expect(placements([{ rsvpId: 'cmrsvpanswer0000001' }])).toBeNull()
     expect(placements('Tisch 1')).toBeNull()
     expect(placements(Array(5001).fill({ rsvpId: 'cmrsvpanswer0000001', label: '' }))).toBeNull()
+    // Tisch und Platz pro Person: optional, aber wenn vorhanden, dann gültig
+    const id = 'cmrsvpanswer0000001'
+    expect(placements([{ rsvpId: id, label: 'Tisch 1', persons: [{ key: 'guest', table: ' Tisch 1 ', seat: null }, { key: 'companion-2', table: null, seat: 'Reihe A, Platz 3' }] }]))
+      .toMatchObject({ placements: [{ persons: [{ index: 0, table: 'Tisch 1', seat: null }, { index: 2, table: null, seat: 'Reihe A, Platz 3' }] }] })
+    expect(placements([{ rsvpId: id, label: 'Tisch 1' }])!.placements[0]).not.toHaveProperty('persons')
+    for (const persons of [[{ key: 'admin', table: null, seat: null }], [{ key: 'guest', table: 'x'.repeat(201), seat: null }], [{ key: 'guest', table: 3, seat: null }], [{ key: 'guest' }], 'Tisch 1', Array(51).fill({ key: 'guest', table: null, seat: null })]) {
+      expect(placements([{ rsvpId: id, label: 'Tisch 1', persons }])).toBeNull()
+    }
   })
 
   it('eine Nachricht der einen Art gilt nie als eine andere', () => {
@@ -200,5 +208,19 @@ describe('readLimitedText', () => {
     expect(await readLimitedText(new Request('http://x.test', { method: 'POST', body: 'x'.repeat(11) }), 10)).toBeNull()
     const stream = new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode('x'.repeat(8))); c.enqueue(new TextEncoder().encode('x'.repeat(8))); c.close() } })
     expect(await readLimitedText(new Request('http://x.test', { method: 'POST', body: stream, duplex: 'half' } as RequestInit), 10)).toBeNull()
+  })
+})
+
+describe('Tisch pro Person (Küchenliste)', () => {
+  it('placesOfPersons: Index wie guestOf (zusagend, ohne Kleinkinder), Kleinkinder am Tisch der ersten Person', () => {
+    const persons = [
+      { isAttending: true, ageGroup: 'ADULT' }, { isAttending: false, ageGroup: 'ADULT' }, { isAttending: true, ageGroup: 'INFANT' }, { isAttending: true, ageGroup: 'CHILD' }
+    ]
+    const stored = JSON.stringify([{ index: 0, table: 'Tisch 1', seat: 'Tisch 1, Platz 1' }, { index: 1, table: 'Kindertisch', seat: null }])
+    expect(placesOfPersons(persons, stored)).toEqual([
+      { table: 'Tisch 1', seat: 'Tisch 1, Platz 1' }, { table: null, seat: null }, { table: 'Tisch 1', seat: null }, { table: 'Kindertisch', seat: null }
+    ])
+    expect(placesOfPersons(persons, null).every(p => p.table === null)).toBe(true)
+    expect(placesOfPersons(persons, 'kaputt').every(p => p.table === null)).toBe(true)
   })
 })

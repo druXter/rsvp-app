@@ -304,8 +304,9 @@ export default function DatenschutzPage() {
           <p className="mt-2">
             Handynummer, Essenswunsch, Allergien, deine weiteren Antworten, dein Passwort und deine Sitzung werden dabei
             nie übertragen. Seating meldet uns umgekehrt den dir zugewiesenen Platz (z.B. &quot;Tisch 7, Plätze 3,
-            4&quot;). Wir speichern ihn an deiner Antwort, zeigen ihn dir auf deiner Termin-Seite, den
-            Veranstalter:innen beim Einlass und im Export der Gästeliste, und löschen ihn zusammen mit deiner Antwort.
+            4&quot;) und, soweit bekannt, Tisch und Platz jeder Person deiner Antwort. Wir speichern das an deiner
+            Antwort, zeigen den Platz dir auf deiner Termin-Seite, den Veranstalter:innen beim Einlass, in der
+            Küchenliste pro Tisch und im Export, und löschen ihn zusammen mit deiner Antwort.
             Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO (Organisation der Veranstaltung, zu der auch die Sitzordnung
             gehört). Was Seating selbst mit den Angaben macht (z.B. eine Buchungsbestätigung an deine E-Mail-Adresse),
             steht in dessen Datenschutzerklärung.

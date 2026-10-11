@@ -43,7 +43,7 @@ export async function confirmedGuests(event: LinkedEvent): Promise<SeatingGuest[
 
 /**
  * Vollständiger Stand der Platzierungen: die genannten Zusagen DIESES Termins bekommen ihr Label,
- * alle übrigen werden geleert. rsvpIds anderer Termine bleiben unberührt. Eine Meldung, die
+ * alle übrigen werden geleert, ebenso Tisch und Platz pro Person (seatingPersons). rsvpIds anderer Termine bleiben unberührt. Eine Meldung, die
  * älter ist als die zuletzt angewandte (iat), wird ignoriert - Seating schickt nach jeder
  * Änderung den ganzen Stand, eine verspätet eintreffende alte Meldung darf ihn nicht zurückdrehen.
  */
@@ -61,14 +61,19 @@ export async function applyPlacements(event: LinkedEvent, link: SeatingLink, pla
     for (const p of placements) if (own.has(p.rsvpId) && p.label) labels.set(p.rsvpId, p.label.slice(0, 500))
 
     await tx.rsvp.updateMany({
-      where: { eventId: event.id, id: { notIn: [...labels.keys()] }, seatingLabel: { not: null } },
-      data: { seatingLabel: null }
+      where: { eventId: event.id, id: { notIn: [...labels.keys()] }, OR: [{ seatingLabel: { not: null } }, { seatingPersons: { not: null } }] },
+      data: { seatingLabel: null, seatingPersons: null }
     })
     // Nach Label gruppiert: bei einer Sitzordnung teilen sich oft viele Zusagen denselben Tisch.
     const byLabel = new Map<string, string[]>()
     for (const [rsvpId, label] of labels) byLabel.set(label, [...(byLabel.get(label) ?? []), rsvpId])
     for (const [label, ids] of byLabel) {
       await tx.rsvp.updateMany({ where: { eventId: event.id, id: { in: ids } }, data: { seatingLabel: label } })
+    }
+    // Tisch pro Person (Küchenliste pro Tisch): nur, wo Seating ihn kennt
+    const persons = new Map(placements.filter(p => labels.has(p.rsvpId)).map(p => [p.rsvpId, p.persons?.length ? JSON.stringify(p.persons) : null]))
+    for (const [rsvpId, value] of persons) {
+      await tx.rsvp.updateMany({ where: { id: rsvpId, eventId: event.id }, data: { seatingPersons: value } })
     }
     await tx.eventToolLink.update({ where, data: { syncedAt: sentAt } })
     return 'applied'

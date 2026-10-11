@@ -294,6 +294,9 @@ model Rsvp {
   // Platz aus Seating ("Tisch 7, Plätze 3, 4"), gesetzt über /api/seating/placements - nur
   // Anzeige (Gästeseite, Einlass, CSV), verschwindet mit der Rsvp.
   seatingLabel   String?
+  // Tisch und Platz pro Person aus Seating (JSON [{index, table, seat}], app/lib/seating.ts) - index wie in
+  // guestOf: 0 = erste zusagende Person mit Platz, dann die weiteren. Für die Küchenliste pro Tisch.
+  seatingPersons String?
   createdAt      DateTime     @default(now())
   // Beanspruchte Einträge der Mitbringliste (BringClaim), verschwinden mit der Rsvp.
   bringClaims    BringClaim[]

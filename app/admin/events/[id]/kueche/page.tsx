@@ -7,9 +7,10 @@ import { loadAdminEvent } from '../event-access'
 import PrintButton from './print-button'
 
 /**
- * Reiter "Küche" (docs/KONZEPT-EINLADUNGEN.md, Abschnitt 4): Menüwahl pro Gang gezählt, Essen, Allergien und eine
- * Liste aller Personen mit festem Platz (nach Sitzplatz sortiert). Für alle mit Zugriff auf die Gästeliste.
- * Druckbar (Kopfzeile, Reiter und Knöpfe verschwinden beim Drucken), dazu die Personen-CSV.
+ * Reiter "Küche" (docs/KONZEPT-EINLADUNGEN.md, Abschnitt 4): Menüwahl pro Gang gezählt, Essen, Allergien, mit Seating
+ * die Küchenliste pro Tisch (was an welchen Tisch geht) und eine Liste aller Personen mit festem Platz (nach Tisch und
+ * Platz sortiert). Für alle mit Zugriff auf die Gästeliste. Druckbar (Kopfzeile, Reiter und Knöpfe verschwinden beim
+ * Drucken, jeder Tisch bleibt auf einer Seite), dazu die Personen-CSV.
  */
 export default async function KitchenPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -71,6 +72,33 @@ export default async function KitchenPage({ params }: { params: Promise<{ id: st
           </section>
         )}
 
+        {report.tables.length > 0 && (
+          <section>
+            <h2 className="font-bold mb-2">Pro Tisch</h2>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-testid="kitchen-tables">
+              {report.tables.map(t => (
+                <div key={t.table ?? '-'} className="rounded border border-gray-200 p-3 text-sm break-inside-avoid dark:border-gray-700" data-testid="kitchen-table">
+                  <h3 className="font-semibold">
+                    {t.table ?? 'Ohne Tisch'}
+                    <span className="font-normal text-gray-500 dark:text-gray-400"> · {t.persons.length} {t.persons.length === 1 ? 'Person' : 'Personen'}{t.totals.CHILD + t.totals.INFANT > 0 ? ` (${[t.totals.CHILD ? `${t.totals.CHILD} Kinder` : '', t.totals.INFANT ? `${t.totals.INFANT} Kleinkinder` : ''].filter(Boolean).join(', ')})` : ''}</span>
+                  </h3>
+                  {t.courses.length > 0 && (
+                    <ul className="mt-1 space-y-0.5">
+                      {t.courses.map(c => (
+                        <li key={c.id}><span className="text-gray-500 dark:text-gray-400">{c.label}:</span> {c.counts.map(x => `${x.count}× ${x.option}`).join(', ') || '–'}{c.missing > 0 ? <span className="text-red-600 dark:text-red-400"> · {c.missing} offen</span> : null}</li>
+                      ))}
+                    </ul>
+                  )}
+                  {t.persons.some(p => p.allergies) && (
+                    <p className="mt-1 text-red-700 dark:text-red-300">⚠️ {t.persons.filter(p => p.allergies).map(p => `${p.name}: ${p.allergies}`).join('; ')}</p>
+                  )}
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{t.persons.map(p => p.name).join(', ')}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         <section>
           <h2 className="font-bold mb-2">Alle Personen</h2>
           {report.persons.length === 0 ? (
@@ -80,7 +108,7 @@ export default async function KitchenPage({ params }: { params: Promise<{ id: st
               <table className="w-full text-sm text-left" data-testid="kitchen-persons">
                 <thead>
                   <tr className="border-b bg-gray-50 dark:bg-gray-700">
-                    <th className="p-2">Platz</th><th className="p-2">Name</th><th className="p-2">Antwort</th><th className="p-2">Alter</th>
+                    {report.tables.length > 0 && <th className="p-2">Tisch</th>}<th className="p-2">Platz</th><th className="p-2">Name</th><th className="p-2">Antwort</th><th className="p-2">Alter</th>
                     {report.courses.map(c => <th key={c.id} className="p-2">{c.label}</th>)}
                     <th className="p-2">Essen</th><th className="p-2">Allergien</th><th className="p-2">Alkohol</th>
                   </tr>
@@ -88,6 +116,7 @@ export default async function KitchenPage({ params }: { params: Promise<{ id: st
                 <tbody>
                   {report.persons.map((p, i) => (
                     <tr key={i} className="border-b last:border-0">
+                      {report.tables.length > 0 && <td className="p-2">{p.table ?? '-'}</td>}
                       <td className="p-2">{p.seat ?? '-'}</td>
                       <td className="p-2 font-medium">{p.name}</td>
                       <td className="p-2 text-gray-500 dark:text-gray-400">{p.answer}</td>
