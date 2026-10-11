@@ -16,6 +16,8 @@ export type EventPreset = {
   inviteOnly: boolean
   isGuestListVisible: boolean
   enableCheckin: boolean
+  /** Wunschliste (Idee N4) gleich einschalten */
+  wishlist: boolean
   /** Wohin es nach dem Anlegen geht: Reiter "Einladungen" oder ein Abschnitt der Einstellungen */
   next: { tab: 'einladungen' } | { tab: 'einstellungen'; section: string }
 }
@@ -26,25 +28,25 @@ export const EVENT_PRESETS = {
   offen: {
     label: 'Offene Anmeldung',
     description: 'Treffen, Workshop, Vereinsabend: Alle mit dem Link melden sich an, mit E-Mail und Essenswunsch.',
-    formConfig: FORM, maxCompanions: 0, inviteOnly: false, isGuestListVisible: false, enableCheckin: false,
+    formConfig: FORM, maxCompanions: 0, inviteOnly: false, isGuestListVisible: false, enableCheckin: false, wishlist: false,
     next: { tab: 'einstellungen', section: 'formular' }
   },
   feier: {
     label: 'Feier mit Freund*innen',
     description: 'Geburtstag, Grillen, WG-Party: bis zu 2 Begleitungen, sichtbare Gästeliste, Platz für eine Mitbringliste.',
-    formConfig: { ...FORM, askEmail: false, askAlcohol: true, askAllergies: true }, maxCompanions: 2, inviteOnly: false, isGuestListVisible: true, enableCheckin: false,
+    formConfig: { ...FORM, askEmail: false, askAlcohol: true, askAllergies: true }, maxCompanions: 2, inviteOnly: false, isGuestListVisible: true, enableCheckin: false, wishlist: false,
     next: { tab: 'einstellungen', section: 'mitbringliste' }
   },
   hochzeit: {
     label: 'Hochzeit oder Feier mit Einladungen',
-    description: 'Nur eingeladene Haushalte, jeder mit persönlichem Link; Zu-/Absage, Essen und Allergien pro Person, optional Menü.',
-    formConfig: { ...FORM, askAllergies: true }, maxCompanions: 0, inviteOnly: true, isGuestListVisible: false, enableCheckin: false,
+    description: 'Nur eingeladene Haushalte, jeder mit persönlichem Link; Zu-/Absage, Essen und Allergien pro Person, optional Menü und Wunschliste.',
+    formConfig: { ...FORM, askAllergies: true }, maxCompanions: 0, inviteOnly: true, isGuestListVisible: false, enableCheckin: false, wishlist: true,
     next: { tab: 'einladungen' }
   },
   ball: {
     label: 'Ball oder Event mit Tickets',
     description: 'Ticketkategorien mit Preis und Kontingent, Überweisung per GiroCode, Einlass mit QR-Code.',
-    formConfig: { ...FORM, askAllergies: true }, maxCompanions: 0, inviteOnly: false, isGuestListVisible: false, enableCheckin: true,
+    formConfig: { ...FORM, askAllergies: true }, maxCompanions: 0, inviteOnly: false, isGuestListVisible: false, enableCheckin: true, wishlist: false,
     next: { tab: 'einstellungen', section: 'tickets' }
   }
 } satisfies Record<string, EventPreset>

@@ -14,6 +14,8 @@ import { verifyParticipantByToken, type VerifiedRsvp } from './lib/participant-v
 import { readCompanions } from './lib/persons'
 import { readMenuSelection } from './lib/menu'
 import { readHousehold } from './lib/invitations'
+import { guestOfEvent, releaseWish, reserveWish } from './lib/wishlist-store'
+import { parseEuro, WishInputError } from './lib/wishlist'
 
 const prisma = new PrismaClient()
 
@@ -197,4 +199,37 @@ export async function confirmParticipantVerification(
   const token = formData.get('token')
   const outcome = typeof token === 'string' ? await verifyParticipantByToken(token) : null
   return outcome ? { status: 'done', ...outcome } : { status: 'invalid' }
+}
+
+export type WishActionState = { error?: string; ok?: string } | null
+
+/**
+ * Wunschliste (docs/KONZEPT-WUNSCHLISTE.md): Geschenk reservieren bzw. sich an einem Geldwunsch beteiligen, oder
+ * die eigene Reservierung aufheben (mode=release). Identität nur über den persönlichen Link (editToken) eines Gasts
+ * mit Antwort oder Einladung zu diesem Termin (guestOfEvent) - nie über Felder, die jemand frei befüllen könnte.
+ */
+export async function updateWishReservation(_prev: WishActionState, formData: FormData): Promise<WishActionState> {
+  const editToken = String(formData.get('editToken') ?? '')
+  const eventId = String(formData.get('eventId') ?? '')
+  const wishId = String(formData.get('wishId') ?? '')
+  const guest = editToken && eventId ? await guestOfEvent(editToken, eventId) : null
+  if (!guest) return { error: 'Reservieren geht nur über deinen persönlichen Link, nachdem du geantwortet hast.' }
+  try {
+    if (formData.get('mode') === 'release') {
+      await releaseWish(wishId, guest.participantId)
+    } else {
+      const amount = formData.has('amount') ? parseEuro(String(formData.get('amount')), 'Betrag') : null
+      await reserveWish(wishId, eventId, guest.participantId, {
+        quantity: formData.has('quantity') ? Number(formData.get('quantity')) : undefined,
+        amountCents: amount ?? undefined
+      })
+    }
+  } catch (error) {
+    if (error instanceof WishInputError) return { error: error.message }
+    throw error
+  }
+  const event = await prisma.event.findUniqueOrThrow({ where: { id: eventId }, select: { slug: true, series: { select: { slug: true } } } })
+  revalidatePath(event.series ? `/reihe/${event.series.slug}/${event.slug}` : `/${event.slug}`)
+  revalidatePath('/admin', 'layout')
+  return { ok: formData.get('mode') === 'release' ? 'Reservierung aufgehoben.' : 'Danke! Reserviert.' }
 }

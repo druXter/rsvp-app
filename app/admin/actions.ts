@@ -117,6 +117,12 @@ function readDeadlineSettings(formData: FormData): { rsvpDeadline?: Date | null;
   return result
 }
 
+/** Wunschliste an/aus und "Überraschung" (docs/KONZEPT-WUNSCHLISTE.md) - nur, wenn das Formular den Abschnitt hatte. */
+function readWishlistSettings(formData: FormData): { wishlist?: boolean; wishesSecret?: boolean } {
+  if (!formData.has('wishlistShown')) return {}
+  return { wishlist: formData.get('wishlist') === 'on', wishesSecret: formData.get('wishesSecret') === 'on' }
+}
+
 /** Neue Antwortfrist: Erinnerungen an Einladungen gehen für die neue Frist noch einmal. */
 async function resetRemindersOnNewDeadline(eventId: string, before: Date | null, after: Date | null | undefined) {
   if (after !== undefined && (before?.getTime() ?? null) !== (after?.getTime() ?? null)) await resetInvitationReminders(eventId)
@@ -521,7 +527,8 @@ export async function createEvent(formData: FormData) {
       maxCompanions: preset.maxCompanions,
       inviteOnly: preset.inviteOnly,
       isGuestListVisible: preset.isGuestListVisible,
-      enableCheckin: preset.enableCheckin
+      enableCheckin: preset.enableCheckin,
+      wishlist: preset.wishlist
     }
   })
 
@@ -655,6 +662,7 @@ export async function updateEvent(formData: FormData) {
       maxCompanions,
       inviteOnly,
       ...deadline,
+      ...readWishlistSettings(formData),
       ...(ticketing.payment ?? {}),
       ...(ticketing.seatingRequiresPayment !== undefined ? { seatingRequiresPayment: ticketing.seatingRequiresPayment } : {}),
       ...(changes.length > 0 ? { icsSequence: { increment: 1 } } : {})
@@ -1277,7 +1285,7 @@ export async function updateSeriesTermin(formData: FormData) {
     where: { id },
     data: {
       title, slug, date, location, description, duration, formConfig, autoReminder, reminderDays, maxCapacity, enableCheckin,
-      pollUrl, pollLabel, datePending, photoUrl, maxCompanions, ...deadline,
+      pollUrl, pollLabel, datePending, photoUrl, maxCompanions, ...deadline, ...readWishlistSettings(formData),
       ...(ticketing.payment ?? {}),
       ...(ticketing.seatingRequiresPayment !== undefined ? { seatingRequiresPayment: ticketing.seatingRequiresPayment } : {}),
       ...(changes.length > 0 ? { icsSequence: { increment: 1 } } : {})

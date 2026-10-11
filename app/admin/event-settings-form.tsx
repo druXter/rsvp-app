@@ -168,6 +168,14 @@ export default function EventSettingsForm({ event, open = 'grunddaten' }: { even
         </Field>
       </SettingsSection>
 
+      <SettingsSection id="wunschliste" title="Wunschliste" open={open === 'wunschliste'} marker="purple" summary={event.wishlist ? (event.wishesSecret ? 'an · Überraschung' : 'an') : 'aus'}>
+        <input type="hidden" name="wishlistShown" value="1" />
+        <Check name="wishlist" defaultChecked={event.wishlist} label="🎁 Wunschliste auf der Gästeseite"
+          hint="Geschenke und Geldwünsche tragt ihr im Reiter „Wünsche“ ein. Gäste reservieren über ihren persönlichen Link, sobald sie geantwortet haben (bzw. eingeladen sind)." />
+        <Check name="wishesSecret" defaultChecked={event.wishesSecret} label="Überraschung: ihr seht nicht, wer was schenkt"
+          hint="Die Verwaltung sieht dann nur, was reserviert ist und wie viel Geld zusammenkommt. Ausschalten, wenn z. B. Trauzeug*innen die Liste führen und die Namen brauchen." />
+      </SettingsSection>
+
       <SettingsSection id="tickets" title="Tickets und Bezahlung" open={open === 'tickets'} marker="pink" summary={event.ticketCategories.length > 0 ? `${event.ticketCategories.length} Kategorie(n)` : 'aus'}
         description="Kategorien mit Preis und Kontingent, z.B. für einen Ball. Mit Preis bekommen Gäste Betrag, Verwendungszweck und GiroCode; ihr markiert Zahlungen im Reiter „Gäste“ oder per Kontoauszug.">
         <TicketFields event={event} />

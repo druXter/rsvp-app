@@ -154,6 +154,14 @@ export default function DatenschutzPage() {
             Veranstalter:innen vor.
           </p>
           <p className="mt-2">
+            <strong>Wunschliste:</strong> Hat eine Veranstaltung eine Wunschliste (z.B. für eine Hochzeit), kannst du
+            über deinen persönlichen Link Geschenke reservieren oder einen Betrag für einen Geldwunsch eintragen. Wir
+            speichern, was du reserviert hast (Stückzahl bzw. Betrag). Andere Gäste sehen nur, was noch frei ist, nie
+            von wem. Die Veranstalter:innen sehen deinen Namen dazu nur, wenn sie die Einstellung „Überraschung“
+            ausgeschaltet haben. Die Reservierung kannst du jederzeit aufheben; sie wird mit deinen Daten gelöscht.
+            Bezahlt wird nicht über uns.
+          </p>
+          <p className="mt-2">
             <strong>Tickets und Bezahlung:</strong> Bietet eine Veranstaltung Ticketkategorien an (z.B.
             &quot;Studierende&quot;, &quot;Gäste&quot;), speichern wir an deiner Antwort die gewählte Kategorie, den zu
             zahlenden Betrag und einen Verwendungszweck, über den die Veranstalter:innen deine Überweisung zuordnen.

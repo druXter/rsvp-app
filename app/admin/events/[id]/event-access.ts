@@ -18,7 +18,7 @@ export const loadAdminEvent = cache(async (id: string) => {
     include: {
       series: true,
       owner: { select: { email: true } },
-      _count: { select: { invitations: true, ticketCategories: true, menuCourses: true, rsvps: true, bringSlots: true } }
+      _count: { select: { invitations: true, ticketCategories: true, menuCourses: true, rsvps: true, bringSlots: true, wishes: true } }
     }
   })
   if (!event || !(await hasEventModeratorOrAbove(user, event))) return null
@@ -40,6 +40,7 @@ export function eventTabs({ event, isOwner, invitationCount }: AdminEvent) {
     ...(event._count.menuCourses > 0 || event.maxCompanions > 0 || config.askDiet || config.askAllergies || event.series?.askDiet || event.series?.askAllergies
       ? [{ href: `${base}/kueche`, label: 'Küche' }] : []),
     ...(event._count.ticketCategories > 0 ? [{ href: `${base}/zahlungen`, label: 'Zahlungen' }] : []),
+    ...(event.wishlist || event._count.wishes > 0 ? [{ href: `${base}/wuensche`, label: 'Wünsche' }] : []),
     ...(isOwner ? [{ href: `${base}/einstellungen`, label: 'Einstellungen' }] : [])
   ]
 }

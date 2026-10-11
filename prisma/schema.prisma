@@ -183,6 +183,12 @@ model Event {
   // Mitbringliste (Idee L5 der Suite), siehe BringSlot.
   bringSlots BringSlot[]
 
+  // Wunschliste (Idee N4 der Suite, docs/KONZEPT-WUNSCHLISTE.md, app/lib/wishlist.ts): Gäste reservieren Geschenke
+  // oder beteiligen sich an Geldwünschen. wishesSecret ("Überraschung"): die Verwaltung sieht nicht, wer was schenkt.
+  wishlist     Boolean @default(false)
+  wishesSecret Boolean @default(true)
+  wishes       Wish[]
+
   // Tickets und Bezahlung (Ideen L4/L1 der Suite, docs/KONZEPT-TICKETS.md, app/lib/tickets.ts und
   // app/lib/payment.ts): Kategorien mit Preis und Kontingent. Ohne Kategorien ändert sich nichts.
   ticketCategories       TicketCategory[]
@@ -261,6 +267,7 @@ model Participant {
   pushSubscriptions ParticipantPushSubscription[]
   // Vorab angelegt für eine Einladung (Einladungsmodus): der editToken ist der persönliche Link des Haushalts.
   invitation        Invitation?
+  wishReservations  WishReservation[]
 }
 
 // Push-Abo eines Gast-Geräts, verknüpft mit dem Participant statt (wie PushSubscription)
@@ -703,4 +710,41 @@ model TicketCategory {
   rsvps      Rsvp[]
 
   @@index([eventId])
+}
+
+// Ein Wunsch der Wunschliste (Idee N4, app/lib/wishlist.ts). Geschenk mit Anzahl (`quantity` Stück, z.B. 6
+// Weingläser) oder - mit `targetCents` - Geldwunsch mit Zielbetrag, an dem sich mehrere mit Teilbeträgen beteiligen.
+model Wish {
+  id           String            @id @default(cuid())
+  eventId      String
+  event        Event             @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  title        String
+  description  String?
+  url          String?
+  // Ungefährer Preis (nur Anzeige)
+  priceCents   Int?
+  quantity     Int               @default(1)
+  targetCents  Int?
+  position     Int
+  createdAt    DateTime          @default(now())
+  reservations WishReservation[]
+
+  @@index([eventId])
+}
+
+// Reservierung eines Wunschs durch einen Gast (über seinen persönlichen Link): Stückzahl bzw. Betrag. Höchstens
+// eine pro Gast und Wunsch; mehr Stück als frei verhindert eine atomare SQL-Anweisung (app/lib/wishlist-store.ts).
+// Verschwindet mit dem Gast (Daten löschen) oder dem Wunsch.
+model WishReservation {
+  id            String      @id @default(cuid())
+  wishId        String
+  wish          Wish        @relation(fields: [wishId], references: [id], onDelete: Cascade)
+  participantId String
+  participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  quantity      Int         @default(1)
+  amountCents   Int?
+  createdAt     DateTime    @default(now())
+
+  @@unique([wishId, participantId])
+  @@index([participantId])
 }

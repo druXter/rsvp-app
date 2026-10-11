@@ -20,6 +20,8 @@ import { TOOL_LINKS } from '../../../lib/linked-tools-store'
 import { isTimelineConfirmed, timelineLinkOf } from '../../../lib/timeline'
 import { deadlinePassed, formatDeadline } from '../../../lib/rsvp-deadline'
 import EventHeader from '../../../ui/event-header'
+import WishList from '../../../ui/wish-list'
+import { wishesForGuest } from '../../../lib/wishlist-store'
 
 const prisma = new PrismaClient()
 
@@ -152,6 +154,8 @@ export default async function SeriesEventPage({
     askAllergies: series.askAllergies,
   })
 
+  const wishes = event.wishlist ? await wishesForGuest(event.id, participant && 'id' in participant ? participant.id : null) : []
+
   // Öffentliche Gästeliste - EXTREM WICHTIG: Nur ungefährliche Felder abfragen!
   let publicRsvps: PublicRsvp[] = []
   if (series.isGuestListVisible) {
@@ -218,6 +222,13 @@ export default async function SeriesEventPage({
           usedUrlToken={!!token}
           vapidPublicKey={process.env.VAPID_PUBLIC_KEY || null}
         />
+
+        {/* Wunschliste (docs/KONZEPT-WUNSCHLISTE.md): reservieren nur mit persönlichem Link nach Antwort bzw. mit Einladung */}
+        {wishes.length > 0 && (
+          <div className="mt-8">
+            <WishList wishes={wishes} eventId={event.id} editToken={participant && 'id' in participant && (existingRsvp || household) ? participant.editToken ?? null : null} />
+          </div>
+        )}
 
         {series.isGuestListVisible && (
           <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700">
