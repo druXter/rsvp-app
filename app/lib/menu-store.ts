@@ -3,6 +3,7 @@
 // Datenbankseite der Menüwahl (app/lib/menu.ts): Gänge eines Termins lesen, prüfen und speichern.
 import { prisma } from './prisma'
 import { courseOptions, type MenuCourseForForm, type MenuCourseInput } from './menu'
+import { InputError } from './input-error'
 
 /** Die Gänge eines Termins in Reihenfolge, mit Optionen als Liste. */
 export async function menuForForm(eventId: string): Promise<MenuCourseForForm[]> {
@@ -20,9 +21,9 @@ export async function assertMenuChangeable(eventId: string, courses: readonly Me
   for (const course of existing) {
     if (course.choices.length === 0) continue
     const kept = courses.find(c => c.label === course.label)
-    if (!kept) throw new Error(`Menü: Für „${course.label}“ gibt es schon ${course.choices.length} Wahl/Wahlen, der Gang kann nicht entfernt oder umbenannt werden.`)
+    if (!kept) throw new InputError(`Menü: Für „${course.label}“ gibt es schon ${course.choices.length} Wahl/Wahlen, der Gang kann nicht entfernt oder umbenannt werden.`)
     const lost = course.choices.find(choice => !kept.options.includes(choice.option))
-    if (lost) throw new Error(`Menü: „${lost.option}“ bei „${course.label}“ wurde schon gewählt und kann nicht entfernt oder umbenannt werden.`)
+    if (lost) throw new InputError(`Menü: „${lost.option}“ bei „${course.label}“ wurde schon gewählt und kann nicht entfernt oder umbenannt werden.`)
   }
 }
 

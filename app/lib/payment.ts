@@ -7,6 +7,7 @@ import { randomInt } from 'node:crypto'
 import QRCode from 'qrcode'
 import { prisma } from './prisma'
 import { formatEuro, formatPaymentDate, paymentDue, paymentState, type PaymentFields, type PaymentState } from './payment-state'
+import { InputError } from './input-error'
 
 export { PAYMENT_STATE_LABEL, formatPaymentDate, paymentDue, paymentState, type PaymentFields, type PaymentState } from './payment-state'
 
@@ -60,21 +61,21 @@ export function readPaymentSettings(formData: FormData, needsPayment: boolean): 
   const dueInput = String(formData.get('paymentDueDays') ?? '').trim()
   const reminderInput = String(formData.get('paymentReminderDays') ?? '').trim()
 
-  if (recipient.length > 70) throw new Error('Bezahlung: Der Name der Empfänger*in darf höchstens 70 Zeichen haben (Vorgabe für Überweisungen).')
-  if (ibanInput && !isValidIban(ibanInput)) throw new Error('Bezahlung: Die IBAN ist ungültig (Prüfsumme stimmt nicht).')
-  if (bicInput && !isValidBic(bicInput)) throw new Error('Bezahlung: Die BIC ist ungültig.')
+  if (recipient.length > 70) throw new InputError('Bezahlung: Der Name der Empfänger*in darf höchstens 70 Zeichen haben (Vorgabe für Überweisungen).')
+  if (ibanInput && !isValidIban(ibanInput)) throw new InputError('Bezahlung: Die IBAN ist ungültig (Prüfsumme stimmt nicht).')
+  if (bicInput && !isValidBic(bicInput)) throw new InputError('Bezahlung: Die BIC ist ungültig.')
   if (needsPayment && (!recipient || !ibanInput)) {
-    throw new Error('Bezahlung: Mindestens eine Ticketkategorie hat einen Preis - dann sind Empfänger*in und IBAN Pflicht.')
+    throw new InputError('Bezahlung: Mindestens eine Ticketkategorie hat einen Preis - dann sind Empfänger*in und IBAN Pflicht.')
   }
   let paymentDueDays: number | null = null
   if (dueInput) {
-    if (!/^\d+$/.test(dueInput) || Number(dueInput) < 1 || Number(dueInput) > 365) throw new Error('Bezahlung: Die Zahlfrist muss zwischen 1 und 365 Tagen liegen.')
+    if (!/^\d+$/.test(dueInput) || Number(dueInput) < 1 || Number(dueInput) > 365) throw new InputError('Bezahlung: Die Zahlfrist muss zwischen 1 und 365 Tagen liegen.')
     paymentDueDays = Number(dueInput)
   }
   let paymentReminderDays: number | null = null
   if (reminderInput) {
-    if (!/^\d+$/.test(reminderInput) || Number(reminderInput) < 1 || Number(reminderInput) > 60) throw new Error('Bezahlung: Die Zahlungserinnerung muss zwischen 1 und 60 Tagen vor Fristende liegen.')
-    if (paymentDueDays === null) throw new Error('Bezahlung: Eine automatische Zahlungserinnerung braucht eine Zahlfrist.')
+    if (!/^\d+$/.test(reminderInput) || Number(reminderInput) < 1 || Number(reminderInput) > 60) throw new InputError('Bezahlung: Die Zahlungserinnerung muss zwischen 1 und 60 Tagen vor Fristende liegen.')
+    if (paymentDueDays === null) throw new InputError('Bezahlung: Eine automatische Zahlungserinnerung braucht eine Zahlfrist.')
     paymentReminderDays = Number(reminderInput)
   }
   return { paymentRecipient: recipient || null, paymentIban: ibanInput || null, paymentBic: bicInput || null, paymentDueDays, paymentReminderDays }

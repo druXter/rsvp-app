@@ -4,7 +4,7 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
-import { PrismaClient, Role, type Event, type EventSeries, type Participant, type Rsvp } from '@prisma/client'
+import { Prisma, PrismaClient, Role, type Event, type EventSeries, type Participant, type Rsvp } from '@prisma/client'
 import { randomUUID } from 'crypto'
 import { sanitizeNextPath } from 'suite-kit'
 import { sendReminderEmail, sendWaitlistPromotedEmail, sendConfirmationEmail, sendVerificationEmail, sendPasswordResetEmail, sendEmailChangeConfirmation, sendPaymentReceivedEmail, sendPaymentCancelledEmail } from '../lib/mail'
@@ -36,6 +36,7 @@ import { savePersons } from '../lib/rsvp-submission'
 import { checkInAll, checkOutAll, togglePerson } from '../lib/checkin'
 import { resetInvitationReminders } from '../lib/invitation-reminder'
 import { invitationCovers } from '../lib/invitation-store'
+import { InputError } from '../lib/input-error'
 
 const prisma = new PrismaClient()
 
@@ -71,7 +72,7 @@ async function assertCompanionsAllowed(maxCompanions: number | undefined, catego
   const companions = maxCompanions ?? (eventId ? (await prisma.event.findUnique({ where: { id: eventId }, select: { maxCompanions: true } }))?.maxCompanions ?? 0 : 0)
   if (companions === 0) return
   const hasCategories = categories ? categories.length > 0 : !!eventId && (await prisma.ticketCategory.count({ where: { eventId } })) > 0
-  if (hasCategories) throw new Error('Begleitungen und Ticketkategorien schließen sich aus: Bei Kategorien meldet sich jede Person selbst an. Bitte eines von beiden entfernen.')
+  if (hasCategories) throw new InputError('Begleitungen und Ticketkategorien schließen sich aus: Bei Kategorien meldet sich jede Person selbst an. Bitte eines von beiden entfernen.')
 }
 
 /**
@@ -96,7 +97,7 @@ async function assertInviteOnlyAllowed(
     settings.requireGuestUser && 'Teilnehmendenkonto-Pflicht',
     hasCategories && 'Ticketkategorien'
   ].filter(Boolean)
-  if (conflicts.length > 0) throw new Error(`Einladungsmodus: nicht zusammen mit ${conflicts.join(', ')}. Der persönliche Link ersetzt diese Zugänge.`)
+  if (conflicts.length > 0) throw new InputError(`Einladungsmodus: nicht zusammen mit ${conflicts.join(', ')}. Der persönliche Link ersetzt diese Zugänge.`)
 }
 
 /**
@@ -110,11 +111,33 @@ function readDeadlineSettings(formData: FormData): { rsvpDeadline?: Date | null;
   if (formData.has('rsvpReminderDays')) {
     const raw = formString(formData, 'rsvpReminderDays', 5)
     const days = raw ? Number(raw) : null
-    if (days !== null && (!Number.isInteger(days) || days < 1 || days > 60)) throw new Error('Erinnerung an Einladungen: 1 bis 60 Tage vor der Frist.')
-    if (days !== null && formData.has('rsvpDeadline') && !result.rsvpDeadline) throw new Error('Erinnerung an Einladungen: Bitte zuerst eine Antwortfrist eintragen.')
+    if (days !== null && (!Number.isInteger(days) || days < 1 || days > 60)) throw new InputError('Erinnerung an Einladungen: 1 bis 60 Tage vor der Frist.')
+    if (days !== null && formData.has('rsvpDeadline') && !result.rsvpDeadline) throw new InputError('Erinnerung an Einladungen: Bitte zuerst eine Antwortfrist eintragen.')
     result.rsvpReminderDays = days
   }
   return result
+}
+
+export type SettingsState = { error: string } | null
+
+/**
+ * Speichern der Einstellungen (Event, Termin, Reihe) für app/admin/settings-form.tsx: Ungültige Eingaben
+ * (InputError) und ein schon vergebenes URL-Wort kommen als Meldung zurück ans Formular, alles bleibt wie
+ * eingegeben. `save` gibt das Ziel nach dem Speichern zurück (undefined = kein Zugriff, nichts passiert).
+ */
+async function settingsResult(save: () => Promise<string | undefined>): Promise<SettingsState> {
+  let target: string | undefined
+  try {
+    target = await save()
+  } catch (error) {
+    if (error instanceof InputError) return { error: error.message }
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002' && String(error.meta?.target).includes('slug')) {
+      return { error: 'Diese Adresse (URL-Wort) ist schon vergeben. Bitte ein anderes wählen.' }
+    }
+    throw error
+  }
+  if (target) redirect(target)
+  return null
 }
 
 /** Wunschliste an/aus und "Überraschung" (docs/KONZEPT-WUNSCHLISTE.md) - nur, wenn das Formular den Abschnitt hatte. */
@@ -583,7 +606,11 @@ export async function deleteEvent(formData: FormData) {
 /**
  * Aktualisiert die Meta-Daten und die Formular-Konfiguration eines bestehenden Events.
  */
-export async function updateEvent(formData: FormData) {
+export async function updateEvent(_state: SettingsState, formData: FormData): Promise<SettingsState> {
+  return settingsResult(() => saveEvent(formData))
+}
+
+async function saveEvent(formData: FormData): Promise<string | undefined> {
   const user = await requireUser()
   const id = formData.get('eventId') as string
 
@@ -680,7 +707,7 @@ export async function updateEvent(formData: FormData) {
   }
 
   revalidatePath('/admin', 'layout')
-  redirect(`/admin/events/${id}/einstellungen?gespeichert=1`)
+  return `/admin/events/${id}/einstellungen?gespeichert=1`
 }
 
 /**
@@ -1101,7 +1128,11 @@ export async function createEventSeries(formData: FormData) {
 /**
  * Aktualisiert die reihenweiten Einstellungen (gilt für alle Termine der Reihe).
  */
-export async function updateEventSeries(formData: FormData) {
+export async function updateEventSeries(_state: SettingsState, formData: FormData): Promise<SettingsState> {
+  return settingsResult(() => saveEventSeries(formData))
+}
+
+async function saveEventSeries(formData: FormData): Promise<string | undefined> {
   const user = await requireUser()
 
   const id = formData.get('seriesId') as string
@@ -1135,7 +1166,7 @@ export async function updateEventSeries(formData: FormData) {
   ])
 
   revalidatePath('/admin', 'layout')
-  redirect(`/admin/series/${id}/edit?gespeichert=1`)
+  return `/admin/series/${id}/edit?gespeichert=1`
 }
 
 /**
@@ -1233,7 +1264,11 @@ export async function addTerminToSeries(formData: FormData) {
  * updateEvent gibt es hier keine reihenweiten Felder (Profil-Abfragen, PIN,
  * Gästeliste, Verifizierung) - die kommen ausschließlich von der EventSeries.
  */
-export async function updateSeriesTermin(formData: FormData) {
+export async function updateSeriesTermin(_state: SettingsState, formData: FormData): Promise<SettingsState> {
+  return settingsResult(() => saveSeriesTermin(formData))
+}
+
+async function saveSeriesTermin(formData: FormData): Promise<string | undefined> {
   const user = await requireUser()
 
   const id = formData.get('eventId') as string
@@ -1303,7 +1338,7 @@ export async function updateSeriesTermin(formData: FormData) {
   }
 
   revalidatePath('/admin', 'layout')
-  redirect(`/admin/events/${id}/einstellungen?gespeichert=1`)
+  return `/admin/events/${id}/einstellungen?gespeichert=1`
 }
 
 /**

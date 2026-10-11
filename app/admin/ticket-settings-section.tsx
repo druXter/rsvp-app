@@ -3,6 +3,7 @@ import { themeClasses } from '../ui/theme-section'
 import { hintClass, inputClass, labelClass } from '../ui/kit'
 import { formatTicketCategories, type TicketCategoryInput } from '../lib/tickets'
 import { formatIban } from '../lib/payment'
+import { RuleNote } from './field-rules'
 
 type TicketSettings = {
   ticketCategories: TicketCategoryInput[]
@@ -27,6 +28,7 @@ export function TicketFields({ event }: { event?: TicketSettings }) {
       <div>
         <label htmlFor="ticketCategories" className={label}>Kategorien (Optional)</label>
         <textarea id="ticketCategories" name="ticketCategories" rows={4} defaultValue={event ? formatTicketCategories(event.ticketCategories) : ''} className={input} placeholder={'Studierende; 25; 120\nGäste; 35,50\nHelfer*innen; 0; 20'} />
+        <RuleNote name="ticketCategories" />
         <p className={hintClass}>Eine Zeile pro Kategorie: Bezeichnung; Preis in Euro; Kontingent. Preis und Kontingent sind optional. Ein neuer Preis gilt nur für neue Zusagen. Eine Kategorie mit Antworten lässt sich nicht entfernen oder umbenennen.</p>
       </div>
       <div className="grid sm:grid-cols-2 gap-3">
@@ -49,6 +51,7 @@ export function TicketFields({ event }: { event?: TicketSettings }) {
         <div>
           <label htmlFor="paymentReminderDays" className={label}>Zahlungserinnerung, Tage vor Fristende (Optional)</label>
           <input id="paymentReminderDays" name="paymentReminderDays" type="number" min={1} max={60} defaultValue={event?.paymentReminderDays ?? ''} className={input} placeholder="z. B. 3" />
+          <RuleNote name="paymentReminderDays" />
         </div>
       </div>
       <p className={hintClass}>Empfänger*in und IBAN sind Pflicht, sobald eine Kategorie etwas kostet. Die Frist zählt ab dem festen Platz und wird nur angezeigt: Überfällige Zusagen könnt ihr in der Gästeliste stornieren, nichts verfällt automatisch. Mit Zahlungserinnerung bekommen offene Zahlungen einmal pro Frist automatisch eine Mail (und Push), braucht den Cronjob der Erinnerungen; per Knopf in der Gästeliste geht das jederzeit.</p>

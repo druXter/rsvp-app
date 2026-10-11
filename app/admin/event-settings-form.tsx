@@ -13,6 +13,8 @@ import SubmitButton from '../ui/submit-button'
 import { MenuFields } from './menu-settings-section'
 import { SeatingPaymentToggle, TicketFields } from './ticket-settings-section'
 import NotifyGuestsToggle from './notify-guests-toggle'
+import { SettingsError, SettingsForm } from './settings-form'
+import FieldRules, { RuleNote, type FieldRule } from './field-rules'
 
 export const SETTINGS_INCLUDE = {
   series: true,
@@ -44,6 +46,21 @@ function Field({ id, label, hint, children }: { id: string; label: string; hint?
 }
 
 const onOff = (on: boolean, text: string) => (on ? text : null)
+
+// Was sich ausschließt bzw. was was braucht - prüft der Server ebenso (app/admin/actions.ts)
+const RULE_LABELS = {
+  inviteOnly: '„Nur mit Einladung“', eventPin: 'einer PIN', requireVerification: 'E-Mail-Bestätigung',
+  ticketCategories: 'Ticketkategorien', maxCompanions: 'Begleitungen'
+}
+const RULES: FieldRule[] = [
+  { excludes: ['inviteOnly', 'eventPin'] },
+  { excludes: ['inviteOnly', 'requireVerification'] },
+  { excludes: ['inviteOnly', 'ticketCategories'] },
+  { excludes: ['maxCompanions', 'ticketCategories'] },
+  { requires: 'rsvpReminderDays', needs: 'rsvpDeadline', hint: 'braucht eine Antwortfrist (Grunddaten)' },
+  { requires: 'paymentReminderDays', needs: 'paymentDueDays', hint: 'braucht eine Zahlfrist' },
+  { requires: 'datePending', needs: 'pollUrl', hint: 'braucht einen Link auf eine Abstimmung' }
+]
 const summary = (parts: (string | null | false | undefined)[], empty = 'aus') => parts.filter(Boolean).join(' · ') || empty
 
 /**
@@ -64,10 +81,16 @@ export default function EventSettingsForm({ event, open = 'grunddaten' }: { even
   const seatingUrl = storedToolUrl(event.toolLinks, 'seating')
   const timelineUrl = storedToolUrl(event.toolLinks, 'timeline')
   const formId = 'event-settings-form'
+  // Fest gesperrt: Konto-Pflicht wird beim Anlegen festgelegt, Termine einer Einladungs-Reihe haben keine Kategorien
+  const fixed: Record<string, string> = {
+    ...(event.requireGuestUser ? { inviteOnly: 'nur mit Teilnehmendenkonto (beim Anlegen festgelegt)' } : {}),
+    ...(isTermin && event.inviteOnly ? { ticketCategories: 'die Reihe ist im Einladungsmodus' } : {})
+  }
 
   return (
-    <form id={formId} action={isTermin ? updateSeriesTermin : updateEvent} className="space-y-3">
+    <SettingsForm id={formId} action={isTermin ? updateSeriesTermin : updateEvent} className="space-y-3">
       <input type="hidden" name="eventId" value={event.id} />
+      <FieldRules formId={formId} labels={RULE_LABELS} rules={RULES} fixed={fixed} />
 
       <SettingsSection id="grunddaten" title="Grunddaten" open={open === 'grunddaten'} marker="blue"
         summary={`${d.toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin' })}${event.location ? ` · ${event.location}` : ''}`}>
@@ -116,6 +139,7 @@ export default function EventSettingsForm({ event, open = 'grunddaten' }: { even
         </div>
         <Field id="maxCompanions" label="Begleitungen pro Anmeldung" hint="0 = keine. Jede Begleitung mit Name, Altersgruppe und den Angaben oben. Nicht zusammen mit Ticketkategorien.">
           <input id="maxCompanions" type="number" name="maxCompanions" min={0} max={20} defaultValue={event.maxCompanions} className={`${inputClass} sm:w-32`} />
+          <RuleNote name="maxCompanions" />
         </Field>
         <div className="space-y-2">
           <p className={labelClass}>Eigene Zusatzfragen (optional, bis zu 3)</p>
@@ -135,14 +159,18 @@ export default function EventSettingsForm({ event, open = 'grunddaten' }: { even
           <input type="hidden" name="inviteOnlyShown" value="1" />
           <Check name="inviteOnly" defaultChecked={event.inviteOnly} label="💌 Nur mit Einladung"
             hint="Nur eingeladene Haushalte können antworten, jeder über seinen persönlichen Link (Reiter „Einladungen“). Ohne Link sehen Besucher*innen nur den Titel. Nicht zusammen mit PIN, E-Mail-Bestätigung, Konto-Pflicht oder Ticketkategorien." />
+          <RuleNote name="inviteOnly" indent />
           <Field id="rsvpReminderDays" label="Erinnerung an Einladungen ohne Antwort (optional)" hint="Tage vor der Antwortfrist, einmal per Mail an Haushalte mit E-Mail.">
             <input id="rsvpReminderDays" type="number" name="rsvpReminderDays" min="1" max="60" defaultValue={event.rsvpReminderDays ?? ''} className={`${inputClass} sm:w-32`} placeholder="z.B. 7" />
+            <RuleNote name="rsvpReminderDays" />
           </Field>
           <Field id="eventPin" label="PIN / Passwort (optional)" hint="Gäste müssen diesen Code eingeben, bevor sie Formular oder Gästeliste sehen.">
             <input id="eventPin" name="eventPin" defaultValue={event.eventPin || ''} className={`${inputClass} sm:w-64`} placeholder="leer = ohne PIN" />
+            <RuleNote name="eventPin" />
           </Field>
           <Check name="requireVerification" defaultChecked={event.requireVerification} label="E-Mail-Bestätigung (Double-Opt-In)"
             hint="Eine Zusage gilt erst, wenn der Gast den Link in einer Mail anklickt. Braucht die E-Mail-Abfrage." />
+          <RuleNote name="requireVerification" indent />
           <Check name="isGuestListVisible" defaultChecked={event.isGuestListVisible} label="Gästeliste für Gäste sichtbar"
             hint="Zeigt, wer kommt und was mitgebracht wird (ohne Kontaktdaten und Allergien)." />
           {event.requireGuestUser && <p className="text-sm text-gray-600 dark:text-gray-400">🔒 Nur mit Teilnehmendenkonto - beim Anlegen festgelegt, hier nicht änderbar.</p>}
@@ -206,15 +234,17 @@ export default function EventSettingsForm({ event, open = 'grunddaten' }: { even
         </div>
         <Check name="datePending" defaultChecked={event.datePending} label="Datum noch offen - wird per Terminabstimmung festgelegt"
           hint="Nur mit einem Link auf eine Terminabstimmung. Das Datum oben ist dann ein Platzhalter (in der Zukunft wählen): keine Erinnerungen, kein Kalendereintrag. Steht der Termin fest, übernimmt ihn dieses Event und alle Zusagenden werden benachrichtigt." />
+        <RuleNote name="datePending" indent />
         <Field id="photoUrl" label="Fotoalbum (Link)" hint="Geteiltes Album mit Upload (z.B. Immich). Gäste mit Zusage sehen den Link ab dem Ende des Termins.">
           <input id="photoUrl" type="url" name="photoUrl" defaultValue={event.photoUrl || ''} className={inputClass} placeholder="https://fotos.example.de/s/…" />
         </Field>
       </SettingsSection>
 
       <div className="sticky bottom-0 z-20 -mx-4 border-t border-gray-200 bg-white/95 px-4 py-3 backdrop-blur dark:border-gray-700 dark:bg-gray-900/95 sm:mx-0 sm:rounded-xl sm:border">
+        <SettingsError />
         <NotifyGuestsToggle formId={formId} original={{ title: event.title, date: formattedDate, duration: String(event.duration), location: event.location || '', description: event.description || '' }} />
         <SubmitButton>Änderungen speichern</SubmitButton>
       </div>
-    </form>
+    </SettingsForm>
   )
 }

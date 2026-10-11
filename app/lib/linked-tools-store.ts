@@ -2,6 +2,7 @@
 import type { Prisma } from '@prisma/client'
 import { prisma } from './prisma'
 import { TOOL_DEFINITIONS, isToolType, parseToolUrl, resolveToolOrigin, toolLinkOf, type ToolLink, type ToolType } from './linked-tools'
+import { InputError } from './input-error'
 
 /**
  * Datenbankseite der Verknüpfungen (EventToolLink, siehe app/lib/linked-tools.ts): lesen für
@@ -47,11 +48,11 @@ export function readToolLinks(formData: FormData): ToolLinkInput[] {
     }
     const origin = resolveToolOrigin(definition)
     if (!origin) {
-      throw new Error(`Die Anbindung an ${definition.label} ist auf diesem Server nicht eingerichtet (${definition.baseUrlEnv}, ${definition.secretEnv}) - bitte das Feld "${definition.linkLabel}" leer lassen.`)
+      throw new InputError(`Die Anbindung an ${definition.label} ist auf diesem Server nicht eingerichtet (${definition.baseUrlEnv}, ${definition.secretEnv}) - bitte das Feld "${definition.linkLabel}" leer lassen.`)
     }
     const link = parseToolUrl(definition, input, origin)
     if (!link) {
-      throw new Error(`Ungültiger ${definition.linkLabel}. Erwartet wird der Link aus den ${definition.label}-Einstellungen des Events, also ${origin}/${definition.linkSegment}/<Event-ID>.`)
+      throw new InputError(`Ungültiger ${definition.linkLabel}. Erwartet wird der Link aus den ${definition.label}-Einstellungen des Events, also ${origin}/${definition.linkSegment}/<Event-ID>.`)
     }
     result.push({ type: definition.type, link })
   }

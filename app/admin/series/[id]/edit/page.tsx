@@ -9,8 +9,14 @@ import ShareAccessPanel from '../../../share-access-panel'
 import GuestMembersPanel from '../../../guest-members-panel'
 import SubmitButton from '../../../../ui/submit-button'
 import ThemeSection, { themeClasses } from '../../../../ui/theme-section'
+import { SettingsError, SettingsForm } from '../../../settings-form'
+import FieldRules, { RuleNote, type FieldRule } from '../../../field-rules'
 
 const prisma = new PrismaClient()
+
+// Einladungsmodus schließt PIN und Verifizierung aus - prüft der Server ebenso (assertInviteOnlyAllowed)
+const RULE_LABELS = { inviteOnly: '„Nur mit Einladung“', eventPin: 'einer Reihen-PIN', requireVerification: 'E-Mail-Verifizierung' }
+const RULES: FieldRule[] = [{ excludes: ['inviteOnly', 'eventPin'] }, { excludes: ['inviteOnly', 'requireVerification'] }]
 
 export default async function EditEventSeriesPage({
   params,
@@ -38,6 +44,11 @@ export default async function EditEventSeriesPage({
   if (!series || (!isOwner && !isModerator)) {
     return notFound()
   }
+  // Konto-Pflicht (beim Anlegen festgelegt) und Ticketkategorien an Terminen sperren den Einladungsmodus
+  const hasCategories = (await prisma.ticketCategory.count({ where: { event: { seriesId: series.id } } })) > 0
+  const fixed: Record<string, string> = series.requireGuestUser
+    ? { inviteOnly: 'nur mit Teilnehmendenkonto (beim Anlegen festgelegt)' }
+    : hasCategories ? { inviteOnly: 'Termine der Reihe haben Ticketkategorien' } : {}
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -50,9 +61,10 @@ export default async function EditEventSeriesPage({
         )}
 
         {isOwner && (
-        <form id="edit-series-form" action={updateEventSeries} className="space-y-4 rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+        <SettingsForm id="edit-series-form" action={updateEventSeries} className="space-y-4 rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Einstellungen der Reihe</h2>
           <input type="hidden" name="seriesId" value={series.id} />
+          <FieldRules formId="edit-series-form" labels={RULE_LABELS} rules={RULES} fixed={fixed} />
 
           <div>
             <label htmlFor="title" className="block text-sm font-medium mb-1">Titel der Reihe</label>
@@ -98,6 +110,7 @@ export default async function EditEventSeriesPage({
               <input type="checkbox" name="requireVerification" defaultChecked={series.requireVerification} className={`w-4 h-4 ${themeClasses('yellow').accent}`} />
               <span className={`text-sm font-medium ${themeClasses('yellow').heading}`}>Verifizierung zwingend erforderlich</span>
             </label>
+            <RuleNote name="requireVerification" />
           </ThemeSection>
 
           <ThemeSection color="indigo" title="Gruppen- & Vereins-Features (gelten für alle Termine der Reihe)">
@@ -109,6 +122,7 @@ export default async function EditEventSeriesPage({
             <div>
               <label htmlFor="eventPin" className={`block text-sm font-medium mb-1 ${themeClasses('indigo').heading}`}>Reihen-PIN / Passwort (Optional)</label>
               <input id="eventPin" type="text" name="eventPin" defaultValue={series.eventPin || ''} className={inputClass} placeholder="leer lassen für öffentliche Reihe" />
+              <RuleNote name="eventPin" />
             </div>
           </ThemeSection>
 
@@ -119,9 +133,11 @@ export default async function EditEventSeriesPage({
               💌 Nur mit Einladung
             </label>
             <p className="mt-1 ml-6 text-xs text-gray-600 dark:text-gray-400">Gilt für alle Termine. Antworten nur über den Link einer Einladung (Reiter „Einladungen“), pro Person. Nicht zusammen mit PIN, E-Mail-Verifizierung, Konto-Pflicht oder Ticketkategorien.</p>
+            <RuleNote name="inviteOnly" />
           </ThemeSection>
 
-        </form>
+          <SettingsError />
+        </SettingsForm>
         )}
 
         {isOwner && (

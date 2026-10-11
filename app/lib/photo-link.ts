@@ -2,6 +2,7 @@
 //
 // Foto-Link (Idee Q3 der Suite, suite-kit docs/IDEEN.md): Statt eigener Foto-Funktion verweist ein Event auf
 // ein geteiltes Album mit Upload-Link, z. B. in Immich. rsvp-app speichert nur diesen Link.
+import { InputError } from './input-error'
 
 export const PHOTO_URL_MAX_LENGTH = 2000
 
@@ -16,12 +17,12 @@ export function parsePhotoUrl(input: string): string | null {
   try {
     url = new URL(value)
   } catch {
-    throw new Error('Ungültiger Foto-Link. Erwartet wird eine vollständige Adresse, z. B. https://fotos.example.de/s/hochzeit.')
+    throw new InputError('Ungültiger Foto-Link. Erwartet wird eine vollständige Adresse, z. B. https://fotos.example.de/s/hochzeit.')
   }
   if (url.protocol !== 'https:' && url.protocol !== 'http:') {
-    throw new Error('Der Foto-Link muss mit https:// (oder http://) beginnen.')
+    throw new InputError('Der Foto-Link muss mit https:// (oder http://) beginnen.')
   }
-  if (value.length > PHOTO_URL_MAX_LENGTH) throw new Error(`Der Foto-Link ist zu lang (höchstens ${PHOTO_URL_MAX_LENGTH} Zeichen).`)
+  if (value.length > PHOTO_URL_MAX_LENGTH) throw new InputError(`Der Foto-Link ist zu lang (höchstens ${PHOTO_URL_MAX_LENGTH} Zeichen).`)
   return url.toString()
 }
 

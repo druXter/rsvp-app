@@ -4,6 +4,7 @@
 // Optionen an (Textfeld, eine Zeile pro Gang: "Hauptgang: Fisch; Fleisch; Vegetarisch"), jede zusagende Person
 // außer Kleinkindern wählt pro Gang eine Option. Reine Funktionen ohne Datenbank, auch im Browser nutzbar;
 // Speichern und Prüfen gegen bestehende Wahl in app/lib/menu-store.ts.
+import { InputError } from './input-error'
 
 export const MENU_LIMITS = { courses: 8, options: 12, label: 60 }
 
@@ -21,21 +22,21 @@ export function parseMenu(text: string): MenuCourseInput[] {
   for (const raw of text.replace(/\r\n?/g, '\n').split('\n')) {
     if (!raw.trim()) continue
     const colon = raw.indexOf(':')
-    if (colon < 0) throw new Error(`Menü: In „${raw.trim().slice(0, 30)}“ fehlt der Doppelpunkt (Gang: Option; Option).`)
+    if (colon < 0) throw new InputError(`Menü: In „${raw.trim().slice(0, 30)}“ fehlt der Doppelpunkt (Gang: Option; Option).`)
     const label = raw.slice(0, colon).trim()
-    if (!label) throw new Error('Menü: Jede Zeile braucht vorne den Namen des Gangs.')
-    if (label.length > MENU_LIMITS.label) throw new Error(`Menü: „${label.slice(0, 30)}…“ ist zu lang (höchstens ${MENU_LIMITS.label} Zeichen).`)
-    if (courses.some(c => c.label === label)) throw new Error(`Menü: Der Gang „${label}“ steht doppelt in der Liste.`)
+    if (!label) throw new InputError('Menü: Jede Zeile braucht vorne den Namen des Gangs.')
+    if (label.length > MENU_LIMITS.label) throw new InputError(`Menü: „${label.slice(0, 30)}…“ ist zu lang (höchstens ${MENU_LIMITS.label} Zeichen).`)
+    if (courses.some(c => c.label === label)) throw new InputError(`Menü: Der Gang „${label}“ steht doppelt in der Liste.`)
     const options = raw.slice(colon + 1).split(';').map(o => o.trim()).filter(Boolean)
-    if (options.length === 0) throw new Error(`Menü: „${label}“ braucht mindestens eine Option.`)
-    if (options.length > MENU_LIMITS.options) throw new Error(`Menü: „${label}“ hat zu viele Optionen (höchstens ${MENU_LIMITS.options}).`)
+    if (options.length === 0) throw new InputError(`Menü: „${label}“ braucht mindestens eine Option.`)
+    if (options.length > MENU_LIMITS.options) throw new InputError(`Menü: „${label}“ hat zu viele Optionen (höchstens ${MENU_LIMITS.options}).`)
     for (const option of options) {
-      if (option.length > MENU_LIMITS.label) throw new Error(`Menü: Die Option „${option.slice(0, 30)}…“ ist zu lang (höchstens ${MENU_LIMITS.label} Zeichen).`)
-      if (options.filter(o => o === option).length > 1) throw new Error(`Menü: „${option}“ steht bei „${label}“ doppelt.`)
+      if (option.length > MENU_LIMITS.label) throw new InputError(`Menü: Die Option „${option.slice(0, 30)}…“ ist zu lang (höchstens ${MENU_LIMITS.label} Zeichen).`)
+      if (options.filter(o => o === option).length > 1) throw new InputError(`Menü: „${option}“ steht bei „${label}“ doppelt.`)
     }
     courses.push({ label, options })
   }
-  if (courses.length > MENU_LIMITS.courses) throw new Error(`Menü: höchstens ${MENU_LIMITS.courses} Gänge.`)
+  if (courses.length > MENU_LIMITS.courses) throw new InputError(`Menü: höchstens ${MENU_LIMITS.courses} Gänge.`)
   return courses
 }
 

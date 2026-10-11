@@ -6,6 +6,7 @@
 // festen Platz vergeben: Antworten, Nachrücken (app/lib/waitlist.ts) und Verifizierung.
 import { prisma } from './prisma'
 import { seatsOf } from './persons'
+import { InputError } from './input-error'
 
 export { formatEuro } from './payment-state'
 
@@ -19,9 +20,9 @@ export function parsePrice(text: string, label: string): number {
   const value = text.replace(/€|eur/gi, '').trim()
   if (value === '' || /^(frei|kostenlos)$/i.test(value)) return 0
   const match = value.match(/^(\d{1,7})(?:[.,](\d{1,2}))?$/)
-  if (!match) throw new Error(`Ticketkategorien: Der Preis „${text.trim()}“ bei „${label}“ ist ungültig (z. B. 25 oder 25,50).`)
+  if (!match) throw new InputError(`Ticketkategorien: Der Preis „${text.trim()}“ bei „${label}“ ist ungültig (z. B. 25 oder 25,50).`)
   const cents = Number(match[1]) * 100 + Number((match[2] ?? '0').padEnd(2, '0'))
-  if (cents > TICKET_LIMITS.priceCents) throw new Error(`Ticketkategorien: Der Preis bei „${label}“ ist zu hoch.`)
+  if (cents > TICKET_LIMITS.priceCents) throw new InputError(`Ticketkategorien: Der Preis bei „${label}“ ist zu hoch.`)
   return cents
 }
 
@@ -35,20 +36,20 @@ export function parseTicketCategories(text: string): TicketCategoryInput[] {
     if (!raw.trim()) continue
     const [labelPart, pricePart = '', capacityPart = '', ...rest] = raw.split(';').map(p => p.trim())
     const label = labelPart
-    if (!label) throw new Error('Ticketkategorien: Jede Zeile braucht vorne eine Bezeichnung.')
-    if (rest.some(p => p !== '')) throw new Error(`Ticketkategorien: Bei „${label}“ stehen zu viele Angaben (Bezeichnung; Preis; Kontingent).`)
-    if (label.length > TICKET_LIMITS.label) throw new Error(`Ticketkategorien: „${label.slice(0, 30)}…“ ist zu lang (höchstens ${TICKET_LIMITS.label} Zeichen).`)
-    if (result.some(c => c.label === label)) throw new Error(`Ticketkategorien: „${label}“ steht doppelt in der Liste.`)
+    if (!label) throw new InputError('Ticketkategorien: Jede Zeile braucht vorne eine Bezeichnung.')
+    if (rest.some(p => p !== '')) throw new InputError(`Ticketkategorien: Bei „${label}“ stehen zu viele Angaben (Bezeichnung; Preis; Kontingent).`)
+    if (label.length > TICKET_LIMITS.label) throw new InputError(`Ticketkategorien: „${label.slice(0, 30)}…“ ist zu lang (höchstens ${TICKET_LIMITS.label} Zeichen).`)
+    if (result.some(c => c.label === label)) throw new InputError(`Ticketkategorien: „${label}“ steht doppelt in der Liste.`)
     let capacity: number | null = null
     if (capacityPart !== '') {
       if (!/^\d+$/.test(capacityPart) || Number(capacityPart) < 1 || Number(capacityPart) > TICKET_LIMITS.capacity) {
-        throw new Error(`Ticketkategorien: Das Kontingent bei „${label}“ muss eine ganze Zahl ab 1 sein.`)
+        throw new InputError(`Ticketkategorien: Das Kontingent bei „${label}“ muss eine ganze Zahl ab 1 sein.`)
       }
       capacity = Number(capacityPart)
     }
     result.push({ label, priceCents: parsePrice(pricePart, label), capacity })
   }
-  if (result.length > TICKET_LIMITS.categories) throw new Error(`Ticketkategorien: höchstens ${TICKET_LIMITS.categories} Kategorien.`)
+  if (result.length > TICKET_LIMITS.categories) throw new InputError(`Ticketkategorien: höchstens ${TICKET_LIMITS.categories} Kategorien.`)
   return result
 }
 
@@ -78,7 +79,7 @@ export async function assertCategoriesRemovable(eventId: string, categories: rea
     include: { _count: { select: { rsvps: true } } }
   })
   if (inUse) {
-    throw new Error(`Ticketkategorien: „${inUse.label}“ hat schon ${inUse._count.rsvps} Antwort(en) und kann nicht entfernt oder umbenannt werden.`)
+    throw new InputError(`Ticketkategorien: „${inUse.label}“ hat schon ${inUse._count.rsvps} Antwort(en) und kann nicht entfernt oder umbenannt werden.`)
   }
 }
 

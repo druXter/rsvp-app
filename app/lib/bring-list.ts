@@ -5,6 +5,7 @@
 // Eintrags. Ergänzt das Freitextfeld "Mitbringsel", ersetzt es nicht.
 import { randomUUID } from 'node:crypto'
 import { PrismaClient } from '@prisma/client'
+import { InputError } from './input-error'
 
 const prisma = new PrismaClient()
 
@@ -27,14 +28,14 @@ export function parseBringSlots(text: string): BringSlotInput[] {
     const quantity = match ? Number(match[1]) : 1
     const label = (match ? match[2] : line).trim()
     if (quantity < 1 || quantity > BRING_LIMITS.quantity) {
-      throw new Error(`Mitbringliste: Die Anzahl bei "${label}" muss zwischen 1 und ${BRING_LIMITS.quantity} liegen.`)
+      throw new InputError(`Mitbringliste: Die Anzahl bei "${label}" muss zwischen 1 und ${BRING_LIMITS.quantity} liegen.`)
     }
-    if (label.length > BRING_LIMITS.label) throw new Error(`Mitbringliste: "${label.slice(0, 30)}…" ist zu lang (höchstens ${BRING_LIMITS.label} Zeichen).`)
+    if (label.length > BRING_LIMITS.label) throw new InputError(`Mitbringliste: "${label.slice(0, 30)}…" ist zu lang (höchstens ${BRING_LIMITS.label} Zeichen).`)
     const existing = result.find(s => s.label === label)
     if (existing) existing.quantity = Math.min(existing.quantity + quantity, BRING_LIMITS.quantity)
     else result.push({ label, quantity })
   }
-  if (result.length > BRING_LIMITS.slots) throw new Error(`Mitbringliste: höchstens ${BRING_LIMITS.slots} Einträge.`)
+  if (result.length > BRING_LIMITS.slots) throw new InputError(`Mitbringliste: höchstens ${BRING_LIMITS.slots} Einträge.`)
   return result
 }
 

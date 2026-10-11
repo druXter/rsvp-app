@@ -226,7 +226,8 @@ export async function readForm(page: Page, selector: string): Promise<Replayable
   const fields = await page.locator(selector).first().evaluate((form: HTMLFormElement) =>
     [...new FormData(form).entries()].map(([k, v]) => [k, typeof v === 'string' ? v : ''] as [string, string])
   )
-  expect(fields.some(([name]) => name.startsWith('$ACTION_ID_')), 'Formular hat keine $ACTION_ID').toBe(true)
+  // $ACTION_ID_ bei Formularen mit Server Action, $ACTION_REF_ bei useActionState (z. B. app/admin/settings-form.tsx)
+  expect(fields.some(([name]) => name.startsWith('$ACTION_ID_') || name.startsWith('$ACTION_REF_')), 'Formular hat keine $ACTION_ID').toBe(true)
   return { url: page.url(), fields }
 }
 

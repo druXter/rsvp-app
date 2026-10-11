@@ -3,6 +3,7 @@
 // Antwortfrist (docs/KONZEPT-EINLADUNGEN.md, Abschnitt 5): optionales Datum pro Termin, gespeichert als Ende des
 // Tages in Berliner Zeit. Danach können Gäste nichts mehr ändern, nur die
 // Verwaltung. Reine Funktionen, auch im Browser nutzbar.
+import { InputError } from './input-error'
 
 const TIME_ZONE = 'Europe/Berlin'
 
@@ -21,10 +22,10 @@ function berlinOffset(at: number): number {
 export function parseDeadline(value: string): Date | null {
   if (!value.trim()) return null
   const match = value.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/)
-  if (!match) throw new Error('Antwortfrist: Bitte ein gültiges Datum eintragen.')
+  if (!match) throw new InputError('Antwortfrist: Bitte ein gültiges Datum eintragen.')
   const [year, month, day] = [Number(match[1]), Number(match[2]), Number(match[3])]
   const wall = Date.UTC(year, month - 1, day, 23, 59, 59)
-  if (new Date(wall).getUTCDate() !== day || new Date(wall).getUTCMonth() !== month - 1) throw new Error('Antwortfrist: Bitte ein gültiges Datum eintragen.')
+  if (new Date(wall).getUTCDate() !== day || new Date(wall).getUTCMonth() !== month - 1) throw new InputError('Antwortfrist: Bitte ein gültiges Datum eintragen.')
   return new Date(wall - berlinOffset(wall))
 }
 
