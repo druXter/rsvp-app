@@ -154,7 +154,7 @@ test('Verwaltung: Begleitungen bearbeiten (ohne Höchstmaß), Übersicht, Einlas
   await expect(page.getByTestId('stat-confirmed')).toContainText('2 Personen · 2 von 10 Plätzen')
 
   await page.goto(`/admin/checkin/${rsvp.id}`)
-  await expect(page.getByTestId('checkin-persons')).toContainText('3 Personen: Erika, Max, Mia (Kleinkind)')
+  await expect(page.getByTestId('checkin-persons').getByRole('listitem')).toHaveText([/Erika/, /Max/, /Mia\s*Kleinkind/])
 
   const csv = await (await page.request.get(`/api/export?eventId=${event.id}`, { headers: await cookieHeader(page.context()) })).text()
   expect(csv).toContain(';Personen;Begleitungen;')

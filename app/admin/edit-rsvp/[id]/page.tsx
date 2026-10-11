@@ -103,7 +103,7 @@ export default async function EditRsvpPage({ params }: { params: Promise<{ id: s
 
           {showCompanions && (
             <div className="pt-4 border-t dark:border-gray-700">
-              <CompanionFields max={MAX_COMPANIONS} initial={companionsOf(rsvp.persons)} askDiet askAllergies menu={menu} menuRequired={false} />
+              <CompanionFields max={MAX_COMPANIONS} initial={companionsOf(rsvp.persons)} askDiet askAllergies askAlcohol menu={menu} required={false} />
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Hier gilt weder das Höchstmaß des Termins ({rsvp.event.maxCompanions}) noch die Kapazität (wie „Zulassen“).</p>
             </div>
           )}

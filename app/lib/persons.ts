@@ -1,8 +1,8 @@
 // app/lib/persons.ts
 //
 // Personen einer Antwort (Idee L2/L3 der Suite, docs/KONZEPT-EINLADUNGEN.md): die anmeldende Person und ihre
-// Begleitungen, jede mit Altersgruppe, Essen und Allergien. Die Antwort (Rsvp) bleibt die Einheit für Platz,
-// Warteliste, Einlass und verknüpfte Tools - Plätze zählen aber Personen. Reine Funktionen ohne Datenbank,
+// Begleitungen, jede mit Altersgruppe, Essen, Allergien und Alkohol. Die Antwort (Rsvp) bleibt die Einheit für
+// Platz, Warteliste und verknüpfte Tools - Plätze zählen aber Personen, eingecheckt wird pro Person. Reine Funktionen ohne Datenbank,
 // auch im Browser nutzbar (Formular).
 import { readMenuSelection, type MenuSelection } from './menu'
 
@@ -43,17 +43,40 @@ export type PersonData = {
   allergies: string | null
   /** Menüwahl (app/lib/menu.ts): Gang-ID -> Option */
   menu: MenuSelection
+  /** Alkohol ja/nein, nur bei Erwachsenen (sonst null) */
+  drinksAlcohol: boolean | null
+  /** Beim Einlass da (app/lib/checkin.ts) */
+  checkedIn: boolean
 }
 
 /**
  * Eine Begleitung aus dem Formular oder der Client-API (sagt immer zusammen mit der Antwort zu oder ab). `menu`
  * ist ungeprüft (Gang-ID -> Option), performRsvpSubmission behält nur, was es im Menü des Termins gibt.
  */
-export type CompanionInput = { name: string; ageGroup: AgeGroup; dietaryOption: string | null; allergies: string | null; menu: MenuSelection }
+export type CompanionInput = { name: string; ageGroup: AgeGroup; dietaryOption: string | null; allergies: string | null; menu: MenuSelection; drinksAlcohol: boolean | null }
 
 type PersonRow = {
   position: number; name: string | null; ageGroup: string; isAttending: boolean; dietaryOption: string | null; allergies: string | null
   menuChoices?: readonly { courseId: string; option: string }[]
+  drinksAlcohol?: boolean | null
+  checkedInAt?: Date | null
+}
+
+/** Alkohol fragen wir nur Erwachsene - bei Kindern und Kleinkindern bleibt die Angabe leer. */
+export function alcoholFor(ageGroup: string, value: boolean | null | undefined): boolean | null {
+  return asAgeGroup(ageGroup) === 'ADULT' && typeof value === 'boolean' ? value : null
+}
+
+/** "Alkohol" / "alkoholfrei" für Verwaltung, Einlass und CSV - ohne Angabe null. */
+export function alcoholLabel(value: boolean | null): string | null {
+  return value === true ? 'Alkohol' : value === false ? 'alkoholfrei' : null
+}
+
+/** Ja/Nein-Angabe aus Formular ("true"/"false") oder JSON (true/false), sonst null. */
+export function readYesNo(value: unknown): boolean | null {
+  if (value === true || value === 'true') return true
+  if (value === false || value === 'false') return false
+  return null
 }
 
 /** Gespeicherte Menüwahl einer Person als Gang-ID -> Option. */
@@ -66,15 +89,21 @@ export function menuOf(person: { menuChoices?: readonly { courseId: string; opti
  * Antwort genau eine Person: die anmeldende, mit den Angaben aus dem Participant.
  */
 export function personsOf(
-  rsvp: { isAttending: boolean; persons?: readonly PersonRow[] | null },
+  rsvp: { isAttending: boolean; drinksAlcohol?: boolean | null; hasAttended?: boolean; persons?: readonly PersonRow[] | null },
   participant: { name: string; dietaryOption: string | null; allergies: string | null }
 ): PersonData[] {
   if (rsvp.persons && rsvp.persons.length > 0) {
     return [...rsvp.persons]
       .sort((a, b) => a.position - b.position)
-      .map(p => ({ name: p.name, ageGroup: asAgeGroup(p.ageGroup), isAttending: p.isAttending, dietaryOption: p.dietaryOption, allergies: p.allergies, menu: menuOf(p) }))
+      .map(p => ({
+        name: p.name, ageGroup: asAgeGroup(p.ageGroup), isAttending: p.isAttending, dietaryOption: p.dietaryOption, allergies: p.allergies, menu: menuOf(p),
+        drinksAlcohol: alcoholFor(p.ageGroup, p.drinksAlcohol), checkedIn: !!p.checkedInAt
+      }))
   }
-  return [{ name: participant.name, ageGroup: 'ADULT', isAttending: rsvp.isAttending, dietaryOption: participant.dietaryOption, allergies: participant.allergies, menu: {} }]
+  return [{
+    name: participant.name, ageGroup: 'ADULT', isAttending: rsvp.isAttending, dietaryOption: participant.dietaryOption, allergies: participant.allergies, menu: {},
+    drinksAlcohol: rsvp.drinksAlcohol ?? null, checkedIn: !!rsvp.hasAttended
+  }]
 }
 
 /**
@@ -91,7 +120,7 @@ export function companionsOf(persons: readonly PersonRow[]): CompanionInput[] {
   return [...persons]
     .sort((a, b) => a.position - b.position)
     .slice(1)
-    .map(p => ({ name: p.name ?? '', ageGroup: asAgeGroup(p.ageGroup), dietaryOption: p.dietaryOption, allergies: p.allergies, menu: menuOf(p) }))
+    .map(p => ({ name: p.name ?? '', ageGroup: asAgeGroup(p.ageGroup), dietaryOption: p.dietaryOption, allergies: p.allergies, menu: menuOf(p), drinksAlcohol: alcoholFor(p.ageGroup, p.drinksAlcohol) }))
 }
 
 function text(value: unknown, max: number): string | null {
@@ -101,10 +130,14 @@ function text(value: unknown, max: number): string | null {
 }
 
 /** Eine Begleitung aus beliebigen Daten (Formular, JSON der Client-API). null ohne Namen. */
-export function cleanCompanion(raw: { name?: unknown; ageGroup?: unknown; dietaryOption?: unknown; allergies?: unknown; menu?: unknown }): CompanionInput | null {
+export function cleanCompanion(raw: { name?: unknown; ageGroup?: unknown; dietaryOption?: unknown; allergies?: unknown; menu?: unknown; drinksAlcohol?: unknown }): CompanionInput | null {
   const name = text(raw.name, MAX_NAME)
   if (!name) return null
-  return { name, ageGroup: asAgeGroup(raw.ageGroup), dietaryOption: text(raw.dietaryOption, MAX_NAME), allergies: text(raw.allergies, MAX_TEXT), menu: cleanSelection(raw.menu) }
+  const ageGroup = asAgeGroup(raw.ageGroup)
+  return {
+    name, ageGroup, dietaryOption: text(raw.dietaryOption, MAX_NAME), allergies: text(raw.allergies, MAX_TEXT), menu: cleanSelection(raw.menu),
+    drinksAlcohol: alcoholFor(ageGroup, readYesNo(raw.drinksAlcohol))
+  }
 }
 
 /** Menüwahl aus beliebigen Daten (JSON der Client-API): nur Text-Werte unter plausiblen Gang-IDs. */
@@ -118,7 +151,7 @@ export function cleanSelection(raw: unknown): MenuSelection {
 }
 
 /**
- * Begleitungen aus dem Formular (Felder companion_<i>_name, _age, _diet, _allergies, _menu_<Gang-ID>). undefined, wenn das
+ * Begleitungen aus dem Formular (Felder companion_<i>_name, _age, _diet, _allergies, _alcohol, _menu_<Gang-ID>). undefined, wenn das
  * Formular sie nicht angezeigt hat (Markierungsfeld companionsShown) - dann bleiben bestehende unverändert.
  * Zeilen ohne Namen zählen nicht. Mehr als MAX_COMPANIONS werden gar nicht erst gelesen.
  */
@@ -130,7 +163,8 @@ export function readCompanions(formData: FormData): CompanionInput[] | undefined
       name: formData.get(`companion_${i}_name`),
       ageGroup: formData.get(`companion_${i}_age`),
       dietaryOption: formData.get(`companion_${i}_diet`),
-      allergies: formData.get(`companion_${i}_allergies`)
+      allergies: formData.get(`companion_${i}_allergies`),
+      drinksAlcohol: formData.get(`companion_${i}_alcohol`)
     })
     if (companion) companions.push({ ...companion, menu: readMenuSelection(formData, `companion_${i}_menu_`) ?? {} })
   }

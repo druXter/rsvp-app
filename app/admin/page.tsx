@@ -14,7 +14,7 @@ const EVENT_SUMMARY = {
   rsvps: {
     select: {
       isAttending: true, isOnWaitlist: true, hasAttended: true, amountCents: true, paidAt: true, refundedAt: true, paymentDueAt: true,
-      persons: { select: { isAttending: true, ageGroup: true } }
+      persons: { select: { isAttending: true, ageGroup: true, checkedInAt: true } }
     }
   },
   owner: { select: { email: true } },

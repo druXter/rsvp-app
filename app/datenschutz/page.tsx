@@ -131,7 +131,7 @@ export default function DatenschutzPage() {
           <p className="mt-2">
             <strong>Begleitungen:</strong> Lässt eine Veranstaltung Begleitungen zu, gibst du für jede Person, die du
             mitbringst, ihren Namen und ihre Altersgruppe (erwachsen, Kind, Kleinkind) an und, je nach Veranstaltung,
-            ihren Essenswunsch, ihre Allergien und ihre Menüwahl. Das gilt auch für Kinder. Bitte gib diese Angaben nur an, wenn die
+            ihren Essenswunsch, ihre Allergien, ihre Menüwahl und (bei Erwachsenen) ob sie Alkohol trinkt. Das gilt auch für Kinder. Bitte gib diese Angaben nur an, wenn die
             Personen (bei Kindern die Sorgeberechtigten) damit einverstanden sind; für Allergien gilt das oben Gesagte
             entsprechend. Wir verwenden die Angaben wie deine eigenen nur zur Organisation der Veranstaltung (Plätze,
             Verpflegung, Einlass) und löschen sie zusammen mit deiner Antwort.
@@ -250,7 +250,8 @@ export default function DatenschutzPage() {
           <p className="mt-2">
             Ist für eine Veranstaltung die Einlasskontrolle aktiviert, erhältst du bei einer bestätigten Zusage einen
             persönlichen QR-Code (per E-Mail und auf der Erfolgsseite). Wird dieser beim Einlass gescannt, speichern
-            wir den Zeitpunkt deines Check-ins. Dies dient ausschließlich der Zutrittskontrolle vor Ort.
+            wir den Zeitpunkt des Check-ins - pro Person, also auch für deine Begleitungen bzw. die Personen deines
+            Haushalts. Dies dient ausschließlich der Zutrittskontrolle vor Ort.
           </p>
         </div>
 

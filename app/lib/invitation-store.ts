@@ -108,6 +108,7 @@ export async function householdForForm(invitation: { id: string; persons: { id: 
       dietaryOption: answer?.dietaryOption ?? null,
       allergies: answer?.allergies ?? null,
       menu: answer ? menuOf(answer) : {},
+      drinksAlcohol: answer?.drinksAlcohol ?? null,
       answered: !!answer
     }
   })
@@ -119,6 +120,7 @@ export async function householdForForm(invitation: { id: string; persons: { id: 
     dietaryOption: a.dietaryOption,
     allergies: a.allergies,
     menu: menuOf(a),
+    drinksAlcohol: a.drinksAlcohol,
     answered: true
   }))
   return [...invited, ...extras]

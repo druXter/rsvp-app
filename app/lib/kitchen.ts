@@ -15,6 +15,8 @@ export type KitchenPerson = {
   dietaryOption: string | null
   allergies: string | null
   menu: MenuSelection
+  /** Alkohol ja/nein (nur Erwachsene) */
+  drinksAlcohol: boolean | null
   /** Platz aus Seating ("Tisch 7, Plätze 3, 4"), pro Antwort */
   seat: string | null
 }
@@ -24,14 +26,17 @@ export type KitchenReport = {
   persons: KitchenPerson[]
   totals: Record<AgeGroup, number>
   diets: { label: string; count: number }[]
+  /** Erwachsene mit Alkohol / nur alkoholfrei (ohne Angabe zählt nicht) */
+  drinks: { alcohol: number; alcoholFree: number }
 }
 
 type KitchenRsvp = {
   isAttending: boolean
   isOnWaitlist: boolean
+  drinksAlcohol?: boolean | null
   seatingLabel: string | null
   participant: { name: string; dietaryOption: string | null; allergies: string | null }
-  persons?: { position: number; name: string | null; ageGroup: string; isAttending: boolean; dietaryOption: string | null; allergies: string | null; menuChoices?: { courseId: string; option: string }[] }[]
+  persons?: { position: number; name: string | null; ageGroup: string; isAttending: boolean; dietaryOption: string | null; allergies: string | null; drinksAlcohol?: boolean | null; menuChoices?: { courseId: string; option: string }[] }[]
 }
 
 export function buildKitchenReport(courses: readonly MenuCourseForForm[], rsvps: readonly KitchenRsvp[]): KitchenReport {
@@ -39,7 +44,7 @@ export function buildKitchenReport(courses: readonly MenuCourseForForm[], rsvps:
     .filter(r => r.isAttending && !r.isOnWaitlist)
     .flatMap(r => personsOf(r, r.participant)
       .filter(p => p.isAttending)
-      .map(p => ({ answer: r.participant.name, name: p.name || 'Begleitung', ageGroup: p.ageGroup, dietaryOption: p.dietaryOption, allergies: p.allergies, menu: p.menu, seat: r.seatingLabel })))
+      .map(p => ({ answer: r.participant.name, name: p.name || 'Begleitung', ageGroup: p.ageGroup, dietaryOption: p.dietaryOption, allergies: p.allergies, menu: p.menu, drinksAlcohol: p.drinksAlcohol, seat: r.seatingLabel })))
   // Nach Platz (ohne Platz zuletzt), dann Antwort - die Reihenfolge innerhalb einer Antwort bleibt
   const order = persons.map((p, i) => ({ p, i }))
   order.sort((a, b) => (a.p.seat === null ? 1 : 0) - (b.p.seat === null ? 1 : 0) || (a.p.seat ?? '').localeCompare(b.p.seat ?? '', 'de', { numeric: true }) || a.p.answer.localeCompare(b.p.answer, 'de') || a.i - b.i)
@@ -65,7 +70,8 @@ export function buildKitchenReport(courses: readonly MenuCourseForForm[], rsvps:
       CHILD: sorted.filter(p => p.ageGroup === 'CHILD').length,
       INFANT: sorted.filter(p => p.ageGroup === 'INFANT').length
     },
-    diets: [...dietCounts].map(([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count)
+    diets: [...dietCounts].map(([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count),
+    drinks: { alcohol: sorted.filter(p => p.drinksAlcohol === true).length, alcoholFree: sorted.filter(p => p.drinksAlcohol === false).length }
   }
 }
 

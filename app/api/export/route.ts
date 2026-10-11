@@ -86,7 +86,8 @@ export async function GET(request: Request) {
       participant.dietaryOption || "",
       participant.allergies || "",
 
-      rsvp.drinksAlcohol === true ? "Ja" : rsvp.drinksAlcohol === false ? "Nein" : "",
+      // Alkohol pro Person: bei mehreren Personen mit Namen ("Anna: Ja; Ben: Nein")
+      alcoholColumn(persons),
       [...claimedLabels(rsvp), ...(rsvp.bringingItem ? [rsvp.bringingItem] : [])].join(", "),
 
       rsvp.isAttending ? (rsvp.additionalInfo || "") : (rsvp.declineReason || ""),
@@ -121,4 +122,10 @@ export async function GET(request: Request) {
       "Content-Disposition": `attachment; filename="gaesteliste-${event.slug}.csv"`,
     }
   })
+}
+function alcoholColumn(persons: ReturnType<typeof personsOf>): string {
+  const yesNo = (value: boolean | null) => value === true ? "Ja" : value === false ? "Nein" : ""
+  const answered = persons.filter(p => p.isAttending && p.drinksAlcohol !== null)
+  if (persons.length === 1) return yesNo(persons[0].drinksAlcohol)
+  return answered.map(p => `${p.name || "Begleitung"}: ${yesNo(p.drinksAlcohol)}`).join("; ")
 }

@@ -33,11 +33,16 @@ describe('Einladungen (docs/KONZEPT-EINLADUNGEN.md)', () => {
 
   const invited = [{ id: 'p1', name: 'Anna', ageGroup: 'ADULT', position: 0 }, { id: 'p2', name: 'Clara', ageGroup: 'CHILD', position: 1 }]
   const answer = (id: string | null, name: string, isAttending: boolean, ageGroup: 'ADULT' | 'CHILD' | 'INFANT' = 'ADULT'): HouseholdPersonInput =>
-    ({ invitationPersonId: id, name, ageGroup, isAttending, dietaryOption: null, allergies: null, menu: {} })
+    ({ invitationPersonId: id, name, ageGroup, isAttending, dietaryOption: null, allergies: null, menu: {}, drinksAlcohol: null })
 
   it('resolveHousehold: jede eingeladene Person genau einmal, Altersgruppe aus der Einladung, Name korrigierbar', () => {
     const result = resolveHousehold(invited, 1, [answer('p2', 'Klara', true, 'ADULT'), answer('p1', '', false), answer(null, 'Max', true)])
     expect(result).toEqual({ persons: [answer('p1', 'Anna', false), answer('p2', 'Klara', true, 'CHILD'), answer(null, 'Max', true)] })
+  })
+
+  it('resolveHousehold: Alkohol nur bei Erwachsenen laut Einladung', () => {
+    const result = resolveHousehold(invited, 1, [{ ...answer('p1', 'Anna', true), drinksAlcohol: true }, { ...answer('p2', 'Clara', true, 'ADULT'), drinksAlcohol: true }, { ...answer(null, 'Mia', true, 'INFANT'), drinksAlcohol: false }])
+    expect('persons' in result && result.persons.map(p => p.drinksAlcohol)).toEqual([true, null, null])
   })
 
   it('resolveHousehold: fremde, doppelte, fehlende Personen und zu viele Zusatzpersonen', () => {
@@ -62,6 +67,7 @@ describe('Einladungen (docs/KONZEPT-EINLADUNGEN.md)', () => {
     form.set('person_0_name', ' Anna ')
     form.set('person_0_attending', 'true')
     form.set('person_0_diet', 'Vegan')
+    form.set('person_0_alcohol', 'false')
     form.set('person_1_id', 'p2')
     form.set('person_1_attending', 'false')
     form.set('person_2_name', 'Max')
@@ -69,9 +75,9 @@ describe('Einladungen (docs/KONZEPT-EINLADUNGEN.md)', () => {
     form.set('person_2_attending', 'true')
     form.set('person_3_name', '')
     expect(readHousehold(form)).toEqual([
-      { invitationPersonId: 'p1', name: 'Anna', ageGroup: 'ADULT', isAttending: true, dietaryOption: 'Vegan', allergies: null, menu: {} },
-      { invitationPersonId: 'p2', name: '', ageGroup: 'ADULT', isAttending: false, dietaryOption: null, allergies: null, menu: {} },
-      { invitationPersonId: null, name: 'Max', ageGroup: 'CHILD', isAttending: true, dietaryOption: null, allergies: null, menu: {} }
+      { invitationPersonId: 'p1', name: 'Anna', ageGroup: 'ADULT', isAttending: true, dietaryOption: 'Vegan', allergies: null, menu: {}, drinksAlcohol: false },
+      { invitationPersonId: 'p2', name: '', ageGroup: 'ADULT', isAttending: false, dietaryOption: null, allergies: null, menu: {}, drinksAlcohol: null },
+      { invitationPersonId: null, name: 'Max', ageGroup: 'CHILD', isAttending: true, dietaryOption: null, allergies: null, menu: {}, drinksAlcohol: null }
     ])
   })
 

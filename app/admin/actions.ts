@@ -33,6 +33,7 @@ import { assertMenuChangeable, saveMenu } from '../lib/menu-store'
 import { parseDeadline } from '../lib/rsvp-deadline'
 import { EVENT_PRESETS, presetOf, slugify } from '../lib/event-presets'
 import { savePersons } from '../lib/rsvp-submission'
+import { checkInAll, checkOutAll, togglePerson } from '../lib/checkin'
 
 const prisma = new PrismaClient()
 
@@ -745,8 +746,8 @@ export async function updateAdminRsvp(formData: FormData) {
   const companions = categories.length > 0 ? [] : (companionsInput ?? companionsOf(existingRsvp.persons)).slice(0, MAX_COMPANIONS)
   const ownMenu = readMenuSelection(formData, 'menu_') ?? (existingRsvp.persons[0] ? menuOf(existingRsvp.persons[0]) : {})
   const persons = [
-    { name, ageGroup: 'ADULT', isAttending, dietaryOption, allergies, menu: validSelection(menu, ownMenu) },
-    ...companions.map(c => ({ ...c, isAttending, menu: c.ageGroup === 'INFANT' ? {} : validSelection(menu, c.menu) }))
+    { name, ageGroup: 'ADULT', isAttending, dietaryOption, allergies, menu: validSelection(menu, ownMenu), drinksAlcohol: isAttending ? drinksAlcohol : null },
+    ...companions.map(c => ({ ...c, isAttending, menu: c.ageGroup === 'INFANT' ? {} : validSelection(menu, c.menu), drinksAlcohol: isAttending ? c.drinksAlcohol : null }))
   ]
 
   await prisma.participant.update({
@@ -943,7 +944,7 @@ export async function checkInAtDoor(formData: FormData) {
     const paid = await prisma.rsvp.updateMany({ where: { id, paidAt: null }, data: { paidAt: new Date(), paymentMethod: 'CASH' } })
     if (paid.count === 1) notifyLinkedToolsOfRsvps([id])
   }
-  await prisma.rsvp.updateMany({ where: { id, hasAttended: false }, data: { hasAttended: true, checkedInAt: new Date() } })
+  await checkInAll(id)
 
   revalidatePath(`/admin/checkin/${id}`)
   revalidatePath('/admin', 'layout')
@@ -967,6 +968,7 @@ export async function cancelUnpaidRsvp(formData: FormData) {
     data: { isAttending: false, declineReason: null, paymentDueAt: null, hasAttended: false, checkedInAt: null }
   })
   if (cancelled.count !== 1) return
+  await checkOutAll(id)
   await prisma.bringClaim.deleteMany({ where: { rsvpId: id } })
   notifyLinkedToolsOfRsvps([id])
 
@@ -1285,6 +1287,7 @@ export async function updateSeriesTermin(formData: FormData) {
 /**
  * Manuelles Ein-/Auschecken eines Gasts aus der Gästeliste im Admin-Dashboard
  * (Alternative zum Scannen des QR-Codes, z.B. falls der Gast kein Handy dabei hat).
+ * Wie beim Scannen alle zusagenden Personen der Antwort auf einmal (app/lib/checkin.ts).
  */
 export async function toggleAttendance(formData: FormData) {
   const user = await requireUser()
@@ -1293,15 +1296,36 @@ export async function toggleAttendance(formData: FormData) {
   const rsvp = await prisma.rsvp.findUnique({ where: { id }, include: { event: true } })
   if (!rsvp || !(await hasEventModeratorOrAbove(user, rsvp.event))) return
 
-  await prisma.rsvp.update({
-    where: { id },
-    data: {
-      hasAttended: !rsvp.hasAttended,
-      checkedInAt: !rsvp.hasAttended ? new Date() : null
-    }
-  })
+  if (rsvp.hasAttended) await checkOutAll(id)
+  else await checkInAll(id)
 
   revalidatePath('/admin', 'layout')
+  backToCheckin(formData, id)
+}
+
+/**
+ * Von der Check-in-Seite aus zurück in deren Ansicht ohne automatisches Einchecken - sonst checkte das erneute
+ * Laden nach "Austragen" gleich wieder alle ein.
+ */
+function backToCheckin(formData: FormData, rsvpId: string) {
+  if (formData.get('back') === 'checkin') redirect(`/admin/checkin/${rsvpId}?ansicht=1`)
+}
+
+/**
+ * Einlass einer einzelnen Person (Check-in-Seite und Gästeliste): kommt jemand später oder ist doch nicht da.
+ * Nur für feste Plätze auf Terminen mit Check-in, Rechte wie beim Scannen.
+ */
+export async function togglePersonAttendance(formData: FormData) {
+  const user = await requireUser()
+  const personId = String(formData.get('personId') ?? '')
+  const person = await prisma.rsvpPerson.findUnique({ where: { id: personId }, include: { rsvp: { include: { event: true } } } })
+  if (!person || !(await hasEventModeratorOrAbove(user, person.rsvp.event))) return
+  if (!person.rsvp.event.enableCheckin || !person.rsvp.isAttending || person.rsvp.isOnWaitlist) return
+
+  await togglePerson(person.id)
+
+  revalidatePath('/admin', 'layout')
+  backToCheckin(formData, person.rsvpId)
 }
 
 /**

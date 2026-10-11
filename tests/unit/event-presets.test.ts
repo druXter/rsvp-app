@@ -28,14 +28,16 @@ describe('Kennzahlen eines Events', () => {
 
   it('zählt Zusagen, Plätze (Personen ohne Kleinkinder), Warteliste, Absagen, Einlass, Zahlungen und offene Einladungen', () => {
     const s = summarizeEvent([
-      { ...base, hasAttended: true, persons: [{ isAttending: true, ageGroup: 'ADULT' }, { isAttending: true, ageGroup: 'INFANT' }, { isAttending: true, ageGroup: 'CHILD' }] },
+      { ...base, hasAttended: true, persons: [{ isAttending: true, ageGroup: 'ADULT', checkedInAt: now }, { isAttending: true, ageGroup: 'INFANT', checkedInAt: now }, { isAttending: true, ageGroup: 'CHILD' }, { isAttending: false, ageGroup: 'ADULT' }] },
+      // Ohne Personenliste zählt der Haken der Antwort
+      { ...base, hasAttended: true },
       { ...base, amountCents: 2500, paymentDueAt: new Date('2026-10-01T00:00:00Z') },
       { ...base, amountCents: 3000, paidAt: now },
       { ...base, isOnWaitlist: true, amountCents: 2500 },
       { ...base, isAttending: false }
-    ], 7, now)
+    ], 8, now)
     expect(s).toEqual({
-      confirmed: 3, seats: 4, waitlist: 1, declined: 1, checkedIn: 1,
+      confirmed: 4, seats: 5, waitlist: 1, declined: 1, checkedIn: 3, attendees: 6,
       paymentsOpen: 1, paymentsOverdue: 1, openCents: 2500, paidCents: 3000, invitationsOpen: 2
     })
     expect(summarizeEvent([], null).invitationsOpen).toBeNull()

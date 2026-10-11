@@ -9,26 +9,29 @@ import MenuSelects from './menu-selects'
 const INPUT = 'w-full border border-gray-300 p-2 rounded-md bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100'
 
 /**
- * Begleitungen mit Name, Altersgruppe und - wenn der Termin danach fragt - Essen, Allergien und Menü (app/lib/persons.ts,
- * docs/KONZEPT-EINLADUNGEN.md). Für das Gästeformular und die Verwaltung (edit-rsvp). Die Felder heißen
- * companion_<i>_name/_age/_diet/_allergies/_menu_<Gang-ID>, readCompanions liest sie; companionsShown sagt dem
- * Server, dass die Liste angezeigt wurde (ohne bleiben die bisherigen Begleitungen). Kleinkinder wählen kein Menü.
+ * Begleitungen mit Name, Altersgruppe und - wenn der Termin danach fragt - Essen, Allergien, Alkohol und Menü
+ * (app/lib/persons.ts, docs/KONZEPT-EINLADUNGEN.md). Für das Gästeformular und die Verwaltung (edit-rsvp). Die Felder
+ * heißen companion_<i>_name/_age/_diet/_allergies/_alcohol/_menu_<Gang-ID>, readCompanions liest sie; companionsShown
+ * sagt dem Server, dass die Liste angezeigt wurde (ohne bleiben die bisherigen Begleitungen). Kleinkinder wählen kein
+ * Menü, Alkohol fragen wir nur Erwachsene. `required`: Menü und Alkohol sind Pflicht (Gästeformular, nicht Verwaltung).
  */
 export default function CompanionFields({
   max,
   initial,
   askDiet,
   askAllergies,
+  askAlcohol = false,
   menu = [],
-  menuRequired = true,
+  required = true,
   heading = 'Begleitungen'
 }: {
   max: number
   initial: CompanionInput[]
   askDiet: boolean
   askAllergies: boolean
+  askAlcohol?: boolean
   menu?: MenuCourseForForm[]
-  menuRequired?: boolean
+  required?: boolean
   heading?: string
 }) {
   // Schlüssel pro Zeile, damit das Entfernen einer Zeile nicht die Eingaben der folgenden verschiebt
@@ -38,7 +41,7 @@ export default function CompanionFields({
   const [ages, setAges] = useState<Record<number, string>>(() => Object.fromEntries(initial.map((c, i) => [i, c.ageGroup])))
 
   const add = () => {
-    setRows([...rows, { key: nextKey, companion: { name: '', ageGroup: 'ADULT', dietaryOption: null, allergies: null, menu: {} } }])
+    setRows([...rows, { key: nextKey, companion: { name: '', ageGroup: 'ADULT', dietaryOption: null, allergies: null, menu: {}, drinksAlcohol: null } }])
     setNextKey(nextKey + 1)
   }
 
@@ -49,7 +52,9 @@ export default function CompanionFields({
       </legend>
       <input type="hidden" name="companionsShown" value="1" />
       {rows.length === 0 && <p className="text-sm text-gray-500 dark:text-gray-400">Keine Begleitung.</p>}
-      {rows.map(({ key, companion }, i) => (
+      {rows.map(({ key, companion }, i) => {
+        const ageGroup = asAgeGroup(ages[key] ?? companion.ageGroup)
+        return (
         <div key={key} className="p-3 rounded border border-gray-200 dark:border-gray-700 space-y-2">
           <div className="flex gap-2 items-end">
             <div className="flex-1">
@@ -66,7 +71,7 @@ export default function CompanionFields({
               ✕
             </button>
           </div>
-          {(askDiet || askAllergies) && (
+          {(askDiet || askAllergies || (askAlcohol && ageGroup === 'ADULT')) && (
             <div className="flex flex-col sm:flex-row gap-2">
               {askDiet && (
                 <select name={`companion_${i}_diet`} defaultValue={companion.dietaryOption ?? ''} aria-label={`Essenswunsch der ${i + 1}. Begleitung`} className={INPUT}>
@@ -77,18 +82,33 @@ export default function CompanionFields({
               {askAllergies && (
                 <input name={`companion_${i}_allergies`} defaultValue={companion.allergies ?? ''} maxLength={300} aria-label={`Allergien der ${i + 1}. Begleitung`} placeholder="Allergien (optional)" className={INPUT} />
               )}
+              {askAlcohol && ageGroup === 'ADULT' && (
+                <AlcoholSelect name={`companion_${i}_alcohol`} value={companion.drinksAlcohol} label={`Alkohol der ${i + 1}. Begleitung`} required={required} />
+              )}
             </div>
           )}
-          {menu.length > 0 && asAgeGroup(ages[key] ?? companion.ageGroup) !== 'INFANT' && (
-            <MenuSelects courses={menu} prefix={`companion_${i}_menu_`} selection={companion.menu} who={`für ${companion.name || `die ${i + 1}. Begleitung`}`} required={menuRequired} />
+          {menu.length > 0 && ageGroup !== 'INFANT' && (
+            <MenuSelects courses={menu} prefix={`companion_${i}_menu_`} selection={companion.menu} who={`für ${companion.name || `die ${i + 1}. Begleitung`}`} required={required} />
           )}
         </div>
-      ))}
+        )
+      })}
       {rows.length < max && (
         <button type="button" onClick={add} className="text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400">
           + Begleitung hinzufügen
         </button>
       )}
     </fieldset>
+  )
+}
+
+/** Alkohol ja/nein einer Person (Begleitung oder Person des Haushalts) - Felder <name> mit "true"/"false". */
+export function AlcoholSelect({ name, value, label, required }: { name: string; value: boolean | null; label: string; required: boolean }) {
+  return (
+    <select name={name} defaultValue={value === true ? 'true' : value === false ? 'false' : ''} aria-label={label} required={required} className={INPUT}>
+      <option value="">Alkohol …</option>
+      <option value="true">Trinkt Alkohol</option>
+      <option value="false">Nur alkoholfrei</option>
+    </select>
   )
 }

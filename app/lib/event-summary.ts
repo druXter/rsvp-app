@@ -13,7 +13,7 @@ type SummaryRsvp = {
   paidAt: Date | null
   refundedAt: Date | null
   paymentDueAt: Date | null
-  persons?: readonly { isAttending: boolean; ageGroup: string }[]
+  persons?: readonly { isAttending: boolean; ageGroup: string; checkedInAt?: Date | null }[]
 }
 
 export type EventSummary = {
@@ -23,7 +23,9 @@ export type EventSummary = {
   seats: number
   waitlist: number
   declined: number
+  /** Eingecheckte Personen und alle zusagenden Personen mit festem Platz (mit Kleinkindern) - Einlass pro Person */
   checkedIn: number
+  attendees: number
   /** Zahlungen offen / überfällig (Anzahl) und offener Betrag */
   paymentsOpen: number
   paymentsOverdue: number
@@ -41,7 +43,8 @@ export function summarizeEvent(rsvps: readonly SummaryRsvp[], invitationCount: n
     seats: fixed.reduce((sum, r) => sum + seatsOf(r.persons), 0),
     waitlist: rsvps.filter(r => r.isAttending && r.isOnWaitlist).length,
     declined: rsvps.filter(r => !r.isAttending).length,
-    checkedIn: rsvps.filter(r => r.hasAttended).length,
+    checkedIn: fixed.reduce((sum, r) => sum + (r.persons?.length ? r.persons.filter(p => p.isAttending && p.checkedInAt).length : r.hasAttended ? 1 : 0), 0),
+    attendees: fixed.reduce((sum, r) => sum + (r.persons?.length ? r.persons.filter(p => p.isAttending).length : 1), 0),
     paymentsOpen: states.filter(x => x.state === 'open' || x.state === 'overdue').length,
     paymentsOverdue: states.filter(x => x.state === 'overdue').length,
     openCents: states.filter(x => x.state === 'open' || x.state === 'overdue').reduce((sum, x) => sum + (x.r.amountCents ?? 0), 0),

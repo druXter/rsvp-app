@@ -174,7 +174,14 @@ model MenuChoice {
 
 * **Verwaltung:** Spalte „Personen“ statt „Begleitung“ (Anzahl und Namen, ausklappbar mit Angaben pro Person),
   Bearbeiten der Personen in `edit-rsvp`, Summen in der Kopfzeile zählen Personen.
-* **Einlass:** zeigt alle zusagenden Personen der Antwort, eingecheckt wird die Antwort als Ganzes.
+* **Einlass:** pro Person (seit 2026-10-11, `app/lib/checkin.ts`, `RsvpPerson.checkedInAt`). Der Scan lässt alle
+  zusagenden Personen herein und zeigt sie mit Altersgruppe und Alkohol, einzelne lassen sich aus- und wieder eintragen
+  (danach zeigt die Seite nur noch an, statt erneut alle einzuchecken). `Rsvp.hasAttended` heißt „mindestens eine
+  Person da“. Ändert der Gast seine Antwort, behält jede weiter zusagende Person ihren Einlass (eingeladene über die
+  Einladung, sonst über die Position).
+* **Alkohol:** pro erwachsener Person (`RsvpPerson.drinksAlcohol`), Kinder werden nicht gefragt. Im Einladungsmodus
+  nur pro Person, sonst bleibt `Rsvp.drinksAlcohol` die Angabe der anmeldenden Person. Küche zählt Getränke, beide
+  CSVs haben die Spalte.
 * **Gästeliste für Gäste** (`isGuestListVisible`): Namen der zusagenden Personen, im Einladungsmodus pro Haushalt.
 * **Mails:** Bestätigung mit Personenliste und Menü. Push an die Verwaltung „Familie Müller: 3 Zusagen, 1 Absage“.
 * **CSV:** Spalte „Personen“ in der bisherigen Liste, dazu die Personen-CSV der Küchenübersicht.
@@ -203,7 +210,6 @@ Antwort nach Fristende).
 
 ## 9. Später
 
-* Einlass pro Person, Alkohol pro Person.
 * Küchenliste pro Tisch: braucht vom Seating-Vertrag den Tisch pro Person statt nur des Platztexts pro Antwort.
 * Einladungsmodus für Reihen.
 

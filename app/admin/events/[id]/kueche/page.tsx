@@ -56,6 +56,9 @@ export default async function KitchenPage({ params }: { params: Promise<{ id: st
         {report.diets.length > 0 && (
           <p className="text-sm" data-testid="kitchen-diets">Essen: {report.diets.map(d => `${d.label} ${d.count}`).join(' · ')}</p>
         )}
+        {report.drinks.alcohol + report.drinks.alcoholFree > 0 && (
+          <p className="text-sm" data-testid="kitchen-drinks">Getränke (Erwachsene): {report.drinks.alcohol} mit Alkohol · {report.drinks.alcoholFree} nur alkoholfrei</p>
+        )}
 
         {report.persons.some(p => p.allergies) && (
           <section>
@@ -79,7 +82,7 @@ export default async function KitchenPage({ params }: { params: Promise<{ id: st
                   <tr className="border-b bg-gray-50 dark:bg-gray-700">
                     <th className="p-2">Platz</th><th className="p-2">Name</th><th className="p-2">Antwort</th><th className="p-2">Alter</th>
                     {report.courses.map(c => <th key={c.id} className="p-2">{c.label}</th>)}
-                    <th className="p-2">Essen</th><th className="p-2">Allergien</th>
+                    <th className="p-2">Essen</th><th className="p-2">Allergien</th><th className="p-2">Alkohol</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -92,6 +95,7 @@ export default async function KitchenPage({ params }: { params: Promise<{ id: st
                       {report.courses.map(c => <td key={c.id} className="p-2">{p.ageGroup === 'INFANT' ? '' : p.menu[c.id] ?? '–'}</td>)}
                       <td className="p-2">{p.dietaryOption ?? ''}</td>
                       <td className="p-2">{p.allergies ?? ''}</td>
+                      <td className="p-2">{p.drinksAlcohol === true ? 'ja' : p.drinksAlcohol === false ? 'nein' : ''}</td>
                     </tr>
                   ))}
                 </tbody>

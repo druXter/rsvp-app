@@ -293,7 +293,7 @@ export default function RsvpForm({
           <input type="hidden" name="name" value={household.label} />
           <input type="hidden" name="isAttending" value={isAttending ? 'true' : 'false'} />
           <HouseholdFields
-            rows={household.rows} extraPersons={household.extraPersons} askDiet={!!config.askDiet} askAllergies={!!config.askAllergies} menu={menu}
+            rows={household.rows} extraPersons={household.extraPersons} askDiet={!!config.askDiet} askAllergies={!!config.askAllergies} askAlcohol={!!config.askAlcohol} menu={menu}
             onAttendingChange={setIsAttending}
           />
         </>
@@ -408,10 +408,10 @@ export default function RsvpForm({
 
           {/* Begleitungen (bei Ticketkategorien ist maxCompanions 0: jede Person meldet sich selbst an) */}
           {maxCompanions > 0 && !isHousehold && (
-            <CompanionFields max={maxCompanions} initial={companions} askDiet={!!config.askDiet} askAllergies={!!config.askAllergies} menu={menu} />
+            <CompanionFields max={maxCompanions} initial={companions} askDiet={!!config.askDiet} askAllergies={!!config.askAllergies} askAlcohol={!!config.askAlcohol} menu={menu} />
           )}
 
-          {config.askAlcohol && (
+          {config.askAlcohol && !isHousehold && (
             <fieldset>
               <legend className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Trinkst du Alkohol?</legend>
               <div className="flex gap-4">

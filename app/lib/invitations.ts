@@ -3,7 +3,7 @@
 // Einladungen pro Haushalt (Idee L2 der Suite, docs/KONZEPT-EINLADUNGEN.md, Abschnitt 3): Die Verwaltung lädt
 // Haushalte mit vorgegebenen Personen ein, jeder Haushalt antwortet über seinen persönlichen Link pro Person.
 // Reine Funktionen ohne Datenbank, auch im Browser nutzbar; Speichern in app/lib/invitation-store.ts.
-import { asAgeGroup, cleanSelection, type AgeGroup } from './persons'
+import { alcoholFor, asAgeGroup, cleanSelection, readYesNo, type AgeGroup } from './persons'
 import { readMenuSelection, type MenuSelection } from './menu'
 
 export const INVITATION_LIMITS = { invitations: 500, persons: 20, extraPersons: 10, label: 100, note: 500 }
@@ -95,12 +95,14 @@ export type HouseholdPersonInput = {
   dietaryOption: string | null
   allergies: string | null
   menu: MenuSelection
+  /** Alkohol ja/nein, nur bei Erwachsenen (resolveHousehold leert ihn sonst) */
+  drinksAlcohol: boolean | null
 }
 
 const MAX_HOUSEHOLD_ROWS = INVITATION_LIMITS.persons + INVITATION_LIMITS.extraPersons
 
 /**
- * Personen aus dem Formular (Felder person_<i>_id, _name, _age, _attending, _diet, _allergies, _menu_<Gang>).
+ * Personen aus dem Formular (Felder person_<i>_id, _name, _age, _attending, _diet, _allergies, _alcohol, _menu_<Gang>).
  * undefined, wenn das Formular sie nicht angezeigt hat (Markierungsfeld householdShown).
  */
 export function readHousehold(formData: FormData): HouseholdPersonInput[] | undefined {
@@ -121,7 +123,8 @@ export function readHousehold(formData: FormData): HouseholdPersonInput[] | unde
       isAttending: get('attending') === 'true',
       dietaryOption: clean(get('diet') ?? '').slice(0, 100) || null,
       allergies: clean(get('allergies') ?? '').slice(0, 300) || null,
-      menu: readMenuSelection(formData, `person_${i}_menu_`) ?? {}
+      menu: readMenuSelection(formData, `person_${i}_menu_`) ?? {},
+      drinksAlcohol: readYesNo(get('alcohol'))
     })
   }
   return persons
@@ -136,7 +139,8 @@ export function cleanHouseholdPerson(raw: Record<string, unknown>): HouseholdPer
     isAttending: raw.isAttending === true,
     dietaryOption: typeof raw.dietaryOption === 'string' ? clean(raw.dietaryOption).slice(0, 100) || null : null,
     allergies: typeof raw.allergies === 'string' ? clean(raw.allergies).slice(0, 300) || null : null,
-    menu: cleanSelection(raw.menu)
+    menu: cleanSelection(raw.menu),
+    drinksAlcohol: readYesNo(raw.drinksAlcohol)
   }
 }
 
@@ -167,9 +171,10 @@ export function resolveHousehold(
     persons: [
       ...ordered.map(p => {
         const answer = byId.get(p.id)!
-        return { ...answer, invitationPersonId: p.id, name: answer.name || p.name, ageGroup: asAgeGroup(p.ageGroup) }
+        const ageGroup = asAgeGroup(p.ageGroup)
+        return { ...answer, invitationPersonId: p.id, name: answer.name || p.name, ageGroup, drinksAlcohol: alcoholFor(ageGroup, answer.drinksAlcohol) }
       }),
-      ...extras
+      ...extras.map(p => ({ ...p, drinksAlcohol: alcoholFor(p.ageGroup, p.drinksAlcohol) }))
     ]
   }
 }

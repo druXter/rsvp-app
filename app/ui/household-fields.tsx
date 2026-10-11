@@ -6,6 +6,7 @@ import { AGE_GROUPS, AGE_GROUP_LABEL, DIET_OPTIONS, asAgeGroup } from '../lib/pe
 import type { MenuCourseForForm } from '../lib/menu'
 import type { HouseholdPersonInput } from '../lib/invitations'
 import MenuSelects from './menu-selects'
+import { AlcoholSelect } from './companion-fields'
 
 const INPUT = 'w-full border border-gray-300 p-2 rounded-md bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100'
 
@@ -13,15 +14,16 @@ export type HouseholdFormRow = HouseholdPersonInput & { answered: boolean }
 
 /**
  * Antwort eines eingeladenen Haushalts (docs/KONZEPT-EINLADUNGEN.md, Abschnitt 3): jede eingeladene Person mit
- * Zu-/Absage, korrigierbarem Namen und - wenn sie kommt - Essen, Allergien und Menü; dazu bis zu `extraPersons`
- * selbst eingetragene Personen. Felder person_<i>_id/_name/_age/_attending/_diet/_allergies/_menu_<Gang>, gelesen
+ * Zu-/Absage, korrigierbarem Namen und - wenn sie kommt - Essen, Allergien, Alkohol (Erwachsene) und Menü; dazu bis
+ * zu `extraPersons` selbst eingetragene Personen. Felder person_<i>_id/_name/_age/_attending/_diet/_allergies/_alcohol/_menu_<Gang>, gelesen
  * von readHousehold. `onAttendingChange` meldet, ob jemand kommt (für die übrigen Felder des Formulars).
  */
-export default function HouseholdFields({ rows, extraPersons, askDiet, askAllergies, menu, onAttendingChange }: {
+export default function HouseholdFields({ rows, extraPersons, askDiet, askAllergies, askAlcohol = false, menu, onAttendingChange }: {
   rows: HouseholdFormRow[]
   extraPersons: number
   askDiet: boolean
   askAllergies: boolean
+  askAlcohol?: boolean
   menu: MenuCourseForForm[]
   onAttendingChange: (anyAttending: boolean | null) => void
 }) {
@@ -37,7 +39,7 @@ export default function HouseholdFields({ rows, extraPersons, askDiet, askAllerg
 
   const details = (i: number, row: HouseholdPersonInput, who: string, ageGroup: string) => (
     <div className="space-y-2">
-      {(askDiet || askAllergies) && (
+      {(askDiet || askAllergies || (askAlcohol && asAgeGroup(ageGroup) === 'ADULT')) && (
         <div className="flex flex-col sm:flex-row gap-2">
           {askDiet && (
             <select name={`person_${i}_diet`} defaultValue={row.dietaryOption ?? ''} aria-label={`Essenswunsch von ${who}`} className={INPUT}>
@@ -48,6 +50,7 @@ export default function HouseholdFields({ rows, extraPersons, askDiet, askAllerg
           {askAllergies && (
             <input name={`person_${i}_allergies`} defaultValue={row.allergies ?? ''} maxLength={300} aria-label={`Allergien von ${who}`} placeholder="Allergien (optional)" className={INPUT} />
           )}
+          {askAlcohol && asAgeGroup(ageGroup) === 'ADULT' && <AlcoholSelect name={`person_${i}_alcohol`} value={row.drinksAlcohol} label={`Alkohol von ${who}`} required />}
         </div>
       )}
       {menu.length > 0 && asAgeGroup(ageGroup) !== 'INFANT' && <MenuSelects courses={menu} prefix={`person_${i}_menu_`} selection={row.menu} who={`für ${who}`} />}
@@ -133,7 +136,7 @@ export default function HouseholdFields({ rows, extraPersons, askDiet, askAllerg
         <button
           type="button" className="text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400"
           onClick={() => {
-            const next = [...extras, { key: nextKey, row: { invitationPersonId: null, name: '', ageGroup: 'ADULT' as const, isAttending: true, dietaryOption: null, allergies: null, menu: {}, answered: false }, age: 'ADULT' }]
+            const next = [...extras, { key: nextKey, row: { invitationPersonId: null, name: '', ageGroup: 'ADULT' as const, isAttending: true, dietaryOption: null, allergies: null, menu: {}, drinksAlcohol: null, answered: false }, age: 'ADULT' }]
             setExtras(next)
             setNextKey(nextKey + 1)
             report(attending, next)

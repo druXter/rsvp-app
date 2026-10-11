@@ -65,8 +65,8 @@ describe('Küchenübersicht', () => {
 
   it('zählt pro Option nach Erwachsenen und Kindern, nur feste Plätze und zusagende Personen, Kleinkinder ohne Menü', () => {
     const report = buildKitchenReport(courses, [
-      rsvp('Familie A', 'Tisch 10', [person(0, 'Anna', 'ADULT', 'Fisch', { allergies: 'Nüsse' }), person(1, 'Ben', 'CHILD', 'Fleisch'), person(2, 'Mia', 'INFANT', null), person(3, 'Opa', 'ADULT', 'Fisch', { isAttending: false })]),
-      rsvp('Carl', 'Tisch 2', [person(0, 'Carl', 'ADULT', null)]),
+      rsvp('Familie A', 'Tisch 10', [person(0, 'Anna', 'ADULT', 'Fisch', { allergies: 'Nüsse', drinksAlcohol: false }), person(1, 'Ben', 'CHILD', 'Fleisch', { drinksAlcohol: true }), person(2, 'Mia', 'INFANT', null), person(3, 'Opa', 'ADULT', 'Fisch', { isAttending: false })]),
+      rsvp('Carl', 'Tisch 2', [person(0, 'Carl', 'ADULT', null, { drinksAlcohol: true })]),
       rsvp('Warte', null, [person(0, 'Warte', 'ADULT', 'Fisch')], { isOnWaitlist: true }),
       rsvp('Absage', null, [person(0, 'Absage', 'ADULT', 'Fisch')], { isAttending: false }),
       // Ohne Personenliste: eine Person mit den Angaben des Participants
@@ -78,5 +78,7 @@ describe('Küchenübersicht', () => {
     // Nach Platz (natürlich sortiert, ohne Platz zuletzt), innerhalb einer Antwort in Reihenfolge
     expect(report.persons.map(p => p.name)).toEqual(['Carl', 'Anna', 'Ben', 'Mia', 'Dora'])
     expect(report.diets).toEqual([{ label: 'ohne Angabe', count: 3 }, { label: 'Vegan', count: 1 }])
+    // Getränke: nur Erwachsene (Ben ist ein Kind), Dora ohne Angabe
+    expect(report.drinks).toEqual({ alcohol: 1, alcoholFree: 1 })
   })
 })

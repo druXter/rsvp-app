@@ -2,11 +2,12 @@
 import { PrismaClient } from '@prisma/client'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { checkInAtDoor, toggleAttendance } from '../../actions'
+import { checkInAtDoor, toggleAttendance, togglePersonAttendance } from '../../actions'
 import { formatEuro, paymentDue, paymentState } from '../../../lib/payment-state'
 import { getCurrentUser } from '../../../lib/auth'
 import { hasEventModeratorOrAbove } from '../../../lib/permissions'
-import { attendingNames, personsOf } from '../../../lib/persons'
+import { AGE_GROUP_LABEL, alcoholLabel, personsOf } from '../../../lib/persons'
+import { checkInAll } from '../../../lib/checkin'
 
 const prisma = new PrismaClient()
 
@@ -16,16 +17,21 @@ const prisma = new PrismaClient()
  * direkt beim Aufrufen der Seite als anwesend (kein zusätzlicher Klick nötig).
  * Ausnahme Abendkasse (docs/KONZEPT-TICKETS.md): Ist eine Zahlung offen, checkt die Seite NICHT ein,
  * sondern bietet "Bar kassiert - einlassen" und "Ohne Zahlung einlassen" an (checkInAtDoor).
+ * Einlass pro Person (app/lib/checkin.ts): Scannen lässt alle zusagenden Personen der Antwort herein; darunter
+ * steht jede Person mit Altersgruppe und Alkohol (Bändchen) und lässt sich einzeln aus- und wieder eintragen.
  */
-export default async function CheckinPage({ params }: { params: Promise<{ rsvpId: string }> }) {
+export default async function CheckinPage({ params, searchParams }: { params: Promise<{ rsvpId: string }>; searchParams: Promise<{ ansicht?: string }> }) {
   const user = await getCurrentUser()
   if (!user) redirect('/admin/login')
 
   const { rsvpId } = await params
-  const rsvp = await prisma.rsvp.findUnique({
+  // ?ansicht=1: nach Austragen auf dieser Seite - nur anzeigen, nicht wieder automatisch einchecken
+  const viewOnly = (await searchParams).ansicht === '1'
+  const load = () => prisma.rsvp.findUnique({
     where: { id: rsvpId },
-    include: { participant: true, persons: true, event: true, ticketCategory: { select: { label: true } } }
+    include: { participant: true, persons: { orderBy: { position: 'asc' } }, event: true, ticketCategory: { select: { label: true } } }
   })
+  let rsvp = await load()
 
   if (!rsvp) {
     return (
@@ -75,13 +81,25 @@ export default async function CheckinPage({ params }: { params: Promise<{ rsvpId
     statusColor = 'text-pink-600 dark:text-pink-400'
     collect = true
   } else {
-    if (!rsvp.hasAttended) {
-      await prisma.rsvp.update({ where: { id: rsvp.id }, data: { hasAttended: true, checkedInAt: new Date() } })
+    if (!rsvp.hasAttended && !viewOnly) {
+      await checkInAll(rsvp.id)
+      rsvp = (await load())!
+    } else if (!rsvp.hasAttended) {
+      statusIcon = '⏳'
+      statusTitle = 'Nicht eingecheckt'
+      statusColor = 'text-gray-600 dark:text-gray-300'
     } else {
       statusTitle = 'Bereits eingecheckt'
     }
     canUndo = true
   }
+
+  // Zusagende Personen mit ihrer Zeile (für den Haken pro Person); ohne Personenliste die Antwort selbst
+  const persons = rsvp.persons.length > 0
+    ? personsOf(rsvp, rsvp.participant).map((p, i) => ({ ...p, id: rsvp!.persons[i].id })).filter(p => p.isAttending)
+    : personsOf(rsvp, rsvp.participant).map(p => ({ ...p, id: rsvp!.id }))
+  const here = persons.filter(p => p.checkedIn).length
+  if (canUndo && rsvp.hasAttended && persons.length > 1 && here < persons.length) statusTitle = `${here} von ${persons.length} da`
 
   return (
     <main className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center p-4">
@@ -89,11 +107,28 @@ export default async function CheckinPage({ params }: { params: Promise<{ rsvpId
         <span className="text-6xl block mb-4">{statusIcon}</span>
         <h1 className={`text-2xl font-bold ${statusColor}`}>{statusTitle}</h1>
         <p className="text-xl font-medium text-gray-900 dark:text-gray-100 mt-3">{rsvp.participant.name}</p>
-        {/* Personen der Antwort (docs/KONZEPT-EINLADUNGEN.md): eingecheckt wird die Antwort als Ganzes */}
-        {rsvp.persons.filter(p => p.isAttending).length > 1 && (
-          <p className="text-lg font-semibold text-gray-800 dark:text-gray-200 mt-1" data-testid="checkin-persons">
-            {rsvp.persons.filter(p => p.isAttending).length} Personen: {attendingNames(personsOf(rsvp, rsvp.participant))}
-          </p>
+        {/* Personen der Antwort (docs/KONZEPT-EINLADUNGEN.md): jede mit eigenem Haken */}
+        {persons.length > 1 && (
+          <ul className="mt-3 space-y-2 text-left" data-testid="checkin-persons">
+            {persons.map(p => (
+              <li key={p.id} className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 px-3 py-2 dark:border-gray-700">
+                <span>
+                  <span className="font-medium text-gray-900 dark:text-gray-100">{p.checkedIn ? '✅' : '⏳'} {p.name || 'Begleitung'}</span>
+                  <span className="block text-xs text-gray-500 dark:text-gray-400">{[p.ageGroup !== 'ADULT' ? AGE_GROUP_LABEL[p.ageGroup].replace(/ \(.*\)$/, '') : null, alcoholLabel(p.drinksAlcohol)].filter(Boolean).join(' · ')}</span>
+                </span>
+                {canUndo && (
+                  <form action={togglePersonAttendance}>
+                    <input type="hidden" name="personId" value={p.id} />
+                    <input type="hidden" name="back" value="checkin" />
+                    <button type="submit" className="text-sm text-blue-600 hover:underline dark:text-blue-400">{p.checkedIn ? 'Austragen' : 'Einlassen'}</button>
+                  </form>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+        {persons.length === 1 && alcoholLabel(persons[0].drinksAlcohol) && (
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1" data-testid="checkin-alcohol">{alcoholLabel(persons[0].drinksAlcohol)}</p>
         )}
         <p className="text-gray-500 dark:text-gray-400">{rsvp.event.title}</p>
 
@@ -135,9 +170,14 @@ export default async function CheckinPage({ params }: { params: Promise<{ rsvpId
         {canUndo && (
           <form action={toggleAttendance} className="mt-6">
             <input type="hidden" name="rsvpId" value={rsvp.id} />
-            <button type="submit" className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 underline">
-              Rückgängig machen
-            </button>
+            <input type="hidden" name="back" value="checkin" />
+            {rsvp.hasAttended ? (
+              <button type="submit" className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 underline">
+                {persons.length > 1 ? 'Alle austragen' : 'Rückgängig machen'}
+              </button>
+            ) : (
+              <button type="submit" className="w-full bg-green-600 text-white font-bold py-3 rounded-lg hover:bg-green-700 transition">{persons.length > 1 ? 'Alle einlassen' : 'Einlassen'}</button>
+            )}
           </form>
         )}
 

@@ -15,11 +15,12 @@ import { syncBringClaims } from './bring-list'
 import { hasRoom, loadCapacity } from './tickets'
 import { generatePaymentReference, paymentInfoOf, syncPaymentDue } from './payment'
 import { fillFreeSeats, shouldSuppressConfirmationEmail } from './waitlist'
-import { companionsOf, menuOf, seatsOf, type CompanionInput } from './persons'
+import { alcoholFor, companionsOf, menuOf, seatsOf, type CompanionInput } from './persons'
 import { courseOptions, isCompleteSelection, validSelection, type MenuSelection } from './menu'
 import { householdAttends, resolveHousehold, type HouseholdPersonInput } from './invitations'
 import { invitationOf } from './invitation-store'
 import { deadlinePassed, formatDeadline } from './rsvp-deadline'
+import { syncRsvpCheckin } from './checkin'
 
 const prisma = new PrismaClient()
 
@@ -258,8 +259,9 @@ export async function performRsvpSubmission(
   // Menü (docs/KONZEPT-EINLADUNGEN.md): Bei einer Zusage wählt jede Person außer Kleinkindern pro Gang eine Option.
   // Gespeichert wird nur, was es im Menü dieses Termins gibt.
   const ownMenu = validSelection(menu, input.menu ?? (existingPersons[0] ? menuOf(existingPersons[0]) : {}))
-  const companionRows = companions.map(c => ({ ...c, isAttending, menu: c.ageGroup === 'INFANT' ? {} : validSelection(menu, c.menu) }))
-  const householdPersons = householdRows.map(p => ({ ...p, menu: p.ageGroup === 'INFANT' ? {} : validSelection(menu, p.menu) }))
+  // Alkohol pro Person (nur Erwachsene, alcoholFor) - bei einer Absage leer wie Rsvp.drinksAlcohol
+  const companionRows = companions.map(c => ({ ...c, isAttending, menu: c.ageGroup === 'INFANT' ? {} : validSelection(menu, c.menu), drinksAlcohol: isAttending ? c.drinksAlcohol : null }))
+  const householdPersons = householdRows.map(p => ({ ...p, menu: p.ageGroup === 'INFANT' ? {} : validSelection(menu, p.menu), drinksAlcohol: p.isAttending ? p.drinksAlcohol : null }))
   if (isAttending && menu.length > 0) {
     const eating = invitation
       ? householdPersons.filter(p => p.isAttending)
@@ -366,7 +368,8 @@ export async function performRsvpSubmission(
     // Die Frist läuft ab dem festen Platz: Wer ihn behält, behält sie; sonst setzt syncPaymentDue eine neue
     // (z. B. erneute Zusage nach einer Stornierung wegen abgelaufener Frist)
     paymentDueAt: wasFixed && isAttending && !isOnWaitlist ? existingRsvp!.paymentDueAt : null,
-    drinksAlcohol: isAttending ? drinksAlcohol : null,
+    // Im Einladungsmodus steht Alkohol nur pro Person
+    drinksAlcohol: isAttending && !invitation ? drinksAlcohol : null,
     additionalInfo: isAttending ? additionalInfo : null,
     bringingItem: isAttending ? bringingItem : null,
     declineReason: isAttending ? null : declineReason,
@@ -406,7 +409,7 @@ export async function performRsvpSubmission(
     await savePersons(savedRsvp.id, householdPersons)
   } else if (usesPersons) {
     await savePersons(savedRsvp.id, [
-      { name: participant.name, ageGroup: 'ADULT', isAttending, dietaryOption: participant.dietaryOption, allergies: participant.allergies, menu: ownMenu },
+      { name: participant.name, ageGroup: 'ADULT', isAttending, dietaryOption: participant.dietaryOption, allergies: participant.allergies, menu: ownMenu, drinksAlcohol: isAttending ? drinksAlcohol : null },
       ...companionRows
     ])
   }
@@ -508,12 +511,29 @@ export async function performRsvpSubmission(
  */
 export async function savePersons(
   rsvpId: string,
-  persons: readonly { name: string | null; ageGroup: string; isAttending: boolean; dietaryOption: string | null; allergies: string | null; menu?: MenuSelection; invitationPersonId?: string | null }[]
+  persons: readonly { name: string | null; ageGroup: string; isAttending: boolean; dietaryOption: string | null; allergies: string | null; menu?: MenuSelection; drinksAlcohol?: boolean | null; invitationPersonId?: string | null }[]
 ) {
+  // Einlass bleibt bei einer Änderung erhalten (app/lib/checkin.ts): eingeladene Personen über ihre Einladung,
+  // sonst über die Position - solange die Person weiter zusagt. Hatte die Antwort noch keine Personen, gilt ihr
+  // eigener Haken für die anmeldende Person.
+  const [rows, rsvp] = await Promise.all([
+    prisma.rsvpPerson.findMany({ where: { rsvpId }, select: { position: true, invitationPersonId: true, checkedInAt: true } }),
+    prisma.rsvp.findUniqueOrThrow({ where: { id: rsvpId }, select: { checkedInAt: true, hasAttended: true } })
+  ])
+  const previous = rows.length > 0 ? rows.filter(r => r.checkedInAt) : rsvp.hasAttended ? [{ position: 0, invitationPersonId: null, checkedInAt: rsvp.checkedInAt ?? new Date() }] : []
+  const checkedInAt = (p: (typeof persons)[number], position: number) => {
+    if (!p.isAttending) return null
+    const match = p.invitationPersonId ? previous.find(x => x.invitationPersonId === p.invitationPersonId) : previous.find(x => !x.invitationPersonId && x.position === position)
+    return match?.checkedInAt ?? null
+  }
   await prisma.$transaction([
     prisma.rsvpPerson.deleteMany({ where: { rsvpId } }),
     ...persons.map(({ menu = {}, ...p }, position) => prisma.rsvpPerson.create({
-      data: { rsvpId, position, ...p, menuChoices: { create: Object.entries(menu).map(([courseId, option]) => ({ courseId, option })) } }
+      data: {
+        rsvpId, position, ...p, drinksAlcohol: alcoholFor(p.ageGroup, p.drinksAlcohol), checkedInAt: checkedInAt(p, position),
+        menuChoices: { create: Object.entries(menu).map(([courseId, option]) => ({ courseId, option })) }
+      }
     }))
   ])
+  if (previous.length > 0) await syncRsvpCheckin(rsvpId)
 }

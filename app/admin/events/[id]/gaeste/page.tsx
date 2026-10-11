@@ -4,9 +4,9 @@ import { notFound } from 'next/navigation'
 import { prisma } from '../../../../lib/prisma'
 import { claimedLabels } from '../../../../lib/bring-list'
 import { formatEuro, formatPaymentDate, paymentState } from '../../../../lib/payment-state'
-import { describePerson, personDetails, personsOf } from '../../../../lib/persons'
+import { alcoholLabel, describePerson, personDetails, personsOf } from '../../../../lib/persons'
 import { describeSelection } from '../../../../lib/menu'
-import { promoteFromWaitlist, resendVerificationEmail, toggleAttendance } from '../../../actions'
+import { promoteFromWaitlist, resendVerificationEmail, toggleAttendance, togglePersonAttendance } from '../../../actions'
 import DeleteRsvpButton from '../../../delete-rsvp-button'
 import PaymentCell from '../../../payment-cell'
 import { Badge, EmptyState, buttonClass, inputClass } from '../../../../ui/kit'
@@ -142,9 +142,8 @@ export default async function EventGuests({ params, searchParams }: { params: Pr
                           </dd>
                           <dt className="text-gray-500">Handy</dt><dd>{rsvp.participant.phone || '-'}</dd>
                           {persons.map((p, i) => (
-                            <PersonDetails key={i} label={event.inviteOnly || i > 0 ? (p.name || 'Begleitung') : 'Essen'} value={[personDetails(p).join(', ') || '-', menuCourses.length > 0 && p.isAttending && p.ageGroup !== 'INFANT' ? describeSelection(menuCourses, p.menu) || 'Menü offen' : null].filter(Boolean).join(' · ')} />
+                            <PersonDetails key={i} label={event.inviteOnly || i > 0 ? (p.name || 'Begleitung') : 'Angaben'} value={[[...personDetails(p), alcoholLabel(p.drinksAlcohol)].filter(Boolean).join(', ') || '-', menuCourses.length > 0 && p.isAttending && p.ageGroup !== 'INFANT' ? describeSelection(menuCourses, p.menu) || 'Menü offen' : null].filter(Boolean).join(' · ')} />
                           ))}
-                          {rsvp.drinksAlcohol !== null && <><dt className="text-gray-500">Alkohol</dt><dd>{rsvp.drinksAlcohol ? 'Ja' : 'Nein'}</dd></>}
                           {bring.length > 0 && <><dt className="text-gray-500">Mitbringsel</dt><dd>{bring.join(', ')}</dd></>}
                           {(rsvp.isAttending ? rsvp.additionalInfo : rsvp.declineReason) && <><dt className="text-gray-500">{rsvp.isAttending ? 'Anmerkungen' : 'Grund'}</dt><dd className="whitespace-pre-line">{rsvp.isAttending ? rsvp.additionalInfo : rsvp.declineReason}</dd></>}
                           {customQuestions.map((q, i) => answers[i] ? <QuestionAnswer key={i} question={q} answer={answers[i]} /> : null)}
@@ -186,15 +185,9 @@ export default async function EventGuests({ params, searchParams }: { params: Pr
                       </td>
                     )}
                     {event.enableCheckin && (
-                      <td className={`mt-2 md:mt-0 md:table-cell md:px-4 md:py-3 align-top ${rsvp.isAttending && !rsvp.isOnWaitlist ? 'block' : 'hidden'}`}>
+                      <td className={`mt-2 md:mt-0 md:table-cell md:px-4 md:py-3 align-top ${rsvp.isAttending && !rsvp.isOnWaitlist ? 'block' : 'hidden'}`} data-testid="guest-checkin">
                         {rsvp.isAttending && !rsvp.isOnWaitlist ? (
-                          <form action={toggleAttendance}>
-                            <input type="hidden" name="rsvpId" value={rsvp.id} />
-                            <button type="submit" className={buttonClass(rsvp.hasAttended ? 'primary' : 'secondary', 'sm')}
-                              title={rsvp.checkedInAt ? `Eingecheckt am ${rsvp.checkedInAt.toLocaleString('de-DE')}` : 'Manuell einchecken'}>
-                              {rsvp.hasAttended ? '🎫 Da' : 'Nicht da'}
-                            </button>
-                          </form>
+                          <CheckinCell rsvp={rsvp} persons={persons} />
                         ) : <span className="text-gray-400">-</span>}
                       </td>
                     )}
@@ -210,6 +203,41 @@ export default async function EventGuests({ params, searchParams }: { params: Pr
             </tbody>
           </table>
         </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Einlass in der Gästeliste (app/lib/checkin.ts): ein Knopf für die ganze Antwort, bei mehreren Personen darunter
+ * jede einzeln ("später gekommen", "doch nicht da").
+ */
+function CheckinCell({ rsvp, persons }: { rsvp: { id: string; hasAttended: boolean; checkedInAt: Date | null; persons: { id: string; position: number }[] }; persons: ReturnType<typeof personsOf> }) {
+  const rows = [...rsvp.persons].sort((a, b) => a.position - b.position)
+  const attending = persons.map((p, i) => ({ ...p, id: rows[i]?.id })).filter(p => p.isAttending && p.id)
+  const here = attending.filter(p => p.checkedIn).length
+  return (
+    <div className="space-y-1">
+      <form action={toggleAttendance}>
+        <input type="hidden" name="rsvpId" value={rsvp.id} />
+        <button type="submit" className={buttonClass(rsvp.hasAttended ? 'primary' : 'secondary', 'sm')}
+          title={rsvp.checkedInAt ? `Eingecheckt am ${rsvp.checkedInAt.toLocaleString('de-DE')}` : 'Alle einchecken'}>
+          {rsvp.hasAttended ? `🎫 Da${attending.length > 1 ? ` ${here}/${attending.length}` : ''}` : 'Nicht da'}
+        </button>
+      </form>
+      {attending.length > 1 && (
+        <ul className="space-y-0.5 text-xs" data-testid="checkin-persons">
+          {attending.map(p => (
+            <li key={p.id}>
+              <form action={togglePersonAttendance}>
+                <input type="hidden" name="personId" value={p.id} />
+                <button type="submit" className="text-left hover:underline" aria-label={`${p.name || 'Begleitung'} ${p.checkedIn ? 'austragen' : 'einchecken'}`}>
+                  {p.checkedIn ? '✓' : '○'} {p.name || 'Begleitung'}
+                </button>
+              </form>
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   )

@@ -8,7 +8,7 @@ import { AGE_GROUP_LABEL } from '../../../lib/persons'
 
 /**
  * Personen-CSV der Küchenübersicht (app/lib/kitchen.ts): eine Zeile pro Person mit festem Platz, mit Platz,
- * Altersgruppe, Menüwahl pro Gang, Essen und Allergien. Für alle mit Zugriff auf die Gästeliste.
+ * Altersgruppe, Menüwahl pro Gang, Essen, Allergien und Alkohol. Für alle mit Zugriff auf die Gästeliste.
  */
 export async function GET(request: Request) {
   const user = await getCurrentUser()
@@ -19,10 +19,11 @@ export async function GET(request: Request) {
 
   const report = await loadKitchenReport(event.id)
   const rows = [
-    ['Platz', 'Name', 'Antwort', 'Alter', ...report.courses.map(c => c.label), 'Essen', 'Allergien'],
+    ['Platz', 'Name', 'Antwort', 'Alter', ...report.courses.map(c => c.label), 'Essen', 'Allergien', 'Alkohol'],
     ...report.persons.map(p => [
       p.seat ?? '', p.name, p.answer, AGE_GROUP_LABEL[p.ageGroup].replace(/ \(.*\)$/, ''),
-      ...report.courses.map(c => p.menu[c.id] ?? ''), p.dietaryOption ?? '', p.allergies ?? ''
+      ...report.courses.map(c => p.menu[c.id] ?? ''), p.dietaryOption ?? '', p.allergies ?? '',
+      p.drinksAlcohol === true ? 'Ja' : p.drinksAlcohol === false ? 'Nein' : ''
     ])
   ]
   // Wie die Gästeliste: Semikolon, alles in Anführungszeichen, BOM für Excel. Formeln werden entschärft.

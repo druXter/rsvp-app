@@ -26,7 +26,7 @@ export default async function EventOverview({ params }: { params: Promise<{ id: 
       where: { eventId: event.id },
       select: {
         isAttending: true, isOnWaitlist: true, hasAttended: true, amountCents: true, paidAt: true, refundedAt: true, paymentDueAt: true, ticketCategoryId: true,
-        persons: { select: { isAttending: true, ageGroup: true } }
+        persons: { select: { isAttending: true, ageGroup: true, checkedInAt: true } }
       }
     }),
     prisma.ticketCategory.findMany({ where: { eventId: event.id }, orderBy: { position: 'asc' } }),
@@ -52,7 +52,7 @@ export default async function EventOverview({ params }: { params: Promise<{ id: 
         {s.invitationsOpen !== null
           ? <Stat label="Einladungen ohne Antwort" value={s.invitationsOpen} hint={`von ${event._count.invitations} Haushalten`} testId="stat-invitations" />
           : event.enableCheckin
-            ? <Stat label="Eingecheckt" value={`${s.checkedIn}/${s.confirmed}`} testId="stat-checkin" />
+            ? <Stat label="Eingecheckt" value={`${s.checkedIn}/${s.attendees}`} hint="Personen" testId="stat-checkin" />
             : <Stat label="Antworten" value={rsvps.length} />}
       </div>
 

@@ -333,6 +333,11 @@ model RsvpPerson {
   dietaryOption String?
   allergies     String?
   menuChoices   MenuChoice[]
+  // Alkohol ja/nein - nur bei Erwachsenen, die zusagen (sonst null). Rsvp.drinksAlcohol bleibt die Angabe der
+  // anmeldenden Person (Antworten ohne Personenliste, Client-API).
+  drinksAlcohol Boolean?
+  // Einlass pro Person (app/lib/checkin.ts). Rsvp.hasAttended ist gesetzt, sobald mindestens eine Person da ist.
+  checkedInAt   DateTime?
 
   // Im Einladungsmodus: welche eingeladene Person das ist (null = vom Haushalt selbst eingetragen)
   invitationPersonId String?
