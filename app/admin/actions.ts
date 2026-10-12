@@ -16,7 +16,7 @@ import { clearFailures, clientIp, loginRules, passwordChangeRule, refund, reserv
 import { isOwnerOrAdmin, hasEventModeratorOrAbove, hasSeriesModeratorOrAbove } from '../lib/permissions'
 import { sendReminderPush } from '../lib/push'
 import { notifyAttendeesOfChange } from '../lib/event-change-notify'
-import { readToolLinks, saveToolLinks } from '../lib/linked-tools-store'
+import { readToolLinks, saveToolLinks, type ToolLinkInput } from '../lib/linked-tools-store'
 import { parsePhotoUrl } from '../lib/photo-link'
 import { readBringSlots, saveBringSlots } from '../lib/bring-list'
 import { notifyLinkedToolsBeforeDelete, notifyLinkedToolsOfRsvps } from '../lib/linked-tools-notify'
@@ -37,6 +37,7 @@ import { checkInAll, checkOutAll, togglePerson } from '../lib/checkin'
 import { resetInvitationReminders } from '../lib/invitation-reminder'
 import { invitationCovers } from '../lib/invitation-store'
 import { InputError } from '../lib/input-error'
+import { readShiftTiers, storedTiers, type ShiftTierInput } from '../lib/shift-helpers'
 
 const prisma = new PrismaClient()
 
@@ -138,6 +139,30 @@ async function settingsResult(save: () => Promise<string | undefined>): Promise<
   }
   if (target) redirect(target)
   return null
+}
+
+/**
+ * Stufen für Helfer-Zusagen aus Schichten (app/lib/shift-helpers.ts) - Kategorien aus dem Formular, sonst die
+ * gespeicherten. Wirft, bevor etwas gespeichert ist; gespeichert wird nach den Kategorien (saveShiftTiers).
+ */
+async function readShiftSettings(formData: FormData, eventId: string, ticketing: { ticketCategories: { label: string }[] | null }) {
+  const labels = ticketing.ticketCategories
+    ? ticketing.ticketCategories.map(c => c.label)
+    : (await prisma.ticketCategory.findMany({ where: { eventId }, select: { label: true }, orderBy: { position: 'asc' } })).map(c => c.label)
+  return readShiftTiers(formData, labels)
+}
+
+async function saveShiftTiers(eventId: string, tiers: ShiftTierInput[] | undefined) {
+  if (tiers === undefined) return
+  const categories = await prisma.ticketCategory.findMany({ where: { eventId }, select: { id: true, label: true } })
+  await prisma.event.update({ where: { id: eventId }, data: { shiftTiers: storedTiers(tiers, categories) } })
+}
+
+/** Helfer-Zusagen gibt es nicht im Einladungsmodus (dort antwortet nur, wer eine Einladung hat). */
+function assertShiftsAllowed(inviteOnly: boolean, toolLinks: ToolLinkInput[]) {
+  if (inviteOnly && toolLinks.some(l => l.type === 'shifts' && l.link)) {
+    throw new InputError('Schichten: Helfer-Zusagen gehen nicht zusammen mit „Nur mit Einladung“. Bitte eins von beiden entfernen.')
+  }
 }
 
 /** Wunschliste an/aus und "Überraschung" (docs/KONZEPT-WUNSCHLISTE.md) - nur, wenn das Formular den Abschnitt hatte. */
@@ -639,6 +664,7 @@ async function saveEvent(formData: FormData): Promise<string | undefined> {
   const bringSlots = readBringSlots(formData)
   const toolLinks = readToolLinks(formData)
   const ticketing = await readTicketing(formData, id)
+  const shiftTiers = await readShiftSettings(formData, id, ticketing)
   const maxCompanions = readMaxCompanions(formData)
   await assertCompanionsAllowed(maxCompanions, ticketing.ticketCategories, id)
   const menu = readMenu(formData)
@@ -647,6 +673,7 @@ async function saveEvent(formData: FormData): Promise<string | undefined> {
   // Einladungsmodus nur über das Bearbeiten-Formular eines Einzel-Events (Feld fehlt = unverändert)
   const inviteOnly = formData.has('inviteOnlyShown') ? formData.get('inviteOnly') === 'on' : existingEvent.inviteOnly
   await assertInviteOnlyAllowed(inviteOnly, { eventPin, requireVerification, requireGuestUser: existingEvent.requireGuestUser }, ticketing.ticketCategories, { eventId: id })
+  assertShiftsAllowed(inviteOnly, toolLinks)
 
   const formConfig = JSON.stringify({
     askEmail: formData.get('askEmail') === 'on',
@@ -701,6 +728,7 @@ async function saveEvent(formData: FormData): Promise<string | undefined> {
   await saveMenu(id, menu)
   await resetRemindersOnNewDeadline(id, existingEvent.rsvpDeadline, deadline.rsvpDeadline)
   await applyTicketing(id, ticketing, ticketing.seatingRequiresPayment !== undefined && ticketing.seatingRequiresPayment !== existingEvent.seatingRequiresPayment)
+  await saveShiftTiers(id, shiftTiers)
 
   if (notifyGuests && changes.length > 0) {
     await notifyAttendeesOfChange(id, changes)
@@ -1293,10 +1321,12 @@ async function saveSeriesTermin(formData: FormData): Promise<string | undefined>
   const bringSlots = readBringSlots(formData)
   const toolLinks = readToolLinks(formData)
   const ticketing = await readTicketing(formData, id)
+  const shiftTiers = await readShiftSettings(formData, id, ticketing)
   const maxCompanions = readMaxCompanions(formData)
   await assertCompanionsAllowed(maxCompanions, ticketing.ticketCategories, id)
   // Termin einer Reihe im Einladungsmodus: keine Ticketkategorien (die übrigen Zugänge regelt die Reihe)
   await assertInviteOnlyAllowed(existingEvent.inviteOnly, { eventPin: null, requireVerification: false, requireGuestUser: false }, ticketing.ticketCategories, { eventId: id })
+  assertShiftsAllowed(existingEvent.inviteOnly, toolLinks)
   const menu = readMenu(formData)
   await assertMenuChangeable(id, menu)
   const deadline = readDeadlineSettings(formData)
@@ -1332,6 +1362,7 @@ async function saveSeriesTermin(formData: FormData): Promise<string | undefined>
   await saveMenu(id, menu)
   await resetRemindersOnNewDeadline(id, existingEvent.rsvpDeadline, deadline.rsvpDeadline)
   await applyTicketing(id, ticketing, ticketing.seatingRequiresPayment !== undefined && ticketing.seatingRequiresPayment !== existingEvent.seatingRequiresPayment)
+  await saveShiftTiers(id, shiftTiers)
 
   if (notifyGuests && changes.length > 0) {
     await notifyAttendeesOfChange(id, changes)

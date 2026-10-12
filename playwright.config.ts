@@ -24,6 +24,10 @@ export const TEST_SEATING_BASE_URL = `http://127.0.0.1:${SEATING_PORT}`
 export const TEST_TIMELINE_SECRET = 'e2e-timeline-secret-0123456789abcdef012'
 export const TIMELINE_PORT = 3107
 export const TEST_TIMELINE_BASE_URL = `http://127.0.0.1:${TIMELINE_PORT}`
+// Schichten (app/lib/shift-helpers.ts): eigenes Secret; unter dem Origin läuft nichts - Schichten ruft rsvp-app auf,
+// nicht umgekehrt. Die Tests spielen die Meldungen selbst (tests/e2e/shift-helpers.spec.ts).
+export const TEST_SHIFTS_SECRET = 'e2e-shifts-secret-0123456789abcdef01234'
+export const TEST_SHIFTS_BASE_URL = 'http://127.0.0.1:3110'
 // Origin des Abstimmungstools für die Terminabstimmung (app/lib/poll-date.ts): Dort läuft in den
 // Tests nichts - rsvp-app prüft nur, ob eine pollUrl zu diesem Origin gehört. Ausgehende
 // Zu-/Absage-Meldungen dorthin scheitern sofort (best-effort, siehe app/lib/poll-notify.ts).
@@ -70,6 +74,8 @@ const SERVER_ENV: Record<string, string> = {
   SEATING_BASE_URL: TEST_SEATING_BASE_URL,
   TIMELINE_SECRET: TEST_TIMELINE_SECRET,
   TIMELINE_BASE_URL: TEST_TIMELINE_BASE_URL,
+  SHIFTS_SECRET: TEST_SHIFTS_SECRET,
+  SHIFTS_BASE_URL: TEST_SHIFTS_BASE_URL,
   // Anbieter nur für Teilnehmendenkonten: SUITE_TRUSTED_APPS bleibt leer, Verwaltungskonten
   // werden also für niemanden bestätigt; als Empfänger (SUITE_IDPS) ist nichts eingerichtet.
   SUITE_SIGNING_KEY: TEST_SUITE_SIGNING_KEY,

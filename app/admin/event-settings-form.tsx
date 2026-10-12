@@ -7,6 +7,7 @@ import { courseOptions } from '../lib/menu'
 import { deadlineInputValue } from '../lib/rsvp-deadline'
 import { allowedSeatingOrigin } from '../lib/seating'
 import { allowedTimelineOrigin } from '../lib/timeline'
+import { allowedShiftsOrigin, formatShiftTiers, parseStoredTiers } from '../lib/shift-helpers'
 import { TOOL_LINKS, storedToolUrl } from '../lib/linked-tools-store'
 import { SettingsSection, hintClass, inputClass, labelClass } from '../ui/kit'
 import SubmitButton from '../ui/submit-button'
@@ -50,13 +51,14 @@ const onOff = (on: boolean, text: string) => (on ? text : null)
 // Was sich ausschließt bzw. was was braucht - prüft der Server ebenso (app/admin/actions.ts)
 const RULE_LABELS = {
   inviteOnly: '„Nur mit Einladung“', eventPin: 'einer PIN', requireVerification: 'E-Mail-Bestätigung',
-  ticketCategories: 'Ticketkategorien', maxCompanions: 'Begleitungen'
+  ticketCategories: 'Ticketkategorien', maxCompanions: 'Begleitungen', shiftsUrl: 'Helfer*innen aus Schichten'
 }
 const RULES: FieldRule[] = [
   { excludes: ['inviteOnly', 'eventPin'] },
   { excludes: ['inviteOnly', 'requireVerification'] },
   { excludes: ['inviteOnly', 'ticketCategories'] },
   { excludes: ['maxCompanions', 'ticketCategories'] },
+  { excludes: ['inviteOnly', 'shiftsUrl'] },
   { requires: 'rsvpReminderDays', needs: 'rsvpDeadline', hint: 'braucht eine Antwortfrist (Grunddaten)' },
   { requires: 'paymentReminderDays', needs: 'paymentDueDays', hint: 'braucht eine Zahlfrist' },
   { requires: 'datePending', needs: 'pollUrl', hint: 'braucht einen Link auf eine Abstimmung' }
@@ -80,11 +82,13 @@ export default function EventSettingsForm({ event, open = 'grunddaten' }: { even
   const formattedDate = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
   const seatingUrl = storedToolUrl(event.toolLinks, 'seating')
   const timelineUrl = storedToolUrl(event.toolLinks, 'timeline')
+  const shiftsUrl = storedToolUrl(event.toolLinks, 'shifts')
+  const shiftsOrigin = allowedShiftsOrigin()
   const formId = 'event-settings-form'
   // Fest gesperrt: Konto-Pflicht wird beim Anlegen festgelegt, Termine einer Einladungs-Reihe haben keine Kategorien
   const fixed: Record<string, string> = {
     ...(event.requireGuestUser ? { inviteOnly: 'nur mit Teilnehmendenkonto (beim Anlegen festgelegt)' } : {}),
-    ...(isTermin && event.inviteOnly ? { ticketCategories: 'die Reihe ist im Einladungsmodus' } : {})
+    ...(isTermin && event.inviteOnly ? { ticketCategories: 'die Reihe ist im Einladungsmodus', shiftsUrl: 'die Reihe ist im Einladungsmodus' } : {})
   }
 
   return (
@@ -210,7 +214,7 @@ export default function EventSettingsForm({ event, open = 'grunddaten' }: { even
       </SettingsSection>
 
       <SettingsSection id="verknuepfungen" title="Verknüpfungen" open={open === 'verknuepfungen'} marker="lime"
-        summary={summary([seatingUrl && 'Seating', timelineUrl && 'Zeitplan', event.pollUrl && 'Abstimmung', event.photoUrl && 'Fotos'], 'keine')}>
+        summary={summary([seatingUrl && 'Seating', timelineUrl && 'Zeitplan', shiftsUrl && 'Schichten', event.pollUrl && 'Abstimmung', event.photoUrl && 'Fotos'], 'keine')}>
         {seatingOrigin && (
           <div>
             <Field id="seatingUrl" label="Sitzplätze (Seating)" hint={<>Link aus den Event-Einstellungen in Seating. ID dieses Termins für Seating: <code className="select-all">{event.id}</code>. Name, E-Mail und Begleitungen der Zusagen gehen dafür an Seating.</>}>
@@ -223,6 +227,20 @@ export default function EventSettingsForm({ event, open = 'grunddaten' }: { even
           <Field id="timelineUrl" label="Zeitplan" hint={<>Link aus den Event-Einstellungen im Zeitplan. ID dieses Termins: <code className="select-all">{event.id}</code>. An den Zeitplan gehen nur Kennungen, keine Namen.</>}>
             <input id="timelineUrl" type="url" name="timelineUrl" defaultValue={timelineUrl} className={inputClass} placeholder={`${timelineOrigin}/rsvp/…`} />
           </Field>
+        )}
+        {shiftsOrigin && (
+          <div className="space-y-3">
+            <Field id="shiftsUrl" label="Helfer*innen (Schichten)" hint={<>Link aus den Einstellungen des Events in Schichten. ID dieses Termins für Schichten: <code className="select-all">{event.id}</code>. Schichten meldet Name, E-Mail und Zahl der Schichten aller Helfer*innen; wer genug Schichten hat, bekommt hier eine Zusage. Nicht zusammen mit „Nur mit Einladung“.</>}>
+              <input id="shiftsUrl" type="url" name="shiftsUrl" defaultValue={shiftsUrl} className={inputClass} placeholder={`${shiftsOrigin}/rsvp/…`} />
+              <RuleNote name="shiftsUrl" />
+            </Field>
+            <Field id="shiftTiers" label="Stufen: ab wie vielen Schichten welche Zusage" hint={event.ticketCategories.length > 0
+              ? <>Eine Zeile pro Stufe, „Schichten: Kategorie“, z. B. „1: Helfer*innen“ und „5: Helfer*innen plus“. Die höchste erreichte Stufe gilt. Kapazität und Kontingente gelten für Helfer*innen nicht, der Preis der Kategorie schon. Leer = keine Helfer-Zusagen.</>
+              : <>Ab wie vielen Schichten es eine Zusage gibt, z. B. „1“. Leer = keine Helfer-Zusagen.</>}>
+              <textarea id="shiftTiers" name="shiftTiers" rows={2} defaultValue={formatShiftTiers(parseStoredTiers(event.shiftTiers), event.ticketCategories)} className={inputClass}
+                placeholder={event.ticketCategories.length > 0 ? `1: ${event.ticketCategories[0].label}` : '1'} />
+            </Field>
+          </div>
         )}
         <div className="grid gap-4 sm:grid-cols-2">
           <Field id="pollUrl" label="Abstimmung (Link)">

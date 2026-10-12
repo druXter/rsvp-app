@@ -114,7 +114,10 @@ export default async function EventGuests({ params, searchParams }: { params: Pr
                 return (
                   <tr key={rsvp.id} className="block p-4 md:table-row md:p-0" data-testid="guest-row">
                     <td className="block md:table-cell md:px-4 md:py-3 align-top">
-                      <div className="font-medium text-gray-900 dark:text-gray-100">{rsvp.participant.name}</div>
+                      <div className="font-medium text-gray-900 dark:text-gray-100">
+                        {rsvp.participant.name}
+                        {rsvp.shiftHelperId && <> <Badge tone="green">Helfer*in · {rsvp.shiftCount === 1 ? '1 Schicht' : `${rsvp.shiftCount ?? 0} Schichten`}</Badge></>}
+                      </div>
                       {others.length > 0 && (
                         <div className="mt-0.5 text-xs text-gray-600 dark:text-gray-400" data-testid="guest-persons">
                           {event.inviteOnly

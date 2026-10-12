@@ -189,6 +189,11 @@ model Event {
   wishesSecret Boolean @default(true)
   wishes       Wish[]
 
+  // Stufen für Helfer-Zusagen aus Schichten (app/lib/shift-helpers.ts): JSON [{ min, categoryId }] - ab min Schichten
+  // eine Zusage in dieser Kategorie (null = ohne Kategorie), die höchste erreichte Stufe gilt. null = keine Stufen,
+  // Meldungen von Schichten ändern dann nichts.
+  shiftTiers String?
+
   // Tickets und Bezahlung (Ideen L4/L1 der Suite, docs/KONZEPT-TICKETS.md, app/lib/tickets.ts und
   // app/lib/payment.ts): Kategorien mit Preis und Kontingent. Ohne Kategorien ändert sich nichts.
   ticketCategories       TicketCategory[]
@@ -314,6 +319,10 @@ model Rsvp {
   // Tisch und Platz pro Person aus Seating (JSON [{index, table, seat}], app/lib/seating.ts) - index wie in
   // guestOf: 0 = erste zusagende Person mit Platz, dann die weiteren. Für die Küchenliste pro Tisch.
   seatingPersons String?
+  // Helfer-Zusage aus Schichten (app/lib/shift-helpers.ts): id der Helfer*in dort und Zahl ihrer Schichten. Gesetzt =
+  // Schichten verwaltet die Zusage (Gäste sagen nicht selbst ab, die Kategorie folgt den Stufen Event.shiftTiers).
+  shiftHelperId  String?
+  shiftCount     Int?
   createdAt      DateTime     @default(now())
   // Beanspruchte Einträge der Mitbringliste (BringClaim), verschwinden mit der Rsvp.
   bringClaims    BringClaim[]
@@ -337,6 +346,7 @@ model Rsvp {
   persons RsvpPerson[]
 
   @@unique([eventId, participantId])
+  @@unique([eventId, shiftHelperId])
 }
 
 // Eine Person einer Antwort (docs/KONZEPT-EINLADUNGEN.md). Position 0 ist bei offener Anmeldung die

@@ -2,6 +2,7 @@
 import Link from 'next/link'
 import { allowedSeatingOrigin } from '../lib/seating'
 import { allowedTimelineOrigin } from '../lib/timeline'
+import { allowedShiftsOrigin } from '../lib/shift-helpers'
 
 // Liest Verantwortlichen- und Infrastruktur-Angaben zur Laufzeit aus der (nicht
 // versionierten) .env, analog zu app/impressum/page.tsx - siehe dort für die
@@ -21,6 +22,8 @@ export default function DatenschutzPage() {
   const seatingHost = allowedSeatingOrigin() ?? '[Sitzplatz-Anwendung nicht eingerichtet]'
   // Ebenso die einzige Adresse des Zeitplan-Tools (siehe app/lib/timeline.ts)
   const timelineHost = allowedTimelineOrigin() ?? '[Zeitplan-Anwendung nicht eingerichtet]'
+  // Und die von Schichten (app/lib/shift-helpers.ts)
+  const shiftsHost = allowedShiftsOrigin() ?? '[Schichten-Anwendung nicht eingerichtet]'
 
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12 px-4">
@@ -345,6 +348,26 @@ export default function DatenschutzPage() {
           <p className="mt-2">
             Die Zeitplan-Anwendung meldet uns nichts zurück. Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO
             (Organisation der Veranstaltung, zu der auch ihr Ablauf gehört).
+          </p>
+        </div>
+
+        <div>
+          <h2 className="font-bold text-lg">11a. Schichten (Helfer*innen)</h2>
+          <p className="mt-2">
+            Veranstalter:innen können einen Termin mit einem Event in der separaten Anwendung „Schichten“ unter{' '}
+            <code>{shiftsHost}</code> verknüpfen, in der sich Helfer*innen für Dienste (z. B. Bar oder Einlass) eintragen.
+            Schichten ist ein eigenständiges Angebot mit einer eigenen Datenschutzerklärung. Ist ein Termin nicht verknüpft,
+            passiert nichts.
+          </p>
+          <p className="mt-2">
+            Bei einem verknüpften Termin meldet Schichten uns für jede Helfer*in, die ihre E-Mail-Adresse dort bestätigt
+            hat, <strong>Namen, E-Mail-Adresse und die Zahl ihrer Schichten</strong>. Wer genug Schichten hat, bekommt hier
+            eine Zusage (mit Bestätigungsmail und ggf. QR-Code für den Einlass) in der Ticketkategorie, die die
+            Veranstalter:innen dafür festgelegt haben; wer keine Schichten mehr hat, bekommt eine Absage (außer die Zusage
+            ist schon bezahlt oder eingelöst). Hat dieselbe E-Mail-Adresse hier schon eine eigene Zusage, bleibt diese
+            unverändert, und wir teilen Schichten nur mit, dass es sie gibt. Wir übermitteln an Schichten keine weiteren
+            Daten. Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO (Organisation der Veranstaltung, zu der die Helfer*innen
+            gehören).
           </p>
         </div>
 

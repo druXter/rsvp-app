@@ -34,6 +34,7 @@ export async function GET(request: Request) {
   const customQuestions: string[] = event.formConfig ? (JSON.parse(event.formConfig).customQuestions || []) : []
   // Platz aus Seating nur als Spalte, wenn der Termin verknüpft ist (siehe app/api/seating/placements)
   const withSeating = event.toolLinks.some(l => l.type === 'seating')
+  const withShifts = event.rsvps.some(r => r.shiftHelperId)
   // Tickets und Bezahlung (docs/KONZEPT-TICKETS.md) nur als Spalten, wenn der Termin Kategorien oder Beträge hat
   const withTickets = event._count.ticketCategories > 0 || event.rsvps.some(r => r.amountCents)
   const isoDate = (d: Date | null) => d ? d.toISOString().split('T')[0] : ''
@@ -55,6 +56,7 @@ export async function GET(request: Request) {
       "Anmerkungen / Grund",
       "Datum",
       ...(withSeating ? ["Sitzplatz"] : []),
+      ...(withShifts ? ["Schichten"] : []),
       ...(withTickets ? ["Kategorie", "Betrag", "Verwendungszweck", "Zahlstatus", "Bezahlt am", "Zahlart", "Erstattet am"] : []),
       ...customQuestions
     ]
@@ -95,6 +97,8 @@ export async function GET(request: Request) {
       rsvp.createdAt.toISOString().split('T')[0],
 
       ...(withSeating ? [rsvp.seatingLabel || ""] : []),
+      // Helfer-Zusagen aus Schichten: Zahl der Schichten, sonst leer
+      ...(withShifts ? [rsvp.shiftHelperId ? String(rsvp.shiftCount ?? 0) : ""] : []),
 
       ...(withTickets ? [
         rsvp.ticketCategory?.label || "",

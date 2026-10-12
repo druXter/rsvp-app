@@ -60,17 +60,21 @@ type ChangeInput = {
   deleted: boolean
 }
 
-/** Inhalt des Webhooks je Tool - Vertrag des jeweiligen Tools. */
-const RSVP_CHANGE: Record<ToolType, (input: ChangeInput) => string> = {
+/** Inhalt des Webhooks je Tool - Vertrag des jeweiligen Tools. null: Das Tool bekommt keine Meldungen (Schichten). */
+const RSVP_CHANGE: Record<ToolType, ((input: ChangeInput) => string) | null> = {
   seating: seatingRsvpChange,
-  timeline: timelineRsvpChange
+  timeline: timelineRsvpChange,
+  shifts: null
 }
 
 export type Delivery = { url: string; body: string }
 export type NotifiableTool = ConfiguredTool & { rsvpChange: (input: ChangeInput) => string }
 
 function notifiableTools(): NotifiableTool[] {
-  return configuredTools().map(tool => ({ ...tool, rsvpChange: RSVP_CHANGE[tool.definition.type as ToolType] }))
+  return configuredTools().flatMap(tool => {
+    const rsvpChange = RSVP_CHANGE[tool.definition.type as ToolType]
+    return rsvpChange ? [{ ...tool, rsvpChange }] : []
+  })
 }
 
 /**

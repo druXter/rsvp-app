@@ -3,8 +3,8 @@ import { createHmac, timingSafeEqual } from 'crypto'
 
 /**
  * Verknüpfte Tools ("Anbindungen"): andere, eigenständige Anwendungen der Suite, mit denen ein
- * Termin verknüpft werden kann - Seating (Sitzplätze, app/lib/seating.ts) und das Zeitplan-Tool
- * (Ablauf des Events, app/lib/timeline.ts).
+ * Termin verknüpft werden kann - Seating (Sitzplätze, app/lib/seating.ts), das Zeitplan-Tool
+ * (Ablauf des Events, app/lib/timeline.ts) und Schichten (Helfer*innen, app/lib/shift-helpers.ts).
  *
  * Jedes Tool steht einmal in TOOL_DEFINITIONS und hat
  * - eine eigene Adresse (<PREFIX>_BASE_URL): nur Links mit genau diesem Origin werden
@@ -83,6 +83,19 @@ const DEFINITIONS = {
     formField: 'timelineUrl',
     linkSegment: 'rsvp',
     remoteIdField: 'timelineEventId',
+    webhookPath: '/api/rsvp-webhook'
+  },
+  // Schichten (eigenes Repo, dort app/lib/rsvp/token.ts): meldet Helfer*innen, die hier eine Zusage bekommen
+  // (app/lib/shift-helpers.ts). Bekommt keinen Webhook - webhookPath bleibt ungenutzt (RSVP_CHANGE null).
+  shifts: {
+    type: 'shifts',
+    label: 'Schichten',
+    linkLabel: 'Schichten-Link',
+    secretEnv: 'SHIFTS_SECRET',
+    baseUrlEnv: 'SHIFTS_BASE_URL',
+    formField: 'shiftsUrl',
+    linkSegment: 'rsvp',
+    remoteIdField: 'shiftsEventId',
     webhookPath: '/api/rsvp-webhook'
   }
 } as const satisfies Record<string, ToolDefinition>

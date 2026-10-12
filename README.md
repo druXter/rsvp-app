@@ -34,6 +34,7 @@ Ein schlankes, anpassbares und leistungsstarkes Event-Management-System, gebaut 
   * Vollautomatischer Versand X Tage vor dem Event (gesicherter Endpoint für Uptime Kuma oder Cronjobs).
 * **QR-Code Einlasskontrolle (optional, standardmäßig aus):** Pro Event/Termin zuschaltbar für Veranstaltungen mit echtem Einlass. Bestätigte Gäste bekommen einen persönlichen QR-Code (Bestätigungsmail & Erfolgsseite), der beim Scannen automatisch als "anwesend" markiert wird. Eingecheckt wird **pro Person**: Der Scan lässt alle zusagenden Personen der Antwort herein und zeigt sie mit Altersgruppe und Alkohol; einzelne lassen sich danach aus- und wieder eintragen (kommt jemand später). Die Verwaltung zeigt eine Live-Statistik ("Eingecheckt 25/50 Personen") und erlaubt auch manuelles Ein-/Auschecken ohne Scan, für die ganze Antwort oder pro Person. Ändert ein Gast nach dem Einlass seine Antwort, bleibt der Einlass erhalten. Für die meisten privaten Feiern ohne Einlasskontrolle bleibt diese Option einfach deaktiviert.
 * **Sitzplätze über Seating (optional):** Pro Termin mit einem Event im Sitzplatz-Tool Seating verknüpfbar. Zugesagte Gäste bekommen „Sitzplatz wählen“ (Seite, Erfolgsseite, Bestätigungsmail), Änderungen an Zusagen gehen automatisch an Seating, und der zugewiesene Platz erscheint als „Dein Platz: …“, beim Einlass und im CSV-Export - siehe [Verknüpfung mit Seating](#-verknüpfung-mit-seating-sitzplätze).
+* **Schichten (optional):** Pro Termin mit einem Event in Schichten (Dienste und Schichten, eigenes Tool) verknüpfbar. Helfer\*innen mit genug Schichten bekommen automatisch eine Zusage, in der Ticketkategorie ihrer Stufe („ab 1 Schicht: Helfer\*innen, ab 5: Helfer\*innen plus“) - siehe [Verknüpfung mit Schichten](#-verknüpfung-mit-schichten).
 * **Zeitplan (optional):** Pro Termin mit einem Event im Zeitplan-Tool (Ablauf großer Events) verknüpfbar. Zugesagte Gäste bekommen „Zeitplan“ (Seite, Erfolgsseite, Bestätigungsmail) und sehen damit den aktuellen Ablauf; bei Absage oder Löschung endet ihr Zugang dort automatisch. An den Zeitplan gehen nur Kennungen, keine Namen oder Adressen - siehe [Verknüpfung mit Zeitplan](#-verknüpfung-mit-zeitplan).
 * **Wunschliste (optional, z.B. für eine Hochzeit):** Schalter „Wunschliste“ pro Event/Termin, Wünsche im Reiter „Wünsche“: Geschenke mit Anzahl, Link und ungefährem Preis oder **Geldwünsche mit Zielbetrag**, an denen sich mehrere mit Teilbeträgen beteiligen. Gäste reservieren über ihren persönlichen Link (nach einer Antwort bzw. mit Einladung) und sehen nur den Stand, nie wer was schenkt; mehr Stück als frei verhindert eine atomare SQL-Anweisung, auch bei gleichzeitigen Reservierungen. Mit „Überraschung“ (Standard) sieht auch die Verwaltung keine Namen. Die Art „Hochzeit“ schaltet die Wunschliste gleich ein. Konzept: [docs/KONZEPT-WUNSCHLISTE.md](docs/KONZEPT-WUNSCHLISTE.md).
 * **Mitbringliste (optional):** Pro Event/Termin Einträge mit Anzahl (Abschnitt „Mitbringliste“ im Formular, eine Zeile pro Eintrag: `2x Salat`, `Nachtisch`). Gäste mit Zusage kreuzen beim Antworten an, was sie übernehmen („Salat 1/2“); volle Einträge sind gesperrt, auch serverseitig und bei gleichzeitigen Zusagen (`app/lib/bring-list.ts`, eine atomare SQL-Anweisung). Absage oder Warteliste geben Einträge frei, ein aus der Liste entfernter Eintrag nimmt seine Beanspruchungen mit. Sichtbar in der Gästeliste („Bringt mit“), in der Verwaltung (Stand je Eintrag) und im CSV-Export, zusammen mit dem Freitext „Mitbringsel“. Die Client-API (`/api/v1`) lässt bestehende Beanspruchungen unverändert.
@@ -125,6 +126,11 @@ SEATING_BASE_URL=https://plaetze.deine-domain.de
 # unten. Secret identisch zu RSVP_TIMELINE_SECRET im Zeitplan, mind. 32 Zeichen, eigenes Secret.
 TIMELINE_SECRET=...
 TIMELINE_BASE_URL=https://zeitplan.deine-domain.de
+
+# Anbindung an Schichten (eigenständiges Projekt) - siehe "Verknüpfung mit Schichten" unten. Secret identisch zu
+# RSVP_SHIFTS_SECRET in Schichten, mind. 32 Zeichen, eigenes Secret.
+SHIFTS_SECRET=...
+SHIFTS_BASE_URL=https://schichten.deine-domain.de
 ```
 
 > **Impressum-Platzhalter:** Die Impressum-Seite (`app/impressum/page.tsx`) liest ihre Angaben zur Laufzeit aus `IMPRESSUM_NAME`/`IMPRESSUM_STREET`/`IMPRESSUM_ZIP`/`IMPRESSUM_CITY`/`IMPRESSUM_EMAIL`/`IMPRESSUM_PHONE`. Sind diese Variablen nicht gesetzt, zeigt die Seite generische Platzhalter (`[Dein Vorname] [Dein Nachname]` etc.) statt echter Daten an. So bleibt das Repository frei von personenbezogenen Daten - trag deine echten Angaben ausschließlich in deine eigene, nicht versionierte `.env` ein (lokal wie auf dem Server).
@@ -325,6 +331,42 @@ Namen, E-Mail-Adressen oder Begleitungen** - der Zeitplan braucht nur „diese Z
 | --- | --- | --- | --- |
 | `timeline-link` | rsvp-app → Zeitplan | Browser: `303` auf `<Zeitplan-Link>?t=…` | `aud`, `timelineEventId`, `rsvpEventId`, `rsvpId`, `iat`, `exp` |
 | `rsvp-change` | rsvp-app → Zeitplan | `POST <Zeitplan>/api/rsvp-webhook`, `text/plain` | wie oben plus `attending` |
+
+## 🙌 Verknüpfung mit Schichten
+
+Ein Termin kann optional mit einem Event im separaten Tool **Schichten** verknüpft werden, in dem sich Helfer\*innen
+für Dienste eintragen (Bar, Einlass, Garderobe …). Wer genug Schichten hat, bekommt hier automatisch eine Zusage - mit
+Bestätigungsmail und QR-Code für den Einlass. Rein additiv: Ohne Schichten-Link ändert sich nichts.
+
+**Einrichten:**
+
+1. In beiden `.env`-Dateien dasselbe, **eigene** Secret eintragen: hier `SHIFTS_SECRET`, in Schichten
+   `RSVP_SHIFTS_SECRET`. Dazu hier `SHIFTS_BASE_URL` (Adresse von Schichten), dort `RSVP_APP_BASE_URL` (diese App).
+2. **Beide Seiten stimmen zu:** In Schichten unter „Einstellungen“ → „Helfer-Zusagen in rsvp-app“ die ID des Termins
+   eintragen (steht hier beim Termin unter „Verknüpfungen“) und hier den dort angezeigten Schichten-Link
+   `https://…/rsvp/<schichten-event-id>`. Erst mit beiden Einträgen gilt die Verknüpfung.
+3. **Stufen** im selben Abschnitt: eine Zeile pro Stufe, „1: Helfer\*innen“, „5: Helfer\*innen plus“ (Kategorien des
+   Termins); ohne Kategorien nur die Zahl („1“). Die höchste erreichte Stufe gilt. Leer = keine Helfer-Zusagen.
+   Nicht zusammen mit „Nur mit Einladung“ (Formular und Server sperren das).
+
+**Ablauf:** Schichten schickt nach jeder Änderung (gebündelt) den **vollständigen Stand** aller bestätigten Helfer\*innen
+an `POST /api/shifts/helpers` (`shift-helpers`: `helperId`, Name, E-Mail, Zahl der Schichten, `seq` zum Ordnen;
+ältere Meldungen werden verworfen). `app/lib/shift-helpers-store.ts` wendet ihn an:
+
+* Stufe erreicht: **feste Zusage** in der Kategorie der Stufe (`Rsvp.shiftHelperId`, `shiftCount`) - Kapazität und
+  Kontingente gelten nicht (wie „Zulassen“ von Hand), der **Preis** der Kategorie schon (eine Stufe kann ein
+  ermäßigtes Ticket sein). Neue Zusagen bekommen die normale Bestätigungsmail; Seating erfährt davon wie sonst.
+* Stufe gewechselt: Kategorie und Betrag folgen - außer die Zusage ist bezahlt.
+* Unter der ersten Stufe oder nicht mehr gemeldet: **Absage** (Nachrücken läuft), außer bezahlt oder eingelassen.
+* Dieselbe E-Mail-Adresse hat schon eine **eigene Zusage**: bleibt unangetastet, die Helfer\*in geht als Konflikt an
+  Schichten zurück (dort sichtbar), die Verwaltung entscheidet.
+* Gäste sagen eine Helfer-Zusage nicht selbst ab und wechseln die Kategorie nicht (Formular und Server), Menü und
+  übrige Angaben pflegen sie wie gewohnt. Die Gästeliste zeigt „Helfer\*in · N Schichten“, das CSV eine Spalte
+  „Schichten“. Wird die Verknüpfung entfernt oder geändert, werden Helfer-Zusagen zu gewöhnlichen Zusagen.
+
+**Vertrag** (`app/lib/shift-helpers.ts`, Gegenstück in Schichten `app/lib/rsvp/token.ts`): Format wie bei allen
+verknüpften Tools, `SHIFTS_SECRET`, höchstens 1 Stunde gültig. Antwort: `{ ok, outcome: "applied" | "stale", conflicts }`;
+401 bei ungültiger Nachricht, 404 ohne Verknüpfung. rsvp-app schickt Schichten nichts von sich aus.
 
 ## 🔐 Konto-Sicherheit
 

@@ -67,7 +67,10 @@ const ON_RELINK: Record<ToolType, (tx: Prisma.TransactionClient, eventId: string
   // Plätze aus Seating: geleert, bis das neue Seating-Event seinen Stand meldet (syncedAt wird mit der Zeile zurückgesetzt)
   seating: (tx, eventId) => tx.rsvp.updateMany({ where: { eventId, OR: [{ seatingLabel: { not: null } }, { seatingPersons: { not: null } }] }, data: { seatingLabel: null, seatingPersons: null } }),
   // Zeitplan meldet nichts zurück - hier gibt es nichts zu leeren
-  timeline: async () => {}
+  timeline: async () => {},
+  // Helfer-Zusagen aus Schichten werden zu gewöhnlichen Zusagen: Das bisherige Schichten-Event verwaltet sie nicht
+  // mehr; ein neu verknüpftes übernimmt nur, was es selbst meldet (app/lib/shift-helpers.ts)
+  shifts: (tx, eventId) => tx.rsvp.updateMany({ where: { eventId, shiftHelperId: { not: null } }, data: { shiftHelperId: null, shiftCount: null } })
 }
 
 /** Speichert die gelesenen Verknüpfungen eines Termins. Unveränderte Links bleiben samt syncedAt unberührt. */

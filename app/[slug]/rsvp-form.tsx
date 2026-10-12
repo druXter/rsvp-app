@@ -99,7 +99,9 @@ export default function RsvpForm({
   const [seatAfterPaymentSubmit, setSeatAfterPaymentSubmit] = useState<boolean>(false)
   const [formError, setFormError] = useState<string | null>(null)
   // Nach der Zahlung kann nur noch die Verwaltung die Kategorie ändern (performRsvpSubmission prüft das auch)
-  const categoryLocked = !!rsvp?.paidAt && !!rsvp.ticketCategoryId
+  // Helfer-Zusage aus Schichten: Zusage und Kategorie folgen den Schichten (app/lib/shift-helpers-store.ts)
+  const shiftManaged = !!rsvp?.shiftHelperId && rsvp.isAttending
+  const categoryLocked = (!!rsvp?.paidAt && !!rsvp.ticketCategoryId) || shiftManaged
 
   const config = formConfig
     ? JSON.parse(formConfig)
@@ -304,6 +306,15 @@ export default function RsvpForm({
         <input id="name" type="text" name="name" defaultValue={participant?.name} required className="w-full border border-gray-300 p-2 rounded bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100" placeholder="Max Mustermann" />
       </div>
 
+      {shiftManaged ? (
+        <>
+          <input type="hidden" name="isAttending" value="true" />
+          <p className="text-sm bg-green-50 text-green-800 p-3 rounded border border-green-200 dark:bg-green-950/50 dark:text-green-300 dark:border-green-800" data-testid="shift-managed">
+            🙌 Du bist als Helfer*in dabei ({rsvp?.shiftCount === 1 ? '1 Schicht' : `${rsvp?.shiftCount ?? 0} Schichten`}). Zusage und Ticket folgen deinen
+            Schichten – absagen geht dort. Deine übrigen Angaben kannst du hier ändern.
+          </p>
+        </>
+      ) : (
       <fieldset>
         <legend className="block text-sm font-medium mb-1">Bist du dabei?</legend>
         <div className="flex gap-4">
@@ -317,6 +328,7 @@ export default function RsvpForm({
           </label>
         </div>
       </fieldset>
+      )}
       </>
       )}
 
@@ -342,7 +354,7 @@ export default function RsvpForm({
                   )
                 })}
               </div>
-              {categoryLocked && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Bezahlt - die Kategorie kann nur noch die Veranstaltung ändern.</p>}
+              {categoryLocked && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{shiftManaged ? 'Die Kategorie hängt an der Zahl deiner Schichten.' : 'Bezahlt - die Kategorie kann nur noch die Veranstaltung ändern.'}</p>}
             </fieldset>
           )}
 

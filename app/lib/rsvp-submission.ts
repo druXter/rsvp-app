@@ -196,6 +196,12 @@ export async function performRsvpSubmission(
   }
   const isAttending = invitation ? householdAttends(householdRows) : input.isAttending
   const name = invitation ? invitation.label : input.name
+  // Helfer-Zusage aus Schichten (app/lib/shift-helpers-store.ts): Zusage und Kategorie folgen den Schichten, die
+  // übrigen Angaben (Menü, Allergien …) pflegt der Gast selbst. Kapazität gilt für sie nicht.
+  const shiftManaged = !!existingRsvp?.shiftHelperId && existingRsvp.isAttending
+  if (shiftManaged && !isAttending) {
+    throw new RsvpInputError('Deine Zusage kommt von deinen Schichten. Absagen geht über Schichten: Trag dich dort aus oder biete deine Schichten in der Tauschbörse an.')
+  }
 
   // Ticketkategorie (docs/KONZEPT-TICKETS.md): Pflicht für eine Zusage, sobald der Termin Kategorien hat. Nur
   // Kategorien DIESES Termins zählen. Eine Absage behält die bisherige (Erstattung, erneute Zusage).
@@ -203,7 +209,7 @@ export async function performRsvpSubmission(
   const previousCategoryId = existingRsvp?.ticketCategoryId ?? null
   let ticketCategoryId: string | null = previousCategoryId
   if (isAttending && categories.length > 0) {
-    const requested = input.ticketCategoryId === undefined ? previousCategoryId : input.ticketCategoryId
+    const requested = shiftManaged || input.ticketCategoryId === undefined ? previousCategoryId : input.ticketCategoryId
     const category = categories.find(c => c.id === requested)
     if (!category) throw new RsvpInputError('Bitte wähle eine Ticketkategorie.')
     if (existingRsvp?.paidAt && previousCategoryId !== null && category.id !== previousCategoryId) {
@@ -278,7 +284,7 @@ export async function performRsvpSubmission(
   // statt den Platz stillschweigend gegen die Warteliste zu tauschen.
   const wasFixed = !!existingRsvp && existingRsvp.isAttending && !existingRsvp.isOnWaitlist
   let isOnWaitlist = false
-  if (isAttending && !(wasFixed && previousCategoryId === ticketCategoryId && seats <= previousSeats)) {
+  if (isAttending && !shiftManaged && !(wasFixed && previousCategoryId === ticketCategoryId && seats <= previousSeats)) {
     const { limits, rsvps } = await loadCapacity(eventId)
     if (!hasRoom(limits, rsvps, ticketCategoryId, existingRsvp?.id, seats)) {
       if (wasFixed && previousCategoryId !== ticketCategoryId) {
