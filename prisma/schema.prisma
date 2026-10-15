@@ -201,6 +201,12 @@ model Event {
   // die Anwesenheit (Check-in, Kommen und Gehen) über /api/assembly/roster ab.
   assemblyUrl        String?
 
+  // Protokoll im Zeitplan-Rückblick (Idee L7, app/lib/timeline-protocol.ts): einzeln freigegeben, was der verknüpfte
+  // Zeitplan beim Anzeigen des Rückblicks abrufen darf - Kommen und Gehen mit Namen bzw. die Beschlüsse der Sitzung.
+  // Der Zeitplan speichert davon nichts.
+  timelinePresence   Boolean @default(false)
+  timelineDecisions  Boolean @default(false)
+
   // Mitbringliste (Idee L5 der Suite), siehe BringSlot.
   bringSlots BringSlot[]
 

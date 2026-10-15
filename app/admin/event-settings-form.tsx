@@ -65,7 +65,11 @@ const RULES: FieldRule[] = [
   { requires: 'rsvpReminderDays', needs: 'rsvpDeadline', hint: 'braucht eine Antwortfrist (Grunddaten)' },
   { requires: 'paymentReminderDays', needs: 'paymentDueDays', hint: 'braucht eine Zahlfrist' },
   { requires: 'datePending', needs: 'pollUrl', hint: 'braucht einen Link auf eine Abstimmung' },
-  { requires: 'trackPresence', needs: 'enableCheckin', hint: 'braucht den Einlass mit QR-Code' }
+  { requires: 'trackPresence', needs: 'enableCheckin', hint: 'braucht den Einlass mit QR-Code' },
+  { requires: 'timelinePresence', needs: 'timelineUrl', hint: 'braucht einen Zeitplan-Link' },
+  { requires: 'timelinePresence', needs: 'trackPresence', hint: 'braucht „Kommen und Gehen protokollieren“ (Einlass)' },
+  { requires: 'timelineDecisions', needs: 'timelineUrl', hint: 'braucht einen Zeitplan-Link' },
+  { requires: 'timelineDecisions', needs: 'assemblyUrl', hint: 'braucht eine Sitzung im Abstimmungstool (unten)' }
 ]
 const summary = (parts: (string | null | false | undefined)[], empty = 'aus') => parts.filter(Boolean).join(' · ') || empty
 
@@ -228,7 +232,7 @@ export default function EventSettingsForm({ event, open = 'grunddaten' }: { even
       </SettingsSection>
 
       <SettingsSection id="verknuepfungen" title="Verknüpfungen" open={open === 'verknuepfungen'} marker="lime"
-        summary={summary([seatingUrl && 'Seating', timelineUrl && 'Zeitplan', shiftsUrl && 'Schichten', event.pollUrl && 'Abstimmung', event.photoUrl && 'Fotos', event.feedbackUrl && 'Feedback', event.assemblyUrl && 'Sitzung'], 'keine')}>
+        summary={summary([seatingUrl && 'Seating', timelineUrl && (event.timelinePresence || event.timelineDecisions ? 'Zeitplan mit Protokoll' : 'Zeitplan'), shiftsUrl && 'Schichten', event.pollUrl && 'Abstimmung', event.photoUrl && 'Fotos', event.feedbackUrl && 'Feedback', event.assemblyUrl && 'Sitzung'], 'keine')}>
         {seatingOrigin && (
           <div>
             <Field id="seatingUrl" label="Sitzplätze (Seating)" hint={<>Link aus den Event-Einstellungen in Seating. ID dieses Termins für Seating: <code className="select-all">{event.id}</code>. Name, E-Mail und Begleitungen der Zusagen gehen dafür an Seating.</>}>
@@ -238,9 +242,18 @@ export default function EventSettingsForm({ event, open = 'grunddaten' }: { even
           </div>
         )}
         {timelineOrigin && (
-          <Field id="timelineUrl" label="Zeitplan" hint={<>Link aus den Event-Einstellungen im Zeitplan. ID dieses Termins: <code className="select-all">{event.id}</code>. An den Zeitplan gehen nur Kennungen, keine Namen.</>}>
-            <input id="timelineUrl" type="url" name="timelineUrl" defaultValue={timelineUrl} className={inputClass} placeholder={`${timelineOrigin}/rsvp/…`} />
-          </Field>
+          <div className="space-y-3">
+            <Field id="timelineUrl" label="Zeitplan" hint={<>Link aus den Event-Einstellungen im Zeitplan. ID dieses Termins: <code className="select-all">{event.id}</code>. An den Zeitplan gehen nur Kennungen, keine Namen - außer ihr gebt unten etwas für den Rückblick frei.</>}>
+              <input id="timelineUrl" type="url" name="timelineUrl" defaultValue={timelineUrl} className={inputClass} placeholder={`${timelineOrigin}/rsvp/…`} />
+            </Field>
+            <input type="hidden" name="protocolShown" value="1" />
+            <Check name="timelinePresence" defaultChecked={event.timelinePresence} label="Kommen und Gehen im Zeitplan-Rückblick zeigen"
+              hint="Für Sitzungen: Wer wann kommt und geht, steht im Rückblick beim jeweiligen Tagesordnungspunkt - mit Namen, für alle mit Zugriff auf das Event im Zeitplan. Der Zeitplan lädt das nur zum Anzeigen und speichert es nicht." />
+            <RuleNote name="timelinePresence" indent />
+            <Check name="timelineDecisions" defaultChecked={event.timelineDecisions} label="Beschlüsse der Sitzung im Zeitplan-Rückblick zeigen"
+              hint="Ergebnisse der geschlossenen Abstimmungen aus der verknüpften Sitzung, bei namentlichen Abstimmungen mit Namen - beim Tagesordnungspunkt, in dem abgestimmt wurde." />
+            <RuleNote name="timelineDecisions" indent />
+          </div>
         )}
         {shiftsOrigin && (
           <div className="space-y-3">

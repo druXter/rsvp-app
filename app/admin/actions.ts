@@ -20,6 +20,7 @@ import { readToolLinks, saveToolLinks, type ToolLinkInput } from '../lib/linked-
 import { parsePhotoUrl } from '../lib/photo-link'
 import { readFeedbackSettings } from '../lib/feedback-link'
 import { readAssemblySettings } from '../lib/assembly'
+import { readProtocolSettings } from '../lib/timeline-protocol'
 import { applyBringTemplate, formatBringSlots, readBringSlots, readBringTemplate, saveBringSlots } from '../lib/bring-list'
 import { notifyLinkedToolsBeforeDelete, notifyLinkedToolsOfRsvps } from '../lib/linked-tools-notify'
 import { deleteOrphanedParticipants } from '../lib/participants'
@@ -724,6 +725,7 @@ async function saveEvent(formData: FormData): Promise<string | undefined> {
       inviteOnly,
       ...feedback,
       ...assembly,
+      ...readProtocolSettings(formData),
       ...deadline,
       ...readWishlistSettings(formData),
       ...(ticketing.payment ?? {}),
@@ -1372,7 +1374,7 @@ async function saveSeriesTermin(formData: FormData): Promise<string | undefined>
     where: { id },
     data: {
       title, slug, date, location, description, duration, formConfig, autoReminder, reminderDays, maxCapacity, enableCheckin, trackPresence,
-      pollUrl, pollLabel, datePending, photoUrl, maxCompanions, ...feedback, ...assembly, ...deadline, ...readWishlistSettings(formData),
+      pollUrl, pollLabel, datePending, photoUrl, maxCompanions, ...feedback, ...assembly, ...readProtocolSettings(formData), ...deadline, ...readWishlistSettings(formData),
       ...(ticketing.payment ?? {}),
       ...(ticketing.seatingRequiresPayment !== undefined ? { seatingRequiresPayment: ticketing.seatingRequiresPayment } : {}),
       ...(changes.length > 0 ? { icsSequence: { increment: 1 } } : {})

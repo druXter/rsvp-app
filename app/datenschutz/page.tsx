@@ -383,6 +383,16 @@ export default function DatenschutzPage() {
             Die Zeitplan-Anwendung meldet uns nichts zurück. Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO
             (Organisation der Veranstaltung, zu der auch ihr Ablauf gehört).
           </p>
+          <p className="mt-2">
+            <strong>Protokoll von Sitzungen:</strong> Nur wenn die Veranstalter:innen es beim Termin ausdrücklich und
+            einzeln freigeben, darf die Zeitplan-Anwendung beim Öffnen ihres Rückblicks zusätzlich abrufen, wann du
+            gekommen und gegangen bist - mit deinem Namen bzw. dem deiner Begleitung (siehe Punkt 8, &quot;Kommen und
+            Gehen&quot;) - und die Ergebnisse der Abstimmungen der verknüpften Sitzung (Punkt 9), bei namentlichen
+            Abstimmungen mit Namen. Diese holen wir dafür bei der Abstimmungs-Anwendung ab. Die Zeitplan-Anwendung zeigt die
+            Angaben angemeldeten Konten mit Zugriff auf die Veranstaltung beim jeweiligen Tagesordnungspunkt an und
+            speichert sie nicht. Rechtsgrundlage ist wie beim Anwesenheitsprotokoll das berechtigte Interesse an einem
+            vollständigen Sitzungsprotokoll (Art. 6 Abs. 1 lit. f DSGVO).
+          </p>
         </div>
 
         <div>
