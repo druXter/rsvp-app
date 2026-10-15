@@ -13,6 +13,8 @@ import PollResultBanner from '../../../ui/poll-result-banner'
 import PhotoLinkBanner from '../../../ui/photo-link-banner'
 import { photoLinkVisible } from '../../../lib/photo-link'
 import FeedbackBanner from '../../../ui/feedback-banner'
+import { assemblyLinkVisible } from '../../../lib/assembly'
+import AssemblyBanner from '../../../ui/assembly-banner'
 import { feedbackLinkVisible } from '../../../lib/feedback-link'
 import { bringSlotsForForm, claimedLabels } from '../../../lib/bring-list'
 import { getCurrentGuestUser } from '../../../lib/guest-auth'
@@ -206,6 +208,7 @@ export default async function SeriesEventPage({
         )}
 
         {photoLinkVisible(event, existingRsvp) && <PhotoLinkBanner url={event.photoUrl!} />}
+        {assemblyLinkVisible(event, existingRsvp, participant && 'isVerified' in participant ? { isVerified: !!participant.isVerified } : null, series.requireVerification) && <AssemblyBanner eventId={event.id} editToken={token} />}
         {feedbackLinkVisible(event, existingRsvp, participant && 'isVerified' in participant ? { isVerified: !!participant.isVerified } : null, series.requireVerification) && <FeedbackBanner eventId={event.id} editToken={token} />}
 
         <RsvpForm

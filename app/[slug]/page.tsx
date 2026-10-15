@@ -11,6 +11,8 @@ import PollResultBanner from '../ui/poll-result-banner'
 import PhotoLinkBanner from '../ui/photo-link-banner'
 import { photoLinkVisible } from '../lib/photo-link'
 import FeedbackBanner from '../ui/feedback-banner'
+import { assemblyLinkVisible } from '../lib/assembly'
+import AssemblyBanner from '../ui/assembly-banner'
 import { feedbackLinkVisible } from '../lib/feedback-link'
 import { bringSlotsForForm, claimedLabels } from '../lib/bring-list'
 import { getCurrentGuestUser } from '../lib/guest-auth'
@@ -197,6 +199,7 @@ export default async function EventPage({
         )}
 
         {photoLinkVisible(event, existingRsvp) && <PhotoLinkBanner url={event.photoUrl!} className="mb-4" />}
+        {assemblyLinkVisible(event, existingRsvp, participant && 'isVerified' in participant ? { isVerified: !!participant.isVerified } : null, event.requireVerification) && <AssemblyBanner eventId={event.id} editToken={token} className="mb-4" />}
         {feedbackLinkVisible(event, existingRsvp, participant && 'isVerified' in participant ? { isVerified: !!participant.isVerified } : null, event.requireVerification) && <FeedbackBanner eventId={event.id} editToken={token} className="mb-4" />}
 
         {/* Das eigentliche Formular */}

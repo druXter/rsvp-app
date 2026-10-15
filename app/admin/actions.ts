@@ -19,6 +19,7 @@ import { notifyAttendeesOfChange } from '../lib/event-change-notify'
 import { readToolLinks, saveToolLinks, type ToolLinkInput } from '../lib/linked-tools-store'
 import { parsePhotoUrl } from '../lib/photo-link'
 import { readFeedbackSettings } from '../lib/feedback-link'
+import { readAssemblySettings } from '../lib/assembly'
 import { applyBringTemplate, formatBringSlots, readBringSlots, readBringTemplate, saveBringSlots } from '../lib/bring-list'
 import { notifyLinkedToolsBeforeDelete, notifyLinkedToolsOfRsvps } from '../lib/linked-tools-notify'
 import { deleteOrphanedParticipants } from '../lib/participants'
@@ -665,6 +666,7 @@ async function saveEvent(formData: FormData): Promise<string | undefined> {
   const { pollUrl, pollLabel, datePending } = readPollLink(formData)
   const photoUrl = parsePhotoUrl(formData.get('photoUrl') as string || '')
   const feedback = readFeedbackSettings(formData)
+  const assembly = await readAssemblySettings(formData, { id, title, assemblyUrl: existingEvent.assemblyUrl })
   const bringSlots = readBringSlots(formData)
   const toolLinks = readToolLinks(formData)
   const ticketing = await readTicketing(formData, id)
@@ -721,6 +723,7 @@ async function saveEvent(formData: FormData): Promise<string | undefined> {
       maxCompanions,
       inviteOnly,
       ...feedback,
+      ...assembly,
       ...deadline,
       ...readWishlistSettings(formData),
       ...(ticketing.payment ?? {}),
@@ -1336,6 +1339,7 @@ async function saveSeriesTermin(formData: FormData): Promise<string | undefined>
   const { pollUrl, pollLabel, datePending } = readPollLink(formData)
   const photoUrl = parsePhotoUrl(formData.get('photoUrl') as string || '')
   const feedback = readFeedbackSettings(formData)
+  const assembly = await readAssemblySettings(formData, { id, title, assemblyUrl: existingEvent.assemblyUrl })
   const bringSlots = readBringSlots(formData)
   const toolLinks = readToolLinks(formData)
   const ticketing = await readTicketing(formData, id)
@@ -1368,7 +1372,7 @@ async function saveSeriesTermin(formData: FormData): Promise<string | undefined>
     where: { id },
     data: {
       title, slug, date, location, description, duration, formConfig, autoReminder, reminderDays, maxCapacity, enableCheckin, trackPresence,
-      pollUrl, pollLabel, datePending, photoUrl, maxCompanions, ...feedback, ...deadline, ...readWishlistSettings(formData),
+      pollUrl, pollLabel, datePending, photoUrl, maxCompanions, ...feedback, ...assembly, ...deadline, ...readWishlistSettings(formData),
       ...(ticketing.payment ?? {}),
       ...(ticketing.seatingRequiresPayment !== undefined ? { seatingRequiresPayment: ticketing.seatingRequiresPayment } : {}),
       ...(changes.length > 0 ? { icsSequence: { increment: 1 } } : {})

@@ -315,6 +315,17 @@ export default function DatenschutzPage() {
             dir den Fragebogen geschickt haben. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse
             der Veranstalter:innen an Rückmeldungen zu ihrer Veranstaltung); die Teilnahme ist freiwillig.
           </p>
+          <p className="mt-2">
+            <strong>Sitzungen (Versammlungen):</strong> Veranstalter:innen können einen Termin mit einer Sitzung in der
+            Abstimmungs-Anwendung verknüpfen (Abstimmungen, Rednerliste). Gäste mit Zusage sehen &quot;Zur Sitzung&quot;.
+            Beim Klick übermitteln wir in einem kryptographisch signierten, <strong>15 Minuten gültigen</strong> Link{' '}
+            <strong>deinen Namen</strong> (für die Rednerliste und namentliche Abstimmungen) und ein{' '}
+            <strong>Pseudonym deiner Antwort</strong>, das nur für diese Sitzung gilt - keine E-Mail-Adresse und keine
+            weiteren Angaben. Damit nur Anwesende abstimmen können, fragt die Abstimmungs-Anwendung bei uns ab, wer gerade
+            eingecheckt ist; wir antworten nur mit den Pseudonymen der Anwesenden und der Zahl der Zusagen. Beim
+            Speichern des Links melden wir der Abstimmungs-Anwendung außerdem Kennung und Titel des Termins.
+            Rechtsgrundlage ist die Durchführung der Versammlung (Art. 6 Abs. 1 lit. b bzw. f DSGVO).
+          </p>
         </div>
 
         <div>

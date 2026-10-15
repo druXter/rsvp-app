@@ -228,7 +228,7 @@ export default function EventSettingsForm({ event, open = 'grunddaten' }: { even
       </SettingsSection>
 
       <SettingsSection id="verknuepfungen" title="Verknüpfungen" open={open === 'verknuepfungen'} marker="lime"
-        summary={summary([seatingUrl && 'Seating', timelineUrl && 'Zeitplan', shiftsUrl && 'Schichten', event.pollUrl && 'Abstimmung', event.photoUrl && 'Fotos', event.feedbackUrl && 'Feedback'], 'keine')}>
+        summary={summary([seatingUrl && 'Seating', timelineUrl && 'Zeitplan', shiftsUrl && 'Schichten', event.pollUrl && 'Abstimmung', event.photoUrl && 'Fotos', event.feedbackUrl && 'Feedback', event.assemblyUrl && 'Sitzung'], 'keine')}>
         {seatingOrigin && (
           <div>
             <Field id="seatingUrl" label="Sitzplätze (Seating)" hint={<>Link aus den Event-Einstellungen in Seating. ID dieses Termins für Seating: <code className="select-all">{event.id}</code>. Name, E-Mail und Begleitungen der Zusagen gehen dafür an Seating.</>}>
@@ -270,6 +270,11 @@ export default function EventSettingsForm({ event, open = 'grunddaten' }: { even
         <Field id="photoUrl" label="Fotoalbum (Link)" hint="Geteiltes Album mit Upload (z.B. Immich). Gäste mit Zusage sehen den Link ab dem Ende des Termins.">
           <input id="photoUrl" type="url" name="photoUrl" defaultValue={event.photoUrl || ''} className={inputClass} placeholder="https://fotos.example.de/s/…" />
         </Field>
+        {feedbackOrigin && (
+          <Field id="assemblyUrl" label="Sitzung im Abstimmungstool (Link)" hint={<>Für Versammlungen: Gäste mit Zusage sehen „🗳️ Zur Sitzung“ und stimmen dort ab - je nach Sitzung nur, wer gerade eingecheckt ist ({event.enableCheckin ? (event.trackPresence ? 'Kommen und Gehen ist an' : 'tipp: „Kommen und Gehen protokollieren“ einschalten') : 'braucht den QR-Einlass'}). Ans Abstimmungstool gehen Name und ein Pseudonym, keine E-Mail.</>}>
+            <input id="assemblyUrl" type="url" name="assemblyUrl" defaultValue={event.assemblyUrl || ''} className={inputClass} placeholder={`${feedbackOrigin}/sitzung/…`} />
+          </Field>
+        )}
         {feedbackOrigin && (
           <div className="grid gap-4 sm:grid-cols-2">
             <Field id="feedbackUrl" label="Feedback-Fragebogen (Link)" hint={<>Fragebogen im Abstimmungstool mit „Gäste aus rsvp-app“. Gäste mit Zusage ({event.enableCheckin ? 'mit QR-Einlass nur Eingecheckte' : 'ohne QR-Einlass alle'}) sehen ab dem Ende „Feedback geben“. Ans Abstimmungstool geht nur ein Pseudonym, kein Name und keine E-Mail.</>}>

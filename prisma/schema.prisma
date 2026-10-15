@@ -196,6 +196,11 @@ model Event {
   feedbackUrl        String?
   feedbackDelayHours Int?
 
+  // Sitzung im Abstimmungstool (Idee L7, app/lib/assembly.ts): Link `<ABSTIMMUNGSTOOL_BASE_URL>/sitzung/<id>`. Gäste,
+  // deren Zusage zählt, sehen "Zur Sitzung" und treten dort mit Pseudonym und Namen bei; das Abstimmungstool fragt
+  // die Anwesenheit (Check-in, Kommen und Gehen) über /api/assembly/roster ab.
+  assemblyUrl        String?
+
   // Mitbringliste (Idee L5 der Suite), siehe BringSlot.
   bringSlots BringSlot[]
 

@@ -5,7 +5,7 @@ function base64url(input: Buffer | string): string {
   return Buffer.from(input).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
-function sign(payload: object, secret: string): string {
+export function sign(payload: object, secret: string): string {
   const payloadPart = base64url(JSON.stringify(payload))
   const signaturePart = base64url(createHmac('sha256', secret).update(payloadPart).digest())
   return `${payloadPart}.${signaturePart}`
@@ -149,7 +149,7 @@ export function verifyResultWebhookPayload(token: string | undefined | null): { 
  * höchstens 15 Minuten in die Zukunft gültig sein, damit ein abgefangenes Exemplar nicht lange
  * wiederverwendbar bleibt.
  */
-function verifySignedPayload(token: string | undefined | null): Record<string, unknown> | null {
+export function verifySignedPayload(token: string | undefined | null): Record<string, unknown> | null {
   const secret = process.env.POLL_VERIFICATION_SECRET
   if (!secret || !token) return null
   const parts = token.split('.')
