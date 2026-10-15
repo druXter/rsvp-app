@@ -34,7 +34,7 @@ import { assertMenuChangeable, saveMenu } from '../lib/menu-store'
 import { parseDeadline } from '../lib/rsvp-deadline'
 import { EVENT_PRESETS, presetOf, slugify } from '../lib/event-presets'
 import { savePersons } from '../lib/rsvp-submission'
-import { checkInAll, checkOutAll, togglePerson } from '../lib/checkin'
+import { checkInAll, checkOutAll, toggleAll, togglePerson, undoLastPresence } from '../lib/checkin'
 import { resetInvitationReminders } from '../lib/invitation-reminder'
 import { invitationCovers } from '../lib/invitation-store'
 import { InputError } from '../lib/input-error'
@@ -577,6 +577,7 @@ export async function createEvent(formData: FormData) {
       inviteOnly: preset.inviteOnly,
       isGuestListVisible: preset.isGuestListVisible,
       enableCheckin: preset.enableCheckin,
+      trackPresence: preset.trackPresence,
       wishlist: preset.wishlist
     }
   })
@@ -659,6 +660,7 @@ async function saveEvent(formData: FormData): Promise<string | undefined> {
   const reminderDays = parseInt(formData.get('reminderDays') as string) || 7
   const requireVerification = formData.get('requireVerification') === 'on'
   const enableCheckin = formData.get('enableCheckin') === 'on'
+  const trackPresence = enableCheckin && formData.get('trackPresence') === 'on'
   const notifyGuests = formData.get('notifyGuests') === 'on'
   const { pollUrl, pollLabel, datePending } = readPollLink(formData)
   const photoUrl = parsePhotoUrl(formData.get('photoUrl') as string || '')
@@ -711,6 +713,7 @@ async function saveEvent(formData: FormData): Promise<string | undefined> {
       isGuestListVisible,
       eventPin,
       enableCheckin,
+      trackPresence,
       pollUrl,
       pollLabel,
       photoUrl,
@@ -1255,6 +1258,7 @@ export async function addTerminToSeries(formData: FormData) {
   const autoReminder = formData.get('autoReminder') === 'on'
   const reminderDays = parseInt(formData.get('reminderDays') as string) || 7
   const enableCheckin = formData.get('enableCheckin') === 'on'
+  const trackPresence = enableCheckin && formData.get('trackPresence') === 'on'
 
   const formConfig = JSON.stringify({
     askEmail: false,
@@ -1287,6 +1291,7 @@ export async function addTerminToSeries(formData: FormData) {
       maxCapacity,
       maxCompanions: readMaxCompanions(formData),
       enableCheckin,
+      trackPresence,
       // Einladungsmodus kommt von der Reihe (gespiegelt, siehe EventSeries.inviteOnly)
       inviteOnly: series.inviteOnly
     }
@@ -1326,6 +1331,7 @@ async function saveSeriesTermin(formData: FormData): Promise<string | undefined>
   const autoReminder = formData.get('autoReminder') === 'on'
   const reminderDays = parseInt(formData.get('reminderDays') as string) || 7
   const enableCheckin = formData.get('enableCheckin') === 'on'
+  const trackPresence = enableCheckin && formData.get('trackPresence') === 'on'
   const notifyGuests = formData.get('notifyGuests') === 'on'
   const { pollUrl, pollLabel, datePending } = readPollLink(formData)
   const photoUrl = parsePhotoUrl(formData.get('photoUrl') as string || '')
@@ -1361,7 +1367,7 @@ async function saveSeriesTermin(formData: FormData): Promise<string | undefined>
   await prisma.event.update({
     where: { id },
     data: {
-      title, slug, date, location, description, duration, formConfig, autoReminder, reminderDays, maxCapacity, enableCheckin,
+      title, slug, date, location, description, duration, formConfig, autoReminder, reminderDays, maxCapacity, enableCheckin, trackPresence,
       pollUrl, pollLabel, datePending, photoUrl, maxCompanions, ...feedback, ...deadline, ...readWishlistSettings(formData),
       ...(ticketing.payment ?? {}),
       ...(ticketing.seatingRequiresPayment !== undefined ? { seatingRequiresPayment: ticketing.seatingRequiresPayment } : {}),
@@ -1400,8 +1406,24 @@ export async function toggleAttendance(formData: FormData) {
   const rsvp = await prisma.rsvp.findUnique({ where: { id }, include: { event: true } })
   if (!rsvp || !(await hasEventModeratorOrAbove(user, rsvp.event))) return
 
-  if (rsvp.hasAttended) await checkOutAll(id)
-  else await checkInAll(id)
+  // Mit Kommen und Gehen (Event.trackPresence) geht, wer da ist; sonst austragen bzw. einlassen
+  await toggleAll(id)
+
+  revalidatePath('/admin', 'layout')
+  backToCheckin(formData, id)
+}
+
+/**
+ * Kommen und Gehen (Idee L7): letzte Änderung einer Antwort zurücknehmen - falsch gescannt oder falscher Knopf, damit
+ * das Protokoll keine Phantom-Wechsel enthält. Rechte wie beim Scannen.
+ */
+export async function undoPresence(formData: FormData) {
+  const user = await requireUser()
+  const id = formData.get('rsvpId') as string
+  const rsvp = await prisma.rsvp.findUnique({ where: { id }, include: { event: true } })
+  if (!rsvp || !(await hasEventModeratorOrAbove(user, rsvp.event)) || !rsvp.event.trackPresence) return
+
+  await undoLastPresence(id)
 
   revalidatePath('/admin', 'layout')
   backToCheckin(formData, id)

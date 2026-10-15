@@ -2,12 +2,12 @@
 import { PrismaClient } from '@prisma/client'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { checkInAtDoor, toggleAttendance, togglePersonAttendance } from '../../actions'
+import { checkInAtDoor, toggleAttendance, togglePersonAttendance, undoPresence } from '../../actions'
 import { formatEuro, paymentDue, paymentState } from '../../../lib/payment-state'
 import { getCurrentUser } from '../../../lib/auth'
 import { hasEventModeratorOrAbove } from '../../../lib/permissions'
 import { AGE_GROUP_LABEL, alcoholLabel, personsOf } from '../../../lib/persons'
-import { checkInAll } from '../../../lib/checkin'
+import { checkInAll, isPresent } from '../../../lib/checkin'
 
 const prisma = new PrismaClient()
 
@@ -19,6 +19,8 @@ const prisma = new PrismaClient()
  * sondern bietet "Bar kassiert - einlassen" und "Ohne Zahlung einlassen" an (checkInAtDoor).
  * Einlass pro Person (app/lib/checkin.ts): Scannen lässt alle zusagenden Personen der Antwort herein; darunter
  * steht jede Person mit Altersgruppe und Alkohol (Bändchen) und lässt sich einzeln aus- und wieder eintragen.
+ * Kommen und Gehen (Event.trackPresence, Idee L7): Wer gegangen ist, wird beim Scannen wieder eingecheckt; wer da ist,
+ * bekommt "Geht - auschecken" statt "Rückgängig", dazu "Letzte Änderung zurücknehmen" für Fehlscans.
  */
 export default async function CheckinPage({ params, searchParams }: { params: Promise<{ rsvpId: string }>; searchParams: Promise<{ ansicht?: string }> }) {
   const user = await getCurrentUser()
@@ -62,6 +64,8 @@ export default async function CheckinPage({ params, searchParams }: { params: Pr
   let statusColor = 'text-green-600'
   let canUndo = false
   let collect = false
+  const tracked = rsvp.event.trackPresence
+  const time = (d: Date) => d.toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' })
 
   if (!rsvp.event.enableCheckin) {
     statusIcon = '🚫'
@@ -81,9 +85,15 @@ export default async function CheckinPage({ params, searchParams }: { params: Pr
     statusColor = 'text-pink-600 dark:text-pink-400'
     collect = true
   } else {
-    if (!rsvp.hasAttended && !viewOnly) {
+    const returning = tracked && rsvp.hasAttended && !!rsvp.leftAt
+    if ((!rsvp.hasAttended || returning) && !viewOnly) {
       await checkInAll(rsvp.id)
       rsvp = (await load())!
+      if (returning) statusTitle = 'Wieder da!'
+    } else if (returning) {
+      statusIcon = '🚪'
+      statusTitle = `Gegangen um ${time(rsvp.leftAt!)}`
+      statusColor = 'text-gray-600 dark:text-gray-300'
     } else if (!rsvp.hasAttended) {
       statusIcon = '⏳'
       statusTitle = 'Nicht eingecheckt'
@@ -99,7 +109,8 @@ export default async function CheckinPage({ params, searchParams }: { params: Pr
     ? personsOf(rsvp, rsvp.participant).map((p, i) => ({ ...p, id: rsvp!.persons[i].id })).filter(p => p.isAttending)
     : personsOf(rsvp, rsvp.participant).map(p => ({ ...p, id: rsvp!.id }))
   const here = persons.filter(p => p.checkedIn).length
-  if (canUndo && rsvp.hasAttended && persons.length > 1 && here < persons.length) statusTitle = `${here} von ${persons.length} da`
+  if (canUndo && isPresent(rsvp) && persons.length > 1 && here < persons.length) statusTitle = `${here} von ${persons.length} da`
+  const personAction = (p: (typeof persons)[number]) => p.checkedIn ? (tracked ? 'Geht' : 'Austragen') : (p.left ? 'Kommt wieder' : 'Einlassen')
 
   return (
     <main className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center p-4">
@@ -113,14 +124,14 @@ export default async function CheckinPage({ params, searchParams }: { params: Pr
             {persons.map(p => (
               <li key={p.id} className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 px-3 py-2 dark:border-gray-700">
                 <span>
-                  <span className="font-medium text-gray-900 dark:text-gray-100">{p.checkedIn ? '✅' : '⏳'} {p.name || 'Begleitung'}</span>
+                  <span className="font-medium text-gray-900 dark:text-gray-100">{p.checkedIn ? '✅' : p.left ? '🚪' : '⏳'} {p.name || 'Begleitung'}</span>
                   <span className="block text-xs text-gray-500 dark:text-gray-400">{[p.ageGroup !== 'ADULT' ? AGE_GROUP_LABEL[p.ageGroup].replace(/ \(.*\)$/, '') : null, alcoholLabel(p.drinksAlcohol)].filter(Boolean).join(' · ')}</span>
                 </span>
                 {canUndo && (
                   <form action={togglePersonAttendance}>
                     <input type="hidden" name="personId" value={p.id} />
                     <input type="hidden" name="back" value="checkin" />
-                    <button type="submit" className="text-sm text-blue-600 hover:underline dark:text-blue-400">{p.checkedIn ? 'Austragen' : 'Einlassen'}</button>
+                    <button type="submit" className="text-sm text-blue-600 hover:underline dark:text-blue-400">{personAction(p)}</button>
                   </form>
                 )}
               </li>
@@ -167,7 +178,27 @@ export default async function CheckinPage({ params, searchParams }: { params: Pr
           </div>
         )}
 
-        {canUndo && (
+        {canUndo && tracked && (
+          <div className="mt-6 space-y-3">
+            <form action={toggleAttendance}>
+              <input type="hidden" name="rsvpId" value={rsvp.id} />
+              <input type="hidden" name="back" value="checkin" />
+              {isPresent(rsvp) ? (
+                <button type="submit" className="w-full bg-gray-700 text-white font-bold py-3 rounded-lg hover:bg-gray-800 transition dark:bg-gray-600 dark:hover:bg-gray-500" data-testid="checkin-leave">
+                  🚪 {persons.length > 1 ? 'Alle gehen' : 'Geht'} - auschecken
+                </button>
+              ) : (
+                <button type="submit" className="w-full bg-green-600 text-white font-bold py-3 rounded-lg hover:bg-green-700 transition">{rsvp.hasAttended ? 'Wieder einlassen' : persons.length > 1 ? 'Alle einlassen' : 'Einlassen'}</button>
+              )}
+            </form>
+            <form action={undoPresence}>
+              <input type="hidden" name="rsvpId" value={rsvp.id} />
+              <input type="hidden" name="back" value="checkin" />
+              <button type="submit" className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 underline">Letzte Änderung zurücknehmen</button>
+            </form>
+          </div>
+        )}
+        {canUndo && !tracked && (
           <form action={toggleAttendance} className="mt-6">
             <input type="hidden" name="rsvpId" value={rsvp.id} />
             <input type="hidden" name="back" value="checkin" />

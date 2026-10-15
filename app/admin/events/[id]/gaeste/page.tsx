@@ -6,6 +6,7 @@ import { claimedLabels } from '../../../../lib/bring-list'
 import { formatEuro, formatPaymentDate, paymentState } from '../../../../lib/payment-state'
 import { alcoholLabel, describePerson, personDetails, personsOf } from '../../../../lib/persons'
 import { describeSelection } from '../../../../lib/menu'
+import { isPresent } from '../../../../lib/checkin'
 import { promoteFromWaitlist, resendVerificationEmail, toggleAttendance, togglePersonAttendance } from '../../../actions'
 import DeleteRsvpButton from '../../../delete-rsvp-button'
 import PaymentCell from '../../../payment-cell'
@@ -190,7 +191,7 @@ export default async function EventGuests({ params, searchParams }: { params: Pr
                     {event.enableCheckin && (
                       <td className={`mt-2 md:mt-0 md:table-cell md:px-4 md:py-3 align-top ${rsvp.isAttending && !rsvp.isOnWaitlist ? 'block' : 'hidden'}`} data-testid="guest-checkin">
                         {rsvp.isAttending && !rsvp.isOnWaitlist ? (
-                          <CheckinCell rsvp={rsvp} persons={persons} />
+                          <CheckinCell rsvp={rsvp} persons={persons} tracked={event.trackPresence} />
                         ) : <span className="text-gray-400">-</span>}
                       </td>
                     )}
@@ -213,19 +214,27 @@ export default async function EventGuests({ params, searchParams }: { params: Pr
 
 /**
  * Einlass in der Gästeliste (app/lib/checkin.ts): ein Knopf für die ganze Antwort, bei mehreren Personen darunter
- * jede einzeln ("später gekommen", "doch nicht da").
+ * jede einzeln ("später gekommen", "doch nicht da"). Mit Kommen und Gehen (`tracked`) geht, wer da ist, und wer
+ * gegangen ist, steht mit Uhrzeit da und kommt per Klick wieder.
  */
-function CheckinCell({ rsvp, persons }: { rsvp: { id: string; hasAttended: boolean; checkedInAt: Date | null; persons: { id: string; position: number }[] }; persons: ReturnType<typeof personsOf> }) {
+function CheckinCell({ rsvp, persons, tracked }: { rsvp: { id: string; hasAttended: boolean; checkedInAt: Date | null; leftAt: Date | null; persons: { id: string; position: number }[] }; persons: ReturnType<typeof personsOf>; tracked: boolean }) {
   const rows = [...rsvp.persons].sort((a, b) => a.position - b.position)
   const attending = persons.map((p, i) => ({ ...p, id: rows[i]?.id })).filter(p => p.isAttending && p.id)
   const here = attending.filter(p => p.checkedIn).length
+  const present = isPresent(rsvp)
+  const time = (d: Date) => d.toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' })
+  const label = present
+    ? `🎫 Da${attending.length > 1 ? ` ${here}/${attending.length}` : ''}`
+    : rsvp.hasAttended && rsvp.leftAt ? `🚪 Weg seit ${time(rsvp.leftAt)}` : 'Nicht da'
+  const title = present
+    ? (tracked ? 'Geht - auschecken' : `Eingecheckt am ${rsvp.checkedInAt!.toLocaleString('de-DE')}`)
+    : rsvp.hasAttended ? 'Kommt wieder - einchecken' : 'Alle einchecken'
   return (
     <div className="space-y-1">
       <form action={toggleAttendance}>
         <input type="hidden" name="rsvpId" value={rsvp.id} />
-        <button type="submit" className={buttonClass(rsvp.hasAttended ? 'primary' : 'secondary', 'sm')}
-          title={rsvp.checkedInAt ? `Eingecheckt am ${rsvp.checkedInAt.toLocaleString('de-DE')}` : 'Alle einchecken'}>
-          {rsvp.hasAttended ? `🎫 Da${attending.length > 1 ? ` ${here}/${attending.length}` : ''}` : 'Nicht da'}
+        <button type="submit" className={buttonClass(present ? 'primary' : 'secondary', 'sm')} title={title}>
+          {label}
         </button>
       </form>
       {attending.length > 1 && (
@@ -234,8 +243,8 @@ function CheckinCell({ rsvp, persons }: { rsvp: { id: string; hasAttended: boole
             <li key={p.id}>
               <form action={togglePersonAttendance}>
                 <input type="hidden" name="personId" value={p.id} />
-                <button type="submit" className="text-left hover:underline" aria-label={`${p.name || 'Begleitung'} ${p.checkedIn ? 'austragen' : 'einchecken'}`}>
-                  {p.checkedIn ? '✓' : '○'} {p.name || 'Begleitung'}
+                <button type="submit" className="text-left hover:underline" aria-label={`${p.name || 'Begleitung'} ${p.checkedIn ? (tracked ? 'geht' : 'austragen') : 'einchecken'}`}>
+                  {p.checkedIn ? '✓' : p.left ? '🚪' : '○'} {p.name || 'Begleitung'}
                 </button>
               </form>
             </li>

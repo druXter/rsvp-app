@@ -267,6 +267,14 @@ export default function DatenschutzPage() {
             wir den Zeitpunkt des Check-ins - pro Person, also auch für deine Begleitungen bzw. die Personen deines
             Haushalts. Dies dient ausschließlich der Zutrittskontrolle vor Ort.
           </p>
+          <p className="mt-2">
+            Bei Sitzungen und Versammlungen können Veranstalter:innen zusätzlich „Kommen und Gehen protokollieren“
+            einschalten. Dann speichern wir jedes Kommen, Gehen und Wiederkommen mit Uhrzeit und dem Namen der Person.
+            Das dient der Feststellung, wer wann anwesend war (z.B. für die Beschlussfähigkeit und das
+            Sitzungsprotokoll, Art. 6 Abs. 1 lit. f DSGVO bzw. die Pflichten aus der Satzung). Sehen können das nur die
+            Veranstalter:innen und von ihnen freigegebene Konten. Das Protokoll wird zusammen mit deiner Antwort bzw.
+            der Veranstaltung gelöscht.
+          </p>
         </div>
 
         <div>

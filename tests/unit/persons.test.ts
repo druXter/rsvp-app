@@ -10,7 +10,7 @@ describe('Personen einer Antwort (docs/KONZEPT-EINLADUNGEN.md)', () => {
   const participant = { name: 'Erika', dietaryOption: 'Vegan', allergies: 'Nüsse' }
 
   it('personsOf: ohne gespeicherte Personen genau die anmeldende, sonst nach Position', () => {
-    expect(personsOf({ isAttending: true }, participant)).toEqual([{ name: 'Erika', ageGroup: 'ADULT', isAttending: true, dietaryOption: 'Vegan', allergies: 'Nüsse', menu: {}, drinksAlcohol: null, checkedIn: false }])
+    expect(personsOf({ isAttending: true }, participant)).toEqual([{ name: 'Erika', ageGroup: 'ADULT', isAttending: true, dietaryOption: 'Vegan', allergies: 'Nüsse', menu: {}, drinksAlcohol: null, checkedIn: false, left: false }])
     // Ohne Personenliste: Alkohol und Einlass der Antwort
     expect(personsOf({ isAttending: true, drinksAlcohol: false, hasAttended: true }, participant)[0]).toMatchObject({ drinksAlcohol: false, checkedIn: true })
     expect(personsOf({ isAttending: false, persons: [] }, participant)[0].isAttending).toBe(false)
@@ -84,7 +84,7 @@ describe('Personen einer Antwort (docs/KONZEPT-EINLADUNGEN.md)', () => {
   })
 
   it('describePerson und attendingNames für Listen', () => {
-    const base = { isAttending: true, menu: {}, drinksAlcohol: null, checkedIn: false }
+    const base = { isAttending: true, menu: {}, drinksAlcohol: null, checkedIn: false, left: false }
     expect(describePerson({ ...base, name: 'Max', ageGroup: 'CHILD', dietaryOption: 'Vegan', allergies: 'Ei' })).toBe('Max (Kind, Vegan, Ei)')
     expect(describePerson({ ...base, name: null, ageGroup: 'ADULT', dietaryOption: null, allergies: null })).toBe('Begleitung')
     const persons = personsOf({ isAttending: true, persons: [row(0, 'Erika'), row(1, 'Max', { ageGroup: 'INFANT' }), row(2, 'Lia', { isAttending: false })] }, participant)

@@ -2,6 +2,7 @@
 import { notFound } from 'next/navigation'
 import { prisma } from '../../../lib/prisma'
 import { summarizeEvent } from '../../../lib/event-summary'
+import { presentPersons } from '../../../lib/checkin'
 import { formatEuro } from '../../../lib/payment-state'
 import { baseUrl } from '../../../lib/base-url'
 import { formatDeadline, deadlinePassed } from '../../../lib/rsvp-deadline'
@@ -26,8 +27,8 @@ export default async function EventOverview({ params }: { params: Promise<{ id: 
     prisma.rsvp.findMany({
       where: { eventId: event.id },
       select: {
-        isAttending: true, isOnWaitlist: true, hasAttended: true, amountCents: true, paidAt: true, refundedAt: true, paymentDueAt: true, ticketCategoryId: true,
-        persons: { select: { isAttending: true, ageGroup: true, checkedInAt: true } }
+        isAttending: true, isOnWaitlist: true, hasAttended: true, leftAt: true, amountCents: true, paidAt: true, refundedAt: true, paymentDueAt: true, ticketCategoryId: true,
+        persons: { select: { isAttending: true, ageGroup: true, checkedInAt: true, leftAt: true } }
       }
     }),
     prisma.ticketCategory.findMany({ where: { eventId: event.id }, orderBy: { position: 'asc' } }),
@@ -53,7 +54,9 @@ export default async function EventOverview({ params }: { params: Promise<{ id: 
         {s.invitationsOpen !== null
           ? <Stat label="Einladungen ohne Antwort" value={s.invitationsOpen} hint={`von ${invitationCount} Haushalten`} testId="stat-invitations" />
           : event.enableCheckin
-            ? <Stat label="Eingecheckt" value={`${s.checkedIn}/${s.attendees}`} hint="Personen" testId="stat-checkin" />
+            ? event.trackPresence
+              ? <Stat label="Jetzt da" value={`${presentPersons(rsvps)}/${s.attendees}`} hint={`Personen · ${s.checkedIn} da gewesen`} testId="stat-checkin" />
+              : <Stat label="Eingecheckt" value={`${s.checkedIn}/${s.attendees}`} hint="Personen" testId="stat-checkin" />
             : <Stat label="Antworten" value={rsvps.length} />}
       </div>
 

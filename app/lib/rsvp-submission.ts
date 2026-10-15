@@ -523,20 +523,21 @@ export async function savePersons(
   // sonst über die Position - solange die Person weiter zusagt. Hatte die Antwort noch keine Personen, gilt ihr
   // eigener Haken für die anmeldende Person.
   const [rows, rsvp] = await Promise.all([
-    prisma.rsvpPerson.findMany({ where: { rsvpId }, select: { position: true, invitationPersonId: true, checkedInAt: true } }),
-    prisma.rsvp.findUniqueOrThrow({ where: { id: rsvpId }, select: { checkedInAt: true, hasAttended: true } })
+    prisma.rsvpPerson.findMany({ where: { rsvpId }, select: { position: true, invitationPersonId: true, checkedInAt: true, leftAt: true } }),
+    prisma.rsvp.findUniqueOrThrow({ where: { id: rsvpId }, select: { checkedInAt: true, hasAttended: true, leftAt: true } })
   ])
-  const previous = rows.length > 0 ? rows.filter(r => r.checkedInAt) : rsvp.hasAttended ? [{ position: 0, invitationPersonId: null, checkedInAt: rsvp.checkedInAt ?? new Date() }] : []
-  const checkedInAt = (p: (typeof persons)[number], position: number) => {
-    if (!p.isAttending) return null
+  const previous = rows.length > 0 ? rows.filter(r => r.checkedInAt) : rsvp.hasAttended ? [{ position: 0, invitationPersonId: null, checkedInAt: rsvp.checkedInAt ?? new Date(), leftAt: rsvp.leftAt }] : []
+  // Mit Kommen und Gehen (Idee L7) bleibt auch "gegangen um" erhalten
+  const checkin = (p: (typeof persons)[number], position: number) => {
+    if (!p.isAttending) return { checkedInAt: null, leftAt: null }
     const match = p.invitationPersonId ? previous.find(x => x.invitationPersonId === p.invitationPersonId) : previous.find(x => !x.invitationPersonId && x.position === position)
-    return match?.checkedInAt ?? null
+    return { checkedInAt: match?.checkedInAt ?? null, leftAt: match?.leftAt ?? null }
   }
   await prisma.$transaction([
     prisma.rsvpPerson.deleteMany({ where: { rsvpId } }),
     ...persons.map(({ menu = {}, ...p }, position) => prisma.rsvpPerson.create({
       data: {
-        rsvpId, position, ...p, drinksAlcohol: alcoholFor(p.ageGroup, p.drinksAlcohol), checkedInAt: checkedInAt(p, position),
+        rsvpId, position, ...p, drinksAlcohol: alcoholFor(p.ageGroup, p.drinksAlcohol), ...checkin(p, position),
         menuChoices: { create: Object.entries(menu).map(([courseId, option]) => ({ courseId, option })) }
       }
     }))

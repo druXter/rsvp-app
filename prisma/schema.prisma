@@ -139,6 +139,10 @@ model Event {
   isGuestListVisible  Boolean  @default(false)
   eventPin            String?
   enableCheckin       Boolean  @default(false)
+  // Kommen und Gehen protokollieren (Idee L7, app/lib/checkin.ts): Auschecken heißt dann "geht" statt "war nie da",
+  // jedes Kommen, Gehen und Wiederkommen landet mit Uhrzeit in PresenceEntry (Reiter "Anwesenheit"). Nur mit enableCheckin.
+  trackPresence       Boolean  @default(false)
+  presenceEntries     PresenceEntry[]
 
   // Wie EventSeries.requireGuestUser, nur für ein Einzel-Event - nur beim Anlegen setzbar
   // (createEvent), danach bewusst unveränderlich (kein Feld in updateEvent). Gehört das Event
@@ -325,6 +329,10 @@ model Rsvp {
   isOnWaitlist   Boolean      @default(false)
   hasAttended    Boolean      @default(false)
   checkedInAt    DateTime?
+  // Nur mit Event.trackPresence: gegangen um (alle eingecheckten Personen sind weg), null = da bzw. nie da gewesen.
+  // hasAttended bleibt dabei true - wer früher geht, war trotzdem da.
+  leftAt         DateTime?
+  presenceEntries PresenceEntry[]
   // Platz aus Seating ("Tisch 7, Plätze 3, 4"), gesetzt über /api/seating/placements - nur
   // Anzeige (Gästeseite, Einlass, CSV), verschwindet mit der Rsvp.
   seatingLabel   String?
@@ -382,6 +390,8 @@ model RsvpPerson {
   drinksAlcohol Boolean?
   // Einlass pro Person (app/lib/checkin.ts). Rsvp.hasAttended ist gesetzt, sobald mindestens eine Person da ist.
   checkedInAt   DateTime?
+  // Nur mit Event.trackPresence: gegangen um, null = da (mit checkedInAt) bzw. nie da gewesen.
+  leftAt        DateTime?
 
   // Im Einladungsmodus: welche eingeladene Person das ist (null = vom Haushalt selbst eingetragen)
   invitationPersonId String?
@@ -771,4 +781,22 @@ model WishReservation {
 
   @@unique([wishId, participantId])
   @@index([participantId])
+}
+
+// Anwesenheitsprotokoll (Idee L7, app/lib/checkin.ts): ein Eintrag je Kommen (IN) oder Gehen (OUT) einer Person, nur
+// mit Event.trackPresence. position/name halten die Person fest (RsvpPerson-Zeilen werden beim Bearbeiten neu
+// angelegt, das Protokoll bleibt); position null = Antwort ohne Personenliste. Verschwindet mit der Antwort.
+model PresenceEntry {
+  id       String   @id @default(cuid())
+  eventId  String
+  event    Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  rsvpId   String
+  rsvp     Rsvp     @relation(fields: [rsvpId], references: [id], onDelete: Cascade)
+  position Int?
+  name     String
+  kind     String
+  at       DateTime
+
+  @@index([eventId, at])
+  @@index([rsvpId])
 }

@@ -64,7 +64,8 @@ const RULES: FieldRule[] = [
   { excludes: ['inviteOnly', 'shiftsUrl'] },
   { requires: 'rsvpReminderDays', needs: 'rsvpDeadline', hint: 'braucht eine Antwortfrist (Grunddaten)' },
   { requires: 'paymentReminderDays', needs: 'paymentDueDays', hint: 'braucht eine Zahlfrist' },
-  { requires: 'datePending', needs: 'pollUrl', hint: 'braucht einen Link auf eine Abstimmung' }
+  { requires: 'datePending', needs: 'pollUrl', hint: 'braucht einen Link auf eine Abstimmung' },
+  { requires: 'trackPresence', needs: 'enableCheckin', hint: 'braucht den Einlass mit QR-Code' }
 ]
 const summary = (parts: (string | null | false | undefined)[], empty = 'aus') => parts.filter(Boolean).join(' · ') || empty
 
@@ -186,12 +187,15 @@ export default function EventSettingsForm({ event, open = 'grunddaten' }: { even
       )}
 
       <SettingsSection id="ablauf" title="Erinnerung und Einlass" open={open === 'ablauf'} marker="teal"
-        summary={summary([onOff(event.autoReminder, `Erinnerung ${event.reminderDays} Tage vorher`), onOff(event.enableCheckin, 'QR-Code-Einlass')])}>
+        summary={summary([onOff(event.autoReminder, `Erinnerung ${event.reminderDays} Tage vorher`), onOff(event.enableCheckin, 'QR-Code-Einlass'), onOff(event.enableCheckin && event.trackPresence, 'Kommen und Gehen')])}>
         <Check name="autoReminder" defaultChecked={event.autoReminder} label="Automatische Erinnerung an alle Zusagen" hint="Per Mail (und Push), braucht die E-Mail-Abfrage und den Cronjob der Erinnerungen." />
         <Field id="reminderDays" label="Tage vor dem Event">
           <input id="reminderDays" type="number" name="reminderDays" min="1" max="30" defaultValue={event.reminderDays} className={`${inputClass} sm:w-32`} />
         </Field>
         <Check name="enableCheckin" defaultChecked={event.enableCheckin} label="Einlass mit QR-Code" hint="Bestätigte Gäste bekommen einen persönlichen QR-Code (Mail und Erfolgsseite), den ihr am Einlass scannt." />
+        <Check name="trackPresence" defaultChecked={event.trackPresence} label="Kommen und Gehen protokollieren"
+          hint="Für Sitzungen und Versammlungen: Wer geht, wird ausgecheckt statt ausgetragen, und kann wieder einchecken. Jedes Kommen und Gehen steht mit Uhrzeit im Reiter „Anwesenheit“ (Druck und CSV)." />
+        <RuleNote name="trackPresence" indent />
       </SettingsSection>
 
       <SettingsSection id="menue" title="Menü" open={open === 'menue'} marker="orange" summary={event.menuCourses.length > 0 ? `${event.menuCourses.length} Gang/Gänge` : 'aus'}>

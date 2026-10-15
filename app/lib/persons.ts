@@ -45,8 +45,10 @@ export type PersonData = {
   menu: MenuSelection
   /** Alkohol ja/nein, nur bei Erwachsenen (sonst null) */
   drinksAlcohol: boolean | null
-  /** Beim Einlass da (app/lib/checkin.ts) */
+  /** Gerade da (app/lib/checkin.ts): eingecheckt und - mit Kommen und Gehen - nicht gegangen */
   checkedIn: boolean
+  /** Mit Kommen und Gehen: war da und ist gegangen */
+  left: boolean
 }
 
 /**
@@ -60,6 +62,7 @@ type PersonRow = {
   menuChoices?: readonly { courseId: string; option: string }[]
   drinksAlcohol?: boolean | null
   checkedInAt?: Date | null
+  leftAt?: Date | null
 }
 
 /** Alkohol fragen wir nur Erwachsene - bei Kindern und Kleinkindern bleibt die Angabe leer. */
@@ -89,7 +92,7 @@ export function menuOf(person: { menuChoices?: readonly { courseId: string; opti
  * Antwort genau eine Person: die anmeldende, mit den Angaben aus dem Participant.
  */
 export function personsOf(
-  rsvp: { isAttending: boolean; drinksAlcohol?: boolean | null; hasAttended?: boolean; persons?: readonly PersonRow[] | null },
+  rsvp: { isAttending: boolean; drinksAlcohol?: boolean | null; hasAttended?: boolean; leftAt?: Date | null; persons?: readonly PersonRow[] | null },
   participant: { name: string; dietaryOption: string | null; allergies: string | null }
 ): PersonData[] {
   if (rsvp.persons && rsvp.persons.length > 0) {
@@ -97,12 +100,12 @@ export function personsOf(
       .sort((a, b) => a.position - b.position)
       .map(p => ({
         name: p.name, ageGroup: asAgeGroup(p.ageGroup), isAttending: p.isAttending, dietaryOption: p.dietaryOption, allergies: p.allergies, menu: menuOf(p),
-        drinksAlcohol: alcoholFor(p.ageGroup, p.drinksAlcohol), checkedIn: !!p.checkedInAt
+        drinksAlcohol: alcoholFor(p.ageGroup, p.drinksAlcohol), checkedIn: !!p.checkedInAt && !p.leftAt, left: !!p.checkedInAt && !!p.leftAt
       }))
   }
   return [{
     name: participant.name, ageGroup: 'ADULT', isAttending: rsvp.isAttending, dietaryOption: participant.dietaryOption, allergies: participant.allergies, menu: {},
-    drinksAlcohol: rsvp.drinksAlcohol ?? null, checkedIn: !!rsvp.hasAttended
+    drinksAlcohol: rsvp.drinksAlcohol ?? null, checkedIn: !!rsvp.hasAttended && !rsvp.leftAt, left: !!rsvp.hasAttended && !!rsvp.leftAt
   }]
 }
 
