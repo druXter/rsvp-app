@@ -759,6 +759,34 @@ export async function sendPaymentReminderEmail(participant: Participant, rsvp: R
 }
 
 /**
+ * Feedback nach dem Event (Idee L8 Teil 2, app/lib/feedback.ts): Link auf "Feedback geben" - über rsvp-app
+ * (/api/feedback-link/[eventId]), das bei jedem Klick einen frischen Nachweis für das Abstimmungstool ausstellt.
+ */
+export async function sendFeedbackEmail(participant: Participant, event: EventWithSeries, link: string) {
+  const title = escapeHtml(event.title)
+  const name = escapeHtml(participant.name)
+  await transporter.sendMail({
+    from: process.env.SMTP_FROM,
+    to: participant.email!,
+    subject: `Wie war's? ${event.title}`,
+    text: `Hallo ${participant.name},\n\ndanke, dass du bei "${event.title}" dabei warst! Wir würden gern wissen, wie es dir gefallen hat - der kurze Fragebogen dauert nur ein paar Minuten:\n${link}\n\nDeine Antworten sind nicht mit deinem Namen oder deiner E-Mail-Adresse verknüpft. Du kannst sie über denselben Link ändern, solange der Fragebogen läuft.\n\nViele Grüße,\nDein Event-Team`,
+    html: `
+      <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
+        <h2>Wie war's? 📝</h2>
+        <p>Hallo ${name},</p>
+        <p>danke, dass du bei <strong>${title}</strong> dabei warst! Wir würden gern wissen, wie es dir gefallen hat - der kurze Fragebogen dauert nur ein paar Minuten.</p>
+        <p style="text-align: center; margin: 30px 0;">
+          <a href="${link}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">Feedback geben</a>
+        </p>
+        <p style="font-size: 12px; color: #666;">Deine Antworten sind nicht mit deinem Namen oder deiner E-Mail-Adresse verknüpft. Du kannst sie über denselben Link ändern, solange der Fragebogen läuft.</p>
+        <p>Viele Grüße,<br>Dein Event-Team</p>
+      </div>
+    `,
+    envelope: { from: process.env.SMTP_USER, to: participant.email! }
+  })
+}
+
+/**
  * Einladung an einen Haushalt (docs/KONZEPT-EINLADUNGEN.md, Abschnitt 3) - oder mit `reminder` die Erinnerung an
  * eine noch offene Antwort vor der Antwortfrist. Nennt Termin, Ort, eingeladene Personen, ggf. die Frist und den
  * persönlichen Link.

@@ -124,6 +124,24 @@ export async function sendEventChangedPush(
   })
 }
 
+/** Zahlungserinnerung (app/lib/payment-reminder.ts) - neben der Mail, wie alle Erinnerungen. */
+export async function sendPaymentReminderPush(event: EventWithSeries, participant: Participant, amount: string, dueAt: string | null) {
+  await sendPushToParticipant(participant.id, {
+    title: `💶 Zahlung offen: ${event.title}`,
+    body: `${amount}${dueAt ? ` · bitte bis ${dueAt} überweisen` : ''}`,
+    url: personalEventLink(event, participant)
+  })
+}
+
+/** Feedback nach dem Event (app/lib/feedback.ts) - neben der Mail, wie alle Erinnerungen. */
+export async function sendFeedbackPush(event: EventWithSeries, participant: Participant, link: string) {
+  await sendPushToParticipant(participant.id, {
+    title: `📝 Wie war's? ${event.title}`,
+    body: 'Ein kurzer Fragebogen, ohne Namen.',
+    url: link
+  })
+}
+
 /**
  * Push-Pendant zu sendConfirmationEmail (app/lib/mail.ts) - wird ANSTELLE der
  * Bestätigungs-Mail verschickt, wenn der Gast in seinem Nutzer-Konto
@@ -134,15 +152,6 @@ export async function sendEventChangedPush(
  * als die Mail enthält sie bewusst keinen .ics-Anhang und keinen QR-Check-in-Code - beides
  * bleibt über den verlinkten personalEventLink() auf der Termin-Seite abrufbar.
  */
-/** Zahlungserinnerung (app/lib/payment-reminder.ts) - neben der Mail, wie alle Erinnerungen. */
-export async function sendPaymentReminderPush(event: EventWithSeries, participant: Participant, amount: string, dueAt: string | null) {
-  await sendPushToParticipant(participant.id, {
-    title: `💶 Zahlung offen: ${event.title}`,
-    body: `${amount}${dueAt ? ` · bitte bis ${dueAt} überweisen` : ''}`,
-    url: personalEventLink(event, participant)
-  })
-}
-
 export async function sendConfirmationPush(event: EventWithSeries, participant: Participant) {
   const formattedDate = formatEventDate(event, 'short')
   await sendPushToParticipant(participant.id, {

@@ -72,9 +72,9 @@ const nextConfig: NextConfig = {
       },
       {
         // Verknüpfte Tools (app/lib/linked-tools.ts): Seatings Gästeliste/Platzierungen (Server zu
-        // Server) und die Weiterleitungen "Sitzplatz wählen" bzw. "Zeitplan" (editToken in der URL,
+        // Server) und die Weiterleitungen "Sitzplatz wählen", "Zeitplan" bzw. "Feedback geben" (editToken in der URL,
         // signierter Link im Ziel) - nie einbetten, nie cachen, nie per Referer weiterreichen.
-        source: '/api/:area(seating|seating-link|timeline-link)/:path*',
+        source: '/api/:area(seating|seating-link|timeline-link|feedback-link)/:path*',
         headers: [
           { key: 'X-Frame-Options', value: 'DENY' },
           { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },

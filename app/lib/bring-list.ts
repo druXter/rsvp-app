@@ -50,6 +50,34 @@ export function readBringSlots(formData: FormData): BringSlotInput[] | null {
 }
 
 /**
+ * Vorlage einer Reihe (EventSeries.bringTemplate) aus deren Einstellungen: normalisiert im Format des Textfelds,
+ * null = keine Vorlage, undefined = Feld nicht im Formular (unverändert lassen). Wirft wie parseBringSlots.
+ */
+export function readBringTemplate(formData: FormData): string | null | undefined {
+  if (!formData.has('bringTemplate')) return undefined
+  return formatBringSlots(parseBringSlots(formData.get('bringTemplate') as string || '')) || null
+}
+
+/**
+ * Übernimmt die Vorlage einer Reihe in einen Termin - nur, wenn er noch keine eigene Liste hat. Eine einmal
+ * übernommene Liste gehört dem Termin und lässt sich dort frei ändern; spätere Änderungen der Vorlage
+ * überschreiben sie nie. Gibt zurück, ob etwas übernommen wurde.
+ */
+export async function applyBringTemplate(eventId: string, template: string | null): Promise<boolean> {
+  if (!template) return false
+  let slots: BringSlotInput[]
+  try {
+    slots = parseBringSlots(template)
+  } catch {
+    // Gespeicherte Vorlagen sind geprüft; passt eine nach geänderten Grenzen nicht mehr, bleibt der Termin ohne Liste.
+    return false
+  }
+  if (slots.length === 0 || (await prisma.bringSlot.count({ where: { eventId } })) > 0) return false
+  await prisma.bringSlot.createMany({ data: slots.map((slot, position) => ({ eventId, label: slot.label, quantity: slot.quantity, position })) })
+  return true
+}
+
+/**
  * Speichert die Liste eines Termins per Abgleich nach Bezeichnung: Bestehende Einträge behalten ihre
  * Beanspruchungen (neue Anzahl und Reihenfolge), entfernte Einträge nehmen ihre mit, neue kommen dazu.
  * Wird die Anzahl unter die Zahl der Beanspruchungen gesenkt, bleiben alle bestehen ("3/2").

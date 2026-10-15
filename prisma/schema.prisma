@@ -109,6 +109,10 @@ model EventSeries {
   inviteOnly  Boolean      @default(false)
   invitations Invitation[]
 
+  // Vorlage der Mitbringliste (Idee L5, app/lib/bring-list.ts), im Format des Textfelds ("2x Salat"). Neue Termine
+  // bekommen sie als eigene Liste (addTerminToSeries), die sich danach pro Termin frei ändern lässt.
+  bringTemplate String?
+
   createdAt    DateTime          @default(now())
   events       Event[]
   participants Participant[]
@@ -179,6 +183,14 @@ model Event {
   // Foto-Link (Idee Q3 der Suite): geteiltes Album mit Upload-Link, z. B. in Immich. Nur http(s), geprüft in
   // app/lib/photo-link.ts. Gäste mit Zusage sehen ihn ab dem Ende des Termins (photoLinkVisible).
   photoUrl String?
+
+  // Feedback-Fragebogen (Idee L8 Teil 2 der Suite, app/lib/feedback-link.ts): Link auf einen Fragebogen im
+  // Abstimmungstool (Modus "Gäste aus rsvp-app", Origin = ABSTIMMUNGSTOOL_BASE_URL). Gäste, deren Zusage zählt (mit
+  // QR-Einlass: nur Eingecheckte), sehen ab dem Ende "Feedback geben"; feedbackDelayHours Stunden nach dem Ende
+  // schickt der Erinnerungs-Cron den Link zusätzlich per Mail und Push (null = nicht verschicken). Pro Zusage einmal
+  // (Rsvp.feedbackSentAt). Zum Abstimmungstool geht nur ein Pseudonym der Zusage, kein Name, keine E-Mail.
+  feedbackUrl        String?
+  feedbackDelayHours Int?
 
   // Mitbringliste (Idee L5 der Suite), siehe BringSlot.
   bringSlots BringSlot[]
@@ -340,6 +352,8 @@ model Rsvp {
   refundedAt            DateTime?
   // Letzte Zahlungserinnerung (automatisch oder per Knopf), wird mit einer neuen Frist zurückgesetzt.
   paymentReminderSentAt DateTime?
+  // Feedback-Fragebogen verschickt (Event.feedbackUrl) - vor dem Versand atomar gesetzt, damit niemand ihn doppelt bekommt.
+  feedbackSentAt        DateTime?
 
   // Personen der Antwort (docs/KONZEPT-EINLADUNGEN.md): die anmeldende Person (Position 0) und ihre Begleitungen.
   // Leer bei Terminen ohne Begleitungen - dann ist die Antwort genau eine Person (personsOf in app/lib/persons.ts).

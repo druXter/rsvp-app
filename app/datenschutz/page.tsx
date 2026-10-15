@@ -195,7 +195,8 @@ export default function DatenschutzPage() {
             bevor deine Anmeldung gültig wird - das schützt dich und uns vor missbräuchlichen Anmeldungen unter
             fremdem Namen. Sofern du eine E-Mail-Adresse hinterlegt hast, erhältst du außerdem eine Bestätigung deiner
             Zusage (mit Kalenderdatei und - falls aktiviert - deinem Einlass-QR-Code), Benachrichtigungen zur
-            Warteliste sowie automatische oder manuelle Erinnerungen vor der Veranstaltung.
+            Warteliste sowie automatische oder manuelle Erinnerungen vor der Veranstaltung. Hat die Veranstaltung einen
+            Feedback-Fragebogen, bekommst du nach ihrem Ende einmal die Bitte um Feedback (siehe Punkt 9).
           </p>
           <p className="mt-2">
             <strong>Einladungen:</strong> Haben die Veranstalter:innen für deinen Haushalt eine E-Mail-Adresse
@@ -291,6 +292,20 @@ export default function DatenschutzPage() {
             schickt sie außerdem nicht umkehrbare Prüfwerte (SHA-256-Hashes) der E-Mail-Adressen, die sie selbst
             informiert; wir vergleichen sie nur mit den Adressen der Zusagenden dieses Termins und speichern sie nicht.
             Wer zugesagt hat, bekommt von uns wie bei jeder Terminänderung eine Mail bzw. Push-Mitteilung.
+          </p>
+          <p className="mt-2">
+            <strong>Feedback-Fragebogen:</strong> Veranstalter:innen können einen Termin mit einem Fragebogen in der
+            Abstimmungs-Anwendung verknüpfen. Gäste mit Zusage (bei Terminen mit QR-Einlass nur, wer eingecheckt wurde)
+            sehen nach dem Ende auf ihrer persönlichen Seite &quot;Feedback geben&quot; und bekommen - wenn die
+            Veranstalter:innen das eingestellt haben - einmal eine Mail bzw. Push-Mitteilung mit diesem Link. Beim Klick
+            übermitteln wir in einem kryptographisch signierten, <strong>12 Stunden gültigen</strong> Link nur ein{' '}
+            <strong>Pseudonym deiner Antwort</strong>: eine aus der Kennung deiner Antwort und des Fragebogens
+            berechnete Zeichenfolge, aus der die Abstimmungs-Anwendung weder deinen Namen noch deine E-Mail-Adresse
+            ableiten kann. Sie erkennt daran nur, dass du schon geantwortet hast, damit es eine Antwort pro Gast bleibt
+            und du sie ändern kannst. Deine Antworten im Fragebogen speichert die Abstimmungs-Anwendung (siehe deren
+            Datenschutzerklärung); wir bekommen sie nicht. Für den Versand merken wir uns bei deiner Antwort, wann wir
+            dir den Fragebogen geschickt haben. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse
+            der Veranstalter:innen an Rückmeldungen zu ihrer Veranstaltung); die Teilnahme ist freiwillig.
           </p>
         </div>
 
@@ -450,7 +465,8 @@ export default function DatenschutzPage() {
           </p>
           <p className="mt-2">
             <strong>Verlinkte Abstimmungs-Anwendung:</strong> Beim Klick auf einen Abstimmungs-Link kann deine
-            E-Mail-Adresse an die verlinkte Anwendung übermittelt werden - die Einzelheiten dazu stehen in Punkt 9.
+            E-Mail-Adresse an die verlinkte Anwendung übermittelt werden - die Einzelheiten dazu stehen in Punkt 9. Beim
+            Klick auf &quot;Feedback geben&quot; geht dorthin nur ein Pseudonym deiner Antwort (ebenfalls Punkt 9).
           </p>
           <p className="mt-2">
             <strong>Sitzplatz-Anwendung:</strong> Für Termine, die mit Seating (<code>{seatingHost}</code>) verknüpft

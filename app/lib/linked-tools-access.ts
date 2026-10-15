@@ -1,5 +1,5 @@
 // app/lib/linked-tools-access.ts
-import type { Participant, Rsvp, RsvpPerson } from '@prisma/client'
+import type { Event, EventSeries, Participant, Rsvp, RsvpPerson } from '@prisma/client'
 import { prisma } from './prisma'
 import { getCurrentGuestUser } from './guest-auth'
 import { hasEventPinAccess } from './pin'
@@ -46,6 +46,29 @@ export async function resolveToolLinkAccess(
   const link = event ? toolLinkOf(event, type) : null
   if (!event || !tool || !link) return { ok: false, redirect: new URL('/', base) }
 
+  const visitor = await resolveVisitorRsvp(event, token)
+  if (!visitor.pinOk) return { ok: false, redirect: visitor.back(base) }
+  const { participant, rsvp } = visitor
+
+  const requireVerification = event.series ? event.series.requireVerification : event.requireVerification
+  if (!participant || !rsvp || !counts(rsvp, participant, requireVerification, event.seatingRequiresPayment)) {
+    return { ok: false, redirect: visitor.back(base) }
+  }
+
+  return { ok: true, event, tool, link, rsvp, participant }
+}
+
+/**
+ * Wer besucht einen Termin, und mit welcher Antwort? Die Person muss sich selbst nachweisen (siehe oben): editToken
+ * (?token=) eines Participants, der zu diesem Termin passt, oder ohne Token eine aktive, verifizierte Gast-Session.
+ * `pinOk`: PIN-Cookie oder ein Token, zu dem es hier eine Rsvp gibt (entspricht tokenBelongsToEvent - der
+ * persönliche Link aus der Mail geht auch ohne PIN-Cookie). `back` führt zurück auf die Event-Seite, mit dem Token
+ * nur, wenn er nachweislich hierher gehört. Auch für /api/feedback-link/[eventId].
+ */
+export async function resolveVisitorRsvp(
+  event: Event & { series: EventSeries | null },
+  token: string | null
+): Promise<{ participant: Participant | null; rsvp: (Rsvp & { persons: RsvpPerson[] }) | null; pinOk: boolean; back: (base: string) => URL }> {
   const eventPage = event.series ? `/reihe/${event.series.slug}/${event.slug}` : `/${event.slug}`
 
   let participant: Participant | null = null
@@ -67,17 +90,12 @@ export async function resolveToolLinkAccess(
     ? await prisma.rsvp.findUnique({ where: { eventId_participantId: { eventId: event.id, participantId: participant.id } }, include: { persons: true } })
     : null
 
-  // Ein Token, zu dem es hier eine Rsvp gibt, gehört nachweislich zu diesem Termin
-  // (entspricht tokenBelongsToEvent) - der persönliche Link aus der Mail geht auch ohne PIN-Cookie.
   const tokenBelongsHere = !!token && !!rsvp
-  if (!tokenBelongsHere && !(await hasEventPinAccess(event))) return { ok: false, redirect: new URL(eventPage, base) }
-
-  const requireVerification = event.series ? event.series.requireVerification : event.requireVerification
-  if (!participant || !rsvp || !counts(rsvp, participant, requireVerification, event.seatingRequiresPayment)) {
-    const back = new URL(eventPage, base)
-    if (tokenBelongsHere && token) back.searchParams.set('token', token)
-    return { ok: false, redirect: back }
+  const pinOk = tokenBelongsHere || (await hasEventPinAccess(event))
+  const back = (base: string) => {
+    const url = new URL(eventPage, base)
+    if (pinOk && tokenBelongsHere && token) url.searchParams.set('token', token)
+    return url
   }
-
-  return { ok: true, event, tool, link, rsvp, participant }
+  return { participant, rsvp, pinOk, back }
 }

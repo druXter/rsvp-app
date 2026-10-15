@@ -9,6 +9,7 @@ import { allowedSeatingOrigin } from '../lib/seating'
 import { allowedTimelineOrigin } from '../lib/timeline'
 import { allowedShiftsOrigin, formatShiftTiers, parseStoredTiers } from '../lib/shift-helpers'
 import { TOOL_LINKS, storedToolUrl } from '../lib/linked-tools-store'
+import { allowedFeedbackOrigin, FEEDBACK_DELAY_OPTIONS } from '../lib/feedback-link'
 import { SettingsSection, hintClass, inputClass, labelClass } from '../ui/kit'
 import SubmitButton from '../ui/submit-button'
 import { MenuFields } from './menu-settings-section'
@@ -22,7 +23,9 @@ export const SETTINGS_INCLUDE = {
   toolLinks: TOOL_LINKS,
   bringSlots: { orderBy: { position: 'asc' as const } },
   ticketCategories: { orderBy: { position: 'asc' as const } },
-  menuCourses: { orderBy: { position: 'asc' as const } }
+  menuCourses: { orderBy: { position: 'asc' as const } },
+  // Wie viele Zusagen den Feedback-Fragebogen schon bekommen haben (app/lib/feedback.ts)
+  _count: { select: { rsvps: { where: { feedbackSentAt: { not: null } } } } }
 } satisfies Prisma.EventInclude
 
 type SettingsEvent = Prisma.EventGetPayload<{ include: typeof SETTINGS_INCLUDE }>
@@ -84,6 +87,7 @@ export default function EventSettingsForm({ event, open = 'grunddaten' }: { even
   const timelineUrl = storedToolUrl(event.toolLinks, 'timeline')
   const shiftsUrl = storedToolUrl(event.toolLinks, 'shifts')
   const shiftsOrigin = allowedShiftsOrigin()
+  const feedbackOrigin = allowedFeedbackOrigin()
   const formId = 'event-settings-form'
   // Fest gesperrt: Konto-Pflicht wird beim Anlegen festgelegt, Termine einer Einladungs-Reihe haben keine Kategorien
   const fixed: Record<string, string> = {
@@ -198,6 +202,12 @@ export default function EventSettingsForm({ event, open = 'grunddaten' }: { even
         <Field id="bringSlots" label="Einträge (optional)" hint="Eine Zeile pro Eintrag, Anzahl optional vorne: „2x Salat“, „3x Getränke“, „Nachtisch“. Gäste mit Zusage beanspruchen Einträge, volle sind gesperrt.">
           <textarea id="bringSlots" name="bringSlots" rows={4} defaultValue={formatBringSlots(event.bringSlots)} className={inputClass} placeholder={'2x Salat\n3x Getränke\nNachtisch'} />
         </Field>
+        {isTermin && (
+          <Check name="bringSaveAsTemplate" label="Als Vorlage der Reihe speichern"
+            hint={event.series?.bringTemplate
+              ? 'Neue Termine der Reihe bekommen diese Liste statt der bisherigen Vorlage. Die Listen bestehender Termine bleiben, wie sie sind.'
+              : 'Neue Termine der Reihe bekommen diese Liste und lassen sich danach einzeln ändern. Die Vorlage steht auch in den Einstellungen der Reihe.'} />
+        )}
       </SettingsSection>
 
       <SettingsSection id="wunschliste" title="Wunschliste" open={open === 'wunschliste'} marker="purple" summary={event.wishlist ? (event.wishesSecret ? 'an · Überraschung' : 'an') : 'aus'}>
@@ -214,7 +224,7 @@ export default function EventSettingsForm({ event, open = 'grunddaten' }: { even
       </SettingsSection>
 
       <SettingsSection id="verknuepfungen" title="Verknüpfungen" open={open === 'verknuepfungen'} marker="lime"
-        summary={summary([seatingUrl && 'Seating', timelineUrl && 'Zeitplan', shiftsUrl && 'Schichten', event.pollUrl && 'Abstimmung', event.photoUrl && 'Fotos'], 'keine')}>
+        summary={summary([seatingUrl && 'Seating', timelineUrl && 'Zeitplan', shiftsUrl && 'Schichten', event.pollUrl && 'Abstimmung', event.photoUrl && 'Fotos', event.feedbackUrl && 'Feedback'], 'keine')}>
         {seatingOrigin && (
           <div>
             <Field id="seatingUrl" label="Sitzplätze (Seating)" hint={<>Link aus den Event-Einstellungen in Seating. ID dieses Termins für Seating: <code className="select-all">{event.id}</code>. Name, E-Mail und Begleitungen der Zusagen gehen dafür an Seating.</>}>
@@ -256,6 +266,19 @@ export default function EventSettingsForm({ event, open = 'grunddaten' }: { even
         <Field id="photoUrl" label="Fotoalbum (Link)" hint="Geteiltes Album mit Upload (z.B. Immich). Gäste mit Zusage sehen den Link ab dem Ende des Termins.">
           <input id="photoUrl" type="url" name="photoUrl" defaultValue={event.photoUrl || ''} className={inputClass} placeholder="https://fotos.example.de/s/…" />
         </Field>
+        {feedbackOrigin && (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field id="feedbackUrl" label="Feedback-Fragebogen (Link)" hint={<>Fragebogen im Abstimmungstool mit „Gäste aus rsvp-app“. Gäste mit Zusage ({event.enableCheckin ? 'mit QR-Einlass nur Eingecheckte' : 'ohne QR-Einlass alle'}) sehen ab dem Ende „Feedback geben“. Ans Abstimmungstool geht nur ein Pseudonym, kein Name und keine E-Mail.</>}>
+              <input id="feedbackUrl" type="url" name="feedbackUrl" defaultValue={event.feedbackUrl || ''} className={inputClass} placeholder={`${feedbackOrigin}/fragebogen/…`} />
+            </Field>
+            <Field id="feedbackDelayHours" label="Per Mail und Push verschicken" hint={event._count.rsvps > 0 ? `Bisher an ${event._count.rsvps} Zusage${event._count.rsvps === 1 ? '' : 'n'} verschickt, jede bekommt ihn nur einmal.` : 'Jede Zusage bekommt ihn einmal, über den Cronjob der Erinnerungen.'}>
+              <select id="feedbackDelayHours" name="feedbackDelayHours" defaultValue={event.feedbackDelayHours ?? ''} className={inputClass}>
+                <option value="">nicht verschicken (nur auf der Event-Seite)</option>
+                {FEEDBACK_DELAY_OPTIONS.map(o => <option key={o.hours} value={o.hours}>{o.label}</option>)}
+              </select>
+            </Field>
+          </div>
+        )}
       </SettingsSection>
 
       <div className="sticky bottom-0 z-20 -mx-4 border-t border-gray-200 bg-white/95 px-4 py-3 backdrop-blur dark:border-gray-700 dark:bg-gray-900/95 sm:mx-0 sm:rounded-xl sm:border">

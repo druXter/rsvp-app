@@ -126,6 +126,15 @@ export default async function EditEventSeriesPage({
             </div>
           </ThemeSection>
 
+          <ThemeSection color="emerald" title="Mitbringliste als Vorlage" description="Neue Termine bekommen diese Liste und lassen sich danach einzeln ändern (Einstellungen des Termins → Mitbringliste). Eine Zeile pro Eintrag, Anzahl optional vorne.">
+            <label htmlFor="bringTemplate" className="sr-only">Vorlage der Mitbringliste</label>
+            <textarea id="bringTemplate" name="bringTemplate" rows={4} defaultValue={series.bringTemplate || ''} className={inputClass} placeholder={'2x Salat\n3x Getränke\nNachtisch'} />
+            <label className={`mt-3 flex items-start gap-2 cursor-pointer text-sm ${themeClasses('emerald').heading}`}>
+              <input type="checkbox" name="bringTemplateApply" className={`mt-0.5 w-4 h-4 ${themeClasses('emerald').accent}`} />
+              <span>Auch in kommende Termine ohne eigene Liste übernehmen<span className="block text-xs text-gray-600 dark:text-gray-400">Termine, die schon eine Liste haben, bleiben, wie sie sind.</span></span>
+            </label>
+          </ThemeSection>
+
           <ThemeSection color="indigo" title="Einladungen" description="Z. B. eine Hochzeit mit Polterabend, Standesamt, Feier und Brunch: ein persönlicher Link pro Haushalt für alle Termine, zu denen er eingeladen ist.">
             <input type="hidden" name="inviteOnlyShown" value="1" />
             <label className={`flex items-center gap-2 cursor-pointer text-sm font-medium ${themeClasses('indigo').heading}`}>

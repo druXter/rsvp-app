@@ -12,6 +12,8 @@ import { householdForForm, invitationOf } from '../../../lib/invitation-store'
 import PollResultBanner from '../../../ui/poll-result-banner'
 import PhotoLinkBanner from '../../../ui/photo-link-banner'
 import { photoLinkVisible } from '../../../lib/photo-link'
+import FeedbackBanner from '../../../ui/feedback-banner'
+import { feedbackLinkVisible } from '../../../lib/feedback-link'
 import { bringSlotsForForm, claimedLabels } from '../../../lib/bring-list'
 import { getCurrentGuestUser } from '../../../lib/guest-auth'
 import { guestPersons } from '../../../lib/guest-persons'
@@ -204,6 +206,7 @@ export default async function SeriesEventPage({
         )}
 
         {photoLinkVisible(event, existingRsvp) && <PhotoLinkBanner url={event.photoUrl!} />}
+        {feedbackLinkVisible(event, existingRsvp, participant && 'isVerified' in participant ? { isVerified: !!participant.isVerified } : null, series.requireVerification) && <FeedbackBanner eventId={event.id} editToken={token} />}
 
         <RsvpForm
           bringSlots={await bringSlotsForForm(event.id, existingRsvp?.id ?? null)}

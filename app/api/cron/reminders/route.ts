@@ -6,6 +6,7 @@ import { sendReminderPush } from '../../../lib/push'
 import { safeEqual } from '../../../lib/tokens'
 import { sendDuePaymentReminders } from '../../../lib/payment-reminder'
 import { sendDueInvitationReminders } from '../../../lib/invitation-reminder'
+import { sendDueFeedbackRequests } from '../../../lib/feedback'
 
 const prisma = new PrismaClient()
 
@@ -87,6 +88,8 @@ export async function GET(request: Request) {
   const paymentReminders = await sendDuePaymentReminders(now)
   // Einladungen ohne Antwort vor der Antwortfrist (app/lib/invitation-reminder.ts)
   const invitationReminders = await sendDueInvitationReminders(now)
+  // Feedback-Fragebogen nach dem Event (app/lib/feedback.ts) - je Zusage einmal
+  const feedbackRequests = await sendDueFeedbackRequests(now)
 
-  return NextResponse.json({ success: true, processedEvents: sentCount, paymentReminders, invitationReminders })
+  return NextResponse.json({ success: true, processedEvents: sentCount, paymentReminders, invitationReminders, feedbackRequests })
 }

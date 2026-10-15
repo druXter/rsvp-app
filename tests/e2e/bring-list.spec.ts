@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { syncBringClaims } from '../../app/lib/bring-list'
-import { cookieHeader, createAccount, createEvent, createRsvp, login, prisma, readForm, submitForm } from './helpers'
+import { cookieHeader, createAccount, createEvent, createRsvp, createSeries, createTermin, login, prisma, readForm, submitForm } from './helpers'
 
 // Mitbringliste (BringSlot/BringClaim, app/lib/bring-list.ts, Idee L5 der Suite): Liste im Termin-Formular,
 // Beanspruchen beim Zusagen, volle Einträge gesperrt (auch serverseitig und bei gleichzeitigen Zusagen),
@@ -116,4 +116,90 @@ test('gleichzeitige Zusagen: höchstens so viele wie vorgesehen; Warteliste häl
   await second.getByRole('button', { name: 'Antwort absenden' }).click()
   await expect(second.getByText(/Warteliste/).first()).toBeVisible()
   expect(await claimsOf(small.id)).toEqual({ Brot: ['Erste'] })
+})
+
+// Vorlage für Reihen (EventSeries.bringTemplate): neue Termine bekommen die Liste, danach gehört sie dem Termin.
+const slotsOf = async (eventId: string) =>
+  (await prisma.bringSlot.findMany({ where: { eventId }, orderBy: { position: 'asc' } })).map(s => `${s.quantity}x ${s.label}`)
+
+test('Reihe: Vorlage speichern, neue Termine übernehmen sie, die Liste bleibt pro Termin änderbar', async ({ page }) => {
+  const owner = await createAccount('CREATOR')
+  const series = await createSeries(owner)
+  await login(page, owner.email)
+  await page.goto(`/admin/series/${series.id}/edit`)
+
+  // Ungültige Vorlage: nichts gespeichert
+  await submitForm(page, await readForm(page, '#edit-series-form'), { bringTemplate: '99x Salat' })
+  expect((await prisma.eventSeries.findUniqueOrThrow({ where: { id: series.id } })).bringTemplate).toBeNull()
+  // Gültige Vorlage wird normalisiert gespeichert
+  await submitForm(page, await readForm(page, '#edit-series-form'), { bringTemplate: '2 x Salat\n\nGetränke\nGetränke' })
+  expect((await prisma.eventSeries.findUniqueOrThrow({ where: { id: series.id } })).bringTemplate).toBe('2x Salat\n2x Getränke')
+  await page.reload()
+  await expect(page.getByLabel('Vorlage der Mitbringliste')).toHaveValue('2x Salat\n2x Getränke')
+
+  // Neuer Termin über "Termin hinzufügen" bekommt die Liste
+  await page.goto(`/admin/series/${series.id}`)
+  // Ohne Termine ist "+ Termin hinzufügen" schon aufgeklappt - nur öffnen, nie zuklappen
+  await page.locator('details', { has: page.getByText('+ Termin hinzufügen') }).evaluate(d => { (d as HTMLDetailsElement).open = true })
+  await page.getByLabel('Titel des Termins').fill('Grillen')
+  await page.getByLabel('Datum und Uhrzeit').fill('2027-06-01T18:00')
+  await page.getByRole('button', { name: 'Termin anlegen' }).click()
+  await page.waitForURL(/einstellungen\?neu=1/)
+  const termin = await prisma.event.findFirstOrThrow({ where: { seriesId: series.id, title: 'Grillen' } })
+  expect(await slotsOf(termin.id)).toEqual(['2x Salat', '2x Getränke'])
+
+  // Die Liste des Termins ändern: Vorlage bleibt
+  await page.goto(`/admin/events/${termin.id}/einstellungen?abschnitt=mitbringliste`)
+  const terminForm = () => readForm(page, '#event-settings-form')
+  await submitForm(page, await terminForm(), { bringSlots: 'Nachtisch' })
+  expect(await slotsOf(termin.id)).toEqual(['1x Nachtisch'])
+  expect((await prisma.eventSeries.findUniqueOrThrow({ where: { id: series.id } })).bringTemplate).toBe('2x Salat\n2x Getränke')
+
+  // ... außer mit "Als Vorlage der Reihe speichern" - dann nur die Vorlage, andere Termine bleiben
+  const other = await createTermin(series)
+  await prisma.bringSlot.create({ data: { eventId: other.id, label: 'Eigene', quantity: 1, position: 0 } })
+  await submitForm(page, await terminForm(), { bringSlots: 'Nachtisch\n3x Brot', bringSaveAsTemplate: 'on' })
+  expect((await prisma.eventSeries.findUniqueOrThrow({ where: { id: series.id } })).bringTemplate).toBe('Nachtisch\n3x Brot')
+  expect(await slotsOf(other.id)).toEqual(['1x Eigene'])
+})
+
+test('Reihe: Vorlage in kommende Termine ohne eigene Liste übernehmen', async ({ page }) => {
+  const owner = await createAccount('CREATOR')
+  const series = await createSeries(owner)
+  const empty = await createTermin(series)
+  const own = await createTermin(series)
+  await prisma.bringSlot.create({ data: { eventId: own.id, label: 'Eigene', quantity: 1, position: 0 } })
+  const past = await createTermin(series, { date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000) })
+  await login(page, owner.email)
+  await page.goto(`/admin/series/${series.id}/edit`)
+
+  // Ohne Häkchen: nur die Vorlage
+  await submitForm(page, await readForm(page, '#edit-series-form'), { bringTemplate: 'Salat' })
+  expect(await slotsOf(empty.id)).toEqual([])
+  // Mit Häkchen: kommende Termine ohne Liste, nie überschrieben, nie vergangene
+  await submitForm(page, await readForm(page, '#edit-series-form'), { bringTemplate: '2x Salat\nKuchen', bringTemplateApply: 'on' })
+  expect(await slotsOf(empty.id)).toEqual(['2x Salat', '1x Kuchen'])
+  expect(await slotsOf(own.id)).toEqual(['1x Eigene'])
+  expect(await slotsOf(past.id)).toEqual([])
+  // Erneut: schon übernommene Listen bleiben unverändert (keine doppelten Einträge)
+  await submitForm(page, await readForm(page, '#edit-series-form'), { bringTemplate: 'Brot', bringTemplateApply: 'on' })
+  expect(await slotsOf(empty.id)).toEqual(['2x Salat', '1x Kuchen'])
+})
+
+test('Reihe: Vorlage nur durch Owner und Admins', async ({ page }) => {
+  const owner = await createAccount('CREATOR')
+  const series = await createSeries(owner, { bringTemplate: 'Salat' })
+  await login(page, owner.email)
+  await page.goto(`/admin/series/${series.id}/edit`)
+  const form = await readForm(page, '#edit-series-form')
+
+  const intruder = await createAccount('CREATOR')
+  const other = await page.context().browser()!.newPage()
+  await login(other, intruder.email)
+  await submitForm(other, form, { bringTemplate: 'Fremd' })
+  expect((await prisma.eventSeries.findUniqueOrThrow({ where: { id: series.id } })).bringTemplate).toBe('Salat')
+  // Gegenprobe
+  await submitForm(page, form, { bringTemplate: 'Kuchen' })
+  expect((await prisma.eventSeries.findUniqueOrThrow({ where: { id: series.id } })).bringTemplate).toBe('Kuchen')
+  await other.close()
 })

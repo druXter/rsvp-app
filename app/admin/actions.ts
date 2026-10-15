@@ -18,7 +18,8 @@ import { sendReminderPush } from '../lib/push'
 import { notifyAttendeesOfChange } from '../lib/event-change-notify'
 import { readToolLinks, saveToolLinks, type ToolLinkInput } from '../lib/linked-tools-store'
 import { parsePhotoUrl } from '../lib/photo-link'
-import { readBringSlots, saveBringSlots } from '../lib/bring-list'
+import { readFeedbackSettings } from '../lib/feedback-link'
+import { applyBringTemplate, formatBringSlots, readBringSlots, readBringTemplate, saveBringSlots } from '../lib/bring-list'
 import { notifyLinkedToolsBeforeDelete, notifyLinkedToolsOfRsvps } from '../lib/linked-tools-notify'
 import { deleteOrphanedParticipants } from '../lib/participants'
 import { assertCategoriesRemovable, readTicketCategories, saveTicketCategories, type TicketCategoryInput } from '../lib/tickets'
@@ -661,6 +662,7 @@ async function saveEvent(formData: FormData): Promise<string | undefined> {
   const notifyGuests = formData.get('notifyGuests') === 'on'
   const { pollUrl, pollLabel, datePending } = readPollLink(formData)
   const photoUrl = parsePhotoUrl(formData.get('photoUrl') as string || '')
+  const feedback = readFeedbackSettings(formData)
   const bringSlots = readBringSlots(formData)
   const toolLinks = readToolLinks(formData)
   const ticketing = await readTicketing(formData, id)
@@ -715,6 +717,7 @@ async function saveEvent(formData: FormData): Promise<string | undefined> {
       datePending,
       maxCompanions,
       inviteOnly,
+      ...feedback,
       ...deadline,
       ...readWishlistSettings(formData),
       ...(ticketing.payment ?? {}),
@@ -1182,16 +1185,22 @@ async function saveEventSeries(formData: FormData): Promise<string | undefined> 
   // Einladungsmodus der Reihe (docs/KONZEPT-EINLADUNGEN.md): gilt für alle Termine, gespiegelt auf Event.inviteOnly
   const inviteOnly = formData.has('inviteOnlyShown') ? formData.get('inviteOnly') === 'on' : existingSeries.inviteOnly
   await assertInviteOnlyAllowed(inviteOnly, { eventPin, requireVerification, requireGuestUser: existingSeries.requireGuestUser }, null, { seriesId: id })
+  // Mitbringliste als Vorlage für neue Termine (Idee L5); auf Wunsch auch für kommende Termine ohne eigene Liste
+  const bringTemplate = readBringTemplate(formData)
 
   const slug = slugInput.toLowerCase().replace(/[^a-z0-9-]/g, '-')
 
   await prisma.$transaction([
     prisma.eventSeries.update({
       where: { id },
-      data: { title, slug, description, askEmail, askPhone, askDiet, askAllergies, requireVerification, isGuestListVisible, eventPin, inviteOnly }
+      data: { title, slug, description, askEmail, askPhone, askDiet, askAllergies, requireVerification, isGuestListVisible, eventPin, inviteOnly, ...(bringTemplate !== undefined ? { bringTemplate } : {}) }
     }),
     prisma.event.updateMany({ where: { seriesId: id }, data: { inviteOnly } })
   ])
+  if (bringTemplate && formData.get('bringTemplateApply') === 'on') {
+    const upcoming = await prisma.event.findMany({ where: { seriesId: id, date: { gte: new Date() } }, select: { id: true } })
+    for (const termin of upcoming) await applyBringTemplate(termin.id, bringTemplate)
+  }
 
   revalidatePath('/admin', 'layout')
   return `/admin/series/${id}/edit?gespeichert=1`
@@ -1282,6 +1291,8 @@ export async function addTerminToSeries(formData: FormData) {
       inviteOnly: series.inviteOnly
     }
   })
+  // Mitbringliste aus der Vorlage der Reihe - danach die eigene Liste des Termins
+  await applyBringTemplate(created.id, series.bringTemplate)
 
   revalidatePath('/admin', 'layout')
   redirect(`/admin/events/${created.id}/einstellungen?neu=1&abschnitt=formular`)
@@ -1318,6 +1329,7 @@ async function saveSeriesTermin(formData: FormData): Promise<string | undefined>
   const notifyGuests = formData.get('notifyGuests') === 'on'
   const { pollUrl, pollLabel, datePending } = readPollLink(formData)
   const photoUrl = parsePhotoUrl(formData.get('photoUrl') as string || '')
+  const feedback = readFeedbackSettings(formData)
   const bringSlots = readBringSlots(formData)
   const toolLinks = readToolLinks(formData)
   const ticketing = await readTicketing(formData, id)
@@ -1350,7 +1362,7 @@ async function saveSeriesTermin(formData: FormData): Promise<string | undefined>
     where: { id },
     data: {
       title, slug, date, location, description, duration, formConfig, autoReminder, reminderDays, maxCapacity, enableCheckin,
-      pollUrl, pollLabel, datePending, photoUrl, maxCompanions, ...deadline, ...readWishlistSettings(formData),
+      pollUrl, pollLabel, datePending, photoUrl, maxCompanions, ...feedback, ...deadline, ...readWishlistSettings(formData),
       ...(ticketing.payment ?? {}),
       ...(ticketing.seatingRequiresPayment !== undefined ? { seatingRequiresPayment: ticketing.seatingRequiresPayment } : {}),
       ...(changes.length > 0 ? { icsSequence: { increment: 1 } } : {})
@@ -1359,6 +1371,10 @@ async function saveSeriesTermin(formData: FormData): Promise<string | undefined>
   // Geänderter oder entfernter Link leert, was das bisherige Tool-Event gemeldet hat (z.B. Plätze)
   await saveToolLinks(id, toolLinks)
   await saveBringSlots(id, bringSlots)
+  // "Als Vorlage der Reihe speichern": nur die Vorlage für neue Termine, andere Termine bleiben unberührt
+  if (bringSlots !== null && formData.get('bringSaveAsTemplate') === 'on' && existingEvent.seriesId) {
+    await prisma.eventSeries.update({ where: { id: existingEvent.seriesId }, data: { bringTemplate: formatBringSlots(bringSlots) || null } })
+  }
   await saveMenu(id, menu)
   await resetRemindersOnNewDeadline(id, existingEvent.rsvpDeadline, deadline.rsvpDeadline)
   await applyTicketing(id, ticketing, ticketing.seatingRequiresPayment !== undefined && ticketing.seatingRequiresPayment !== existingEvent.seatingRequiresPayment)
