@@ -1,8 +1,8 @@
 // app/mein-konto/reset-password/page.tsx
+import { SubmitButton } from '../../ui/kit'
 import { PrismaClient } from '@prisma/client'
 import Link from 'next/link'
 import { resetGuestPassword } from '../actions'
-import SubmitButton from '../../ui/submit-button'
 import AuthError from '../../ui/auth-error'
 import { hashToken } from '../../lib/tokens'
 

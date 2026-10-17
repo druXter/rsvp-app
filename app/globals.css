@@ -1,11 +1,4 @@
 @import "tailwindcss";
-
-/* Darkmode nach der Systemeinstellung - aber nur am Bildschirm: Beim Drucken (z. B. Gästeliste der Verwaltung) bleibt
-   es hell, sonst käme helle Schrift auf weißes Papier. Gleiche Regel wie in den anderen Tools der Suite. */
-@custom-variant dark (@media screen and (prefers-color-scheme: dark));
-
-@media screen {
-  :root {
-    color-scheme: light dark;
-  }
-}
+/* Gemeinsame Grundlage der Suite: Darkmode nur am Bildschirm, Ränder, Umbruch langer Wörter und die Klassen der
+   Bausteine aus suite-kit/ui (docs/DESIGN.md in suite-kit). */
+@import "suite-kit/theme.css";

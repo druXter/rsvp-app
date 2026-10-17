@@ -2,10 +2,9 @@
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '../../lib/auth'
 import { createUser } from '../actions'
-import SubmitButton from '../../ui/submit-button'
 import AuthError from '../../ui/auth-error'
 import AdminShell from '../admin-shell'
-import { PageHeader, inputClass } from '../../ui/kit'
+import { PageHeader, inputClass, SubmitButton } from '../../ui/kit'
 
 /**
  * Legt ein weiteres Benutzerkonto an (z.B. für ein anderes Referat, einen Freund

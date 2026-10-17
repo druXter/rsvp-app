@@ -1,10 +1,10 @@
+import { SubmitButton } from '../../ui/kit'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { parseAuthorizeRequest } from 'suite-kit'
 import { getCurrentGuestUser } from '../../lib/guest-auth'
 import { getParticipantApps, selfOrigin } from '../../lib/suite'
 import { grantToolConsent } from '../actions'
-import SubmitButton from '../../ui/submit-button'
 
 const ERRORS: Record<string, string> = {
   app: 'Dieses Tool darf keine Anmeldung mit deinem Teilnehmendenkonto anfordern, oder der Link ist unvollständig.',

@@ -1,11 +1,11 @@
 // app/verify/verify-form.tsx
 'use client'
 
+import { SubmitButton } from '../ui/kit'
 import { useActionState } from 'react'
 import Link from 'next/link'
 import { confirmParticipantVerification, type ParticipantVerificationState } from '../actions'
 import StatusCard from '../ui/status-card'
-import SubmitButton from '../ui/submit-button'
 
 /**
  * "Jetzt bestätigen" für das Double-Opt-In einer Zusage (siehe app/verify/page.tsx) und danach

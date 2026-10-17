@@ -1,4 +1,5 @@
 // app/mein-konto/account/page.tsx
+import { SubmitButton } from '../../ui/kit'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { PrismaClient } from '@prisma/client'
@@ -6,7 +7,6 @@ import { getCurrentGuestUser } from '../../lib/guest-auth'
 import { cookies } from 'next/headers'
 import { changeGuestPassword, requestGuestEmailChange, cancelGuestEmailChange, updateConfirmationEmailPreference, createApiToken, revokeApiToken, revokeToolConsent } from '../actions'
 import { NEW_API_TOKEN_COOKIE } from '../../lib/api-auth'
-import SubmitButton from '../../ui/submit-button'
 import AuthError from '../../ui/auth-error'
 import DeleteAccountButton from '../delete-account-button'
 

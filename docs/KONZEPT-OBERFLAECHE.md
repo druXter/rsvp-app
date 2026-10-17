@@ -44,11 +44,12 @@ Abschnitte werden mitgeschickt. Darunter Freigaben und Löschen.
 
 ## Gestaltung
 
-* Ruhig: weiß/grau, Blau nur für Hauptaktionen und den aktiven Reiter. Bausteine in `app/ui/kit.tsx` (Card, Badge,
-  Stat, ButtonLink/buttonClass, Notice, SettingsSection, PageHeader, inputClass).
+* Ruhig: weiß/grau, Blau nur für Hauptaktionen und den aktiven Reiter. Bausteine aus `suite-kit/ui` (seit suite-kit
+  v0.3.0 gemeinsam für alle Tools, Regeln in `docs/DESIGN.md` dort), re-exportiert in `app/ui/kit.tsx` mit dem eigenen
+  `formatShortDate`; Grundregeln (Darkmode, Ränder, Hintergrund) aus `suite-kit/theme.css`.
 * Farbe trägt Bedeutung: Status-Badges (grün dabei, orange Warteliste, rot Absage/überfällig) und eine kleine
   farbige Marke je Thema (die bisherigen Themenfarben aus `app/ui/theme-section.tsx`).
-* Rahmen aller Verwaltungsseiten: `AdminShell` mit Kopfzeile (Events, bei Admins Konten) und Konto-Menü
+* Rahmen aller Verwaltungsseiten: `AdminShell` mit Kopfzeile (`AppHeader` aus suite-kit/ui) (Events, bei Admins Konten) und Konto-Menü
   (Einstellungen, Konto anlegen, „Mein Konto“, Push, Abmelden). Beim Drucken ausgeblendet.
 
 ## Gästeseite

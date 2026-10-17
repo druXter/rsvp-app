@@ -1,11 +1,11 @@
 // app/[slug]/rsvp-form.tsx
 'use client'
 
+import { SubmitButton } from '../ui/kit'
 import { useState } from 'react'
 import Link from 'next/link'
 import type { Participant, Rsvp } from '@prisma/client'
 import { submitRsvp } from '../actions'
-import SubmitButton from '../ui/submit-button'
 import DeleteMyDataButton from './delete-my-data-button'
 import PushSubscribeToggle from './push-subscribe-toggle'
 import SeatingBox from '../ui/seating-box'

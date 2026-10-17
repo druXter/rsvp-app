@@ -6,14 +6,13 @@ import Link from 'next/link'
 import { updateAdminRsvp } from '../../actions'
 import { getCurrentUser } from '../../../lib/auth'
 import { hasEventModeratorOrAbove } from '../../../lib/permissions'
-import SubmitButton from '../../../ui/submit-button'
 import CompanionFields from '../../../ui/companion-fields'
 import { companionsOf, MAX_COMPANIONS, menuOf } from '../../../lib/persons'
 import { menuForForm } from '../../../lib/menu-store'
 import { invitationCovers } from '../../../lib/invitation-store'
 import MenuSelects from '../../../ui/menu-selects'
 import AdminShell from '../../admin-shell'
-import { PageHeader, inputClass } from '../../../ui/kit'
+import { PageHeader, inputClass, SubmitButton } from '../../../ui/kit'
 
 const prisma = new PrismaClient()
 

@@ -5,10 +5,9 @@ import { ROLE_LABELS } from '../../lib/permissions'
 import { changePassword, requestEmailChange, cancelEmailChange, unlinkIdentity } from '../actions'
 import { prisma } from '../../lib/prisma'
 import { getIdps, idpLabel } from '../../lib/suite'
-import SubmitButton from '../../ui/submit-button'
 import AuthError from '../../ui/auth-error'
 import AdminShell from '../admin-shell'
-import { PageHeader, inputClass } from '../../ui/kit'
+import { PageHeader, inputClass, SubmitButton } from '../../ui/kit'
 
 /**
  * Konto-Einstellungen für eingeloggte Admin-Konten (jeder Rolle inkl. Admin): Passwort

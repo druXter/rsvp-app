@@ -1,7 +1,7 @@
 // app/admin/forgot-password/page.tsx
+import { SubmitButton } from '../../ui/kit'
 import Link from 'next/link'
 import { requestPasswordReset } from '../actions'
-import SubmitButton from '../../ui/submit-button'
 
 /**
  * Formular zum Anfordern eines Passwort-Reset-Links. Zeigt nach dem Absenden IMMER

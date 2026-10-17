@@ -1,7 +1,7 @@
 // app/mein-konto/login/page.tsx
+import { SubmitButton } from '../../ui/kit'
 import Link from 'next/link'
 import { loginGuestUser } from '../actions'
-import SubmitButton from '../../ui/submit-button'
 import AuthError from '../../ui/auth-error'
 
 /**

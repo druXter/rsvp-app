@@ -3,8 +3,7 @@
 
 import { useActionState } from 'react'
 import { addInvitations, removeInvitation, saveInvitation, type InvitationFormState } from '../../../invitation-actions'
-import SubmitButton from '../../../../ui/submit-button'
-import { buttonClass, hintClass, inputClass, labelClass } from '../../../../ui/kit'
+import { buttonClass, hintClass, inputClass, labelClass, SubmitButton } from '../../../../ui/kit'
 
 const input = inputClass
 const label = labelClass

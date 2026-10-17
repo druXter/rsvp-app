@@ -1,10 +1,10 @@
 // app/admin/confirm-email/page.tsx
+import { SubmitButton } from '../../ui/kit'
 import { PrismaClient } from '@prisma/client'
 import Link from 'next/link'
 import { hashToken } from '../../lib/tokens'
 import { confirmEmailChange } from '../actions'
 import StatusCard from '../../ui/status-card'
-import SubmitButton from '../../ui/submit-button'
 
 const prisma = new PrismaClient()
 

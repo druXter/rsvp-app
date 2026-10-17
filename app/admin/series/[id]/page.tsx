@@ -8,8 +8,7 @@ import { invitationsForTermin } from '../../../lib/invitations'
 import { splitArchived } from '../../../lib/event-date'
 import EventRow from '../../event-row'
 import DeleteSeriesButton from '../../delete-series-button'
-import SubmitButton from '../../../ui/submit-button'
-import { EmptyState, inputClass, labelClass } from '../../../ui/kit'
+import { EmptyState, inputClass, labelClass, SubmitButton } from '../../../ui/kit'
 import { loadAdminSeries } from './series-access'
 
 const TERMIN_SUMMARY = {

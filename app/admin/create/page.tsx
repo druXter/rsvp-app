@@ -4,8 +4,7 @@ import { createEvent } from '../actions'
 import { getCurrentUser } from '../../lib/auth'
 import { EVENT_PRESETS } from '../../lib/event-presets'
 import AdminShell from '../admin-shell'
-import SubmitButton from '../../ui/submit-button'
-import { Card, PageHeader, hintClass, inputClass, labelClass } from '../../ui/kit'
+import { Card, PageHeader, hintClass, inputClass, labelClass, SubmitButton } from '../../ui/kit'
 
 /**
  * Neues Event (docs/KONZEPT-OBERFLAECHE.md): nur Grunddaten und die Art des Events. Die Art setzt passende

@@ -3,8 +3,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import type { ReactNode } from 'react'
 import AdminShell from '../../admin-shell'
-import NavLink from '../../nav-link'
-import { Badge, ButtonLink } from '../../../ui/kit'
+import { Badge, ButtonLink, Tabs } from '../../../ui/kit'
 import { loadAdminSeries } from './series-access'
 
 /**
@@ -39,11 +38,11 @@ export default async function SeriesLayout({ params, children }: { params: Promi
           <ButtonLink href={`/reihe/${series.slug}`} external>Seite der Reihe ↗</ButtonLink>
         </div>
       </div>
-      <nav className="-mx-4 mb-6 flex overflow-x-auto border-b border-gray-200 px-4 dark:border-gray-700" aria-label="Bereiche der Reihe">
-        <NavLink href={base} exact variant="tab">Termine</NavLink>
-        {(series.inviteOnly || series._count.invitations > 0) && <NavLink href={`${base}/einladungen`} variant="tab">Einladungen</NavLink>}
-        <NavLink href={`${base}/edit`} variant="tab">{isOwner ? 'Einstellungen und Mitglieder' : 'Mitglieder'}</NavLink>
-      </nav>
+      <Tabs label="Bereiche der Reihe" items={[
+        { href: base, label: 'Termine', exact: true },
+        ...(series.inviteOnly || series._count.invitations > 0 ? [{ href: `${base}/einladungen`, label: 'Einladungen' }] : []),
+        { href: `${base}/edit`, label: isOwner ? 'Einstellungen und Mitglieder' : 'Mitglieder' }
+      ]} />
       {children}
     </AdminShell>
   )

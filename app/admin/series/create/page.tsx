@@ -2,10 +2,9 @@
 import { redirect } from 'next/navigation'
 import { createEventSeries } from '../../actions'
 import { getCurrentUser } from '../../../lib/auth'
-import SubmitButton from '../../../ui/submit-button'
 import ThemeSection, { themeClasses } from '../../../ui/theme-section'
 import AdminShell from '../../admin-shell'
-import { PageHeader, inputClass } from '../../../ui/kit'
+import { PageHeader, inputClass, SubmitButton } from '../../../ui/kit'
 
 export default async function CreateEventSeriesPage() {
   const user = await getCurrentUser()

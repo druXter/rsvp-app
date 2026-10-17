@@ -3,8 +3,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import type { ReactNode } from 'react'
 import AdminShell from '../../admin-shell'
-import NavLink from '../../nav-link'
-import { Badge, ButtonLink, formatShortDate } from '../../../ui/kit'
+import { Badge, ButtonLink, formatShortDate, Tabs } from '../../../ui/kit'
 import { eventTabs, guestPageOf, loadAdminEvent } from './event-access'
 
 /**
@@ -44,9 +43,7 @@ export default async function EventLayout({ params, children }: { params: Promis
           </div>
         </div>
       </div>
-      <nav className="-mx-4 mb-6 flex overflow-x-auto border-b border-gray-200 px-4 dark:border-gray-700 print:hidden" aria-label="Bereiche des Events">
-        {eventTabs(loaded).map(tab => <NavLink key={tab.href} href={tab.href} exact={tab.exact} variant="tab">{tab.label}</NavLink>)}
-      </nav>
+      <Tabs label="Bereiche des Events" items={eventTabs(loaded)} />
       {children}
     </AdminShell>
   )

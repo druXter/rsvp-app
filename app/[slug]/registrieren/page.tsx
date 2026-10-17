@@ -1,11 +1,11 @@
 // app/[slug]/registrieren/page.tsx
+import { SubmitButton } from '../../ui/kit'
 import { PrismaClient } from '@prisma/client'
 import { notFound } from 'next/navigation'
 import { cookies } from 'next/headers'
 import Link from 'next/link'
 import PinForm from '../pin-form'
 import { registerGuestUser } from '../../mein-konto/actions'
-import SubmitButton from '../../ui/submit-button'
 import AuthError from '../../ui/auth-error'
 
 const prisma = new PrismaClient()

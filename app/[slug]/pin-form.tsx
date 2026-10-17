@@ -2,9 +2,9 @@
 
 'use client'
 
+import { SubmitButton } from '../ui/kit'
 import { useState } from 'react'
 import { verifyEventPin } from '../actions'
-import SubmitButton from '../ui/submit-button'
 
 export default function PinForm({ eventId, seriesId, slug, title }: { eventId?: string, seriesId?: string, slug: string, title: string }) {
   const [error, setError] = useState<string | null>(null)

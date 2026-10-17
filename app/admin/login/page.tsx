@@ -1,7 +1,7 @@
 // app/admin/login/page.tsx
+import { SubmitButton } from '../../ui/kit'
 import Link from 'next/link'
 import { loginUser } from '../actions'
-import SubmitButton from '../../ui/submit-button'
 import AuthError from '../../ui/auth-error'
 import { sanitizeNextPath } from 'suite-kit'
 import { getIdps, idpLabel, loginRedirectIdp, shouldAutoRedirect } from '../../lib/suite'
