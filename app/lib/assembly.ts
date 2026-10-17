@@ -3,7 +3,10 @@
 // Sitzung im Abstimmungstool (Idee L7, Konzept: abstimmungstool docs/KONZEPT-SITZUNG.md): Ein Termin verlinkt eine
 // Sitzung (`Event.assemblyUrl` = `<Abstimmungstool>/sitzung/<id>`). Gäste mit einer Zusage, die zählt, treten über
 // /api/assembly-link/[eventId] bei (Nachweis `assembly-access` mit Pseudonym und Namen); das Abstimmungstool fragt die
-// Anwesenheit über POST /api/assembly/roster ab (`assembly-roster`, Antwort `assembly-roster-result`). Gegenstück dort:
+// Anwesenheit über POST /api/assembly/roster ab (`assembly-roster`, Antwort `assembly-roster-result`). Die
+// Sitzungsleitung holt sich dort die Liste mit Namen (`assembly-attendance`, /api/assembly/attendance) und checkt ein
+// und aus (`assembly-presence`, /api/assembly/presence) - ebenso Mitglieder sich selbst, wenn die Sitzung das erlaubt.
+// Gegenstück dort:
 // app/lib/assembly-coupling.ts. Gleiches Format und Secret wie die übrige Kopplung (POLL_VERIFICATION_SECRET).
 import { createHmac } from 'node:crypto'
 import { InputError } from './input-error'
@@ -96,13 +99,46 @@ export function signAssemblyAccess(assemblyId: string, eventId: string, rsvpId: 
   return sign({ typ: 'assembly-access', assemblyId, eventId, sub: assemblySubject(assemblyId, rsvpId, key), name: name.trim().slice(0, 100), exp }, key)
 }
 
-/** Anfrage des Abstimmungstools nach der Anwesenheit: Sitzung und Termin, sonst null. */
-export function verifyRosterRequest(token: string | null): { assemblyId: string; eventId: string } | null {
+function verifyAssemblyQuery(token: string | null, typ: string): { assemblyId: string; eventId: string; payload: Record<string, unknown> } | null {
   const payload = verifySignedPayload(token)
-  if (!payload || payload.typ !== 'assembly-roster') return null
+  if (!payload || payload.typ !== typ) return null
   const { assemblyId, eventId } = payload
   if (typeof assemblyId !== 'string' || !ID.test(assemblyId) || typeof eventId !== 'string' || !ID.test(eventId)) return null
-  return { assemblyId, eventId }
+  return { assemblyId, eventId, payload }
+}
+
+/** Anfrage des Abstimmungstools nach der Anwesenheit: Sitzung und Termin, sonst null. */
+export function verifyRosterRequest(token: string | null): { assemblyId: string; eventId: string } | null {
+  const query = verifyAssemblyQuery(token, 'assembly-roster')
+  return query && { assemblyId: query.assemblyId, eventId: query.eventId }
+}
+
+/** Anfrage der Sitzungsleitung nach der Anwesenheitsliste mit Namen (`assembly-attendance`). */
+export function verifyAttendanceRequest(token: string | null): { assemblyId: string; eventId: string } | null {
+  const query = verifyAssemblyQuery(token, 'assembly-attendance')
+  return query && { assemblyId: query.assemblyId, eventId: query.eventId }
+}
+
+const SUBJECT = /^[A-Za-z0-9_-]{16,128}$/
+
+/**
+ * Ein- oder Auschecken aus dem Abstimmungstool (`assembly-presence`): durch die Sitzungsleitung oder - wenn die Sitzung
+ * es erlaubt - durch das Mitglied selbst. `present` ist der Zielzustand (nie "umschalten"), damit ein doppelt
+ * abgeschickter Klick nichts kaputt macht.
+ */
+export function verifyPresenceChange(token: string | null): { assemblyId: string; eventId: string; sub: string; present: boolean } | null {
+  const query = verifyAssemblyQuery(token, 'assembly-presence')
+  if (!query) return null
+  const { sub, present } = query.payload
+  if (typeof sub !== 'string' || !SUBJECT.test(sub) || typeof present !== 'boolean') return null
+  return { assemblyId: query.assemblyId, eventId: query.eventId, sub, present }
+}
+
+/** Die Zusage, die zum Pseudonym gehört (nur unter den übergebenen) - oder null. */
+export function rsvpOfSubject<T extends { id: string }>(assemblyId: string, rsvps: readonly T[], sub: string): T | null {
+  const key = secret()
+  if (!key) return null
+  return rsvps.find(r => assemblySubject(assemblyId, r.id, key) === sub) ?? null
 }
 
 type RosterRsvp = { id: string; isAttending: boolean; isOnWaitlist: boolean; hasAttended: boolean; leftAt: Date | null; participant: { isVerified: boolean } }
@@ -123,6 +159,36 @@ export function signRosterResult(
   const present = event.enableCheckin ? members.filter(r => isPresent(r)).map(r => assemblySubject(assemblyId, r.id, key)) : []
   return sign({
     typ: 'assembly-roster-result', assemblyId, eventId: event.id, checkin: event.enableCheckin, members: members.length, present,
+    exp: Math.floor(Date.now() / 1000) + MESSAGE_TTL_SECONDS
+  }, key)
+}
+
+type AttendanceRsvp = RosterRsvp & { participant: { isVerified: boolean; name: string } }
+
+/**
+ * Anwesenheitsliste für die Sitzungsleitung (Antwort auf `assembly-attendance`): alle Zusagen, die zählen, mit
+ * Pseudonym, Namen der Zusage, ob gerade da und ob schon wieder gegangen (mit Kommen und Gehen). Keine E-Mail, keine
+ * Rsvp-ID. Das Abstimmungstool zeigt die Liste nur der Sitzungsleitung und speichert sie nicht. Signiert, null ohne Secret.
+ */
+export function signAttendanceResult(
+  assemblyId: string,
+  event: { id: string; enableCheckin: boolean; trackPresence: boolean },
+  rsvps: readonly AttendanceRsvp[],
+  requireVerification: boolean
+): string | null {
+  const key = secret()
+  if (!key) return null
+  const people = rsvps
+    .filter(r => isConfirmedRsvp(r, r.participant, requireVerification))
+    .map(r => ({
+      sub: assemblySubject(assemblyId, r.id, key),
+      name: r.participant.name.trim().slice(0, 100),
+      present: event.enableCheckin && isPresent(r),
+      left: event.enableCheckin && r.hasAttended && !!r.leftAt
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'de'))
+  return sign({
+    typ: 'assembly-attendance-result', assemblyId, eventId: event.id, checkin: event.enableCheckin, trackPresence: event.trackPresence, people,
     exp: Math.floor(Date.now() / 1000) + MESSAGE_TTL_SECONDS
   }, key)
 }

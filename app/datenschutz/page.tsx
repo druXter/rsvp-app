@@ -323,8 +323,13 @@ export default function DatenschutzPage() {
             <strong>Pseudonym deiner Antwort</strong>, das nur für diese Sitzung gilt - keine E-Mail-Adresse und keine
             weiteren Angaben. Damit nur Anwesende abstimmen können, fragt die Abstimmungs-Anwendung bei uns ab, wer gerade
             eingecheckt ist; wir antworten nur mit den Pseudonymen der Anwesenden und der Zahl der Zusagen. Beim
-            Speichern des Links melden wir der Abstimmungs-Anwendung außerdem Kennung und Titel des Termins.
-            Rechtsgrundlage ist die Durchführung der Versammlung (Art. 6 Abs. 1 lit. b bzw. f DSGVO).
+            Speichern des Links melden wir der Abstimmungs-Anwendung außerdem Kennung und Titel des Termins. Für die
+            Sitzungsleitung (und wen sie dort freigibt, etwa das Protokoll) übermitteln wir auf Anfrage eine
+            Anwesenheitsliste mit den <strong>Namen und Pseudonymen aller Zusagen</strong> und ob die Person gerade da
+            ist, damit sie ohne Scan ein- und auschecken kann; die Abstimmungs-Anwendung zeigt die Liste nur an und
+            speichert sie nicht. Checkt die Sitzungsleitung jemanden ein oder aus - oder du dich selbst, wenn die
+            Sitzung das erlaubt -, halten wir das wie beim Einlass-Scan fest (mit &quot;Kommen und Gehen&quot; samt
+            Uhrzeit). Rechtsgrundlage ist die Durchführung der Versammlung (Art. 6 Abs. 1 lit. b bzw. f DSGVO).
           </p>
         </div>
 

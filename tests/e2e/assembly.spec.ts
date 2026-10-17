@@ -136,3 +136,83 @@ test('Anwesenheit fürs Abstimmungstool: nur Eingecheckte, die nicht gegangen si
   await prisma.event.update({ where: { id: event.id }, data: { enableCheckin: false } })
   expect(verified(await (await ask({ typ: 'assembly-roster', assemblyId: id, eventId: event.id, exp: exp() })).text())).toMatchObject({ checkin: false, present: [] })
 })
+
+test('Anwesenheitsliste für die Sitzungsleitung: alle Zusagen mit Namen und Pseudonym, signiert, nur für die verlinkte Sitzung', async ({ request }) => {
+  const owner = await createAccount('CREATOR')
+  const id = assemblyId()
+  const event = await createEvent(owner, { enableCheckin: true, trackPresence: true, assemblyUrl: assemblyUrl(id) })
+  const { participant: anna, rsvp: here } = await createRsvp(event, { name: 'Anna Anwesend' })
+  const { rsvp: left } = await createRsvp(event, { name: 'Bert Gegangen' })
+  const { rsvp: away } = await createRsvp(event, { name: 'Cleo Fehlt' })
+  await createRsvp(event, { isAttending: false, name: 'Dora Absage' })
+  await createRsvp(event, { isOnWaitlist: true, name: 'Emil Warteliste' })
+  await prisma.participant.update({ where: { id: anna.id }, data: { email: 'anna@example.test' } })
+  await prisma.rsvp.update({ where: { id: here.id }, data: { hasAttended: true, checkedInAt: new Date() } })
+  await prisma.rsvp.update({ where: { id: left.id }, data: { hasAttended: true, checkedInAt: new Date(), leftAt: new Date() } })
+  const ask = (payload: object, secret?: string) => request.post('/api/assembly/attendance', { data: signCouplingToken(payload, secret), headers: { 'content-type': 'text/plain' } })
+
+  const response = await ask({ typ: 'assembly-attendance', assemblyId: id, eventId: event.id, exp: exp() })
+  expect(response.status()).toBe(200)
+  const payload = verified(await response.text())
+  expect(payload).toMatchObject({
+    typ: 'assembly-attendance-result', assemblyId: id, eventId: event.id, checkin: true, trackPresence: true,
+    people: [
+      { sub: sub(id, here.id), name: 'Anna Anwesend', present: true, left: false },
+      { sub: sub(id, left.id), name: 'Bert Gegangen', present: false, left: true },
+      { sub: sub(id, away.id), name: 'Cleo Fehlt', present: false, left: false }
+    ]
+  })
+  for (const secretValue of ['anna@example.test', here.id, 'Dora', 'Emil']) expect(JSON.stringify(payload)).not.toContain(secretValue)
+
+  // Falsches Secret, falscher typ (Anfrage nach der Anwesenheit ist keine Anfrage nach Namen), fremde Sitzung
+  expect((await ask({ typ: 'assembly-attendance', assemblyId: id, eventId: event.id, exp: exp() }, 'falsch')).status()).toBe(401)
+  expect((await ask({ typ: 'assembly-roster', assemblyId: id, eventId: event.id, exp: exp() })).status()).toBe(401)
+  expect((await ask({ typ: 'assembly-attendance', assemblyId: assemblyId(), eventId: event.id, exp: exp() })).status()).toBe(404)
+})
+
+test('Ein- und Auschecken aus der Sitzung: Zielzustand, mit Protokoll, nur verlinkte Sitzung mit QR-Einlass und nur Zusagen, die zählen', async ({ request }) => {
+  const owner = await createAccount('CREATOR')
+  const id = assemblyId()
+  const event = await createEvent(owner, { enableCheckin: true, trackPresence: true, assemblyUrl: assemblyUrl(id) })
+  const { rsvp } = await createRsvp(event, { name: 'Anna Anwesend' })
+  const { rsvp: declined } = await createRsvp(event, { isAttending: false })
+  const change = (present: boolean, extra: object = {}, secret?: string) => request.post('/api/assembly/presence', {
+    data: signCouplingToken({ typ: 'assembly-presence', assemblyId: id, eventId: event.id, sub: sub(id, rsvp.id), present, exp: exp(), ...extra }, secret),
+    headers: { 'content-type': 'text/plain' }
+  })
+  const state = () => prisma.rsvp.findUniqueOrThrow({ where: { id: rsvp.id } })
+  const entries = () => prisma.presenceEntry.findMany({ where: { rsvpId: rsvp.id }, orderBy: { at: 'asc' } })
+
+  expect((await change(true)).status()).toBe(200)
+  expect(await state()).toMatchObject({ hasAttended: true, leftAt: null })
+  // Zweimal einchecken ändert nichts (Zielzustand, kein Umschalten)
+  expect((await change(true)).status()).toBe(200)
+  expect((await entries()).map(e => e.kind)).toEqual(['IN'])
+
+  expect((await change(false)).status()).toBe(200)
+  expect((await state()).leftAt).not.toBeNull()
+  expect((await state()).hasAttended).toBe(true)
+  expect((await change(false)).status()).toBe(200)
+  expect((await entries()).map(e => [e.kind, e.name])).toEqual([['IN', 'Anna Anwesend'], ['OUT', 'Anna Anwesend']])
+
+  // Falsches Secret, falscher typ, ohne Zielzustand, fremde Sitzung, Absage, unbekanntes Pseudonym: nichts passiert
+  expect((await change(true, {}, 'falsch')).status()).toBe(401)
+  expect((await change(true, { typ: 'assembly-roster' })).status()).toBe(401)
+  expect((await change(true, { present: 'ja' })).status()).toBe(401)
+  expect((await change(true, { assemblyId: assemblyId() })).status()).toBe(404)
+  expect((await change(true, { sub: sub(id, declined.id) })).status()).toBe(404)
+  expect((await change(true, { sub: sub(assemblyId(), rsvp.id) })).status()).toBe(404)
+  expect((await entries())).toHaveLength(2)
+
+  // Ohne Kommen und Gehen heißt Auschecken austragen; ohne QR-Einlass gar nicht
+  await prisma.event.update({ where: { id: event.id }, data: { trackPresence: false } })
+  const { rsvp: plain } = await createRsvp(event)
+  const other = { sub: sub(id, plain.id) }
+  expect((await change(true, other)).status()).toBe(200)
+  expect(await prisma.rsvp.findUniqueOrThrow({ where: { id: plain.id } })).toMatchObject({ hasAttended: true })
+  expect((await change(false, other)).status()).toBe(200)
+  expect(await prisma.rsvp.findUniqueOrThrow({ where: { id: plain.id } })).toMatchObject({ hasAttended: false, checkedInAt: null })
+  await prisma.event.update({ where: { id: event.id }, data: { enableCheckin: false } })
+  expect((await change(true, other)).status()).toBe(409)
+  expect((await prisma.rsvp.findUniqueOrThrow({ where: { id: plain.id } })).hasAttended).toBe(false)
+})
