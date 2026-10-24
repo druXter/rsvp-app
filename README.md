@@ -481,6 +481,10 @@ Gilt für Verwaltungskonten (`/admin/login`) **und** Teilnehmendenkonten (`/mein
   `app/lib/mail-templates.ts`): Bausteine statt eigenem HTML, jeder Text escapet, nur sichere Links. Sonst ließe sich über eine Anmeldung mit fremder Adresse beliebiges HTML über unseren
   Absender an Dritte schicken.
 * **Event-/Reihen-PIN** wird überall durchgesetzt, wo ein Event über seine ID erreichbar ist (`app/lib/pin.ts`) - Antworten, Kalenderdatei (`/api/ical`), Abstimmungs-Link und Konto-Registrierung für die Reihe, nicht nur die Anzeige der Seite. Der persönliche Link aus der Bestätigungs-Mail funktioniert weiter (gültiger Token dieses Termins). Das Raten der PIN ist gedrosselt (10 Versuche pro IP und Event, 100 pro Event, jeweils 15 Minuten).
+* **Push-Abos** (Gäste über den persönlichen Link, Verwaltungskonten) werden nur gespeichert, wenn der Endpoint zu einem
+  Push-Dienst der Browser-Hersteller gehört (`validPushSubscription` aus `suite-kit/web`). Der Server schickt später
+  Anfragen an den Endpoint - vorher hätte jede*r mit einem persönlichen Link eine beliebige Adresse eintragen können,
+  auch im internen Netz (SSRF).
 * **Cron-Endpunkte** (`/api/cron/*`) lehnen ein leeres oder fehlendes `CRON_SECRET` ab - vorher schaltete `?secret=`
   (leer) den Endpunkt bei einem leeren Platzhalter-Secret frei.
 

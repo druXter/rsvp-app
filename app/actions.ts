@@ -1,6 +1,7 @@
 // app/actions.ts
 'use server'
 
+import { type PushSubscriptionInput, validPushSubscription } from 'suite-kit/web'
 import { safeEqual } from 'suite-kit'
 import { prisma } from './lib/prisma'
 import { revalidatePath } from 'next/cache'
@@ -152,19 +153,18 @@ export async function deleteMyParticipantData(formData: FormData) {
  * ein bereits bekannter Endpoint erneut abonniert, werden einfach die Keys aktualisiert
  * statt einen Duplikat-Eintrag anzulegen.
  */
-export async function subscribeParticipantToPush(
-  editToken: string,
-  subscription: { endpoint: string; keys: { p256dh: string; auth: string } }
-) {
-  if (!editToken) return
+export async function subscribeParticipantToPush(editToken: unknown, input: PushSubscriptionInput) {
+  // Nur Push-Dienste der Browser-Hersteller: Der Server schickt später Anfragen an den Endpoint (SSRF-Schutz).
+  const subscription = validPushSubscription(input)
+  if (typeof editToken !== 'string' || !editToken || !subscription) return
 
   const participant = await prisma.participant.findUnique({ where: { editToken } })
   if (!participant) return
 
   await prisma.participantPushSubscription.upsert({
     where: { endpoint: subscription.endpoint },
-    update: { p256dh: subscription.keys.p256dh, auth: subscription.keys.auth, participantId: participant.id },
-    create: { endpoint: subscription.endpoint, p256dh: subscription.keys.p256dh, auth: subscription.keys.auth, participantId: participant.id }
+    update: { p256dh: subscription.p256dh, auth: subscription.auth, participantId: participant.id },
+    create: { ...subscription, participantId: participant.id }
   })
 }
 

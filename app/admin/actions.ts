@@ -3,6 +3,7 @@
 
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
+import { type PushSubscriptionInput, validPushSubscription } from 'suite-kit/web'
 import { revalidatePath } from 'next/cache'
 import { Prisma, Role, type Event, type EventSeries, type Participant, type Rsvp } from '@prisma/client'
 import { prisma } from '../lib/prisma'
@@ -1540,13 +1541,16 @@ export async function togglePersonAttendance(formData: FormData) {
  * den eingeloggten Nutzer. Wird ein bereits bekannter Endpoint erneut abonniert (z.B.
  * nach Ablauf erneuert), werden einfach die Keys aktualisiert statt einen Duplikat-Eintrag anzulegen.
  */
-export async function subscribeToPush(subscription: { endpoint: string; keys: { p256dh: string; auth: string } }) {
+export async function subscribeToPush(input: PushSubscriptionInput) {
   const user = await requireUser()
+  // Nur Push-Dienste der Browser-Hersteller: Der Server schickt später Anfragen an den Endpoint (SSRF-Schutz).
+  const subscription = validPushSubscription(input)
+  if (!subscription) return
 
   await prisma.pushSubscription.upsert({
     where: { endpoint: subscription.endpoint },
-    update: { p256dh: subscription.keys.p256dh, auth: subscription.keys.auth, userId: user.id },
-    create: { endpoint: subscription.endpoint, p256dh: subscription.keys.p256dh, auth: subscription.keys.auth, userId: user.id }
+    update: { p256dh: subscription.p256dh, auth: subscription.auth, userId: user.id },
+    create: { ...subscription, userId: user.id }
   })
 }
 
