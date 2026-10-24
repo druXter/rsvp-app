@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client'
 import { getGuestUserFromApiToken, apiError } from '../../../lib/api-auth'
 import { companionsOf, menuOf } from '../../../lib/persons'
 import { courseOptions } from '../../../lib/menu'
+import { summarizeEvent } from '../../../lib/event-summary'
 
 const prisma = new PrismaClient()
 
@@ -10,8 +11,11 @@ const prisma = new PrismaClient()
  * Alle kommenden Termine der Reihen, denen das Konto angehört - jeweils mit der eigenen
  * Antwort, sofern schon eine abgegeben wurde. Bewusst auf die eigenen Mitgliedschaften
  * begrenzt: die API gibt nie Daten anderer Gäste heraus, also weder eine Gästeliste noch
- * fremde Namen. Eine Reihen-PIN wird hier nicht geprüft, weil sie die öffentlichen Seiten
- * vor Fremden schützt - wer bereits Mitglied der Reihe ist, hat sie längst passiert.
+ * fremde Namen. Einzige Ausnahme sind die Summen der Antworten (`responses`), und nur in
+ * Reihen mit sichtbarer Gästeliste - dort sehen alle Mitglieder auf der Seite ohnehin mehr
+ * (Namen). Gezählt wird wie in der Verwaltung (summarizeEvent). Eine Reihen-PIN wird hier
+ * nicht geprüft, weil sie die öffentlichen Seiten vor Fremden schützt - wer bereits Mitglied
+ * der Reihe ist, hat sie längst passiert.
  */
 export async function GET(request: Request) {
   const guestUser = await getGuestUserFromApiToken(request)
@@ -35,6 +39,23 @@ export async function GET(request: Request) {
   const rsvpByEventId = new Map(
     participants.flatMap(p => p.rsvps.map(r => [r.eventId, r] as const))
   )
+
+  // Summen nur für Reihen mit sichtbarer Gästeliste - ohne Namen oder sonstige Angaben anderer Gäste.
+  const countedEventIds = memberships.filter(m => m.series.isGuestListVisible).flatMap(m => m.series.events.map(e => e.id))
+  const allRsvps = countedEventIds.length
+    ? await prisma.rsvp.findMany({
+        where: { eventId: { in: countedEventIds } },
+        select: {
+          eventId: true, isAttending: true, isOnWaitlist: true, hasAttended: true,
+          amountCents: true, paidAt: true, refundedAt: true, paymentDueAt: true,
+          persons: { select: { isAttending: true, ageGroup: true } }
+        }
+      })
+    : []
+  function responsesOf(eventId: string) {
+    const summary = summarizeEvent(allRsvps.filter(r => r.eventId === eventId))
+    return { yes: summary.confirmed, no: summary.declined, waitlist: summary.waitlist, persons: summary.attendees }
+  }
 
   return Response.json({
     series: memberships.map(m => ({
@@ -62,6 +83,9 @@ export async function GET(request: Request) {
           url: `/reihe/${m.series.slug}/${event.slug}`,
           // Verknüpfte Abstimmung (Event.pollUrl); den persönlichen Link gibt GET .../[id]/abstimmung
           poll: event.pollUrl ? { label: event.pollLabel || null } : null,
+          // Summen aller Antworten (yes/no/waitlist = Antworten, persons = zusagende Personen mit Begleitungen),
+          // null, wenn die Gästeliste der Reihe nicht sichtbar ist
+          responses: m.series.isGuestListVisible ? responsesOf(event.id) : null,
           myRsvp: rsvp
             ? {
                 isAttending: rsvp.isAttending,

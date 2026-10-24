@@ -454,8 +454,10 @@ export default function DatenschutzPage() {
             entwickelten App (z.B. auf einer Smartwatch) deine Termine abzurufen und zu- oder abzusagen. Ein
             solcher Token gibt ausschließlich <strong>deine eigenen</strong> Daten heraus - deine Reihen, deine
             Termine und deine Antworten, bei Terminen mit verknüpfter Abstimmung auch deinen persönlichen
-            Abstimmungslink (10 Minuten gültig, mit deiner E-Mail-Adresse und deiner Zusage). Gästelisten oder Angaben anderer Personen sind darüber nicht
-            erreichbar, ebenso wenig der Veranstalter:innen-Bereich.
+            Abstimmungslink (10 Minuten gültig, mit deiner E-Mail-Adresse und deiner Zusage). Gästelisten oder
+            Angaben anderer Personen sind darüber nicht erreichbar, ebenso wenig der Veranstalter:innen-Bereich. Bei
+            Reihen mit öffentlicher Gästeliste (Punkt 7) liefert die Schnittstelle zusätzlich nur die Summen der
+            Antworten je Termin (wie viele zugesagt, abgesagt oder auf der Warteliste sind), ohne Namen.
           </p>
           <p className="mt-2">
             Wir speichern zu jedem Token seinen Namen, das Erstellungsdatum und den Zeitpunkt der letzten

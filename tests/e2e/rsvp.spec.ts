@@ -73,6 +73,36 @@ test.describe('Client-API (/api/v1)', () => {
     expect(await prisma.rsvp.count({ where: { eventId: termin.id } })).toBe(1)
   })
 
+  test('Summen aller Antworten nur bei sichtbarer Gästeliste, ohne Angaben anderer Gäste', async ({ request }) => {
+    const owner = await createAccount('CREATOR')
+    const visible = await createSeries(owner, { isGuestListVisible: true })
+    const hidden = await createSeries(owner, { isGuestListVisible: false })
+    const termin = await createTermin(visible)
+    const other = await createTermin(hidden)
+    const { guest, token } = await member(visible.id)
+    await prisma.guestUserSeries.create({ data: { guestUserId: guest.id, seriesId: hidden.id } })
+
+    const withCompanion = await createRsvp(termin, { name: 'Geheimname Anna' })
+    await prisma.rsvpPerson.createMany({ data: [
+      { rsvpId: withCompanion.rsvp.id, position: 0, name: 'Geheimname Anna', isAttending: true },
+      { rsvpId: withCompanion.rsvp.id, position: 1, name: 'Geheimname Ben', isAttending: true }
+    ] })
+    await createRsvp(termin)
+    await createRsvp(termin, { isAttending: false })
+    await createRsvp(termin, { isOnWaitlist: true })
+    await createRsvp(other)
+
+    const response = await request.get('/api/v1/termine', { headers: { authorization: `Bearer ${token}` } })
+    expect(response.status()).toBe(200)
+    const text = await response.text()
+    expect(text).not.toContain('Geheimname')
+    const body = JSON.parse(text)
+    const find = (seriesId: string, eventId: string) =>
+      body.series.find((s: { id: string }) => s.id === seriesId).events.find((e: { id: string }) => e.id === eventId)
+    expect(find(visible.id, termin.id).responses).toEqual({ yes: 2, no: 1, waitlist: 1, persons: 3 })
+    expect(find(hidden.id, other.id).responses).toBeNull()
+  })
+
   test('erneute Antwort ersetzt die bisherige; Name und Profil kommen immer aus dem Konto', async ({ request }) => {
     const owner = await createAccount('CREATOR')
     const series = await createSeries(owner)
