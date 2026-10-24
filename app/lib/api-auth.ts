@@ -1,5 +1,5 @@
 // app/lib/api-auth.ts
-import { PrismaClient, GuestUser } from '@prisma/client'
+import { PrismaClient, GuestUser, User } from '@prisma/client'
 import { createHash, randomBytes, timingSafeEqual } from 'crypto'
 
 const prisma = new PrismaClient()
@@ -9,8 +9,9 @@ const prisma = new PrismaClient()
  * wie eine WatchOS-App. Bewusst getrennt von den beiden Cookie-Logins (app/lib/auth.ts für
  * Admins, app/lib/guest-auth.ts für Nutzer-Konten): ein nativer Client hat keinen Browser,
  * der Cookies verwaltet, und soll weder das Passwort speichern noch die Browser-Sitzung
- * des Nutzenden übernehmen können. Ein API-Token gilt ausschließlich für die Gast-Seite -
- * es kann nie zu Admin-Rechten führen, egal wem das Konto gehört.
+ * des Nutzenden übernehmen können. Ein Gast-Token (GuestApiToken) gilt ausschließlich für die
+ * Gast-Seite - es kann nie zu Verwaltungsrechten führen, egal wem das Konto gehört. Für
+ * Verwaltungskonten gibt es eigene, rein lesende Tokens (UserApiToken, unten).
  */
 
 const TOKEN_PREFIX = 'rsvp_'
@@ -38,6 +39,24 @@ export function hashApiToken(token: string): string {
   return createHash('sha256').update(token).digest('hex')
 }
 
+/** Klartext-Token aus dem `Authorization: Bearer ...`-Header, sonst null. */
+function bearerToken(request: Request): string | null {
+  const header = request.headers.get('authorization')
+  if (!header?.startsWith('Bearer ')) return null
+  return header.slice('Bearer '.length).trim() || null
+}
+
+/**
+ * Der Lookup läuft bereits über den Hash, ist also kein Zeichenvergleich auf dem Geheimnis selbst; dieser
+ * Vergleich stellt nur sicher, dass ein manipulierter Datenbankeintrag nicht doch einen abweichenden Token
+ * akzeptiert.
+ */
+function hashMatches(storedHash: string, presented: string): boolean {
+  const expected = Buffer.from(storedHash, 'utf8')
+  const actual = Buffer.from(hashApiToken(presented), 'utf8')
+  return expected.length === actual.length && timingSafeEqual(expected, actual)
+}
+
 /**
  * Löst den `Authorization: Bearer ...`-Header eines Requests zum zugehörigen Nutzer-Konto
  * auf und gibt null zurück, wenn kein oder ein unbekannter Token mitgeschickt wurde.
@@ -45,27 +64,46 @@ export function hashApiToken(token: string): string {
  * welches Gerät noch aktiv ist und welchen Token er gefahrlos widerrufen kann.
  */
 export async function getGuestUserFromApiToken(request: Request): Promise<GuestUser | null> {
-  const header = request.headers.get('authorization')
-  if (!header?.startsWith('Bearer ')) return null
-
-  const presented = header.slice('Bearer '.length).trim()
+  const presented = bearerToken(request)
   if (!presented) return null
 
   const record = await prisma.guestApiToken.findUnique({
     where: { tokenHash: hashApiToken(presented) },
     include: { guestUser: true }
   })
-  if (!record) return null
-
-  // Der Lookup läuft bereits über den Hash, ist also kein Zeichenvergleich auf dem
-  // Geheimnis selbst; dieser Vergleich stellt nur sicher, dass ein manipulierter
-  // Datenbankeintrag nicht doch einen abweichenden Token akzeptiert.
-  const expected = Buffer.from(record.tokenHash, 'utf8')
-  const actual = Buffer.from(hashApiToken(presented), 'utf8')
-  if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) return null
+  if (!record || !hashMatches(record.tokenHash, presented)) return null
 
   await prisma.guestApiToken.update({ where: { id: record.id }, data: { lastUsedAt: new Date() } })
   return record.guestUser
+}
+
+// Verwaltungs-API (app/api/v1/verwaltung/): eigenes Präfix, damit man einem Token ansieht, wofür er gilt.
+// Getrennt wird aber über die Tabelle (UserApiToken statt GuestApiToken), nicht über das Präfix.
+const ADMIN_TOKEN_PREFIX = 'rsvpv_'
+
+/** Wie NEW_API_TOKEN_COOKIE, für die Konto-Seite der Verwaltung (siehe createAdminApiToken in app/admin/actions.ts). */
+export const NEW_ADMIN_API_TOKEN_COOKIE = 'new_admin_api_token'
+
+export function generateAdminApiToken(): string {
+  return ADMIN_TOKEN_PREFIX + randomBytes(32).toString('hex')
+}
+
+/**
+ * Wie getGuestUserFromApiToken, aber für Verwaltungskonten (UserApiToken). Gibt nur das Konto zurück - welche
+ * Termine es sehen darf, prüft jede Route selbst mit den aktuellen Rechten (app/lib/admin-api.ts).
+ */
+export async function getUserFromApiToken(request: Request): Promise<User | null> {
+  const presented = bearerToken(request)
+  if (!presented) return null
+
+  const record = await prisma.userApiToken.findUnique({
+    where: { tokenHash: hashApiToken(presented) },
+    include: { user: true }
+  })
+  if (!record || !hashMatches(record.tokenHash, presented)) return null
+
+  await prisma.userApiToken.update({ where: { id: record.id }, data: { lastUsedAt: new Date() } })
+  return record.user
 }
 
 /**

@@ -2,7 +2,9 @@
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '../../lib/auth'
 import { ROLE_LABELS } from '../../lib/permissions'
-import { changePassword, requestEmailChange, cancelEmailChange, unlinkIdentity, linkGuestAccount, unlinkGuestAccount } from '../actions'
+import { changePassword, requestEmailChange, cancelEmailChange, unlinkIdentity, linkGuestAccount, unlinkGuestAccount, createAdminApiToken, revokeAdminApiToken } from '../actions'
+import { cookies } from 'next/headers'
+import { NEW_ADMIN_API_TOKEN_COOKIE } from '../../lib/api-auth'
 import { getCurrentGuestUser } from '../../lib/guest-auth'
 import { prisma } from '../../lib/prisma'
 import { getIdps, idpLabel } from '../../lib/suite'
@@ -27,7 +29,7 @@ const GUEST_LINK_ERRORS: Record<string, string> = {
 export default async function AccountPage({
   searchParams
 }: {
-  searchParams: Promise<{ error?: string; passwordChanged?: string; emailChangeRequested?: string; linked?: string; unlinked?: string; guestLinked?: string; guestUnlinked?: string }>
+  searchParams: Promise<{ error?: string; passwordChanged?: string; emailChangeRequested?: string; linked?: string; unlinked?: string; guestLinked?: string; guestUnlinked?: string; tokenCreated?: string; tokenRevoked?: string }>
 }) {
   const user = await getCurrentUser()
   if (!user) redirect('/admin/login')
@@ -48,6 +50,12 @@ export default async function AccountPage({
     : null
   // Ist in diesem Browser schon ein Teilnehmendenkonto angemeldet, ist dessen Adresse der naheliegende Vorschlag.
   const currentGuest = linkedGuest ? null : await getCurrentGuestUser()
+
+  const apiTokens = await prisma.userApiToken.findMany({ where: { userId: user.id }, orderBy: { createdAt: 'desc' } })
+  // Klartext eines eben erzeugten Tokens - nur die eine Minute im Cookie (createAdminApiToken), danach nirgends mehr.
+  const newToken = params.tokenCreated === '1' ? (await cookies()).get(NEW_ADMIN_API_TOKEN_COOKIE)?.value : undefined
+  const tokenRevoked = params.tokenRevoked === '1'
+  const baseUrl = process.env.BASE_URL || 'https://rsvp.ramonroeser.de'
 
   const identities = await prisma.externalIdentity.findMany({ where: { userId: user.id }, orderBy: { createdAt: 'asc' } })
   const linkable = getIdps().filter(idp => !identities.some(i => i.issuer === idp.issuer))
@@ -164,6 +172,63 @@ export default async function AccountPage({
               </form>
             </>
           )}
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow space-y-3">
+          <h2 className="font-bold text-gray-900 dark:text-gray-100">API-Zugang (nur lesen)</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Mit einem API-Token kann ein eigenes Programm (z.B. ein Bot) Termine und die Küchenübersicht abrufen. Der Token
+            sieht genau das, was du hier in der Verwaltung siehst, und kann nichts ändern. Allergien einzelner Personen gibt
+            die API nicht heraus.
+          </p>
+          {tokenRevoked && (
+            <p className="text-sm text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-950 p-2 rounded">Token widerrufen.</p>
+          )}
+          {newToken && (
+            <div className="bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 p-3 rounded space-y-2">
+              <p className="text-sm text-yellow-800 dark:text-yellow-300 font-medium">Dein neuer Token - kopiere ihn jetzt, er wird nie wieder angezeigt:</p>
+              <code className="block bg-white dark:bg-gray-800 border border-yellow-300 dark:border-yellow-700 p-2 rounded text-xs break-all text-gray-900 dark:text-gray-100" data-testid="new-admin-api-token">{newToken}</code>
+              <p className="text-xs text-yellow-700 dark:text-yellow-300">Behandle ihn wie ein Passwort. Wenn er abhandenkommt, widerrufe ihn hier.</p>
+            </div>
+          )}
+          {apiTokens.length > 0 && (
+            <ul className="divide-y divide-gray-100 dark:divide-gray-700 border border-gray-100 dark:border-gray-700 rounded" aria-label="API-Tokens">
+              {apiTokens.map(t => (
+                <li key={t.id} className="flex items-center justify-between gap-3 p-2">
+                  <div className="min-w-0">
+                    <p className="text-sm text-gray-800 dark:text-gray-100 truncate">{t.name}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Erstellt am {t.createdAt.toLocaleDateString('de-DE')} ·{' '}
+                      {t.lastUsedAt ? `zuletzt genutzt am ${t.lastUsedAt.toLocaleDateString('de-DE')}` : 'noch nie genutzt'}
+                    </p>
+                  </div>
+                  <form action={revokeAdminApiToken}>
+                    <input type="hidden" name="tokenId" value={t.id} />
+                    <button type="submit" className="text-sm text-red-600 dark:text-red-400 hover:underline whitespace-nowrap">Widerrufen</button>
+                  </form>
+                </li>
+              ))}
+            </ul>
+          )}
+          <form action={createAdminApiToken} className="space-y-2">
+            <label htmlFor="tokenName" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Neuen Token erzeugen</label>
+            <input id="tokenName" type="text" name="name" required maxLength={60} placeholder="Wofür? z.B. Discord-Bot" className={inputClass} />
+            <SubmitButton>Token erzeugen</SubmitButton>
+          </form>
+          <details className="text-sm text-gray-600 dark:text-gray-400">
+            <summary className="cursor-pointer text-gray-700 dark:text-gray-300">So wird der Token benutzt</summary>
+            <div className="mt-2 space-y-2">
+              <p>
+                Jede Anfrage schickt den Token im Header <code className="text-xs">Authorization: Bearer &lt;token&gt;</code>.
+                Basis-Adresse: <code className="text-xs break-all">{baseUrl}/api/v1/verwaltung</code>
+              </p>
+              <ul className="list-disc list-inside space-y-1 text-xs">
+                <li><code>GET /me</code> - dein Konto, zum Prüfen ob der Token gilt</li>
+                <li><code>GET /termine</code> - deine Termine ab vorgestern mit Summen der Antworten und Menü-Gängen (<code>?alle=1</code>: auch ältere)</li>
+                <li><code>GET /termine/&lt;terminId&gt;/kueche</code> - Küchenübersicht: Menüwahl pro Gang gezählt, Personen mit ihrer Wahl</li>
+              </ul>
+            </div>
+          </details>
         </div>
 
         {(identities.length > 0 || linkable.length > 0) && (

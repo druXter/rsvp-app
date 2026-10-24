@@ -11,6 +11,7 @@ import { sendReminderEmail, sendWaitlistPromotedEmail, sendConfirmationEmail, se
 import { getCurrentUser, requireUser, createSession, destroySession, SESSION_COOKIE } from '../lib/auth'
 import { createGuestSession, createLinkedGuestSession, destroyLinkedGuestSession } from '../lib/guest-auth'
 import { generateToken, hashToken } from '../lib/tokens'
+import { generateAdminApiToken, hashApiToken, NEW_ADMIN_API_TOKEN_COOKIE } from '../lib/api-auth'
 import { hashPassword, validatePassword, verifyAgainstDummy, verifyPassword } from '../lib/password'
 import { formPassword, formString } from '../lib/form'
 import { clearFailures, clientIp, loginRules, passwordChangeRule, refund, reserve, resetRules } from '../lib/throttle'
@@ -543,6 +544,35 @@ export async function unlinkGuestAccount() {
   const user = await requireUser()
   await prisma.user.update({ where: { id: user.id }, data: { linkedGuestUserId: null } })
   redirect('/admin/account?guestUnlinked=1')
+}
+
+/**
+ * Erzeugt einen Token für die lesende Verwaltungs-API (app/api/v1/verwaltung/). Wie createApiToken in
+ * app/mein-konto/actions.ts: gespeichert wird nur der Hash, der Klartext liegt eine Minute in einem httpOnly-Cookie
+ * (nur unter /admin), damit die Konto-Seite ihn einmal anzeigen kann. Der Token hat keine eigenen Rechte, sondern
+ * die des Kontos zum Zeitpunkt jeder Anfrage.
+ */
+export async function createAdminApiToken(formData: FormData) {
+  const user = await requireUser()
+  const name = formString(formData, 'name', 60) || 'Unbenannt'
+
+  const token = generateAdminApiToken()
+  await prisma.userApiToken.create({ data: { name, tokenHash: hashApiToken(token), userId: user.id } })
+  ;(await cookies()).set(NEW_ADMIN_API_TOKEN_COOKIE, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 60,
+    path: '/admin',
+  })
+
+  redirect('/admin/account?tokenCreated=1')
+}
+
+/** Widerruft einen eigenen Verwaltungs-Token (fremde Token-IDs bewirken nichts). */
+export async function revokeAdminApiToken(formData: FormData) {
+  const user = await requireUser()
+  await prisma.userApiToken.deleteMany({ where: { id: formString(formData, 'tokenId', 50), userId: user.id } })
+  redirect('/admin/account?tokenRevoked=1')
 }
 
 /**

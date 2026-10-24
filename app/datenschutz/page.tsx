@@ -475,6 +475,15 @@ export default function DatenschutzPage() {
             auch nichts davon gespeichert. Bitte beachte, dass eine App, in die du den Token einträgst, damit
             in deinem Namen antworten kann - gib ihn deshalb nicht weiter.
           </p>
+          <p className="mt-2">
+            <strong>Für Veranstalter:innen (Verwaltungskonten):</strong> Auch hier lässt sich in den Konto-Einstellungen
+            ein Token erzeugen, mit dem ein eigenes Programm Termine und die Küchenübersicht <strong>nur lesen</strong>
+            kann - genau die Termine, auf die das Konto auch in der Verwaltung Zugriff hat. Dabei werden die Namen der
+            angemeldeten Personen, ihre Menüwahl und ihr Tisch übertragen, Essenswünsche und Allergien einzelner
+            Personen dagegen nicht (nur deren Anzahl). Wer einen solchen Token in ein Programm einträgt, ist für die
+            dort verarbeiteten Daten der Gäste mitverantwortlich. Gespeichert werden wie oben Name, Erstellungsdatum,
+            letzte Nutzung und der Hash des Tokens; er gilt bis zum Widerruf und wird mit dem Konto gelöscht.
+          </p>
         </div>
 
         <div>
