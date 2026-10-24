@@ -100,8 +100,8 @@ test('Gäste wählen pro Person, Kleinkinder ohne Menü; Verwaltung, Küchenübe
   await expect(page.getByTestId('kitchen-diets')).toContainText('Allesesser 1')
 
   const csv = await (await page.request.get(`/api/export/kueche?eventId=${event.id}`, { headers: await cookieHeader(page.context()) })).text()
-  expect(csv).toContain('"Tisch";"Platz";"Name";"Antwort";"Alter";"Hauptgang";"Dessert";"Essen";"Allergien";"Alkohol"')
-  expect(csv).toContain('"";"Ben";"Anna";"Kind";"Vegetarisch";"Obst";"";"Nüsse"')
+  expect(csv).toContain('Tisch;Platz;Name;Antwort;Alter;Hauptgang;Dessert;Essen;Allergien;Alkohol')
+  expect(csv).toContain(';Ben;Anna;Kind;Vegetarisch;Obst;;Nüsse')
 
   // Fremdes Konto: weder Seite noch CSV
   const stranger = await createAccount('CREATOR')

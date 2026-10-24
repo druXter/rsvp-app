@@ -1,5 +1,5 @@
 // app/lib/tokens.ts
-import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
+import { createHash, randomBytes } from 'node:crypto'
 
 /**
  * Sitzungs- und Einmal-Link-Tokens (Passwort-Reset, E-Mail-Änderung, Konto-Bestätigung) werden
@@ -16,9 +16,3 @@ export function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex')
 }
 
-/** Konstantzeitvergleich für Geheimnisse - `===` würde über die Antwortzeit verraten, wie viele Zeichen stimmen. */
-export function safeEqual(a: string, b: string): boolean {
-  const ab = Buffer.from(a)
-  const bb = Buffer.from(b)
-  return ab.length === bb.length && timingSafeEqual(ab, bb)
-}

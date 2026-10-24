@@ -1,8 +1,8 @@
 // app/api/poll-date/route.ts
+import { readLimitedText } from 'suite-kit/web'
 import { NextResponse } from 'next/server'
 import { verifyPollDateMessage } from '../../lib/poll-verification'
 import { abstimmungstoolOrigin, applyPollDate, pollDateStatus } from '../../lib/poll-date'
-import { readLimitedText } from '../../lib/linked-tools'
 
 // Größere Nachrichten verschickt das Abstimmungstool nie; alles darüber wird gar nicht erst gelesen.
 const MAX_BODY = 1_000_000

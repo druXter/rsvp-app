@@ -1,4 +1,5 @@
 // app/api/export/route.ts
+import { csvResponse } from 'suite-kit/web'
 import { prisma } from '../../lib/prisma'
 import { NextResponse } from 'next/server'
 import { getCurrentUser } from '../../lib/auth'
@@ -6,7 +7,6 @@ import { hasEventModeratorOrAbove } from '../../lib/permissions'
 import { claimedLabels } from '../../lib/bring-list'
 import { PAYMENT_STATE_LABEL, paymentState } from '../../lib/payment-state'
 import { describePerson, personsOf } from '../../lib/persons'
-import { csvResponse } from '../../lib/csv'
 
 
 /**

@@ -1,7 +1,7 @@
 // app/lib/pin.ts
+import { safeEqual } from 'suite-kit'
 import { cookies } from 'next/headers'
 import { prisma } from './prisma'
-import { safeEqual } from './tokens'
 
 /**
  * Event-/Reihen-PIN: EINE gemeinsame Prüfung für alles, was dahinter liegt. Die PIN wurde früher

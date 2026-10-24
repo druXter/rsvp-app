@@ -157,8 +157,8 @@ test('Verwaltung: Begleitungen bearbeiten (ohne Höchstmaß), Übersicht, Einlas
   await expect(page.getByTestId('checkin-persons').getByRole('listitem')).toHaveText([/Erika/, /Max/, /Mia\s*Kleinkind/])
 
   const csv = await (await page.request.get(`/api/export?eventId=${event.id}`, { headers: await cookieHeader(page.context()) })).text()
-  expect(csv).toContain(';"Personen";"Begleitungen";')
-  expect(csv).toContain('"3";"Max (Vegan); Mia (Kleinkind, Ei)"')
+  expect(csv).toContain(';Personen;Begleitungen;')
+  expect(csv).toContain(';3;"Max (Vegan); Mia (Kleinkind, Ei)"')
 
   // Fremdes Konto: Bearbeiten wirkt nicht
   const stranger = await createAccount('CREATOR')

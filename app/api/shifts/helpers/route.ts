@@ -1,7 +1,8 @@
 // app/api/shifts/helpers/route.ts
+import { readLimitedText } from 'suite-kit/web'
 import { NextResponse } from 'next/server'
 import { revalidatePath } from 'next/cache'
-import { ownOrigin, readLimitedText } from '../../../lib/linked-tools'
+import { ownOrigin } from '../../../lib/linked-tools'
 import { shiftsTool, verifyShiftHelpers } from '../../../lib/shift-helpers'
 import { applyShiftHelpers, linkedShiftsEvent } from '../../../lib/shift-helpers-store'
 

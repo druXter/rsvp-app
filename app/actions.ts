@@ -1,6 +1,7 @@
 // app/actions.ts
 'use server'
 
+import { safeEqual } from 'suite-kit'
 import { prisma } from './lib/prisma'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
@@ -8,7 +9,6 @@ import { getCurrentGuestUser } from './lib/guest-auth'
 import { performRsvpSubmission, RsvpInputError } from './lib/rsvp-submission'
 import { cookies } from 'next/headers'
 import { clientIp, pinRules, refund, reserve } from './lib/throttle'
-import { safeEqual } from './lib/tokens'
 import { notifyLinkedToolsBeforeDelete } from './lib/linked-tools-notify'
 import { verifyParticipantByToken, type VerifiedRsvp } from './lib/participant-verification'
 import { readCompanions } from './lib/persons'

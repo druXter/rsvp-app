@@ -1,4 +1,5 @@
 // app/lib/mail.ts
+import { escapeHtml } from 'suite-kit/web'
 import { formatEventDate } from './event-date'
 import nodemailer from 'nodemailer'
 import { createEvent, DateArray } from 'ics'
@@ -10,7 +11,6 @@ import { formatEuro } from './payment-state'
 import { prisma } from './prisma'
 import { describePerson, personsOf } from './persons'
 import { describeSelection } from './menu'
-import { escapeHtml } from './escape-html'
 
 // Den Mail-Transporter mit den Daten aus der .env initialisieren
 const transporter = nodemailer.createTransport({

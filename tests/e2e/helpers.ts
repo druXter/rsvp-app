@@ -268,13 +268,14 @@ function base64url(input: Buffer | string): string {
 }
 
 /**
- * Signiert einen Token im Format der Kopplung mit dem Abstimmungstool
- * (`base64url(JSON).base64url(HMAC-SHA256(payloadPart))`) - bewusst unabhängig von
- * app/lib/poll-verification.ts nachgebaut, damit die Tests das vereinbarte Format prüfen
- * und nicht nur die eigene Implementierung gegen sich selbst.
+ * Signiert eine Nachricht des Abstimmungstools an uns im Format der Suite
+ * (`base64url(JSON).base64url(HMAC-SHA256(payloadPart))`, Nutzlast `{ typ, aud, ..., iat, exp }`) - bewusst
+ * unabhängig von app/lib/poll-verification.ts nachgebaut, damit die Tests das vereinbarte Format prüfen und nicht nur
+ * die eigene Implementierung gegen sich selbst. `aud` (unser Origin) und `iat` (jetzt) ergänzt der Helfer, wenn sie
+ * fehlen; `aud: undefined` bzw. `iat: undefined` im Aufruf lässt sie weg.
  */
 export function signCouplingToken(payload: object, secret = TEST_POLL_SECRET): string {
-  const payloadPart = base64url(JSON.stringify(payload))
+  const payloadPart = base64url(JSON.stringify({ aud: new URL(BASE_URL).origin, iat: Math.floor(Date.now() / 1000), ...payload }))
   return `${payloadPart}.${base64url(createHmac('sha256', secret).update(payloadPart).digest())}`
 }
 

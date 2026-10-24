@@ -171,10 +171,15 @@ docker compose up -d --build
    
 Die App ist nun unter `http://localhost:3000` (bzw. auf deinem konfigurierten Port) erreichbar. Die SQLite-Datenbank wird automatisch migriert.
 
-Der Container läuft wie in den anderen Tools der Suite als unprivilegierter Nutzer `node` (UID 1000), nicht als root. Das
+Der Container (`node:22-alpine`) läuft wie in den anderen Tools der Suite als unprivilegierter Nutzer `node` (UID 1000), nicht als root. Das
 Datenverzeichnis muss ihm gehören, vor dem ersten Start also `mkdir -p data && sudo chown 1000:1000 data`. Ältere
 Installationen liefen als root; dort einmalig vor dem Update umstellen, ohne `sudo` z.B. über Docker:
 `docker run --rm -v "$PWD/data:/d" alpine chown -R 1000:1000 /d`.
+
+Der Port (`3005`) ist nur an `127.0.0.1` gebunden: Von außen kommt alles über den Cloudflare-Tunnel (`cloudflared` auf
+dem Host, Ziel `http://127.0.0.1:3005`). Auf allen Schnittstellen wäre die App über die öffentliche IPv6 des Servers am
+Tunnel vorbei erreichbar, mit selbst gesetztem `X-Forwarded-For` und damit an der IP-Drosselung vorbei. Für die interne
+Überwachung tritt der Container zusätzlich dem Docker-Netz `proxy_net` bei; Uptime Kuma prüft dort `http://rsvp-app:3000`.
 
 ## ⏰ Automatische Erinnerungen (Cronjob / Uptime Kuma)
 
@@ -221,12 +226,21 @@ Ein Event kann sein Datum aus einer Terminabstimmung im abstimmungstool bekommen
 * **Keine doppelten Benachrichtigungen:** Das abstimmungstool benachrichtigt seine Abstimmenden selbst und schickt
   SHA-256-Hashes dieser Adressen mit (`skipEmailHashes`); diese Gäste bekommen hier weder Mail noch Push
   (`app/lib/event-change-notify.ts`). Wer über rsvp-app abgestimmt hat, wird dagegen von hier benachrichtigt.
-* **Vertrag:** gleiches Format und Secret wie die übrigen Nachrichten (`POLL_VERIFICATION_SECRET`), aber mit
-  Pflichtfeld `typ` (`poll-date-status` | `poll-date-set`) - ältere Nachrichtenarten ohne `typ` gehen nie als
-  Termin-Meldung durch - und höchstens 15 Minuten gültig (`verifyPollDateMessage` in
+* **Vertrag:** gleiches Format und Secret wie die übrigen Nachrichten (siehe „Nachrichtenformat“ unten), Arten
+  `poll-date-status` und `poll-date-set`, höchstens 15 Minuten gültig (`verifyPollDateMessage` in
   `app/lib/poll-verification.ts`). Gegenstück im abstimmungstool: `app/lib/rsvp-date.ts`.
 
 Alle drei Punkte sind rein additiv und benötigen `POLL_VERIFICATION_SECRET` + `ABSTIMMUNGSTOOL_BASE_URL` (siehe oben) - ohne beide bleibt nur der einfache, unverifizierte Link übrig, wie er schon vorher existierte.
+
+**Nachrichtenformat der Kopplung:** Alle Nachrichten zwischen rsvp-app und abstimmungstool (Klick-Token `poll-access`,
+Zu-/Absage `poll-attendance`, Ergebnis `poll-result`, Terminabstimmung `poll-date-*`, Fragebogen `survey-access`,
+Sitzungen `assembly-*`) haben das gemeinsame Format der Suite (`signLinkMessage`/`verifyLinkMessage` aus `suite-kit`):
+`base64url(JSON).base64url(HMAC-SHA256(payloadPart, POLL_VERIFICATION_SECRET))`, Nutzlast
+`{ typ, aud, ...felder, iat, exp }`. `typ` hält die Arten auseinander, `aud` ist der Origin des Empfängers (beim
+Klick-Token der Origin der Abstimmung), eingehende Nachrichten gelten höchstens 15 Minuten (nur der Fragebogen-Nachweis
+12 Stunden, weil er das Ausfüllen überdauern muss). Beide Seiten haben dieselben festen Prüfnachrichten in ihren
+Unit-Tests (`tests/unit/poll-verification.test.ts`, im abstimmungstool `tests/unit/rsvp-verification.test.ts`) - eine
+Formatänderung geht nur in beiden Tools zugleich.
 
 ### Feedback-Fragebogen nach dem Event
 
@@ -242,8 +256,8 @@ Regeln in `app/lib/feedback-link.ts`, Versand in `app/lib/feedback.ts`:
   Wer später eingecheckt wird, bekommt ihn beim nächsten Lauf.
 * **Link:** Seite, Mail und Push führen nur auf `/api/feedback-link/[eventId]` (editToken oder verifizierte
   Gast-Sitzung, PIN wie bei den verknüpften Tools). Die Route leitet mit 303 (`no-store`, `no-referrer`) und einem
-  frisch signierten Nachweis (`?verify=`, 12 Stunden gültig) zum Fragebogen weiter: `{ typ: 'survey-access',
-  surveyId, sub, exp }` mit `POLL_VERIFICATION_SECRET`. `sub` ist ein Pseudonym (HMAC über Fragebogen und Rsvp-ID) -
+  frisch signierten Nachweis (`?verify=`, 12 Stunden gültig) zum Fragebogen weiter: Nachricht `survey-access` mit
+  `surveyId` und `sub` (Format siehe „Nachrichtenformat der Kopplung“). `sub` ist ein Pseudonym (HMAC über Fragebogen und Rsvp-ID) -
   keine Kennung, kein Name, keine E-Mail. Gegenstück im abstimmungstool: `verifyRsvpSurveyToken`.
 * Tests: `tests/unit/feedback-link.test.ts`, `tests/e2e/feedback.spec.ts`.
 
@@ -454,15 +468,17 @@ Gilt für Verwaltungskonten (`/admin/login`) **und** Teilnehmendenkonten (`/mein
   alle Sitzungen - alle müssen sich einmal neu anmelden.
 * **Cookies** heißen `__Host-session` bzw. `__Host-guest-session` (HttpOnly, Secure, SameSite=Lax, ohne Domain-Attribut):
   Die Tools der Suite laufen auf Subdomains derselben Domain, so kann kein Tool einem anderen ein Cookie unterschieben.
-* **Header** (`next.config.ts`, Muster der Suite aus `suite-kit/docs/KONVENTIONEN.md`): `nosniff`, `Referrer-Policy`,
+* **Header** (`next.config.ts`, Bausteine aus `suite-kit/web`, Muster der Suite aus `suite-kit/docs/KONVENTIONEN.md`): `nosniff`, `Referrer-Policy`,
   HSTS. Einbetten ist grundsätzlich verboten (Clickjacking), **erlaubt nur für Gästeseiten** (`frame-ancestors *`, sie
   laufen als iFrame in einem CMS): Event-Seiten, Reihen und ihre Termine sowie die Registrierung, auf die sie im selben
   Frame verlinken. Verwaltung und Konto (`/admin`, `/mein-konto`) zusätzlich `noindex` und `no-store`, Seiten mit
   Token aus einer Mail (`/verify`, Reset, E-Mail-Bestätigung) `no-referrer`. Der Service Worker kommt nie aus einem Cache.
-* **CSV-Exporte** (Gästeliste, Küche, Anwesenheit) über `app/lib/csv.ts`: Zellen, die Excel als Formel lesen würde
-  (`= + - @` am Anfang), bekommen ein Hochkomma vorangestellt - Gäste tragen ihre Namen selbst ein (CSV-Injection).
+* **CSV-Exporte** (Gästeliste, Küche, Anwesenheit) über `csvResponse` aus `suite-kit/web`, dasselbe Format wie in allen
+  Tools (Semikolon, CRLF, BOM, Anführungszeichen nur wo nötig): Textzellen, die Excel als Formel lesen würde
+  (`= + - @`, Tab oder Zeilenumbruch am Anfang), bekommen ein Hochkomma vorangestellt - Gäste tragen ihre Namen selbst
+  ein (CSV-Injection).
 * **HTML in Mails:** Alles, was nicht fest im Code steht (Namen, Titel, Ort, Texte), wird escapet
-  (`app/lib/escape-html.ts`). Sonst ließe sich über eine Anmeldung mit fremder Adresse beliebiges HTML über unseren
+  (`escapeHtml` aus `suite-kit/web`). Sonst ließe sich über eine Anmeldung mit fremder Adresse beliebiges HTML über unseren
   Absender an Dritte schicken.
 * **Event-/Reihen-PIN** wird überall durchgesetzt, wo ein Event über seine ID erreichbar ist (`app/lib/pin.ts`) - Antworten, Kalenderdatei (`/api/ical`), Abstimmungs-Link und Konto-Registrierung für die Reihe, nicht nur die Anzeige der Seite. Der persönliche Link aus der Bestätigungs-Mail funktioniert weiter (gültiger Token dieses Termins). Das Raten der PIN ist gedrosselt (10 Versuche pro IP und Event, 100 pro Event, jeweils 15 Minuten).
 * **Cron-Endpunkte** (`/api/cron/*`) lehnen ein leeres oder fehlendes `CRON_SECRET` ab - vorher schaltete `?secret=`

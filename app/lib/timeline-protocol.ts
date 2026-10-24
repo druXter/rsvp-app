@@ -7,7 +7,7 @@
 // POST /api/assembly/decisions, Secret POLL_VERIFICATION_SECRET). Der Zeitplan zeigt das nur an und speichert nichts.
 import { assemblyOf } from './assembly'
 import { createSignedMessage, isRecord, verifyEnvelope, type ConfiguredTool, type ToolLink } from './linked-tools'
-import { sign, verifySignedPayload } from './poll-verification'
+import { signForPollTool, verifyFromPollTool } from './poll-verification'
 
 const MAX_DECISIONS = 200
 const MAX_OPTIONS = 100
@@ -76,16 +76,15 @@ export type DecisionsResult = { state: 'ok'; decisions: ProtocolDecision[] } | {
 /** Beschlüsse der verknüpften Sitzung - off ohne Sitzung oder Kopplung, unreachable bei Fehler oder ungültiger Antwort. */
 export async function fetchDecisions(event: { id: string; assemblyUrl: string | null }): Promise<DecisionsResult> {
   const assembly = assemblyOf(event)
-  const key = process.env.POLL_VERIFICATION_SECRET
-  if (!assembly || !key) return { state: 'off' }
-  const body = sign({ typ: 'assembly-decisions', assemblyId: assembly.assemblyId, eventId: event.id, exp: Math.floor(Date.now() / 1000) + 5 * 60 }, key)
+  const body = assembly && signForPollTool('assembly-decisions', { assemblyId: assembly.assemblyId, eventId: event.id }, { audience: assembly.origin, ttlSeconds: 5 * 60 })
+  if (!assembly || !body) return { state: 'off' }
   try {
     const response = await fetch(`${assembly.origin}/api/assembly/decisions`, {
       method: 'POST', headers: { 'Content-Type': 'text/plain' }, body, signal: AbortSignal.timeout(5000), cache: 'no-store'
     })
     if (!response.ok) return { state: 'unreachable' }
-    const payload = verifySignedPayload(await response.text())
-    if (!payload || payload.typ !== 'assembly-decisions-result' || payload.assemblyId !== assembly.assemblyId || payload.eventId !== event.id) return { state: 'unreachable' }
+    const payload = verifyFromPollTool(await response.text(), 'assembly-decisions-result')
+    if (!payload || payload.assemblyId !== assembly.assemblyId || payload.eventId !== event.id) return { state: 'unreachable' }
     if (!Array.isArray(payload.decisions) || payload.decisions.length > MAX_DECISIONS) return { state: 'unreachable' }
     const decisions = payload.decisions.map(readDecision)
     if (decisions.some(d => d === null)) return { state: 'unreachable' }

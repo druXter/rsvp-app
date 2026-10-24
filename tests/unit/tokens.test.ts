@@ -1,6 +1,7 @@
+import { safeEqual } from 'suite-kit'
 import { createHash } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
-import { generateToken, hashToken, safeEqual } from '../../app/lib/tokens'
+import { generateToken, hashToken } from '../../app/lib/tokens'
 import { generateApiToken, hashApiToken } from '../../app/lib/api-auth'
 
 describe('Sitzungs- und Link-Tokens', () => {

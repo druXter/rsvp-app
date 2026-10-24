@@ -1,11 +1,11 @@
 // app/api/assembly/presence/route.ts
+import { readLimitedText } from 'suite-kit/web'
 import { NextResponse } from 'next/server'
 import { revalidatePath } from 'next/cache'
 import { prisma } from '../../../lib/prisma'
 import { isConfirmedRsvp } from '../../../lib/linked-tools'
 import { checkInAll, checkOutAll, isPresent, leaveAll } from '../../../lib/checkin'
 import { assemblyOf, rsvpOfSubject, verifyPresenceChange } from '../../../lib/assembly'
-import { readLimitedText } from '../../../lib/linked-tools'
 
 // Größere Nachrichten verschickt das Abstimmungstool nie; alles darüber wird gar nicht erst gelesen.
 const MAX_BODY = 20_000

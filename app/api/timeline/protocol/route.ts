@@ -1,7 +1,7 @@
 // app/api/timeline/protocol/route.ts
+import { readLimitedText } from 'suite-kit/web'
 import { NextResponse } from 'next/server'
 import { prisma } from '../../../lib/prisma'
-import { readLimitedText } from '../../../lib/linked-tools'
 import { TOOL_LINKS } from '../../../lib/linked-tools-store'
 import { timelineLinkOf, timelineTool } from '../../../lib/timeline'
 import { createProtocol, fetchDecisions, protocolPresence, verifyProtocolRequest } from '../../../lib/timeline-protocol'

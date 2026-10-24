@@ -328,8 +328,8 @@ test('CSV-Export mit Kategorie, Betrag und Zahlstatus', async ({ page }) => {
   await prisma.rsvp.update({ where: { id: rsvp.id }, data: { ticketCategoryId: stud.id, amountCents: 2550, paymentReference: 'E2E-CSV12345', paidAt: new Date('2026-10-01T10:00:00Z'), paymentMethod: 'CASH' } })
   await login(page, owner.email)
   const csv = await (await page.request.get(`/api/export?eventId=${event.id}`, { headers: await cookieHeader(page.context()) })).text()
-  expect(csv).toContain(';"Kategorie";"Betrag";"Verwendungszweck";"Zahlstatus";"Bezahlt am";"Zahlart";"Erstattet am"')
-  expect(csv).toContain('"Studierende";"25,50";"E2E-CSV12345";"Bezahlt";"2026-10-01";"Bar";""')
+  expect(csv).toContain(';Kategorie;Betrag;Verwendungszweck;Zahlstatus;Bezahlt am;Zahlart;Erstattet am\r\n')
+  expect(csv).toContain(';Studierende;25,50;E2E-CSV12345;Bezahlt;2026-10-01;Bar;\r\n')
 })
 
 test('Gästeliste-CSV entschärft Formeln aus Gast-Eingaben (CSV-Injection)', async ({ page }) => {
@@ -340,9 +340,9 @@ test('Gästeliste-CSV entschärft Formeln aus Gast-Eingaben (CSV-Injection)', as
   await login(page, owner.email)
   const csv = await (await page.request.get(`/api/export?eventId=${event.id}`, { headers: await cookieHeader(page.context()) })).text()
   expect(csv).toContain('"\'=HYPERLINK(""https://evil.example"",""Klick"")"')
-  expect(csv).not.toMatch(/(^|;)"=HYPERLINK/m)
+  expect(csv).not.toMatch(/(^|;)"?=HYPERLINK/m)
   // Positivkontrolle: normale Namen bleiben unverändert.
-  expect(csv).toContain('"Anna Normal"')
+  expect(csv).toMatch(/(^|;)Anna Normal;/m)
 })
 
 test('Client-API: Kategorie Pflicht bei Terminen mit Kategorien', async ({ request }) => {

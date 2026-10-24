@@ -1,9 +1,9 @@
 // app/api/cron/reminders/route.ts
+import { safeEqual } from 'suite-kit'
 import { prisma } from '../../../lib/prisma'
 import { NextResponse } from 'next/server'
 import { sendReminderEmail } from '../../../lib/mail'
 import { sendReminderPush } from '../../../lib/push'
-import { safeEqual } from '../../../lib/tokens'
 import { sendDuePaymentReminders } from '../../../lib/payment-reminder'
 import { sendDueInvitationReminders } from '../../../lib/invitation-reminder'
 import { sendDueFeedbackRequests } from '../../../lib/feedback'

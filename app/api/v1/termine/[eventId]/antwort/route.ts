@@ -1,9 +1,9 @@
 // app/api/v1/termine/[eventId]/antwort/route.ts
+import { readLimitedText } from 'suite-kit/web'
 import { prisma } from '../../../../../lib/prisma'
 import { getGuestUserFromApiToken, apiError } from '../../../../../lib/api-auth'
 import { performRsvpSubmission, RsvpInputError } from '../../../../../lib/rsvp-submission'
 import { cleanCompanion, cleanSelection, MAX_COMPANIONS, type CompanionInput } from '../../../../../lib/persons'
-import { readLimitedText } from '../../../../../lib/linked-tools'
 
 const MAX_BODY = 100_000
 

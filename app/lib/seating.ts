@@ -26,7 +26,7 @@ import {
 // Allgemeiner Teil (Format, Signatur, Konfiguration, Links) steht in app/lib/linked-tools.ts und
 // gilt für alle verknüpften Tools - hier nur, was Seating betrifft. Die Exporte unten bleiben
 // unter ihren bisherigen Namen erhalten (Vertrag und Tests beziehen sich darauf).
-export { MAX_TOKEN_AGE_SECONDS, openMessage, originOf, ownOrigin, readLimitedText, signMessage } from './linked-tools'
+export { MAX_TOKEN_AGE_SECONDS, openMessage, originOf, ownOrigin, signMessage } from './linked-tools'
 
 /** Format der ids auf beiden Seiten (cuid) - identisch zur Prüfung in Seating. */
 export const SEATING_ID = REMOTE_ID

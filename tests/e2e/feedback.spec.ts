@@ -68,7 +68,7 @@ test.describe('Feedback geben (/api/feedback-link)', () => {
     const [payloadPart, signature] = proof.split('.')
     expect(createHmac('sha256', TEST_POLL_SECRET).update(payloadPart).digest('base64url')).toBe(signature)
     const payload = decodeCouplingToken(proof)
-    expect(payload).toEqual({ typ: 'survey-access', surveyId, sub: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/), exp: expect.any(Number) })
+    expect(payload).toEqual({ typ: 'survey-access', aud: TEST_ABSTIMMUNGSTOOL_BASE_URL, surveyId, sub: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/), iat: expect.any(Number), exp: expect.any(Number) })
     expect((payload.exp as number) - Date.now() / 1000).toBeGreaterThan(11.9 * 3600)
     // Keine Kennung oder Daten der Person im Nachweis
     for (const value of [guest.rsvp.id, guest.participant.id, guest.participant.editToken, guest.participant.name]) expect(proof).not.toContain(value)

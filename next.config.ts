@@ -1,16 +1,8 @@
 import type { NextConfig } from "next";
+import { BASE_RULE, EMBEDDABLE, NO_FRAMING, NO_REFERRER, NOT_STORED, PRIVATE_PAGE, SUITE_RULES } from "suite-kit/web";
 
-const NO_FRAMING = [
-  { key: 'X-Frame-Options', value: 'DENY' },
-  { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
-];
-const NOT_STORED = [
-  { key: 'X-Robots-Tag', value: 'noindex, nofollow' },
-  { key: 'Cache-Control', value: 'no-store' },
-];
-const PRIVATE_PAGE = [...NO_FRAMING, ...NOT_STORED];
-// Für mehr Sicherheit lässt sich '*' durch die Adresse des CMS ersetzen.
-const EMBEDDABLE = [{ key: 'Content-Security-Policy', value: 'frame-ancestors *' }];
+// Header-Bausteine aus suite-kit (docs/KONVENTIONEN.md, "Sicherheits-Header"); hier stehen nur die Pfade dieses Tools.
+// Für mehr Sicherheit lässt sich EMBEDDABLE (frame-ancestors *) durch eine Regel mit der Adresse des CMS ersetzen.
 
 // Mehrteilige Gästeseiten, die einbettbar bleiben: /reihe/<reihe>, /reihe/<reihe>/<termin> (auch .../registrieren)
 // und /<event>/registrieren.
@@ -39,17 +31,7 @@ const nextConfig: NextConfig = {
     // unten ist also wichtig. Muster wie in den anderen Tools der Suite (suite-kit/docs/KONVENTIONEN.md,
     // "Sicherheits-Header"): Einbetten ist grundsätzlich verboten, erlaubt nur für die Gästeseiten.
     return [
-      {
-        // Für alle Seiten: keine MIME-Sniffing-Angriffe, sparsame Referer, HSTS nur für diesen Host
-        // (ohne includeSubDomains, damit die anderen Subdomains der Suite davon unberührt bleiben).
-        source: '/:path*',
-        headers: [
-          { key: 'X-Content-Type-Options', value: 'nosniff' },
-          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
-          { key: 'Strict-Transport-Security', value: 'max-age=31536000' },
-        ],
-      },
+      BASE_RULE,
       // Startseite und alles Mehrteilige: nicht einbettbar - außer den Gästeseiten einer Reihe und den
       // Registrierungen (die eingebettete Event-Seite verlinkt im selben Frame dorthin).
       { source: '/', headers: NO_FRAMING },
@@ -65,34 +47,17 @@ const nextConfig: NextConfig = {
       {
         // Seiten mit Einmal-Token in der URL (Mail-Links): den Token nie per Referer weitergeben.
         source: '/:page(verify|admin/reset-password|admin/confirm-email|mein-konto/reset-password|mein-konto/verify|mein-konto/confirm-email)',
-        headers: [...NOT_STORED, { key: 'Referrer-Policy', value: 'no-referrer' }],
-      },
-      {
-        // Der Service Worker darf nie aus einem Cache kommen (Browser, Cloudflare), sonst blieben Geräte auf einer
-        // alten Version hängen. Eigene CSP: er lädt nur Skripte derselben Herkunft. Wie in den anderen Tools.
-        source: '/sw.js',
-        headers: [
-          { key: 'Content-Type', value: 'application/javascript; charset=utf-8' },
-          { key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' },
-          { key: 'Content-Security-Policy', value: "default-src 'self'; script-src 'self'; frame-ancestors 'none'" },
-        ],
-      },
-      {
-        // Die Föderations-Endpunkte tragen Einmal-Werte (Login-Bestätigung, state) in der URL:
-        // nie per Referer weiterreichen.
-        source: '/api/suite/:path*',
-        headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }],
+        headers: [...NOT_STORED, ...NO_REFERRER],
       },
       {
         // Verknüpfte Tools (app/lib/linked-tools.ts): Seatings Gästeliste/Platzierungen (Server zu
         // Server), die Weiterleitungen "Sitzplatz wählen", "Zeitplan", "Feedback geben" bzw. "Zur Sitzung" (editToken in der URL,
         // signierter Link im Ziel), die Anwesenheit für Sitzungen und das Protokoll für den Zeitplan-Rückblick - nie cachen, nie per Referer weiterreichen.
         source: '/api/:area(seating|seating-link|timeline|timeline-link|feedback-link|assembly-link|assembly)/:path*',
-        headers: [
-          { key: 'Referrer-Policy', value: 'no-referrer' },
-          { key: 'Cache-Control', value: 'no-store' },
-        ],
+        headers: [...NO_REFERRER, { key: 'Cache-Control', value: 'no-store' }],
       },
+      // Service Worker (nie cachen, eigene CSP) und Föderations-Endpunkte (kein Referer) - zuletzt, damit sie gewinnen.
+      ...SUITE_RULES,
     ];
   },
 };

@@ -1,7 +1,8 @@
 // app/api/seating/placements/route.ts
+import { readLimitedText } from 'suite-kit/web'
 import { NextResponse } from 'next/server'
 import { revalidatePath } from 'next/cache'
-import { ownOrigin, readLimitedText, seatingSecret, verifyMessage } from '../../../lib/seating'
+import { ownOrigin, seatingSecret, verifyMessage } from '../../../lib/seating'
 import { applyPlacements, linkedEvent } from '../../../lib/seating-sync'
 
 export const dynamic = 'force-dynamic'

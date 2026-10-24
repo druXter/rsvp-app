@@ -1,14 +1,51 @@
 // app/lib/poll-verification.ts
-import { createHmac, timingSafeEqual } from 'crypto'
+//
+// Kopplung mit dem Abstimmungstool: alle Nachrichten im gemeinsamen Format der Suite (suite-kit signLinkMessage,
+// docs/KONVENTIONEN.md „Anbindungen“): `{ typ, aud, ...felder, iat, exp }`, HMAC mit POLL_VERIFICATION_SECRET (dort
+// RSVP_VERIFICATION_SECRET). `typ` hält die Arten auseinander, `aud` ist der Origin des Empfängers. Gegenstück dort:
+// app/lib/rsvp-verification.ts. Feste Prüfnachrichten auf beiden Seiten (tests/unit/poll-verification.test.ts).
+import { signLinkMessage, verifyLinkMessage } from 'suite-kit'
+import { ownOrigin } from './linked-tools'
 
-function base64url(input: Buffer | string): string {
-  return Buffer.from(input).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+/** Eingehende Nachrichten gelten höchstens so lange (das Abstimmungstool stellt sie für 5-10 Minuten aus). */
+const INCOMING_MAX_TTL_SECONDS = 15 * 60
+
+function pollSecret(): string | null {
+  return process.env.POLL_VERIFICATION_SECRET || null
 }
 
-export function sign(payload: object, secret: string): string {
-  const payloadPart = base64url(JSON.stringify(payload))
-  const signaturePart = base64url(createHmac('sha256', secret).update(payloadPart).digest())
-  return `${payloadPart}.${signaturePart}`
+/** Origin des Abstimmungstools aus ABSTIMMUNGSTOOL_BASE_URL - Empfänger der Server-zu-Server-Meldungen. */
+export function pollToolOrigin(): string | null {
+  const url = process.env.ABSTIMMUNGSTOOL_BASE_URL
+  if (!url) return null
+  try {
+    return new URL(url).origin
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Signiert eine Nachricht ans Abstimmungstool. `audience` ist der Origin, an den sie geht (Standard: das eingerichtete
+ * Abstimmungstool). null ohne Secret oder Empfänger - die Kopplung bleibt optional.
+ */
+export function signForPollTool(
+  typ: string,
+  fields: Record<string, unknown>,
+  options: { audience?: string | null; ttlSeconds?: number; maxTtlSeconds?: number; now?: Date } = {}
+): string | null {
+  const secret = pollSecret()
+  const audience = options.audience === undefined ? pollToolOrigin() : options.audience
+  if (!secret || !audience) return null
+  return signLinkMessage(typ, audience, fields, secret, { ttlSeconds: options.ttlSeconds, maxTtlSeconds: options.maxTtlSeconds, now: options.now })
+}
+
+/** Prüft eine Nachricht des Abstimmungstools: Signatur, Art, Empfänger (wir), Gültigkeit. Felder prüft der Aufrufer. */
+export function verifyFromPollTool(token: unknown, typ: string, now?: Date): Record<string, unknown> | null {
+  const secret = pollSecret()
+  const audience = ownOrigin()
+  if (!secret || !audience) return null
+  return verifyLinkMessage(token, { typ, audience, secret, maxTtlSeconds: INCOMING_MAX_TTL_SECONDS, now })
 }
 
 /**
@@ -42,9 +79,7 @@ export function extractPollId(pollUrl: string): string | null {
  * zurückgezogen wird, sorgt stattdessen der separate rsvp-webhook (siehe
  * signRsvpWebhookPayload) für die aktive Entfernung.
  *
- * Format (muss exakt zum Abstimmungstool passen):
- * `${base64url(JSON-Payload)}.${base64url(HMAC-SHA256(payloadPart, POLL_VERIFICATION_SECRET))}`
- * Payload: `{ email, pollId, attending, exp (Unix-Sekunden) }`.
+ * Nachricht `poll-access`: `{ email, pollId, attending }`, Empfänger ist der Origin der Abstimmung.
  *
  * Gibt null zurück, wenn kein POLL_VERIFICATION_SECRET konfiguriert ist oder sich
  * keine Poll-ID aus der URL extrahieren lässt - der Aufrufer verlinkt dann einfach
@@ -52,13 +87,10 @@ export function extractPollId(pollUrl: string): string | null {
  * dadurch komplett optional.
  */
 export function signPollVerificationToken(email: string, pollUrl: string, attending: boolean, ttlSeconds = 600): string | null {
-  const secret = process.env.POLL_VERIFICATION_SECRET
-  if (!secret) return null
-
   const pollId = extractPollId(pollUrl)
   if (!pollId) return null
-
-  return sign({ email, pollId, attending, exp: Math.floor(Date.now() / 1000) + ttlSeconds }, secret)
+  // Empfänger ist, wohin der Link führt: Der Nachweis gilt nur dort.
+  return signForPollTool('poll-access', { email, pollId, attending }, { audience: new URL(pollUrl).origin, ttlSeconds })
 }
 
 /**
@@ -67,68 +99,38 @@ export function signPollVerificationToken(email: string, pollUrl: string, attend
  * `verifyRsvpWebhookPayload`) - anders als der Klick-Token oben wird das aktiv aus
  * performRsvpSubmission heraus verschickt (siehe app/lib/rsvp-notify.ts), damit eine
  * bereits abgegebene Stimme auch dann entfernt wird, wenn die Person die Abstimmung
- * danach nie wieder aufruft. Selbes Format/Secret wie signPollVerificationToken, nur
- * mit `eventId` statt `attending` allein - abstimmungstool merkt sich daraus beiläufig,
+ * danach nie wieder aufruft. Nachricht `poll-attendance` an ABSTIMMUNGSTOOL_BASE_URL,
+ * zusätzlich mit `eventId` - abstimmungstool merkt sich daraus beiläufig,
  * welchem rsvp-app-Event diese Abstimmung zugeordnet ist (für die spätere
  * Ergebnis-Meldung beim Schließen, siehe dessen app/lib/rsvp-notify.ts).
  */
 export function signRsvpWebhookPayload(email: string, pollUrl: string, eventId: string, attending: boolean): { pollId: string; body: string } | null {
-  const secret = process.env.POLL_VERIFICATION_SECRET
-  if (!secret) return null
-
   const pollId = extractPollId(pollUrl)
   if (!pollId) return null
-
-  const token = sign({ email, pollId, eventId, attending, exp: Math.floor(Date.now() / 1000) + 600 }, secret)
-  return { pollId, body: token }
+  const body = signForPollTool('poll-attendance', { email, pollId, eventId, attending })
+  return body ? { pollId, body } : null
 }
 
-/**
- * Prüft eine von abstimmungstool signierte Ergebnis-Meldung (Gegenstück zu dessen
- * `signResultWebhookPayload` in app/lib/rsvp-notify.ts dort) - dieselbe
- * base64url-Payload+HMAC-Machart wie oben, nur in die andere Richtung. Gibt bei
- * jedem Problem null zurück statt zu werfen, gleiche Begründung wie überall sonst
- * in dieser Kopplung: eine fehlgeschlagene Prüfung ist ein normaler, erwartbarer
- * Zustand (z.B. veraltetes/falsch konfiguriertes Secret), kein Serverfehler.
- */
 export type PollResultUnit = 'votes' | 'points'
 
 /**
+ * Prüft die Ergebnis-Meldung des Abstimmungstools (`poll-result`, Gegenstück zu dessen
+ * `signResultWebhookPayload`). null bei jedem Problem - eine fehlgeschlagene Prüfung ist erwartbar
+ * (z.B. falsch konfiguriertes Secret), kein Serverfehler.
+ *
  * `quorumMet` (false = Mindestbeteiligung verfehlt, "nicht beschlussfähig") und `unit` ("points" bei
  * Abstimmungsarten mit Wertung statt Stimmen) sind optional und fehlen in Meldungen älterer
  * abstimmungstool-Versionen - dann gelten true bzw. "votes".
  */
 export function verifyResultWebhookPayload(token: string | undefined | null): { eventId: string; pollId: string; pollTitle: string; winners: { label: string; votes: number }[]; closedAt: string; quorumMet: boolean; unit: PollResultUnit } | null {
-  const secret = process.env.POLL_VERIFICATION_SECRET
-  if (!secret || !token) return null
-
-  const parts = token.split('.')
-  if (parts.length !== 2) return null
-  const [payloadPart, signaturePart] = parts
-  if (!payloadPart || !signaturePart) return null
-
-  const expectedSignature = base64url(createHmac('sha256', secret).update(payloadPart).digest())
-  const expectedBuf = Buffer.from(expectedSignature)
-  const actualBuf = Buffer.from(signaturePart)
-  if (expectedBuf.length !== actualBuf.length || !timingSafeEqual(expectedBuf, actualBuf)) return null
-
-  let payload: {
-    eventId?: unknown; pollId?: unknown; pollTitle?: unknown
-    winners?: unknown; closedAt?: unknown; exp?: unknown; quorumMet?: unknown; unit?: unknown
-  }
-  try {
-    const padded = payloadPart + '='.repeat((4 - (payloadPart.length % 4)) % 4)
-    payload = JSON.parse(Buffer.from(padded.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8'))
-  } catch {
-    return null
-  }
+  const payload = verifyFromPollTool(token, 'poll-result')
+  if (!payload) return null
 
   if (typeof payload.eventId !== 'string' || !payload.eventId) return null
   if (typeof payload.pollId !== 'string' || !payload.pollId) return null
   if (typeof payload.pollTitle !== 'string') return null
   if (typeof payload.closedAt !== 'string') return null
   if (!Array.isArray(payload.winners)) return null
-  if (typeof payload.exp !== 'number' || payload.exp * 1000 < Date.now()) return null
   if (payload.quorumMet !== undefined && typeof payload.quorumMet !== 'boolean') return null
   if (payload.unit !== undefined && payload.unit !== 'votes' && payload.unit !== 'points') return null
 
@@ -141,37 +143,6 @@ export function verifyResultWebhookPayload(token: string | undefined | null): { 
     winners: payload.winners as { label: string; votes: number }[],
     closedAt: payload.closedAt
   }
-}
-
-/**
- * Prüft Signatur und Ablaufzeit einer Nachricht vom Abstimmungstool und gibt die rohe Payload
- * zurück - Grundlage für die Terminabstimmung (verifyPollDateMessage). Eine Nachricht darf
- * höchstens 15 Minuten in die Zukunft gültig sein, damit ein abgefangenes Exemplar nicht lange
- * wiederverwendbar bleibt.
- */
-export function verifySignedPayload(token: string | undefined | null): Record<string, unknown> | null {
-  const secret = process.env.POLL_VERIFICATION_SECRET
-  if (!secret || !token) return null
-  const parts = token.split('.')
-  if (parts.length !== 2 || !parts[0] || !parts[1]) return null
-  const [payloadPart, signaturePart] = parts
-
-  const expectedBuf = Buffer.from(base64url(createHmac('sha256', secret).update(payloadPart).digest()))
-  const actualBuf = Buffer.from(signaturePart)
-  if (expectedBuf.length !== actualBuf.length || !timingSafeEqual(expectedBuf, actualBuf)) return null
-
-  let payload: unknown
-  try {
-    const padded = payloadPart + '='.repeat((4 - (payloadPart.length % 4)) % 4)
-    payload = JSON.parse(Buffer.from(padded.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8'))
-  } catch {
-    return null
-  }
-  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null
-  const record = payload as Record<string, unknown>
-  const now = Date.now() / 1000
-  if (typeof record.exp !== 'number' || record.exp < now || record.exp > now + 15 * 60) return null
-  return record
 }
 
 /** Wem die Abstimmung gehört: Konto-ID im Abstimmungstool und - falls dort verknüpft - die rsvp-app-Konto-ID. */
@@ -191,12 +162,10 @@ function readOwner(value: unknown): PollDateOwner | null {
 
 /**
  * Nachrichten der Terminabstimmung (Gegenstück zu app/lib/rsvp-date.ts im Abstimmungstool,
- * siehe app/lib/poll-date.ts hier). Gleiches Format und Secret wie die übrigen Nachrichten
- * dieser Kopplung, aber mit Pflichtfeld `typ` - ältere Nachrichtenarten (Klick-Token,
- * Zu-/Absage, Ergebnis) haben keins und gehen hier deshalb nie als Termin-Meldung durch.
+ * siehe app/lib/poll-date.ts hier): `poll-date-status` und `poll-date-set`.
  */
 export function verifyPollDateMessage(token: string | undefined | null): PollDateMessage | null {
-  const payload = verifySignedPayload(token)
+  const payload = verifyFromPollTool(token, 'poll-date-status') ?? verifyFromPollTool(token, 'poll-date-set')
   if (!payload) return null
   const pollId = payload.pollId
   const owner = readOwner(payload.owner)

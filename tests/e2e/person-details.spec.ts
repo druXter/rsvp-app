@@ -44,7 +44,7 @@ test('Alkohol pro Person: Begleitungen (nur Erwachsene) und Haushalte, Küche un
   await expect(page.getByTestId('kitchen-drinks')).toHaveText('Getränke (Erwachsene): 1 mit Alkohol · 1 nur alkoholfrei')
   const headers = await cookieHeader(page.context())
   const kitchen = await (await page.request.get(`/api/export/kueche?eventId=${event.id}`, { headers })).text()
-  expect(kitchen).toContain('"";"Ben";"Anna";"Erwachsen";"";"";"Ja"')
+  expect(kitchen).toContain(';Ben;Anna;Erwachsen;;;Ja')
   const guests = await (await page.request.get(`/api/export?eventId=${event.id}`, { headers })).text()
   expect(guests).toContain('"Anna: Nein; Ben: Ja"')
 

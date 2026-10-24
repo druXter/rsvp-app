@@ -7,12 +7,12 @@
 // Sitzungsleitung holt sich dort die Liste mit Namen (`assembly-attendance`, /api/assembly/attendance) und checkt ein
 // und aus (`assembly-presence`, /api/assembly/presence) - ebenso Mitglieder sich selbst, wenn die Sitzung das erlaubt.
 // Gegenstück dort:
-// app/lib/assembly-coupling.ts. Gleiches Format und Secret wie die übrige Kopplung (POLL_VERIFICATION_SECRET).
+// app/lib/assembly-coupling.ts. Gleiches Format und Secret wie die übrige Kopplung (app/lib/poll-verification.ts).
 import { createHmac } from 'node:crypto'
 import { InputError } from './input-error'
 import { isConfirmedRsvp } from './linked-tools'
 import { isPresent } from './checkin'
-import { sign, verifySignedPayload } from './poll-verification'
+import { signForPollTool, verifyFromPollTool } from './poll-verification'
 
 /** So lange gilt ein Beitritts-Nachweis - er wird bei jedem Klick frisch ausgestellt. */
 const ACCESS_TTL_SECONDS = 15 * 60
@@ -95,13 +95,12 @@ export function assemblySubject(assemblyId: string, rsvpId: string, key: string)
 export function signAssemblyAccess(assemblyId: string, eventId: string, rsvpId: string, name: string, now = new Date()): string | null {
   const key = secret()
   if (!key) return null
-  const exp = Math.floor(now.getTime() / 1000) + ACCESS_TTL_SECONDS
-  return sign({ typ: 'assembly-access', assemblyId, eventId, sub: assemblySubject(assemblyId, rsvpId, key), name: name.trim().slice(0, 100), exp }, key)
+  return signForPollTool('assembly-access', { assemblyId, eventId, sub: assemblySubject(assemblyId, rsvpId, key), name: name.trim().slice(0, 100) }, { ttlSeconds: ACCESS_TTL_SECONDS, now })
 }
 
 function verifyAssemblyQuery(token: string | null, typ: string): { assemblyId: string; eventId: string; payload: Record<string, unknown> } | null {
-  const payload = verifySignedPayload(token)
-  if (!payload || payload.typ !== typ) return null
+  const payload = verifyFromPollTool(token, typ)
+  if (!payload) return null
   const { assemblyId, eventId } = payload
   if (typeof assemblyId !== 'string' || !ID.test(assemblyId) || typeof eventId !== 'string' || !ID.test(eventId)) return null
   return { assemblyId, eventId, payload }
@@ -157,10 +156,9 @@ export function signRosterResult(
   if (!key) return null
   const members = rsvps.filter(r => isConfirmedRsvp(r, r.participant, requireVerification))
   const present = event.enableCheckin ? members.filter(r => isPresent(r)).map(r => assemblySubject(assemblyId, r.id, key)) : []
-  return sign({
-    typ: 'assembly-roster-result', assemblyId, eventId: event.id, checkin: event.enableCheckin, members: members.length, present,
-    exp: Math.floor(Date.now() / 1000) + MESSAGE_TTL_SECONDS
-  }, key)
+  return signForPollTool('assembly-roster-result', {
+    assemblyId, eventId: event.id, checkin: event.enableCheckin, members: members.length, present
+  }, { ttlSeconds: MESSAGE_TTL_SECONDS })
 }
 
 type AttendanceRsvp = RosterRsvp & { participant: { isVerified: boolean; name: string } }
@@ -187,10 +185,9 @@ export function signAttendanceResult(
       left: event.enableCheckin && r.hasAttended && !!r.leftAt
     }))
     .sort((a, b) => a.name.localeCompare(b.name, 'de'))
-  return sign({
-    typ: 'assembly-attendance-result', assemblyId, eventId: event.id, checkin: event.enableCheckin, trackPresence: event.trackPresence, people,
-    exp: Math.floor(Date.now() / 1000) + MESSAGE_TTL_SECONDS
-  }, key)
+  return signForPollTool('assembly-attendance-result', {
+    assemblyId, eventId: event.id, checkin: event.enableCheckin, trackPresence: event.trackPresence, people
+  }, { ttlSeconds: MESSAGE_TTL_SECONDS })
 }
 
 export type AssemblyLinkResult = 'ok' | 'conflict' | 'unknown' | 'unreachable'
@@ -201,9 +198,8 @@ export type AssemblyLinkResult = 'ok' | 'conflict' | 'unknown' | 'unreachable'
  */
 export async function announceAssemblyLink(assemblyUrl: string, event: { id: string; title: string }): Promise<AssemblyLinkResult> {
   const assembly = assemblyOf({ assemblyUrl })
-  const key = secret()
-  if (!assembly || !key) return 'unreachable'
-  const body = sign({ typ: 'assembly-link', assemblyId: assembly.assemblyId, eventId: event.id, eventTitle: event.title.slice(0, 200), exp: Math.floor(Date.now() / 1000) + MESSAGE_TTL_SECONDS }, key)
+  const body = assembly && signForPollTool('assembly-link', { assemblyId: assembly.assemblyId, eventId: event.id, eventTitle: event.title.slice(0, 200) }, { audience: assembly.origin, ttlSeconds: MESSAGE_TTL_SECONDS })
+  if (!assembly || !body) return 'unreachable'
   try {
     const response = await fetch(`${assembly.origin}/api/rsvp-assembly`, {
       method: 'POST', headers: { 'Content-Type': 'text/plain' }, body, signal: AbortSignal.timeout(5000)

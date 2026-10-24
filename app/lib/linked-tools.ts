@@ -348,33 +348,3 @@ export function createSignedMessage(
   const ttl = Math.min(options.ttlSeconds ?? 600, MAX_TOKEN_AGE_SECONDS)
   return signMessage({ typ, ...fields, iat, exp: iat + ttl }, secret)
 }
-
-// --- HTTP -----------------------------------------------------------------------------------
-
-/**
- * Liest den Body höchstens bis `max` Bytes - null, wenn er größer ist. Content-Length allein
- * reicht nicht (fehlt bei chunked Übertragung oder lügt), deshalb wird der Stream mitgezählt.
- */
-export async function readLimitedText(request: Request, max: number): Promise<string | null> {
-  const declared = Number(request.headers.get('content-length') ?? 0)
-  if (Number.isFinite(declared) && declared > max) return null
-  if (!request.body) return ''
-  const reader = request.body.getReader()
-  const chunks: Uint8Array[] = []
-  let size = 0
-  try {
-    for (;;) {
-      const { done, value } = await reader.read()
-      if (done) break
-      size += value.byteLength
-      if (size > max) {
-        await reader.cancel().catch(() => {})
-        return null
-      }
-      chunks.push(value)
-    }
-  } catch {
-    return null
-  }
-  return Buffer.concat(chunks).toString('utf8')
-}

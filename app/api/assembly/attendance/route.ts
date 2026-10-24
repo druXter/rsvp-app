@@ -1,8 +1,8 @@
 // app/api/assembly/attendance/route.ts
+import { readLimitedText } from 'suite-kit/web'
 import { NextResponse } from 'next/server'
 import { prisma } from '../../../lib/prisma'
 import { assemblyOf, signAttendanceResult, verifyAttendanceRequest } from '../../../lib/assembly'
-import { readLimitedText } from '../../../lib/linked-tools'
 
 // Größere Nachrichten verschickt das Abstimmungstool nie; alles darüber wird gar nicht erst gelesen.
 const MAX_BODY = 20_000

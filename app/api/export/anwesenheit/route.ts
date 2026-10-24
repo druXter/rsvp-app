@@ -1,9 +1,9 @@
 // app/api/export/anwesenheit/route.ts
+import { csvResponse } from 'suite-kit/web'
 import { NextResponse } from 'next/server'
 import { prisma } from '../../../lib/prisma'
 import { getCurrentUser } from '../../../lib/auth'
 import { hasEventModeratorOrAbove } from '../../../lib/permissions'
-import { csvResponse } from '../../../lib/csv'
 import { presenceReport } from '../../../lib/checkin'
 
 /**

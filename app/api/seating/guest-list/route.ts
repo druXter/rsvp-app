@@ -1,6 +1,7 @@
 // app/api/seating/guest-list/route.ts
+import { readLimitedText } from 'suite-kit/web'
 import { NextResponse } from 'next/server'
-import { createMessage, ownOrigin, readLimitedText, seatingSecret, verifyMessage } from '../../../lib/seating'
+import { createMessage, ownOrigin, seatingSecret, verifyMessage } from '../../../lib/seating'
 import { confirmedGuests, linkedEvent } from '../../../lib/seating-sync'
 
 export const dynamic = 'force-dynamic'

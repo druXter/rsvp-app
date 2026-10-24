@@ -1,8 +1,8 @@
 // app/api/poll-result-webhook/route.ts
+import { readLimitedText } from 'suite-kit/web'
 import { prisma } from '../../lib/prisma'
 import { NextResponse } from 'next/server'
 import { verifyResultWebhookPayload } from '../../lib/poll-verification'
-import { readLimitedText } from '../../lib/linked-tools'
 
 // Größere Meldungen verschickt das Abstimmungstool nie; alles darüber wird gar nicht erst gelesen.
 const MAX_BODY = 100_000

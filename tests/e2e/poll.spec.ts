@@ -1,12 +1,13 @@
 import { createHmac } from 'node:crypto'
 import { expect, test, type APIRequestContext } from '@playwright/test'
+import { TEST_ABSTIMMUNGSTOOL_BASE_URL } from '../../playwright.config'
 import {
   BASE_URL, TEST_POLL_SECRET, cookieHeader, createAccount, createApiToken, createEvent, createGuestUser, createRsvp,
   createSeries, createTermin, decodeCouplingToken, plantGuestSession, prisma, signCouplingToken, unlockPin
 } from './helpers'
 
 // Kopplung mit dem Abstimmungstool (app/lib/poll-verification.ts). Beide Richtungen tragen
-// `base64url(JSON).base64url(HMAC-SHA256)` mit dem gemeinsamen POLL_VERIFICATION_SECRET:
+// `base64url(JSON).base64url(HMAC-SHA256)` mit dem gemeinsamen POLL_VERIFICATION_SECRET, Nutzlast `{ typ, aud, ..., iat, exp }`:
 // eingehend die Ergebnis-Meldung (POST /api/poll-result-webhook), ausgehend der Klick-Token, den
 // /api/poll-link/[eventId] an die Abstimmungs-URL hängt.
 
@@ -14,6 +15,7 @@ const nowSeconds = () => Math.floor(Date.now() / 1000)
 
 function resultPayload(eventId: string, overrides: Record<string, unknown> = {}) {
   return {
+    typ: 'poll-result',
     eventId,
     pollId: 'poll-e2e',
     pollTitle: 'Wohin gehen wir?',
@@ -49,8 +51,10 @@ test('Ergebnis-Meldung: manipulierte, abgelaufene oder fremd signierte Meldungen
     'kein Token': 'hallo welt',
     // Die eigenen ausgehenden Tokens (Klick-Token, Zu-/Absage-Meldung) sind mit demselben
     // Geheimnis signiert, dürfen aber nie als Ergebnis-Meldung zurückgespielt werden können.
-    'Klick-Token': signCouplingToken({ email: 'a@example.test', pollId: 'poll-e2e', attending: true, exp: nowSeconds() + 600 }),
-    'Zu-/Absage-Meldung': signCouplingToken({ email: 'a@example.test', pollId: 'poll-e2e', eventId: event.id, attending: true, exp: nowSeconds() + 600 }),
+    'Klick-Token': signCouplingToken({ typ: 'poll-access', email: 'a@example.test', pollId: 'poll-e2e', attending: true, exp: nowSeconds() + 600 }),
+    'Zu-/Absage-Meldung': signCouplingToken({ typ: 'poll-attendance', email: 'a@example.test', pollId: 'poll-e2e', eventId: event.id, attending: true, exp: nowSeconds() + 600 }),
+    'ohne typ': signCouplingToken({ ...resultPayload(event.id), typ: undefined }),
+    'an ein anderes Tool': signCouplingToken({ ...resultPayload(event.id), aud: TEST_ABSTIMMUNGSTOOL_BASE_URL }),
     'Gewinner kein Array': signCouplingToken(resultPayload(event.id, { winners: 'Kino' }))
   }
   for (const [name, body] of Object.entries(attacks)) {
@@ -127,7 +131,7 @@ test('Klick-Token nur für bestätigte Nutzer-Konten, an Abstimmung gebunden, 10
   expect(signature).toBe(createHmac('sha256', TEST_POLL_SECRET).update(payloadPart).digest('base64url'))
   expect(signature).not.toBe(createHmac('sha256', 'ein-anderes-geheimnis').update(payloadPart).digest('base64url'))
   const payload = decodeCouplingToken(token)
-  expect(payload).toMatchObject({ email: attending.email, pollId: 'poll42', attending: true })
+  expect(payload).toMatchObject({ typ: 'poll-access', aud: 'https://abstimmung.example', email: attending.email, pollId: 'poll42', attending: true })
   expect(payload.exp).toBeGreaterThan(nowSeconds() + 590)
   expect(payload.exp).toBeLessThanOrEqual(nowSeconds() + 600)
 

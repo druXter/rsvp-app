@@ -3,12 +3,12 @@
 // Bezahlung per Überweisung (Idee L1 der Suite, docs/KONZEPT-TICKETS.md): kein Zahlungsanbieter. Gäste
 // überweisen mit GiroCode und eindeutigem Verwendungszweck, die Verwaltung markiert "bezahlt" (oder "bar
 // bezahlt" an der Abendkasse). Der Betrag kommt aus der Ticketkategorie (app/lib/tickets.ts).
+import { escapeHtml } from 'suite-kit/web'
 import { randomInt } from 'node:crypto'
 import QRCode from 'qrcode'
 import { prisma } from './prisma'
 import { formatEuro, formatPaymentDate, paymentDue, paymentState, type PaymentFields, type PaymentState } from './payment-state'
 import { InputError } from './input-error'
-import { escapeHtml } from './escape-html'
 
 export { PAYMENT_STATE_LABEL, formatPaymentDate, paymentDue, paymentState, type PaymentFields, type PaymentState } from './payment-state'
 

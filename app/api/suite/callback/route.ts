@@ -1,10 +1,9 @@
 // app/api/suite/callback/route.ts
 import type { NextRequest, NextResponse } from 'next/server'
-import { fetchDiscovery, sanitizeNextPath, verifyLoginAssertion, type DiscoveryDocument, type LoginClaims } from 'suite-kit'
+import { fetchDiscovery, safeEqual, sanitizeNextPath, type DiscoveryDocument, type LoginClaims, verifyLoginAssertion } from 'suite-kit'
 import { prisma } from '../../../lib/prisma'
 import { getCurrentUser, issueSession, sessionCookieOptions, SESSION_COOKIE, SESSION_DURATION_MS } from '../../../lib/auth'
 import { GUEST_SESSION_COOKIE, GUEST_SESSION_DURATION_MS, guestSessionCookieOptions, issueLinkedGuestSession } from '../../../lib/guest-auth'
-import { safeEqual } from '../../../lib/tokens'
 import { getIdps, mapRole, selfOrigin } from '../../../lib/suite'
 import { parseFlow, redirectResponse, SUITE_STATE_COOKIE } from '../../../lib/suite-flow'
 

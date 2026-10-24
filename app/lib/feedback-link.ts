@@ -8,9 +8,11 @@ import { createHmac } from 'node:crypto'
 import { isConfirmedRsvp } from './linked-tools'
 import { InputError } from './input-error'
 import { eventEndsAt } from './photo-link'
+import { signForPollTool } from './poll-verification'
 
 /** So lange gilt ein Nachweis (Ausfüllen inklusive) - das Abstimmungstool nimmt höchstens 24 h an. */
 export const FEEDBACK_TOKEN_TTL_SECONDS = 12 * 60 * 60
+const FEEDBACK_TOKEN_MAX_TTL_SECONDS = 24 * 60 * 60
 /** Später verschickt der Cron nichts mehr: kein überraschendes Feedback zu einem längst vergangenen Termin. */
 export const FEEDBACK_SEND_WINDOW_DAYS = 7
 /** Auswahl "Per Mail verschicken" im Termin-Formular: Stunden nach dem Ende (leer = nicht verschicken). */
@@ -158,16 +160,17 @@ export function feedbackSubject(surveyId: string, rsvpId: string, secret: string
 
 /**
  * Nachweis für das Abstimmungstool (Gegenstück zu dessen verifyRsvpSurveyToken): gleiches Format und Secret wie die
- * übrigen Nachrichten dieser Kopplung (app/lib/poll-verification.ts), Payload `{ typ: 'survey-access', surveyId,
- * sub, exp }`. `typ` und `surveyId` statt `pollId` verhindern, dass er dort als Abstimmungs-Token durchgeht.
+ * übrigen Nachrichten dieser Kopplung (app/lib/poll-verification.ts), Nachricht `survey-access` mit `surveyId` und
+ * `sub`. Als einzige länger als eine Stunde gültig, weil sie das Ausfüllen überdauern muss (auf beiden Seiten
+ * ausdrücklich erlaubt).
  * null ohne POLL_VERIFICATION_SECRET.
  */
 export function signFeedbackToken(surveyId: string, rsvpId: string, now: Date = new Date()): string | null {
   const secret = process.env.POLL_VERIFICATION_SECRET
   if (!secret) return null
-  const payload = { typ: 'survey-access', surveyId, sub: feedbackSubject(surveyId, rsvpId, secret), exp: Math.floor(now.getTime() / 1000) + FEEDBACK_TOKEN_TTL_SECONDS }
-  const payloadPart = base64url(JSON.stringify(payload))
-  return `${payloadPart}.${base64url(createHmac('sha256', secret).update(payloadPart).digest())}`
+  return signForPollTool('survey-access', { surveyId, sub: feedbackSubject(surveyId, rsvpId, secret) }, {
+    audience: allowedFeedbackOrigin(), ttlSeconds: FEEDBACK_TOKEN_TTL_SECONDS, maxTtlSeconds: FEEDBACK_TOKEN_MAX_TTL_SECONDS, now
+  })
 }
 
 /** Weg über rsvp-app (Seite, Mail, Push) - nie der Fragebogen-Link selbst, der allein öffnet kein Formular. */

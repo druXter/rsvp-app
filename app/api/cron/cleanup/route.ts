@@ -1,7 +1,7 @@
 // app/api/cron/cleanup/route.ts
+import { safeEqual } from 'suite-kit'
 import { prisma } from '../../../lib/prisma'
 import { NextResponse } from 'next/server'
-import { safeEqual } from '../../../lib/tokens'
 import { deleteOrphanedParticipants } from '../../../lib/participants'
 
 

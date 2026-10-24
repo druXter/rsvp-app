@@ -300,9 +300,9 @@ test.describe('Platzierungen (/api/seating/placements)', () => {
 
     const csv = await page.request.get(`/api/export?eventId=${event.id}`, { headers: await cookieHeader(page.context()) })
     expect(csv.status()).toBe(200)
-    const [header, row] = (await csv.text()).replace('﻿', '').split('\n')
-    expect(header.split(';')).toContain('"Sitzplatz"')
-    expect(row).toContain('"Tisch 4, Platz 12"')
+    const [header, row] = (await csv.text()).replace('﻿', '').split('\r\n')
+    expect(header.split(';')).toContain('Sitzplatz')
+    expect(row.split(';')).toContain('Tisch 4, Platz 12')
   })
 })
 
@@ -343,7 +343,7 @@ test.describe('Küchenliste pro Tisch (placements mit persons)', () => {
     await expect(tables.nth(2)).toContainText('Tisch 10')
     await expect(tables.nth(2)).toContainText('Hauptgang: 1× Fisch')
     const csv = await (await page.request.get(`/api/export/kueche?eventId=${event.id}`, { headers: await cookieHeader(page.context()) })).text()
-    expect(csv).toContain('"Kindertisch";"Kindertisch, Platz 4";"Ben";"Anna";"Kind";"Fleisch"')
+    expect(csv).toContain('Kindertisch;Kindertisch, Platz 4;Ben;Anna;Kind;Fleisch')
 
     // Neuer Stand ohne persons (z. B. Seating vor diesem Update): Tische pro Person entfallen
     expect((await post(request, '/api/seating/placements', placements(event, seatingEventId, [{ rsvpId: carl.rsvp.id, label: 'Tisch 2' }], { iat: iat + 1 }))).status()).toBe(200)

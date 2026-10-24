@@ -101,7 +101,10 @@ describe('Nachweis fürs Abstimmungstool', () => {
   it('Format, Payload und Gültigkeit wie verifyRsvpSurveyToken erwartet', () => {
     const token = signFeedbackToken('cmabc123', 'rsvp-1', now)!
     const payload = verifyLikeAbstimmungstool(token)
-    expect(payload).toEqual({ typ: 'survey-access', surveyId: 'cmabc123', sub: feedbackSubject('cmabc123', 'rsvp-1', SECRET), exp: now.getTime() / 1000 + 12 * 60 * 60 })
+    expect(payload).toEqual({
+      typ: 'survey-access', aud: ORIGIN, surveyId: 'cmabc123', sub: feedbackSubject('cmabc123', 'rsvp-1', SECRET),
+      iat: now.getTime() / 1000, exp: now.getTime() / 1000 + 12 * 60 * 60
+    })
     // Kein Feld, das ein Abstimmungs-Token ausmacht - und keine personenbezogenen Daten
     expect(payload).not.toHaveProperty('pollId')
     expect(payload).not.toHaveProperty('email')

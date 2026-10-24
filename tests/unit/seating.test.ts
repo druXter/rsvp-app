@@ -1,9 +1,7 @@
+import { readLimitedText } from 'suite-kit/web'
 import { createHmac } from 'node:crypto'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import {
-  MAX_TOKEN_AGE_SECONDS, createMessage, guestOf, isSeatingConfirmed, openMessage, originOf, parseSeatingUrl,
-  placesOfPersons, readLimitedText, seatingSecret, signMessage, verifyMessage
-} from '../../app/lib/seating'
+import { MAX_TOKEN_AGE_SECONDS, createMessage, guestOf, isSeatingConfirmed, openMessage, originOf, parseSeatingUrl, placesOfPersons, seatingSecret, signMessage, verifyMessage } from '../../app/lib/seating'
 
 // Vertrag mit Seating (app/lib/seating.ts). Die Werte stammen aus Seatings eigenem
 // tests/unit/rsvp/token.test.ts; die beiden festen Nachrichten unten hat Seatings createMessage

@@ -60,10 +60,10 @@ test('Scannen: kommen, gehen, wiederkommen, Fehlscan zurücknehmen, Anwesenheit 
   await expect(page.getByTestId('presence-now')).toContainText('1')
 
   const csv = await (await page.request.get(`/api/export/anwesenheit?eventId=${event.id}`, { headers: await cookieHeader(page.context()) })).text()
-  const lines = csv.replace(/^\uFEFF/, '').split('\n')
-  expect(lines[0]).toBe('"Datum";"Uhrzeit";"Name";"Wechsel"')
+  const lines = csv.replace(/^\uFEFF/, '').trimEnd().split('\r\n')
+  expect(lines[0]).toBe('Datum;Uhrzeit;Name;Wechsel')
   expect(lines.slice(1).map(l => l.split(';').slice(2).join(';'))).toEqual([
-    '"Anna Abgeordnete";"kommt"', '"Anna Abgeordnete";"geht"', '"Anna Abgeordnete";"kommt wieder"'
+    'Anna Abgeordnete;kommt', 'Anna Abgeordnete;geht', 'Anna Abgeordnete;kommt wieder'
   ])
 })
 
