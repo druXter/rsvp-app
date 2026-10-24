@@ -3,7 +3,7 @@
 // Bezahlung per Überweisung (Idee L1 der Suite, docs/KONZEPT-TICKETS.md): kein Zahlungsanbieter. Gäste
 // überweisen mit GiroCode und eindeutigem Verwendungszweck, die Verwaltung markiert "bezahlt" (oder "bar
 // bezahlt" an der Abendkasse). Der Betrag kommt aus der Ticketkategorie (app/lib/tickets.ts).
-import { escapeHtml } from 'suite-kit/web'
+import { paymentBox } from './mail-templates'
 import { randomInt } from 'node:crypto'
 import QRCode from 'qrcode'
 import { prisma } from './prisma'
@@ -219,19 +219,6 @@ export async function paymentMailParts(rsvp: Parameters<typeof transferDetailsOf
     ['Verwendungszweck', transfer.reference],
     ...(due ? [['Zahlbar bis', due] as [string, string]] : [])
   ]
-  const text = `Bitte überweise den Ticketpreis:\n${rows.map(([k, v]) => `${k}: ${v}`).join('\n')}\n\nBitte gib den Verwendungszweck genau so an, damit wir deine Zahlung zuordnen können. Mit dem GiroCode in dieser Mail kannst du die Überweisung in deiner Banking-App scannen.`
-  const html = `
-      <div style="border: 1px solid #f9a8d4; background: #fdf2f8; border-radius: 8px; padding: 16px; margin: 24px 0;">
-        <p style="margin: 0 0 8px; font-weight: bold;">💶 Bitte überweise den Ticketpreis</p>
-        <table style="border-collapse: collapse; font-size: 14px;">
-          ${rows.map(([k, v]) => `<tr><td style="padding: 2px 12px 2px 0; color: #666;">${k}</td><td style="padding: 2px 0; font-weight: ${k === 'Verwendungszweck' || k === 'Betrag' ? 'bold' : 'normal'}; font-family: ${k === 'IBAN' || k === 'Verwendungszweck' ? 'monospace' : 'inherit'};">${escapeHtml(v)}</td></tr>`).join('')}
-        </table>
-        <p style="font-size: 13px; color: #666;">Bitte gib den Verwendungszweck genau so an, damit wir deine Zahlung zuordnen können.</p>
-        <p style="text-align: center; margin: 16px 0 0;">
-          <img src="cid:girocode" alt="GiroCode für die Überweisung" style="width: 200px; height: 200px;" /><br>
-          <span style="font-size: 13px; color: #666;">GiroCode: in der Banking-App scannen</span>
-        </p>
-      </div>`
   const attachment = { filename: 'girocode.png', content: await giroCodeBuffer(transfer), cid: 'girocode', contentType: 'image/png' }
-  return { text, html, attachment }
+  return { block: paymentBox(rows, true), attachment }
 }

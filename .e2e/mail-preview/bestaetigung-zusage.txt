@@ -1,0 +1,51 @@
+Betreff: Zusage bestätigt: Herbstfest 2026
+
+Hallo Ramón,
+
+vielen Dank für deine Zusage zu Herbstfest 2026. Wir freuen uns, dass du dabei bist!
+
+Wann: Samstag, 14. November 2026 um 18:30 Uhr
+Wo: Gemeindesaal, Kirchstraße 3, Koblenz
+Mit dir angemeldet:
+  Alex (vegetarisch)
+  Mia (Kind)
+
+Menü
+
+- Ramón: Hauptgang Fisch, Dessert Obst
+- Alex: Hauptgang Vegetarisch, Dessert Eis
+- Mia: Kindermenü
+
+Bitte überweise den Ticketpreis
+
+Betrag: 25,00 € (Studierende)
+Empfänger*in: Fachschaft Beispiel
+IBAN: DE02 1203 0000 0000 2020 51
+Verwendungszweck: HERBST-7Q4K
+Zahlbar bis: Freitag, 7. November 2026
+
+Bitte gib den Verwendungszweck genau so an, damit wir deine Zahlung zuordnen können.
+
+GiroCode: in der Banking-App scannen
+
+Dein persönlicher Einlass-QR-Code - bitte am Einlass bereithalten.
+
+Antwort bearbeiten:
+https://rsvp.ramonroeser.de/reihe/vorschau/herbstfest?token=nur-eine-vorschau
+
+Sitzplatz wählen:
+https://rsvp.ramonroeser.de/api/seating-link/vorschau?token=x
+
+Zeitplan ansehen:
+https://rsvp.ramonroeser.de/api/timeline-link/vorschau?token=x
+
+Im Anhang findest du eine Kalenderdatei (.ics) und deinen Einlass-QR-Code.
+
+Dieser Termin gehört zur Reihe Feste der Fachschaft. Weitere Termine und deine bisherigen Antworten: Zur Reihe (https://rsvp.ramonroeser.de/reihe/vorschau?token=x)
+
+Viele Grüße
+Dein Event-Team
+
+-- 
+Du bekommst diese Mail, weil du auf die Einladung zu „Herbstfest 2026“ geantwortet hast. Über den Knopf „Antwort bearbeiten“ kannst du deine Angaben jederzeit ändern oder löschen.
+RSVP

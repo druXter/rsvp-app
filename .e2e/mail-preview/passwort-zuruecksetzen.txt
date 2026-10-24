@@ -1,0 +1,12 @@
+Betreff: Passwort zurücksetzen
+
+Hallo Ramón,
+
+für dein Konto ramon@example.de wurde ein neues Passwort angefordert. Falls du das warst, vergib über den Knopf ein neues. Der Link ist eine Stunde gültig.
+
+Neues Passwort vergeben:
+https://rsvp.ramonroeser.de/mein-konto/reset-password?token=x
+
+-- 
+Falls du das nicht warst, kannst du diese Mail ignorieren - dein Passwort bleibt unverändert.
+RSVP

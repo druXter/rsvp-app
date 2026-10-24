@@ -30,3 +30,5 @@ vitest.config.mts
 .claude
 CLAUDE.md
 AGENTS.md
+# Entwicklungs-Skripte (Mail-Vorschau)
+scripts

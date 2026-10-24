@@ -1,5 +1,10 @@
 // app/lib/mail.ts
-import { escapeHtml } from 'suite-kit/web'
+import { renderMail } from 'suite-kit/web'
+import {
+  confirmationMail, emailChangeMail, eventUpdatedMail, feedbackMail, guestVerificationMail, invitationMail, passwordResetMail,
+  paymentCancelledMail, paymentReceivedMail, paymentReminderMail, reminderMail, verificationMail, waitlistMail, waitlistPromotedMail,
+  type MailContent, type SeriesHint
+} from './mail-templates'
 import { formatEventDate } from './event-date'
 import nodemailer from 'nodemailer'
 import { createEvent, DateArray } from 'ics'
@@ -49,18 +54,40 @@ function seriesOverviewLink(series: EventSeries, participant: Participant) {
   return `${baseUrl()}/reihe/${series.slug}?token=${participant.editToken}`
 }
 
-/**
- * Baut, falls der Termin Teil einer Reihe ist, einen Hinweisblock mit Link zu den
- * weiteren Terminen der Reihe (für Bestätigungs-/Wartelisten-Mails).
- */
-function seriesHintText(event: EventWithSeries, participant: Participant): string {
-  if (!event.series) return ''
-  return `\n\nDieser Termin gehört zur Reihe "${event.series.title}". Weitere Termine und deine bisherigen Antworten findest du hier:\n${seriesOverviewLink(event.series, participant)}`
+/** Hinweis auf die weiteren Termine, falls der Termin zu einer Reihe gehört (Bestätigung, Warteliste, Änderung). */
+function seriesHint(event: EventWithSeries, participant: Participant): SeriesHint {
+  return event.series ? { title: event.series.title, link: seriesOverviewLink(event.series, participant) } : null
 }
 
-function seriesHintHtml(event: EventWithSeries, participant: Participant): string {
-  if (!event.series) return ''
-  return `<p>Dieser Termin gehört zur Reihe <strong>${escapeHtml(event.series.title)}</strong>. Weitere Termine und deine bisherigen Antworten findest du <a href="${seriesOverviewLink(event.series, participant)}">hier</a>.</p>`
+type Attachment = { filename: string; content: Buffer | string; contentType: string; cid?: string }
+
+/**
+ * Verschickt eine Mail aus den Bausteinen (app/lib/mail-templates.ts, Vorlage aus suite-kit): HTML- und Klartext-Teil
+ * aus demselben Inhalt. Wirft bei einem Fehler - Aufrufer, die stattdessen false melden, nutzen tryDeliver.
+ */
+async function deliver(to: string, content: MailContent, attachments: Attachment[] = []) {
+  const { html, text } = renderMail(content.mail)
+  await transporter.sendMail({
+    from: process.env.SMTP_FROM,
+    to,
+    subject: content.subject,
+    text,
+    html,
+    attachments,
+    // Zwingt Mail-Server, den korrekten technischen Absender zu akzeptieren
+    envelope: { from: process.env.SMTP_USER, to }
+  })
+}
+
+/** Wie deliver, aber false statt eines Fehlers (Versand, der den Ablauf nicht abbrechen darf). */
+async function tryDeliver(to: string, content: MailContent, what: string, attachments: Attachment[] = []): Promise<boolean> {
+  try {
+    await deliver(to, content, attachments)
+    return true
+  } catch (error) {
+    console.error(`Fehler beim Senden der ${what} an ${to}:`, error)
+    return false
+  }
 }
 
 /**
@@ -124,7 +151,8 @@ function buildIcsAttachment(event: EventWithSeries, participant: Participant) {
 }
 
 /**
- * Generiert die Kalenderdatei und verschickt eine Bestätigungs-E-Mail an den Gast.
+ * Bestätigung einer Zu- oder Absage: bei einer Zusage mit Kalenderdatei, Einlass-QR-Code (Check-in), Zahlungsdaten
+ * samt GiroCode (fester Platz mit offenem Betrag) und den Wegen zu Seating und Zeitplan.
  */
 export async function sendConfirmationEmail(participant: Participant, rsvp: Rsvp, event: EventWithSeries) {
   const personalLink = personalEventLink(event, participant)
@@ -165,450 +193,116 @@ export async function sendConfirmationEmail(participant: Participant, rsvp: Rsvp
   const persons = personsOf({ isAttending: true, persons: personRows }, participant).filter(p => p.isAttending)
   // Bei einer Einladung sind alle Personen gleichrangig (die Antwort trägt den Namen des Haushalts)
   const companions = (event.inviteOnly ? persons : persons.slice(1)).map(p => describePerson(p))
-  const companionsLabel = event.inviteOnly ? 'Angemeldet' : 'Mit dir angemeldet'
   const menuLines = courses.length > 0
     ? persons.filter(p => p.ageGroup !== 'INFANT').map(p => `${p.name || 'Begleitung'}: ${describeSelection(courses, p.menu) || 'noch nicht gewählt'}`)
     : []
 
-  // Betreff und Text je nach Zusage oder Absage anpassen
-  const subject = rsvp.isAttending
-    ? `Zusage bestätigt: ${event.title}`
-    : `Absage bestätigt: ${event.title}`
-
-  const text = `Hallo ${participant.name},
-
-vielen Dank für deine Rückmeldung zum Event "${event.title}".
-
-${rsvp.isAttending
-  ? 'Wir freuen uns sehr, dass du dabei bist! Im Anhang findest du eine Kalenderdatei (.ics), damit du dir den Termin direkt abspeichern kannst, sowie deinen persönlichen Einlass-QR-Code - bitte am Einlass bereithalten.'
-  : 'Schade, dass du nicht dabei sein kannst. Falls sich deine Pläne doch noch ändern sollten, kannst du deine Antwort jederzeit anpassen.'}
-
-${companions.length > 0 ? `${companionsLabel}: ${companions.join('; ')}\n\n` : ''}${menuLines.length > 0 ? `Menü:\n${menuLines.join('\n')}\n\n` : ''}${payment ? `${payment.text}\n\n` : ''}${seatAfterPayment ? 'Deinen Sitzplatz kannst du wählen, sobald deine Zahlung eingegangen ist - dann bekommst du eine Mail mit dem Link.\n\n' : ''}${seatLink ? `Deinen Sitzplatz kannst du hier wählen:\n${seatLink}\n\n` : ''}${timelineLink ? `Den Ablauf des Events findest du im Zeitplan:\n${timelineLink}\n\n` : ''}Du kannst deine Antwort und alle optionalen Angaben jederzeit über diesen persönlichen Link bearbeiten:
-${personalLink}${seriesHintText(event, participant)}
-
-Viele Grüße,
-Dein Event-Team`
-
-  const html = `
-    <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
-      <h2>${rsvp.isAttending ? `Zusage bestätigt, ${escapeHtml(participant.name)}! 🎉` : `Absage bestätigt, ${escapeHtml(participant.name)}`}</h2>
-      <p>Vielen Dank für deine Rückmeldung zum Event <strong>${escapeHtml(event.title)}</strong>.</p>
-      <p>${rsvp.isAttending
-        ? 'Wir freuen uns sehr, dass du dabei bist! Im Anhang findest du eine Kalenderdatei (.ics), damit du dir den Termin direkt abspeichern kannst.'
-        : 'Schade, dass du nicht dabei sein kannst. Falls sich deine Pläne doch noch ändern sollten, kannst du deine Antwort jederzeit anpassen.'}</p>
-      ${companions.length > 0 ? `<p>${companionsLabel}: ${companions.map(escapeHtml).join('; ')}</p>` : ''}
-      ${menuLines.length > 0 ? `<p>🍽️ Menü:<br>${menuLines.map(escapeHtml).join('<br>')}</p>` : ''}
-      ${payment ? payment.html : ''}
-      ${seatAfterPayment ? '<p>🪑 Deinen Sitzplatz kannst du wählen, sobald deine Zahlung eingegangen ist - dann bekommst du eine Mail mit dem Link.</p>' : ''}
-      ${qrAttachment ? `
-        <p style="text-align: center; margin: 30px 0;">
-          <img src="cid:checkinqr" alt="Einlass-QR-Code" style="width: 220px; height: 220px;" />
-          <br>
-          <span style="font-size: 13px; color: #666;">Dein persönlicher Einlass-QR-Code - bitte am Einlass bereithalten.</span>
-        </p>
-      ` : ''}
-      ${seatLink ? `
-        <p style="text-align: center; margin: 24px 0;">
-          <a href="${seatLink}" style="display: inline-block; background: #65a30d; color: #fff; font-weight: bold; padding: 10px 24px; border-radius: 6px; text-decoration: none;">🪑 Sitzplatz wählen</a>
-        </p>
-      ` : ''}
-      ${timelineLink ? `
-        <p style="text-align: center; margin: 24px 0;">
-          <a href="${timelineLink}" style="display: inline-block; background: #c026d3; color: #fff; font-weight: bold; padding: 10px 24px; border-radius: 6px; text-decoration: none;">🕒 Zeitplan</a>
-        </p>
-      ` : ''}
-      <p>Du kannst deine Antwort und alle optionalen Angaben jederzeit über diesen persönlichen Link bearbeiten:</p>
-      <p><a href="${personalLink}">${personalLink}</a></p>
-      ${seriesHintHtml(event, participant)}
-      <p>Viele Grüße,<br>Dein Event-Team</p>
-    </div>
-  `
-
-  // E-Mail abschicken
-  await transporter.sendMail({
-    from: process.env.SMTP_FROM,
-    to: participant.email!,
-    subject,
-    text,
-    html,
-    attachments: [icsAttachment, qrAttachment, payment?.attachment ?? null].filter((a): a is NonNullable<typeof a> => a !== null),
-
-    // Zwingt Mail-Server, den korrekten technischen Absender zu akzeptieren
-    envelope: {
-      from: process.env.SMTP_USER,
-      to: participant.email!
-    }
-  })
+  await deliver(participant.email!, confirmationMail({
+    name: participant.name,
+    attending: rsvp.isAttending,
+    event: { title: event.title, when: formatEventDate(event), location: event.location },
+    companions: { label: event.inviteOnly ? 'Angemeldet' : 'Mit dir angemeldet', names: companions },
+    menuLines,
+    payment: payment?.block ?? null,
+    seatAfterPayment,
+    seatLink,
+    timelineLink,
+    checkinQr: !!qrAttachment,
+    ics: !!icsAttachment,
+    personalLink,
+    series: seriesHint(event, participant)
+  }), [icsAttachment, qrAttachment, payment?.attachment ?? null].filter((a): a is NonNullable<typeof a> => a !== null))
 }
 
 /**
  * Versendet eine Erinnerungs-E-Mail an einen bestimmten Gast.
  * Akzeptiert eine optionale, benutzerdefinierte Nachricht des Gastgebers.
  */
-export async function sendReminderEmail(
-  event: EventWithSeries,
-  participant: Participant,
-  customMessage: string
-) {
-  const personalLink = personalEventLink(event, participant)
-
-  // Datum in deutsches Format umwandeln
-  const formattedDate = formatEventDate(event)
-
-  // Wenn ein Zusatztext eingegeben wurde, bauen wir einen hervorgehobenen HTML-Block dafür
-  const customMessageHtml = customMessage
-    ? `<div style="background-color: #f3f4f6; padding: 15px; border-left: 4px solid #3b82f6; margin: 20px 0;">
-         <p style="margin: 0; white-space: pre-wrap;"><strong>Nachricht des Gastgebers:</strong><br><br>${escapeHtml(customMessage)}</p>
-       </div>`
-    : ''
-
-  const mailOptions = {
-    from: process.env.SMTP_FROM,
-    to: participant.email!,
-    subject: `Erinnerung: ${event.title} steht bald an!`,
-    text: `Hallo ${participant.name},\n\nwir freuen uns, dass du bei "${event.title}" dabei bist!\n\nWann: ${formattedDate}\nWo: ${event.location || 'Wird noch bekannt gegeben'}\n\n${customMessage ? 'Nachricht des Gastgebers:\n' + customMessage + '\n\n' : ''}Deine Antworten bearbeiten: ${personalLink}`,
-    html: `
-      <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
-        <h2>Wir freuen uns auf dich, ${escapeHtml(participant.name)}! 🎉</h2>
-        <p>Das Event <strong>${escapeHtml(event.title)}</strong> rückt näher. Hier sind noch einmal alle wichtigen Daten für dich zusammengefasst:</p>
-
-        <ul style="list-style: none; padding: 0;">
-          <li>📅 <strong>Wann:</strong> ${formattedDate}</li>
-          <li>📍 <strong>Wo:</strong> ${escapeHtml(event.location || 'Wird noch bekannt gegeben')}</li>
-        </ul>
-
-        ${customMessageHtml}
-
-        <p>Falls sich an deiner Zusage noch etwas ändert, kannst du deine Daten jederzeit hier anpassen:</p>
-        <p><a href="${personalLink}" style="display: inline-block; padding: 10px 20px; background-color: #2563eb; color: #fff; text-decoration: none; border-radius: 5px;">Antwort bearbeiten</a></p>
-
-        <p>Bis bald!</p>
-      </div>
-    `
-  }
-
-  try {
-    await transporter.sendMail(mailOptions)
-    return true
-  } catch (error) {
-    console.error(`Fehler beim Senden der Erinnerung an ${participant.email}:`, error)
-    return false
-  }
+export async function sendReminderEmail(event: EventWithSeries, participant: Participant, customMessage: string) {
+  return tryDeliver(participant.email!, reminderMail({
+    name: participant.name,
+    event: { title: event.title, when: formatEventDate(event), location: event.location },
+    message: customMessage,
+    personalLink: personalEventLink(event, participant)
+  }), 'Erinnerung')
 }
 
 /**
  * Versendet eine Verifizierungs-E-Mail (Double-Opt-In), wenn requireVerification aktiv ist.
  * Die Verifizierung gilt für den Participant (und damit reihenweit), nicht für ein einzelnes Rsvp.
  */
-export async function sendVerificationEmail(
-  participant: Participant,
-  event: EventWithSeries
-) {
-  // Der Bestätigungs-Link leitet auf eine neue Route, die wir gleich noch bauen
-  const verifyLink = `${baseUrl()}/verify?token=${participant.verifyToken}`
-
-  const mailOptions = {
-    from: process.env.SMTP_FROM,
-    to: participant.email!,
-    subject: `Bitte bestätige deine Anmeldung für ${event.title}`,
-    text: `Hallo ${participant.name},\n\nbitte klicke auf den folgenden Link, um deine E-Mail-Adresse zu bestätigen und deine Anmeldung für "${event.title}" abzuschließen:\n\n${verifyLink}\n\nErst nach der Bestätigung wird deine Anmeldung gültig.`,
-    html: `
-      <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
-        <h2>Fast geschafft, ${escapeHtml(participant.name)}! ✉️</h2>
-        <p>Du hast dich für das Event <strong>${escapeHtml(event.title)}</strong> angemeldet.</p>
-        <p>Um Spam zu vermeiden, bitten wir dich, deine E-Mail-Adresse über den folgenden Button zu bestätigen. Erst danach ist deine Anmeldung verbindlich und du erhältst alle weiteren Informationen (inklusive Kalender-Eintrag).</p>
-
-        <p style="text-align: center; margin: 30px 0;">
-          <a href="${verifyLink}" style="display: inline-block; padding: 12px 24px; background-color: #10b981; color: #fff; text-decoration: none; border-radius: 5px; font-weight: bold;">E-Mail-Adresse bestätigen</a>
-        </p>
-
-        <p style="font-size: 12px; color: #666;">Falls der Button nicht funktioniert, kopiere diesen Link in deinen Browser:<br>${verifyLink}</p>
-      </div>
-    `
-  }
-
-  try {
-    await transporter.sendMail(mailOptions)
-    return true
-  } catch (error) {
-    console.error(`Fehler beim Senden der Verifizierungs-Mail an ${participant.email}:`, error)
-    return false
-  }
+export async function sendVerificationEmail(participant: Participant, event: EventWithSeries) {
+  return tryDeliver(participant.email!, verificationMail({
+    name: participant.name, eventTitle: event.title, link: `${baseUrl()}/verify?token=${participant.verifyToken}`
+  }), 'Verifizierungs-Mail')
 }
 
 /**
- * Versendet die Bestätigungs-E-Mail für ein neu registriertes Nutzer-Konto (siehe #12,
- * app/mein-konto/actions.ts registerGuestUser). Getrennt von sendVerificationEmail, da
- * es hier um das Login-Konto selbst geht, nicht um die Verifizierung einer einzelnen
- * Anmeldung/Participant.
- */
-/**
- * `contextTitle` ist entweder der Titel der Reihe oder (bei der Registrierung für ein
- * Einzel-Event mit requireGuestUser) der Titel des Events - beide Registrierungsformulare
- * (app/reihe/[seriesSlug]/registrieren, app/[slug]/registrieren) teilen sich diese Mail,
- * deshalb bewusst nur der Titel als String statt eines EventSeries-Objekts. `next` (optional)
- * ist der Pfad, zu dem die "Jetzt einloggen"-Seite nach dem Bestätigen weiterleiten soll -
- * damit landet ein Gast, der sich von einem konkreten Termin aus registriert hat, nach dem
- * Klick auf den Mail-Link nicht auf dem allgemeinen /mein-konto-Dashboard, sondern direkt
- * wieder dort, wo er teilnehmen wollte.
+ * Bestätigung eines neu registrierten Teilnehmendenkontos (registerGuestUser in app/mein-konto/actions.ts) - nicht
+ * die Verifizierung einer einzelnen Anmeldung. `contextTitle` ist der Titel der Reihe oder (Registrierung für ein
+ * Einzel-Event mit requireGuestUser) des Events. `next` (optional) ist der Pfad, zu dem die Seite nach dem Bestätigen
+ * weiterleitet - so landet ein Gast, der sich von einem Termin aus registriert hat, wieder dort.
  */
 export async function sendGuestVerificationEmail(guestUser: GuestUser, contextTitle: string, next: string | null | undefined, token: string) {
-  const verifyLink = `${baseUrl()}/mein-konto/verify?token=${token}${next ? `&next=${encodeURIComponent(next)}` : ''}`
-
-  const mailOptions = {
-    from: process.env.SMTP_FROM,
-    to: guestUser.email,
-    subject: `Bitte bestätige dein Konto für ${contextTitle}`,
-    text: `Hallo ${guestUser.name},\n\ndu hast dir gerade ein Konto für "${contextTitle}" angelegt. Bitte klicke auf den folgenden Link, um dein Konto zu bestätigen - danach kannst du dich einloggen:\n\n${verifyLink}`,
-    html: `
-      <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
-        <h2>Fast geschafft, ${escapeHtml(guestUser.name)}! ✉️</h2>
-        <p>Du hast dir gerade ein Konto für <strong>${escapeHtml(contextTitle)}</strong> angelegt.</p>
-        <p>Bitte bestätige dein Konto über den folgenden Button - danach kannst du dich einloggen und siehst automatisch alle Termine deiner Reihen, ohne dir Links merken oder Angaben erneut eintragen zu müssen.</p>
-
-        <p style="text-align: center; margin: 30px 0;">
-          <a href="${verifyLink}" style="display: inline-block; padding: 12px 24px; background-color: #10b981; color: #fff; text-decoration: none; border-radius: 5px; font-weight: bold;">Konto bestätigen</a>
-        </p>
-
-        <p style="font-size: 12px; color: #666;">Falls der Button nicht funktioniert, kopiere diesen Link in deinen Browser:<br>${verifyLink}</p>
-      </div>
-    `
-  }
-
-  try {
-    await transporter.sendMail(mailOptions)
-    return true
-  } catch (error) {
-    console.error(`Fehler beim Senden der Nutzer-Verifizierungs-Mail an ${guestUser.email}:`, error)
-    return false
-  }
+  const link = `${baseUrl()}/mein-konto/verify?token=${token}${next ? `&next=${encodeURIComponent(next)}` : ''}`
+  return tryDeliver(guestUser.email, guestVerificationMail({ name: guestUser.name, contextTitle, link }), 'Konto-Bestätigung')
 }
 
-/**
- * Versendet die Passwort-Reset-Mail für ein Nutzer-Konto (GuestUser, siehe #12/#13,
- * requestGuestPasswordReset in app/mein-konto/actions.ts). Getrennt von
- * sendPasswordResetEmail, da es sich um ein eigenständiges Login-System handelt.
- */
+/** Passwort-Reset für ein Teilnehmendenkonto (requestGuestPasswordReset in app/mein-konto/actions.ts). */
 export async function sendGuestPasswordResetEmail(guestUser: GuestUser, token: string) {
-  const resetLink = `${baseUrl()}/mein-konto/reset-password?token=${token}`
-
-  const mailOptions = {
-    from: process.env.SMTP_FROM,
-    to: guestUser.email,
-    subject: 'Passwort zurücksetzen',
-    text: `Hallo ${guestUser.name},\n\nfür dein Konto (${guestUser.email}) wurde ein Passwort-Reset angefordert. Falls du das warst, klicke auf den folgenden Link, um ein neues Passwort zu vergeben:\n\n${resetLink}\n\nDer Link ist eine Stunde gültig. Falls du das nicht warst, kannst du diese E-Mail ignorieren - dein Passwort bleibt unverändert.`,
-    html: `
-      <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
-        <h2>Passwort zurücksetzen</h2>
-        <p>Hallo ${escapeHtml(guestUser.name)}, für dein Konto <strong>${escapeHtml(guestUser.email)}</strong> wurde ein Passwort-Reset angefordert. Falls du das warst, klicke auf den folgenden Button, um ein neues Passwort zu vergeben:</p>
-
-        <p style="text-align: center; margin: 30px 0;">
-          <a href="${resetLink}" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: #fff; text-decoration: none; border-radius: 5px; font-weight: bold;">Neues Passwort vergeben</a>
-        </p>
-
-        <p style="font-size: 12px; color: #666;">Der Link ist eine Stunde gültig. Falls der Button nicht funktioniert, kopiere diesen Link in deinen Browser:<br>${resetLink}</p>
-        <p style="font-size: 12px; color: #666;">Falls du das nicht warst, kannst du diese E-Mail ignorieren - dein Passwort bleibt unverändert.</p>
-      </div>
-    `
-  }
-
-  try {
-    await transporter.sendMail(mailOptions)
-    return true
-  } catch (error) {
-    console.error(`Fehler beim Senden der Nutzer-Passwort-Reset-Mail an ${guestUser.email}:`, error)
-    return false
-  }
+  return tryDeliver(guestUser.email, passwordResetMail({
+    name: guestUser.name, email: guestUser.email, link: `${baseUrl()}/mein-konto/reset-password?token=${token}`
+  }), 'Passwort-Reset-Mail')
 }
 
 /**
- * Versendet die Passwort-Reset-Mail für ein Admin-seitiges Benutzerkonto (siehe #13,
- * requestPasswordReset in app/admin/actions.ts). Wird NIE für ein Admin-Konto (role
- * ADMIN) aufgerufen - dort bleibt ein Reset ausschließlich über direkten Server-Zugriff
- * möglich (create-user.js/set-role.js).
+ * Passwort-Reset für ein Verwaltungskonto (requestPasswordReset in app/admin/actions.ts). Wird NIE für ein Konto mit
+ * Admin-Rolle aufgerufen - dort bleibt ein Reset ausschließlich über direkten Server-Zugriff möglich
+ * (create-user.js/set-role.js).
  */
 export async function sendPasswordResetEmail(user: User, token: string) {
-  const resetLink = `${baseUrl()}/admin/reset-password?token=${token}`
-
-  const mailOptions = {
-    from: process.env.SMTP_FROM,
-    to: user.email,
-    subject: 'Passwort zurücksetzen',
-    text: `Hallo,\n\nfür dein Konto (${user.email}) wurde ein Passwort-Reset angefordert. Falls du das warst, klicke auf den folgenden Link, um ein neues Passwort zu vergeben:\n\n${resetLink}\n\nDer Link ist eine Stunde gültig. Falls du das nicht warst, kannst du diese E-Mail ignorieren - dein Passwort bleibt unverändert.`,
-    html: `
-      <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
-        <h2>Passwort zurücksetzen</h2>
-        <p>Für dein Konto <strong>${escapeHtml(user.email)}</strong> wurde ein Passwort-Reset angefordert. Falls du das warst, klicke auf den folgenden Button, um ein neues Passwort zu vergeben:</p>
-
-        <p style="text-align: center; margin: 30px 0;">
-          <a href="${resetLink}" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: #fff; text-decoration: none; border-radius: 5px; font-weight: bold;">Neues Passwort vergeben</a>
-        </p>
-
-        <p style="font-size: 12px; color: #666;">Der Link ist eine Stunde gültig. Falls der Button nicht funktioniert, kopiere diesen Link in deinen Browser:<br>${resetLink}</p>
-        <p style="font-size: 12px; color: #666;">Falls du das nicht warst, kannst du diese E-Mail ignorieren - dein Passwort bleibt unverändert.</p>
-      </div>
-    `
-  }
-
-  try {
-    await transporter.sendMail(mailOptions)
-    return true
-  } catch (error) {
-    console.error(`Fehler beim Senden der Passwort-Reset-Mail an ${user.email}:`, error)
-    return false
-  }
+  return tryDeliver(user.email, passwordResetMail({
+    name: null, email: user.email, link: `${baseUrl()}/admin/reset-password?token=${token}`
+  }), 'Passwort-Reset-Mail')
 }
 
 /**
- * Versendet den Bestätigungslink für eine E-Mail-Änderung eines Admin-seitigen
- * Benutzerkontos (siehe requestEmailChange in app/admin/actions.ts). Geht an die NEUE
- * Adresse, nicht an die alte - erst der Klick macht die Änderung wirksam. Das ist auch
- * für Admin-Konten sicher, anders als der Passwort-Reset per Mail-Link: hier wurde der
- * Vorgang bereits mit einer aktiven Session UND dem aktuellen Passwort ausgelöst, ein
- * kompromittiertes ALTES Postfach reicht dafür nicht aus.
+ * Bestätigungslink für eine E-Mail-Änderung eines Verwaltungskontos (requestEmailChange in app/admin/actions.ts).
+ * Geht an die NEUE Adresse - erst der Klick macht die Änderung wirksam. Auch für Konten mit Admin-Rolle sicher: Der
+ * Vorgang wurde bereits mit aktiver Sitzung UND aktuellem Passwort ausgelöst.
  */
 export async function sendEmailChangeConfirmation(user: User, token: string) {
-  const confirmLink = `${baseUrl()}/admin/confirm-email?token=${token}`
-
-  const mailOptions = {
-    from: process.env.SMTP_FROM,
-    to: user.pendingEmail!,
-    subject: 'Neue E-Mail-Adresse bestätigen',
-    text: `Hallo,\n\nfür dein Konto (aktuell ${user.email}) wurde eine Änderung der E-Mail-Adresse auf diese Adresse angefordert. Falls du das warst, klicke auf den folgenden Link, um die Änderung zu bestätigen:\n\n${confirmLink}\n\nDer Link ist eine Stunde gültig. Falls du das nicht warst, kannst du diese E-Mail ignorieren - deine E-Mail-Adresse bleibt unverändert.`,
-    html: `
-      <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
-        <h2>Neue E-Mail-Adresse bestätigen</h2>
-        <p>Für dein Konto (aktuell <strong>${escapeHtml(user.email)}</strong>) wurde eine Änderung der E-Mail-Adresse auf diese Adresse angefordert. Falls du das warst, klicke auf den folgenden Button, um die Änderung zu bestätigen:</p>
-
-        <p style="text-align: center; margin: 30px 0;">
-          <a href="${confirmLink}" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: #fff; text-decoration: none; border-radius: 5px; font-weight: bold;">E-Mail-Adresse bestätigen</a>
-        </p>
-
-        <p style="font-size: 12px; color: #666;">Der Link ist eine Stunde gültig. Falls der Button nicht funktioniert, kopiere diesen Link in deinen Browser:<br>${confirmLink}</p>
-        <p style="font-size: 12px; color: #666;">Falls du das nicht warst, kannst du diese E-Mail ignorieren - deine E-Mail-Adresse bleibt unverändert.</p>
-      </div>
-    `
-  }
-
-  try {
-    await transporter.sendMail(mailOptions)
-    return true
-  } catch (error) {
-    console.error(`Fehler beim Senden der E-Mail-Änderungs-Bestätigung an ${user.pendingEmail}:`, error)
-    return false
-  }
+  return tryDeliver(user.pendingEmail!, emailChangeMail({
+    name: null, currentEmail: user.email, link: `${baseUrl()}/admin/confirm-email?token=${token}`
+  }), 'Bestätigung der E-Mail-Änderung')
 }
 
-/**
- * Versendet den Bestätigungslink für eine E-Mail-Änderung eines Nutzer-Kontos (GuestUser,
- * siehe requestGuestEmailChange in app/mein-konto/actions.ts) - gleiches Prinzip wie
- * sendEmailChangeConfirmation, nur für das andere Login-System.
- */
+/** Wie sendEmailChangeConfirmation, für Teilnehmendenkonten (requestGuestEmailChange in app/mein-konto/actions.ts). */
 export async function sendGuestEmailChangeConfirmation(guestUser: GuestUser, token: string) {
-  const confirmLink = `${baseUrl()}/mein-konto/confirm-email?token=${token}`
-
-  const mailOptions = {
-    from: process.env.SMTP_FROM,
-    to: guestUser.pendingEmail!,
-    subject: 'Neue E-Mail-Adresse bestätigen',
-    text: `Hallo ${guestUser.name},\n\nfür dein Konto (aktuell ${guestUser.email}) wurde eine Änderung der E-Mail-Adresse auf diese Adresse angefordert. Falls du das warst, klicke auf den folgenden Link, um die Änderung zu bestätigen:\n\n${confirmLink}\n\nDer Link ist eine Stunde gültig. Falls du das nicht warst, kannst du diese E-Mail ignorieren - deine E-Mail-Adresse bleibt unverändert.`,
-    html: `
-      <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
-        <h2>Neue E-Mail-Adresse bestätigen</h2>
-        <p>Hallo ${escapeHtml(guestUser.name)}, für dein Konto (aktuell <strong>${escapeHtml(guestUser.email)}</strong>) wurde eine Änderung der E-Mail-Adresse auf diese Adresse angefordert. Falls du das warst, klicke auf den folgenden Button, um die Änderung zu bestätigen:</p>
-
-        <p style="text-align: center; margin: 30px 0;">
-          <a href="${confirmLink}" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: #fff; text-decoration: none; border-radius: 5px; font-weight: bold;">E-Mail-Adresse bestätigen</a>
-        </p>
-
-        <p style="font-size: 12px; color: #666;">Der Link ist eine Stunde gültig. Falls der Button nicht funktioniert, kopiere diesen Link in deinen Browser:<br>${confirmLink}</p>
-        <p style="font-size: 12px; color: #666;">Falls du das nicht warst, kannst du diese E-Mail ignorieren - deine E-Mail-Adresse bleibt unverändert.</p>
-      </div>
-    `
-  }
-
-  try {
-    await transporter.sendMail(mailOptions)
-    return true
-  } catch (error) {
-    console.error(`Fehler beim Senden der E-Mail-Änderungs-Bestätigung an ${guestUser.pendingEmail}:`, error)
-    return false
-  }
+  return tryDeliver(guestUser.pendingEmail!, emailChangeMail({
+    name: guestUser.name, currentEmail: guestUser.email, link: `${baseUrl()}/mein-konto/confirm-email?token=${token}`
+  }), 'Bestätigung der E-Mail-Änderung')
 }
 
-/**
- * Versendet eine E-Mail, wenn der Gast initial auf der Warteliste gelandet ist.
- */
+/** Der Gast ist bei der Anmeldung auf der Warteliste gelandet. */
 export async function sendWaitlistEmail(participant: Participant, rsvp: Rsvp, event: EventWithSeries) {
-  const personalLink = personalEventLink(event, participant)
-
-  const mailOptions = {
-    from: process.env.SMTP_FROM,
-    to: participant.email!,
-    subject: `Du stehst auf der Warteliste für ${event.title} ⏳`,
-    text: `Hallo ${participant.name},\n\ndas Event "${event.title}" ist aktuell leider ausgebucht. Du wurdest auf die Warteliste gesetzt.\n\nSobald ein Platz für dich frei wird, rücken wir dich automatisch nach und sagen dir per Mail Bescheid!\n\nHier ist dein persönlicher Link (z.B. falls du deine Wartelisten-Position stornieren möchtest):\n${personalLink}${seriesHintText(event, participant)}`,
-    html: `
-      <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
-        <h2>Du bist auf der Warteliste! ⏳</h2>
-        <p>Hallo ${escapeHtml(participant.name)},</p>
-        <p>Das Event <strong>${escapeHtml(event.title)}</strong> ist aktuell leider ausgebucht, aber wir haben deine Anmeldung notiert.</p>
-        <p>Sobald jemand abspringt und ein Platz frei wird, rücken wir dich automatisch nach und benachrichtigen dich sofort per E-Mail!</p>
-        <p style="text-align: center; margin: 30px 0;">
-          <a href="${personalLink}" style="display: inline-block; padding: 12px 24px; background-color: #f97316; color: #fff; text-decoration: none; border-radius: 5px; font-weight: bold;">Zur Event-Seite</a>
-        </p>
-        ${seriesHintHtml(event, participant)}
-      </div>
-    `
-  }
-
-  try {
-    await transporter.sendMail(mailOptions)
-    return true
-  } catch (error) {
-    console.error(`Fehler beim Senden der Wartelisten-Mail an ${participant.email}:`, error)
-    return false
-  }
+  return tryDeliver(participant.email!, waitlistMail({
+    name: participant.name, eventTitle: event.title, personalLink: personalEventLink(event, participant), series: seriesHint(event, participant)
+  }), 'Wartelisten-Mail')
 }
 
-/**
- * Versendet eine E-Mail, wenn ein Gast von der Warteliste auf einen festen Platz nachrückt.
- */
+/** Der Gast ist von der Warteliste auf einen festen Platz nachgerückt. */
 export async function sendWaitlistPromotedEmail(participant: Participant, rsvp: Rsvp, event: EventWithSeries) {
-  const personalLink = personalEventLink(event, participant)
-
-  const mailOptions = {
-    from: process.env.SMTP_FROM,
-    to: participant.email!,
-    subject: `Gute Nachrichten: Du bist nachgerückt! 🎉 (${event.title})`,
-    text: `Hallo ${participant.name},\n\nes ist ein Platz frei geworden und du bist von der Warteliste für "${event.title}" auf einen festen Platz nachgerückt! Deine Teilnahme ist nun verbindlich bestätigt.\n\nHier kannst du deine Anmeldung verwalten:\n${personalLink}`,
-    html: `
-      <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
-        <h2>Du bist dabei, ${escapeHtml(participant.name)}! 🥳</h2>
-        <p>Gute Nachrichten: Es ist ein Platz frei geworden und du bist von der Warteliste für <strong>${escapeHtml(event.title)}</strong> nachgerückt!</p>
-        <p>Deine Teilnahme ist damit nun fest eingebucht.</p>
-        <p style="text-align: center; margin: 30px 0;">
-          <a href="${personalLink}" style="display: inline-block; padding: 12px 24px; background-color: #3b82f6; color: #fff; text-decoration: none; border-radius: 5px; font-weight: bold;">Zur Event-Seite</a>
-        </p>
-      </div>
-    `
-  }
-
-  try {
-    await transporter.sendMail(mailOptions)
-    return true
-  } catch (error) {
-    console.error(`Fehler beim Senden der Nachrücker-Mail an ${participant.email}:`, error)
-    return false
-  }
+  return tryDeliver(participant.email!, waitlistPromotedMail({
+    name: participant.name, eventTitle: event.title, personalLink: personalEventLink(event, participant)
+  }), 'Nachrücker-Mail')
 }
 
 /**
- * Versendet eine Änderungs-Mail an einen bereits zugesagten Gast, wenn ein Admin/Creator
- * dringende Termin-Details (Titel/Datum/Dauer/Ort/Beschreibung, siehe diffEventFields in
- * app/admin/actions.ts) nachträglich ändert und dabei bewusst "Teilnehmende benachrichtigen"
- * angehakt hat. Hängt bei einer Zusage die aktualisierte .ics-Datei an (gleiche UID, höhere
- * SEQUENCE als zuvor - siehe buildIcsAttachment), damit ein bereits gespeicherter
- * Kalender-Eintrag beim Öffnen aktualisiert statt dupliziert wird.
+ * Änderungs-Mail an einen bereits zugesagten Gast, wenn die Verwaltung wichtige Termin-Details (Titel/Datum/Dauer/
+ * Ort/Beschreibung, siehe diffEventFields in app/admin/actions.ts) ändert und "Teilnehmende benachrichtigen" angehakt
+ * hat. Hängt die aktualisierte .ics-Datei an (gleiche UID, höhere SEQUENCE - siehe buildIcsAttachment), damit ein
+ * gespeicherter Kalendereintrag aktualisiert statt dupliziert wird.
  */
 export async function sendEventUpdatedEmail(
   participant: Participant,
@@ -616,57 +310,15 @@ export async function sendEventUpdatedEmail(
   event: EventWithSeries,
   changes: { label: string; detail: string }[]
 ) {
-  const personalLink = personalEventLink(event, participant)
   const icsAttachment = buildIcsAttachment(event, participant)
-
-  const changesText = changes.map(c => `- ${c.label}: ${c.detail}`).join('\n')
-  const changesHtml = changes.map(c => `<li><strong>${escapeHtml(c.label)}:</strong> ${escapeHtml(c.detail)}</li>`).join('')
-  const icsHint = icsAttachment
-    ? ' Im Anhang findest du eine aktualisierte Kalenderdatei (.ics) - beim Öffnen kannst du deinen bestehenden Kalendereintrag aktualisieren, statt einen doppelten Eintrag anzulegen.'
-    : ''
-
-  const mailOptions = {
-    from: process.env.SMTP_FROM,
-    to: participant.email!,
-    subject: `Wichtige Änderung: ${event.title}`,
-    text: `Hallo ${participant.name},
-
-für "${event.title}", zu dem du zugesagt hast, gab es eine kurzfristige Änderung:
-
-${changesText}
-
-Bitte beachte das bei deiner Planung.${icsHint}
-
-Deine Antwort bearbeiten: ${personalLink}${seriesHintText(event, participant)}
-
-Viele Grüße,
-Dein Event-Team`,
-    html: `
-      <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
-        <h2>Wichtige Änderung an "${escapeHtml(event.title)}" ⚠️</h2>
-        <p>Hallo ${escapeHtml(participant.name)}, für den Termin, zu dem du zugesagt hast, gab es eine kurzfristige Änderung:</p>
-        <ul>${changesHtml}</ul>
-        <p>Bitte beachte das bei deiner Planung.${icsHint}</p>
-        <p><a href="${personalLink}" style="display: inline-block; padding: 10px 20px; background-color: #2563eb; color: #fff; text-decoration: none; border-radius: 5px;">Antwort bearbeiten</a></p>
-        ${seriesHintHtml(event, participant)}
-      </div>
-    `,
-    attachments: icsAttachment ? [icsAttachment] : [],
-
-    // Zwingt Mail-Server, den korrekten technischen Absender zu akzeptieren
-    envelope: {
-      from: process.env.SMTP_USER,
-      to: participant.email!
-    }
-  }
-
-  try {
-    await transporter.sendMail(mailOptions)
-    return true
-  } catch (error) {
-    console.error(`Fehler beim Senden der Änderungs-Mail an ${participant.email}:`, error)
-    return false
-  }
+  return tryDeliver(participant.email!, eventUpdatedMail({
+    name: participant.name,
+    eventTitle: event.title,
+    changes,
+    ics: !!icsAttachment,
+    personalLink: personalEventLink(event, participant),
+    series: seriesHint(event, participant)
+  }), 'Änderungs-Mail', icsAttachment ? [icsAttachment] : [])
 }
 
 /**
@@ -674,55 +326,28 @@ Dein Event-Team`,
  * "Sitzplatzwahl erst nach Zahlung" bringt erst diese Mail den Link zur Sitzplatzwahl.
  */
 export async function sendPaymentReceivedEmail(participant: Participant, rsvp: Rsvp, event: EventWithSeries) {
-  const personalLink = personalEventLink(event, participant)
-  const amount = rsvp.amountCents ? formatEuro(rsvp.amountCents) : ''
   const seatLink = event.seatingRequiresPayment && await findToolLink(event.id, 'seating')
     ? `${baseUrl()}/api/seating-link/${event.id}?token=${encodeURIComponent(participant.editToken)}`
     : null
-
-  await transporter.sendMail({
-    from: process.env.SMTP_FROM,
-    to: participant.email!,
-    subject: `Zahlung eingegangen: ${event.title}`,
-    text: `Hallo ${participant.name},\n\ndeine Zahlung über ${amount} (Verwendungszweck ${rsvp.paymentReference}) für "${event.title}" ist eingegangen. Danke!\n\n${seatLink ? `Jetzt kannst du deinen Sitzplatz wählen:\n${seatLink}\n\n` : ''}Deine Anmeldung findest du hier:\n${personalLink}\n\nViele Grüße,\nDein Event-Team`,
-    html: `
-      <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
-        <h2>Zahlung eingegangen ✅</h2>
-        <p>Hallo ${escapeHtml(participant.name)},</p>
-        <p>deine Zahlung über <strong>${amount}</strong> (Verwendungszweck <span style="font-family: monospace;">${escapeHtml(rsvp.paymentReference)}</span>) für <strong>${escapeHtml(event.title)}</strong> ist eingegangen. Danke!</p>
-        ${seatLink ? `
-        <p style="text-align: center; margin: 24px 0;">
-          <a href="${seatLink}" style="display: inline-block; background: #65a30d; color: #fff; font-weight: bold; padding: 10px 24px; border-radius: 6px; text-decoration: none;">🪑 Sitzplatz wählen</a>
-        </p>` : ''}
-        <p>Deine Anmeldung findest du <a href="${personalLink}">hier</a>.</p>
-        <p>Viele Grüße,<br>Dein Event-Team</p>
-      </div>
-    `,
-    envelope: { from: process.env.SMTP_USER, to: participant.email! }
-  })
+  await deliver(participant.email!, paymentReceivedMail({
+    name: participant.name,
+    eventTitle: event.title,
+    amount: rsvp.amountCents ? formatEuro(rsvp.amountCents) : '',
+    reference: rsvp.paymentReference,
+    seatLink,
+    personalLink: personalEventLink(event, participant)
+  }))
 }
 
 /** Stornierung wegen abgelaufener Zahlfrist (cancelUnpaidRsvp) - nur auf Klick der Verwaltung, nie automatisch. */
 export async function sendPaymentCancelledEmail(participant: Participant, rsvp: Rsvp, event: EventWithSeries) {
-  const personalLink = personalEventLink(event, participant)
-  const due = rsvp.paymentDueAt ? ` bis zum ${formatPaymentDate(rsvp.paymentDueAt)}` : ''
-
-  await transporter.sendMail({
-    from: process.env.SMTP_FROM,
-    to: participant.email!,
-    subject: `Anmeldung storniert: ${event.title}`,
-    text: `Hallo ${participant.name},\n\nfür deine Anmeldung zu "${event.title}" ist${due} keine Zahlung eingegangen (Verwendungszweck ${rsvp.paymentReference}). Deshalb haben wir deinen Platz freigegeben.\n\nFalls du schon überwiesen hast, melde dich bitte bei der Veranstaltung. Über deinen persönlichen Link kannst du dich erneut anmelden, solange es Plätze gibt:\n${personalLink}\n\nViele Grüße,\nDein Event-Team`,
-    html: `
-      <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
-        <h2>Anmeldung storniert</h2>
-        <p>Hallo ${escapeHtml(participant.name)},</p>
-        <p>für deine Anmeldung zu <strong>${escapeHtml(event.title)}</strong> ist${due} keine Zahlung eingegangen (Verwendungszweck <span style="font-family: monospace;">${escapeHtml(rsvp.paymentReference)}</span>). Deshalb haben wir deinen Platz freigegeben.</p>
-        <p>Falls du schon überwiesen hast, melde dich bitte bei der Veranstaltung. Über deinen <a href="${personalLink}">persönlichen Link</a> kannst du dich erneut anmelden, solange es Plätze gibt.</p>
-        <p>Viele Grüße,<br>Dein Event-Team</p>
-      </div>
-    `,
-    envelope: { from: process.env.SMTP_USER, to: participant.email! }
-  })
+  await deliver(participant.email!, paymentCancelledMail({
+    name: participant.name,
+    eventTitle: event.title,
+    due: rsvp.paymentDueAt ? formatPaymentDate(rsvp.paymentDueAt) : null,
+    reference: rsvp.paymentReference,
+    personalLink: personalEventLink(event, participant)
+  }))
 }
 
 /**
@@ -733,30 +358,13 @@ export async function sendPaymentCancelledEmail(participant: Participant, rsvp: 
 export async function sendPaymentReminderEmail(participant: Participant, rsvp: Rsvp, event: EventWithSeries) {
   const payment = await paymentMailParts(rsvp, event)
   if (!payment) return
-  const personalLink = personalEventLink(event, participant)
-  const overdue = !!rsvp.paymentDueAt && rsvp.paymentDueAt < new Date()
-  const intro = overdue
-    ? `für deine Anmeldung zu "${event.title}" ist die Zahlfrist abgelaufen und wir haben noch keine Zahlung erhalten. Bitte überweise jetzt, sonst kann die Veranstaltung deinen Platz freigeben.`
-    : `für deine Anmeldung zu "${event.title}" ist die Zahlung noch offen. Bitte denk an die Überweisung.`
-
-  await transporter.sendMail({
-    from: process.env.SMTP_FROM,
-    to: participant.email!,
-    subject: `${overdue ? 'Zahlung überfällig' : 'Zahlungserinnerung'}: ${event.title}`,
-    text: `Hallo ${participant.name},\n\n${intro} Falls du schon überwiesen hast, ist alles gut - die Zahlung ist dann nur noch nicht verbucht.\n\n${payment.text}\n\nDeine Anmeldung findest du hier:\n${personalLink}\n\nViele Grüße,\nDein Event-Team`,
-    html: `
-      <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
-        <h2>${overdue ? 'Zahlung überfällig' : 'Zahlungserinnerung'} 💶</h2>
-        <p>Hallo ${escapeHtml(participant.name)},</p>
-        <p>${escapeHtml(intro)} Falls du schon überwiesen hast, ist alles gut - die Zahlung ist dann nur noch nicht verbucht.</p>
-        ${payment.html}
-        <p>Deine Anmeldung findest du <a href="${personalLink}">hier</a>.</p>
-        <p>Viele Grüße,<br>Dein Event-Team</p>
-      </div>
-    `,
-    attachments: [payment.attachment],
-    envelope: { from: process.env.SMTP_USER, to: participant.email! }
-  })
+  await deliver(participant.email!, paymentReminderMail({
+    name: participant.name,
+    eventTitle: event.title,
+    overdue: !!rsvp.paymentDueAt && rsvp.paymentDueAt < new Date(),
+    payment: payment.block,
+    personalLink: personalEventLink(event, participant)
+  }), [payment.attachment])
 }
 
 /**
@@ -764,27 +372,7 @@ export async function sendPaymentReminderEmail(participant: Participant, rsvp: R
  * (/api/feedback-link/[eventId]), das bei jedem Klick einen frischen Nachweis für das Abstimmungstool ausstellt.
  */
 export async function sendFeedbackEmail(participant: Participant, event: EventWithSeries, link: string) {
-  const title = escapeHtml(event.title)
-  const name = escapeHtml(participant.name)
-  await transporter.sendMail({
-    from: process.env.SMTP_FROM,
-    to: participant.email!,
-    subject: `Wie war's? ${event.title}`,
-    text: `Hallo ${participant.name},\n\ndanke, dass du bei "${event.title}" dabei warst! Wir würden gern wissen, wie es dir gefallen hat - der kurze Fragebogen dauert nur ein paar Minuten:\n${link}\n\nDeine Antworten sind nicht mit deinem Namen oder deiner E-Mail-Adresse verknüpft. Du kannst sie über denselben Link ändern, solange der Fragebogen läuft.\n\nViele Grüße,\nDein Event-Team`,
-    html: `
-      <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
-        <h2>Wie war's? 📝</h2>
-        <p>Hallo ${name},</p>
-        <p>danke, dass du bei <strong>${title}</strong> dabei warst! Wir würden gern wissen, wie es dir gefallen hat - der kurze Fragebogen dauert nur ein paar Minuten.</p>
-        <p style="text-align: center; margin: 30px 0;">
-          <a href="${link}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">Feedback geben</a>
-        </p>
-        <p style="font-size: 12px; color: #666;">Deine Antworten sind nicht mit deinem Namen oder deiner E-Mail-Adresse verknüpft. Du kannst sie über denselben Link ändern, solange der Fragebogen läuft.</p>
-        <p>Viele Grüße,<br>Dein Event-Team</p>
-      </div>
-    `,
-    envelope: { from: process.env.SMTP_USER, to: participant.email! }
-  })
+  await deliver(participant.email!, feedbackMail({ name: participant.name, eventTitle: event.title, link }))
 }
 
 /**
@@ -798,44 +386,12 @@ export async function sendInvitationEmail(
   link: string,
   options: { reminder?: boolean } = {}
 ) {
-  const names = invitation.persons.map(p => p.name).join(', ')
-  const intro = options.reminder
-    ? `ihr habt noch nicht geantwortet, ob ihr zu "${occasion.title}" kommt.`
-    : `wir laden euch herzlich ein: "${occasion.title}".`
-  // Ein Termin (Einzel-Event) bzw. mehrere (Reihe) - je mit Ort und Frist (invitationOccasion)
-  const single = occasion.dates.length === 1
-  await transporter.sendMail({
-    from: process.env.SMTP_FROM,
-    to: invitation.email,
-    subject: `${options.reminder ? 'Erinnerung an die Einladung' : 'Einladung'}: ${occasion.title}`,
-    text: `Hallo ${invitation.label},
-
-${intro}
-
-${single ? `Wann und wo: ${occasion.dates[0]}` : `Termine:\n${occasion.dates.map(d => `- ${d}`).join('\n')}`}
-Eingeladen: ${names}
-
-Bitte gebt uns Bescheid, wer von euch kommt. Über diesen persönlichen Link sagt ihr für jede Person zu oder ab:
-${link}
-
-Viele Grüße`,
-    html: `
-      <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
-        <h2>${options.reminder ? 'Erinnerung an die Einladung' : 'Einladung'} 💌</h2>
-        <p>Hallo ${escapeHtml(invitation.label)},</p>
-        <p>${escapeHtml(intro)}</p>
-        ${single
-          ? `<p><strong>Wann und wo:</strong> ${escapeHtml(occasion.dates[0])}<br><strong>Eingeladen:</strong> ${escapeHtml(names)}</p>`
-          : `<p><strong>Termine:</strong></p><ul>${occasion.dates.map(d => `<li>${escapeHtml(d)}</li>`).join('')}</ul><p><strong>Eingeladen:</strong> ${escapeHtml(names)}</p>`}
-        <p>Bitte gebt uns Bescheid, wer von euch kommt.</p>
-        <p style="text-align: center; margin: 30px 0;">
-          <a href="${link}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">Jetzt antworten</a>
-        </p>
-        <p style="font-size: 12px; color: #666;">Der Link ist persönlich für euch - bitte nicht weitergeben.</p>
-        <p>Viele Grüße</p>
-      </div>
-    `,
-    envelope: { from: process.env.SMTP_USER, to: invitation.email }
-  })
+  await deliver(invitation.email, invitationMail({
+    label: invitation.label,
+    title: occasion.title,
+    dates: occasion.dates,
+    names: invitation.persons.map(p => p.name).join(', '),
+    link,
+    reminder: !!options.reminder
+  }))
 }
-

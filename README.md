@@ -477,8 +477,8 @@ Gilt für Verwaltungskonten (`/admin/login`) **und** Teilnehmendenkonten (`/mein
   Tools (Semikolon, CRLF, BOM, Anführungszeichen nur wo nötig): Textzellen, die Excel als Formel lesen würde
   (`= + - @`, Tab oder Zeilenumbruch am Anfang), bekommen ein Hochkomma vorangestellt - Gäste tragen ihre Namen selbst
   ein (CSV-Injection).
-* **HTML in Mails:** Alles, was nicht fest im Code steht (Namen, Titel, Ort, Texte), wird escapet
-  (`escapeHtml` aus `suite-kit/web`). Sonst ließe sich über eine Anmeldung mit fremder Adresse beliebiges HTML über unseren
+* **Mails** kommen aus der gemeinsamen Vorlage der Suite (`renderMail` aus `suite-kit/web`, Inhalt in
+  `app/lib/mail-templates.ts`): Bausteine statt eigenem HTML, jeder Text escapet, nur sichere Links. Sonst ließe sich über eine Anmeldung mit fremder Adresse beliebiges HTML über unseren
   Absender an Dritte schicken.
 * **Event-/Reihen-PIN** wird überall durchgesetzt, wo ein Event über seine ID erreichbar ist (`app/lib/pin.ts`) - Antworten, Kalenderdatei (`/api/ical`), Abstimmungs-Link und Konto-Registrierung für die Reihe, nicht nur die Anzeige der Seite. Der persönliche Link aus der Bestätigungs-Mail funktioniert weiter (gültiger Token dieses Termins). Das Raten der PIN ist gedrosselt (10 Versuche pro IP und Event, 100 pro Event, jeweils 15 Minuten).
 * **Cron-Endpunkte** (`/api/cron/*`) lehnen ein leeres oder fehlendes `CRON_SECRET` ab - vorher schaltete `?secret=`
@@ -531,9 +531,14 @@ heute dem Abstimmungstool (Modus "Nur mit Konto"). Getrennt vom Verbund der Verw
 ## 🧪 Tests
 
 ```bash
-npm test            # Unit-Tests (vitest): Passwort, Tokens, Drossel-IP und -Regeln, Rechte, PIN, Abstimmungs-Kopplung, Seating- und Zeitplan-Vertrag, verknüpfte Tools, Migrationen, Cron-Secret, Ticketkategorien und Platzregel, IBAN, GiroCode, Zahlstatus, Kontoauszug-Abgleich
+npm test            # Unit-Tests (vitest): Mail-Vorlagen, Passwort, Tokens, Drossel-IP und -Regeln, Rechte, PIN, Abstimmungs-Kopplung, Seating- und Zeitplan-Vertrag, verknüpfte Tools, Migrationen, Cron-Secret, Ticketkategorien und Platzregel, IBAN, GiroCode, Zahlstatus, Kontoauszug-Abgleich
 npm run test:e2e    # Playwright gegen eine frisch gebaute Instanz auf http://127.0.0.1:3105
 ```
+
+**Mails ansehen:** `npx tsx scripts/mail-preview.ts` schreibt alle Mails mit Beispieldaten als HTML und Text nach
+`.e2e/mail-preview/` (ohne Datenbank). Mit `npx tsx --env-file=.env scripts/mail-preview.ts --send <adresse>` geht
+zusätzlich die Bestätigung einer Zusage mit allem, was vorkommen kann (Begleitung, Menü, Zahlung mit GiroCode,
+Einlass-QR-Code, Kalenderdatei), über den echten Absender an diese Adresse.
 
 Die E2E-Tests löschen und erzeugen bei jedem Lauf ihre eigene Datenbank `prisma/test.db` (nie die Entwicklungs- oder
 Produktivdatenbank), bauen mit `next build` und starten `next start` – sie prüfen also das, was auch in Produktion läuft.
