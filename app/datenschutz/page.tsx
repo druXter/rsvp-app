@@ -453,7 +453,8 @@ export default function DatenschutzPage() {
             Du kannst dir in den Konto-Einstellungen einen API-Token erzeugen, um mit einer selbst
             entwickelten App (z.B. auf einer Smartwatch) deine Termine abzurufen und zu- oder abzusagen. Ein
             solcher Token gibt ausschließlich <strong>deine eigenen</strong> Daten heraus - deine Reihen, deine
-            Termine und deine Antworten. Gästelisten oder Angaben anderer Personen sind darüber nicht
+            Termine und deine Antworten, bei Terminen mit verknüpfter Abstimmung auch deinen persönlichen
+            Abstimmungslink (10 Minuten gültig, mit deiner E-Mail-Adresse und deiner Zusage). Gästelisten oder Angaben anderer Personen sind darüber nicht
             erreichbar, ebenso wenig der Veranstalter:innen-Bereich.
           </p>
           <p className="mt-2">

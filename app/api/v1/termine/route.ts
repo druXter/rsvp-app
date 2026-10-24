@@ -60,6 +60,8 @@ export async function GET(request: Request) {
           // Menü: Gänge mit Optionen, beim Antworten als menu bzw. companions[].menu {Gang-ID: Option}
           menuCourses: event.menuCourses.map(c => ({ id: c.id, label: c.label, options: courseOptions(c.options) })),
           url: `/reihe/${m.series.slug}/${event.slug}`,
+          // Verknüpfte Abstimmung (Event.pollUrl); den persönlichen Link gibt GET .../[id]/abstimmung
+          poll: event.pollUrl ? { label: event.pollLabel || null } : null,
           myRsvp: rsvp
             ? {
                 isAttending: rsvp.isAttending,

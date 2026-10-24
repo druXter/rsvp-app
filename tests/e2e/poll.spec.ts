@@ -1,8 +1,8 @@
 import { createHmac } from 'node:crypto'
 import { expect, test, type APIRequestContext } from '@playwright/test'
 import {
-  BASE_URL, TEST_POLL_SECRET, cookieHeader, createAccount, createEvent, createGuestUser, createRsvp, createSeries,
-  createTermin, decodeCouplingToken, plantGuestSession, prisma, signCouplingToken, unlockPin
+  BASE_URL, TEST_POLL_SECRET, cookieHeader, createAccount, createApiToken, createEvent, createGuestUser, createRsvp,
+  createSeries, createTermin, decodeCouplingToken, plantGuestSession, prisma, signCouplingToken, unlockPin
 } from './helpers'
 
 // Kopplung mit dem Abstimmungstool (app/lib/poll-verification.ts). Beide Richtungen tragen
@@ -133,6 +133,61 @@ test('Klick-Token nur für bestätigte Nutzer-Konten, an Abstimmung gebunden, 10
 
   // Eine Absage wird mitgeteilt, statt die Person als zugesagt auszugeben.
   expect(decodeCouplingToken((await follow(declined)).searchParams.get('verify')!)).toMatchObject({ email: declined.email, attending: false })
+})
+
+test('Client-API: persönlicher Abstimmungslink mit API-Token, gleiche Regeln wie der Knopf auf der Seite', async ({ request }) => {
+  const owner = await createAccount('CREATOR')
+  const series = await createSeries(owner)
+  const otherSeries = await createSeries(owner)
+  const termin = await createTermin(series, { pollUrl: 'https://abstimmung.example/p/poll77?lang=de', pollLabel: '🍕 Wohin essen?' })
+  const withoutPoll = await createTermin(series)
+  const foreign = await createTermin(otherSeries, { pollUrl: 'https://abstimmung.example/p/fremd' })
+
+  async function member(options: { verified?: boolean } = {}) {
+    const guest = await createGuestUser(options)
+    await prisma.guestUserSeries.create({ data: { guestUserId: guest.id, seriesId: series.id } })
+    return { guest, token: await createApiToken(guest) }
+  }
+  const get = (token: string | null, eventId: string) =>
+    request.get(`/api/v1/termine/${eventId}/abstimmung`, { headers: token ? { authorization: `Bearer ${token}` } : {} })
+
+  const attending = await member()
+  const declined = await member()
+  const unverified = await member({ verified: false })
+  await createRsvp(termin, { guestUserId: attending.guest.id, isAttending: true })
+  await createRsvp(termin, { guestUserId: declined.guest.id, isAttending: false })
+
+  // Die Terminliste meldet, ob es eine Abstimmung gibt - ohne die URL selbst.
+  const list = await (await request.get('/api/v1/termine', { headers: { authorization: `Bearer ${attending.token}` } })).json()
+  const events = list.series.find((s: { id: string }) => s.id === series.id).events
+  expect(events.find((e: { id: string }) => e.id === termin.id).poll).toEqual({ label: '🍕 Wohin essen?' })
+  expect(events.find((e: { id: string }) => e.id === withoutPoll.id).poll).toBeNull()
+
+  expect((await get(null, termin.id)).status()).toBe(401)
+  expect((await get('rsvp_' + '0'.repeat(64), termin.id)).status()).toBe(401)
+  expect((await get(attending.token, foreign.id)).status()).toBe(403)
+  expect((await get(attending.token, withoutPoll.id)).status()).toBe(404)
+  expect((await get(attending.token, 'gibt-es-nicht')).status()).toBe(404)
+  expect((await get(unverified.token, termin.id)).status()).toBe(403)
+
+  // Positivkontrolle: Token wie beim Klick auf der Seite, 10 Minuten gültig.
+  const ok = await get(attending.token, termin.id)
+  expect(ok.status()).toBe(200)
+  expect(ok.headers()['cache-control']).toBe('no-store')
+  const body = await ok.json()
+  expect(body).toMatchObject({ label: '🍕 Wohin essen?', verified: true, attending: true })
+  const url = new URL(body.url)
+  expect(url.origin + url.pathname).toBe('https://abstimmung.example/p/poll77')
+  expect(url.searchParams.get('lang')).toBe('de')
+  const payload = decodeCouplingToken(url.searchParams.get('verify')!)
+  expect(payload).toMatchObject({ email: attending.guest.email, pollId: 'poll77', attending: true })
+  expect(payload.exp).toBeGreaterThan(nowSeconds() + 590)
+  expect(Math.abs(new Date(body.expiresAt).getTime() / 1000 - (payload.exp as number))).toBeLessThan(5)
+
+  // Absage: Link mit attending false - das Abstimmungstool blockiert, der Client kann es vorher sagen.
+  const no = await (await get(declined.token, termin.id)).json()
+  expect(no).toMatchObject({ verified: true, attending: false })
+  expect(decodeCouplingToken(new URL(no.url).searchParams.get('verify')!)).toMatchObject({ email: declined.guest.email, attending: false })
 })
 
 test('Ergebnis-Banner: nicht beschlussfähig und Punkte statt Stimmen', async ({ page, request }) => {
