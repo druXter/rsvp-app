@@ -1,7 +1,7 @@
 // app/[slug]/rsvp-form.tsx
 'use client'
 
-import { SubmitButton } from '../ui/kit'
+import { SubmitButton, inputClass } from '../ui/kit'
 import { useState } from 'react'
 import Link from 'next/link'
 import type { Participant, Rsvp } from '@prisma/client'
@@ -303,7 +303,7 @@ export default function RsvpForm({
       <>
       <div>
         <label htmlFor="name" className="block text-sm font-medium mb-1">Dein Name</label>
-        <input id="name" type="text" name="name" defaultValue={participant?.name} required className="w-full border border-gray-300 p-2 rounded bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100" placeholder="Max Mustermann" />
+        <input id="name" type="text" name="name" defaultValue={participant?.name} required className={inputClass} placeholder="Max Mustermann" />
       </div>
 
       {shiftManaged ? (
@@ -384,14 +384,14 @@ export default function RsvpForm({
           {config.askPhone && (
             <div>
               <label htmlFor="phone" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Handynummer</label>
-              <input id="phone" type="tel" name="phone" defaultValue={participant?.phone || ''} required className="w-full border border-gray-300 p-2 rounded-md bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100" placeholder="0151 12345678" />
+              <input id="phone" type="tel" name="phone" defaultValue={participant?.phone || ''} required className={inputClass} placeholder="0151 12345678" />
             </div>
           )}
 
           {config.askDiet && !isHousehold && (
             <div>
               <label htmlFor="dietaryOption" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Essenswunsch</label>
-              <select id="dietaryOption" name="dietaryOption" defaultValue={participant?.dietaryOption || ''} required className="w-full border border-gray-300 p-2 rounded-md bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100">
+              <select id="dietaryOption" name="dietaryOption" defaultValue={participant?.dietaryOption || ''} required className={inputClass}>
                 <option value="">Bitte wählen...</option>
                 <option value="Allesesser">Ich esse alles (Fleisch/Fisch)</option>
                 <option value="Vegetarisch">Vegetarisch</option>
@@ -403,7 +403,7 @@ export default function RsvpForm({
           {config.askAllergies && !isHousehold && (
             <div>
               <label htmlFor="allergies" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Allergien oder Unverträglichkeiten? (Optional)</label>
-              <input id="allergies" type="text" name="allergies" defaultValue={participant?.allergies || ''} className="w-full border border-gray-300 p-2 rounded-md bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100" placeholder="z.B. Laktose, Nüsse, Gluten..." />
+              <input id="allergies" type="text" name="allergies" defaultValue={participant?.allergies || ''} className={inputClass} placeholder="z.B. Laktose, Nüsse, Gluten..." />
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                 Freiwillige Angabe zur Berücksichtigung bei der Verpflegung. Da dies ggf. ein Gesundheitsdatum ist, verarbeiten wir es nur auf Basis deiner Einwilligung durch das Ausfüllen dieses Feldes - jederzeit widerrufbar, z.B. über deinen persönlichen Link (siehe unsere <Link href="/datenschutz" className="underline">Datenschutzerklärung</Link>).
               </p>
@@ -460,20 +460,20 @@ export default function RsvpForm({
           {config.askBringingItem && (
             <div>
               <label htmlFor="bringingItem" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Bringst du etwas mit? (Optional)</label>
-              <input id="bringingItem" type="text" name="bringingItem" defaultValue={rsvp?.bringingItem || ''} className="w-full border border-gray-300 p-2 rounded-md bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100" placeholder="z.B. Nudelsalat, Kasten Bier..." />
+              <input id="bringingItem" type="text" name="bringingItem" defaultValue={rsvp?.bringingItem || ''} className={inputClass} placeholder="z.B. Nudelsalat, Kasten Bier..." />
             </div>
           )}
 
           {customQuestions.map((question: string, i: number) => (
             <div key={i}>
               <label htmlFor={`customAnswer-${i}`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{question} (Optional)</label>
-              <input id={`customAnswer-${i}`} type="text" name={`customAnswer_${i}`} defaultValue={existingCustomAnswers[i] || ''} className="w-full border border-gray-300 p-2 rounded-md bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100" />
+              <input id={`customAnswer-${i}`} type="text" name={`customAnswer_${i}`} defaultValue={existingCustomAnswers[i] || ''} className={inputClass} />
             </div>
           ))}
 
           <div>
             <label htmlFor="additionalInfo" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Sonstige Anmerkungen? (Optional)</label>
-            <textarea id="additionalInfo" name="additionalInfo" defaultValue={rsvp?.additionalInfo || ''} className="w-full border border-gray-300 p-2 rounded-md bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100" rows={3}></textarea>
+            <textarea id="additionalInfo" name="additionalInfo" defaultValue={rsvp?.additionalInfo || ''} className={inputClass} rows={3}></textarea>
           </div>
         </div>
       )}
@@ -487,7 +487,7 @@ export default function RsvpForm({
           )}
           <div>
             <label htmlFor="declineReason" className="block text-sm font-medium mb-1">Warum klappt es leider nicht? (Optional)</label>
-            <textarea id="declineReason" name="declineReason" defaultValue={rsvp?.declineReason || ''} className="w-full border border-gray-300 p-2 rounded bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100" rows={2} placeholder="z.B. Sind leider im Urlaub..."></textarea>
+            <textarea id="declineReason" name="declineReason" defaultValue={rsvp?.declineReason || ''} className={inputClass} rows={2} placeholder="z.B. Sind leider im Urlaub..."></textarea>
           </div>
         </div>
       )}

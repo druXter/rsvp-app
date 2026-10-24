@@ -1,5 +1,6 @@
 import { DATE_PENDING_TEXT } from '../lib/event-date'
-import { Prisma, PrismaClient } from '@prisma/client'
+import { Prisma } from '@prisma/client'
+import { prisma } from '../lib/prisma'
 import { notFound, redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
 import RsvpForm from './rsvp-form'
@@ -25,7 +26,6 @@ import EventHeader from '../ui/event-header'
 import WishList from '../ui/wish-list'
 import { wishesForGuest } from '../lib/wishlist-store'
 
-const prisma = new PrismaClient()
 
 type PublicRsvp = Prisma.RsvpGetPayload<{
   select: {

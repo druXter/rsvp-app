@@ -1,12 +1,11 @@
 // app/mein-konto/reset-password/page.tsx
-import { SubmitButton } from '../../ui/kit'
-import { PrismaClient } from '@prisma/client'
+import { SubmitButton, inputClass } from '../../ui/kit'
+import { prisma } from '../../lib/prisma'
 import Link from 'next/link'
 import { resetGuestPassword } from '../actions'
 import AuthError from '../../ui/auth-error'
 import { hashToken } from '../../lib/tokens'
 
-const prisma = new PrismaClient()
 
 /**
  * Formular zum Setzen eines neuen Passworts für ein Nutzer-Konto über einen per Mail
@@ -47,7 +46,7 @@ export default async function GuestResetPasswordPage({ searchParams }: { searchP
                 name="password"
                 required
                 minLength={10}
-                className="w-full border border-gray-300 p-2 rounded text-gray-900 bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-500"
+                className={inputClass}
                 placeholder="Mindestens 10 Zeichen"
               />
             </div>

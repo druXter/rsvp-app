@@ -1,5 +1,5 @@
 // app/mein-konto/forgot-password/page.tsx
-import { SubmitButton } from '../../ui/kit'
+import { SubmitButton, inputClass } from '../../ui/kit'
 import Link from 'next/link'
 import { requestGuestPasswordReset } from '../actions'
 
@@ -41,7 +41,7 @@ export default async function GuestForgotPasswordPage({ searchParams }: { search
                   type="email"
                   name="email"
                   required
-                  className="w-full border border-gray-300 p-2 rounded text-gray-900 bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-500"
+                  className={inputClass}
                   placeholder="deine-email@domain.de"
                 />
               </div>

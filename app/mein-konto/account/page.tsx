@@ -1,8 +1,8 @@
 // app/mein-konto/account/page.tsx
-import { SubmitButton } from '../../ui/kit'
+import { SubmitButton, inputClass } from '../../ui/kit'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '../../lib/prisma'
 import { getCurrentGuestUser } from '../../lib/guest-auth'
 import { cookies } from 'next/headers'
 import { changeGuestPassword, requestGuestEmailChange, cancelGuestEmailChange, updateConfirmationEmailPreference, createApiToken, revokeApiToken, revokeToolConsent, unlinkAdminAccount } from '../actions'
@@ -10,7 +10,6 @@ import { NEW_API_TOKEN_COOKIE } from '../../lib/api-auth'
 import AuthError from '../../ui/auth-error'
 import DeleteAccountButton from '../delete-account-button'
 
-const prisma = new PrismaClient()
 
 /**
  * Konto-Einstellungen für Nutzer-Konten (GuestUser) - Passwort ändern, E-Mail-Adresse
@@ -106,11 +105,11 @@ export default async function GuestAccountPage({
           <form action={changeGuestPassword} className="space-y-3">
             <div>
               <label htmlFor="currentPassword" className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Aktuelles Passwort</label>
-              <input id="currentPassword" type="password" name="currentPassword" required className="w-full border border-gray-300 p-2 rounded text-gray-900 bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100" />
+              <input id="currentPassword" type="password" name="currentPassword" required className={inputClass} />
             </div>
             <div>
               <label htmlFor="newPassword" className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Neues Passwort</label>
-              <input id="newPassword" type="password" name="newPassword" required minLength={10} className="w-full border border-gray-300 p-2 rounded text-gray-900 bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-500" placeholder="Mindestens 10 Zeichen" />
+              <input id="newPassword" type="password" name="newPassword" required minLength={10} className={inputClass} placeholder="Mindestens 10 Zeichen" />
             </div>
             <SubmitButton>Passwort ändern</SubmitButton>
           </form>
@@ -121,11 +120,11 @@ export default async function GuestAccountPage({
           <form action={requestGuestEmailChange} className="space-y-3">
             <div>
               <label htmlFor="currentPasswordForEmail" className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Aktuelles Passwort</label>
-              <input id="currentPasswordForEmail" type="password" name="currentPassword" required className="w-full border border-gray-300 p-2 rounded text-gray-900 bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100" />
+              <input id="currentPasswordForEmail" type="password" name="currentPassword" required className={inputClass} />
             </div>
             <div>
               <label htmlFor="newEmail" className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Neue E-Mail-Adresse</label>
-              <input id="newEmail" type="email" name="newEmail" required className="w-full border border-gray-300 p-2 rounded text-gray-900 bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100" />
+              <input id="newEmail" type="email" name="newEmail" required className={inputClass} />
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Wird erst nach Bestätigung über einen an diese Adresse geschickten Link wirksam.</p>
             </div>
             <SubmitButton>Bestätigungslink anfordern</SubmitButton>
@@ -211,7 +210,7 @@ export default async function GuestAccountPage({
               required
               maxLength={60}
               placeholder="Wofür? z.B. Apple Watch"
-              className="w-full border border-gray-300 p-2 rounded text-gray-900 bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-500"
+              className={inputClass}
             />
             <SubmitButton>Token erzeugen</SubmitButton>
           </form>

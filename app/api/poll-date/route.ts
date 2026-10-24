@@ -2,6 +2,10 @@
 import { NextResponse } from 'next/server'
 import { verifyPollDateMessage } from '../../lib/poll-verification'
 import { abstimmungstoolOrigin, applyPollDate, pollDateStatus } from '../../lib/poll-date'
+import { readLimitedText } from '../../lib/linked-tools'
+
+// Größere Nachrichten verschickt das Abstimmungstool nie; alles darüber wird gar nicht erst gelesen.
+const MAX_BODY = 1_000_000
 
 /**
  * Terminabstimmung: Anfragen des Abstimmungstools (siehe app/lib/poll-date.ts). Body ist die
@@ -14,7 +18,7 @@ export async function POST(request: Request) {
   const origin = abstimmungstoolOrigin()
   if (!origin) return NextResponse.json({ error: 'not configured' }, { status: 503 })
 
-  const message = verifyPollDateMessage(await request.text())
+  const message = verifyPollDateMessage(await readLimitedText(request, MAX_BODY))
   if (!message) return NextResponse.json({ error: 'invalid signature' }, { status: 401 })
 
   if (message.typ === 'poll-date-status') {

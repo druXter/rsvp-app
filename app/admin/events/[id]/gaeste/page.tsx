@@ -162,7 +162,7 @@ export default async function EventGuests({ params, searchParams }: { params: Pr
                         {rsvp.isAttending && rsvp.isOnWaitlist && (
                           <form action={promoteFromWaitlist}>
                             <input type="hidden" name="rsvpId" value={rsvp.id} />
-                            <button type="submit" className={buttonClass('secondary', 'sm')} title="Fest eintragen, auch über die Kapazität hinaus">✅ Zulassen</button>
+                            <button type="submit" className={buttonClass('secondary', 'sm')} title="Fest eintragen, auch über die Kapazität hinaus">Zulassen</button>
                           </form>
                         )}
                       </div>

@@ -1,5 +1,5 @@
 // app/admin/checkin/[rsvpId]/page.tsx
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '../../../lib/prisma'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { checkInAtDoor, toggleAttendance, togglePersonAttendance, undoPresence } from '../../actions'
@@ -9,7 +9,6 @@ import { hasEventModeratorOrAbove } from '../../../lib/permissions'
 import { AGE_GROUP_LABEL, alcoholLabel, personsOf } from '../../../lib/persons'
 import { checkInAll, isPresent } from '../../../lib/checkin'
 
-const prisma = new PrismaClient()
 
 /**
  * Gesicherte Route, die beim Scannen des Einlass-QR-Codes geöffnet wird.
@@ -160,7 +159,7 @@ export default async function CheckinPage({ params, searchParams }: { params: Pr
             <form action={checkInAtDoor}>
               <input type="hidden" name="rsvpId" value={rsvp.id} />
               <input type="hidden" name="mode" value="cash" />
-              <button type="submit" className="w-full bg-pink-600 text-white font-bold py-3 rounded-lg hover:bg-pink-700 transition">💶 Bar kassiert - einlassen</button>
+              <button type="submit" className="w-full bg-pink-600 text-white font-bold py-3 rounded-lg hover:bg-pink-700 transition">Bar kassiert - einlassen</button>
             </form>
             <form action={checkInAtDoor}>
               <input type="hidden" name="rsvpId" value={rsvp.id} />

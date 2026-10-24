@@ -1,5 +1,6 @@
 // app/lib/rsvp-submission.ts
-import { PrismaClient, GuestUser } from '@prisma/client'
+import { GuestUser } from '@prisma/client'
+import { prisma } from './prisma'
 import { revalidatePath } from 'next/cache'
 import { randomUUID } from 'crypto'
 import { sendConfirmationEmail, sendVerificationEmail, sendWaitlistEmail } from './mail'
@@ -22,7 +23,6 @@ import { invitationOf } from './invitation-store'
 import { deadlinePassed, formatDeadline } from './rsvp-deadline'
 import { syncRsvpCheckin } from './checkin'
 
-const prisma = new PrismaClient()
 
 /**
  * Eine abgegebene Antwort, unabhängig davon, ob sie aus dem Web-Formular (FormData, siehe

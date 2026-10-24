@@ -1,11 +1,10 @@
 // app/api/v1/termine/route.ts
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '../../../lib/prisma'
 import { getGuestUserFromApiToken, apiError } from '../../../lib/api-auth'
 import { companionsOf, menuOf } from '../../../lib/persons'
 import { courseOptions } from '../../../lib/menu'
 import { summarizeEvent } from '../../../lib/event-summary'
 
-const prisma = new PrismaClient()
 
 /**
  * Alle kommenden Termine der Reihen, denen das Konto angehört - jeweils mit der eigenen

@@ -1,5 +1,5 @@
 // app/admin/series/[id]/edit/page.tsx
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '../../../../lib/prisma'
 import { notFound, redirect } from 'next/navigation'
 import { Notice, inputClass, SubmitButton } from '../../../../ui/kit'
 import { updateEventSeries } from '../../../actions'
@@ -11,7 +11,6 @@ import ThemeSection, { themeClasses } from '../../../../ui/theme-section'
 import { SettingsError, SettingsForm } from '../../../settings-form'
 import FieldRules, { RuleNote, type FieldRule } from '../../../field-rules'
 
-const prisma = new PrismaClient()
 
 // Einladungsmodus schließt PIN und Verifizierung aus - prüft der Server ebenso (assertInviteOnlyAllowed)
 const RULE_LABELS = { inviteOnly: '„Nur mit Einladung“', eventPin: 'einer Reihen-PIN', requireVerification: 'E-Mail-Verifizierung' }

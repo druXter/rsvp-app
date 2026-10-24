@@ -1,13 +1,13 @@
 // app/mein-konto/page.tsx
 import { formatEventDate, isArchived } from '../lib/event-date'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '../lib/prisma'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getCurrentGuestUser } from '../lib/guest-auth'
 import { getCurrentUser } from '../lib/auth'
 import { logoutGuestUser, updateGuestProfile } from './actions'
+import { inputClass } from '../ui/kit'
 
-const prisma = new PrismaClient()
 
 /**
  * Persönliches Dashboard eines eingeloggten Nutzer-Kontos: Reihen & Termine mit
@@ -134,15 +134,15 @@ export default async function MeinKontoPage() {
           <form action={updateGuestProfile} className="space-y-3">
             <div>
               <label htmlFor="name" className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Name</label>
-              <input id="name" type="text" name="name" defaultValue={guestUser.name} required className="w-full border border-gray-300 p-2 rounded text-gray-900 bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100" />
+              <input id="name" type="text" name="name" defaultValue={guestUser.name} required className={inputClass} />
             </div>
             <div>
               <label htmlFor="phone" className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Handynummer</label>
-              <input id="phone" type="tel" name="phone" defaultValue={guestUser.phone || ''} className="w-full border border-gray-300 p-2 rounded text-gray-900 bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100" />
+              <input id="phone" type="tel" name="phone" defaultValue={guestUser.phone || ''} className={inputClass} />
             </div>
             <div>
               <label htmlFor="dietaryOption" className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Essenswunsch</label>
-              <select id="dietaryOption" name="dietaryOption" defaultValue={guestUser.dietaryOption || ''} className="w-full border border-gray-300 p-2 rounded text-gray-900 bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100">
+              <select id="dietaryOption" name="dietaryOption" defaultValue={guestUser.dietaryOption || ''} className={inputClass}>
                 <option value="">Keine Angabe</option>
                 <option value="Allesesser">Ich esse alles (Fleisch/Fisch)</option>
                 <option value="Vegetarisch">Vegetarisch</option>
@@ -151,7 +151,7 @@ export default async function MeinKontoPage() {
             </div>
             <div>
               <label htmlFor="allergies" className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Allergien</label>
-              <input id="allergies" type="text" name="allergies" defaultValue={guestUser.allergies || ''} className="w-full border border-gray-300 p-2 rounded text-gray-900 bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-500" placeholder="z.B. Laktose, Nüsse, Gluten..." />
+              <input id="allergies" type="text" name="allergies" defaultValue={guestUser.allergies || ''} className={inputClass} placeholder="z.B. Laktose, Nüsse, Gluten..." />
             </div>
             <button type="submit" className="bg-blue-600 text-white font-bold py-2 px-4 rounded hover:bg-blue-700 transition text-sm">
               Speichern

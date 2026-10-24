@@ -171,6 +171,11 @@ docker compose up -d --build
    
 Die App ist nun unter `http://localhost:3000` (bzw. auf deinem konfigurierten Port) erreichbar. Die SQLite-Datenbank wird automatisch migriert.
 
+Der Container läuft wie in den anderen Tools der Suite als unprivilegierter Nutzer `node` (UID 1000), nicht als root. Das
+Datenverzeichnis muss ihm gehören, vor dem ersten Start also `mkdir -p data && sudo chown 1000:1000 data`. Ältere
+Installationen liefen als root; dort einmalig vor dem Update umstellen, ohne `sudo` z.B. über Docker:
+`docker run --rm -v "$PWD/data:/d" alpine chown -R 1000:1000 /d`.
+
 ## ⏰ Automatische Erinnerungen (Cronjob / Uptime Kuma)
 
 Um automatische E-Mail-Erinnerungen für Events zu versenden, muss der folgende Endpoint regelmäßig (z.B. stündlich) über einen Dienst wie Uptime Kuma aufgerufen werden. Das System prüft dann selbstständig, ob für ein anstehendes Event Mails verschickt werden müssen:
@@ -449,9 +454,16 @@ Gilt für Verwaltungskonten (`/admin/login`) **und** Teilnehmendenkonten (`/mein
   alle Sitzungen - alle müssen sich einmal neu anmelden.
 * **Cookies** heißen `__Host-session` bzw. `__Host-guest-session` (HttpOnly, Secure, SameSite=Lax, ohne Domain-Attribut):
   Die Tools der Suite laufen auf Subdomains derselben Domain, so kann kein Tool einem anderen ein Cookie unterschieben.
-* **Header** (`next.config.ts`): `nosniff`, `Referrer-Policy`, HSTS. **Event-Seiten bleiben bewusst einbettbar**
-  (`frame-ancestors *`, sie laufen als iFrame in einem CMS), Login, Konto und Verwaltung (`/admin`, `/mein-konto`) und die
-  Föderations-Endpunkte dagegen nicht (Clickjacking).
+* **Header** (`next.config.ts`, Muster der Suite aus `suite-kit/docs/KONVENTIONEN.md`): `nosniff`, `Referrer-Policy`,
+  HSTS. Einbetten ist grundsätzlich verboten (Clickjacking), **erlaubt nur für Gästeseiten** (`frame-ancestors *`, sie
+  laufen als iFrame in einem CMS): Event-Seiten, Reihen und ihre Termine sowie die Registrierung, auf die sie im selben
+  Frame verlinken. Verwaltung und Konto (`/admin`, `/mein-konto`) zusätzlich `noindex` und `no-store`, Seiten mit
+  Token aus einer Mail (`/verify`, Reset, E-Mail-Bestätigung) `no-referrer`. Der Service Worker kommt nie aus einem Cache.
+* **CSV-Exporte** (Gästeliste, Küche, Anwesenheit) über `app/lib/csv.ts`: Zellen, die Excel als Formel lesen würde
+  (`= + - @` am Anfang), bekommen ein Hochkomma vorangestellt - Gäste tragen ihre Namen selbst ein (CSV-Injection).
+* **HTML in Mails:** Alles, was nicht fest im Code steht (Namen, Titel, Ort, Texte), wird escapet
+  (`app/lib/escape-html.ts`). Sonst ließe sich über eine Anmeldung mit fremder Adresse beliebiges HTML über unseren
+  Absender an Dritte schicken.
 * **Event-/Reihen-PIN** wird überall durchgesetzt, wo ein Event über seine ID erreichbar ist (`app/lib/pin.ts`) - Antworten, Kalenderdatei (`/api/ical`), Abstimmungs-Link und Konto-Registrierung für die Reihe, nicht nur die Anzeige der Seite. Der persönliche Link aus der Bestätigungs-Mail funktioniert weiter (gültiger Token dieses Termins). Das Raten der PIN ist gedrosselt (10 Versuche pro IP und Event, 100 pro Event, jeweils 15 Minuten).
 * **Cron-Endpunkte** (`/api/cron/*`) lehnen ein leeres oder fehlendes `CRON_SECRET` ab - vorher schaltete `?secret=`
   (leer) den Endpunkt bei einem leeren Platzhalter-Secret frei.

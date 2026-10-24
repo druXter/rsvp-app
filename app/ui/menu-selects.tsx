@@ -1,7 +1,6 @@
 // app/ui/menu-selects.tsx
 import type { MenuCourseForForm, MenuSelection } from '../lib/menu'
-
-const SELECT = 'w-full border border-gray-300 p-2 rounded-md bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100'
+import { inputClass } from './kit'
 
 /**
  * Auswahl je Gang für eine Person (app/lib/menu.ts), Felder `<prefix><Gang-ID>`. Für die anmeldende Person
@@ -20,7 +19,7 @@ export default function MenuSelects({ courses, prefix, selection, who, required 
       {courses.map(course => (
         <div key={course.id}>
           <label htmlFor={`${prefix}${course.id}`} className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">{course.label} {who}</label>
-          <select id={`${prefix}${course.id}`} name={`${prefix}${course.id}`} defaultValue={selection[course.id] ?? ''} required={required} className={SELECT}>
+          <select id={`${prefix}${course.id}`} name={`${prefix}${course.id}`} defaultValue={selection[course.id] ?? ''} required={required} className={inputClass}>
             <option value="">Bitte wählen …</option>
             {course.options.map(option => <option key={option} value={option}>{option}</option>)}
           </select>

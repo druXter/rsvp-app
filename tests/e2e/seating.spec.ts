@@ -301,7 +301,7 @@ test.describe('Platzierungen (/api/seating/placements)', () => {
     const csv = await page.request.get(`/api/export?eventId=${event.id}`, { headers: await cookieHeader(page.context()) })
     expect(csv.status()).toBe(200)
     const [header, row] = (await csv.text()).replace('﻿', '').split('\n')
-    expect(header.split(';')).toContain('Sitzplatz')
+    expect(header.split(';')).toContain('"Sitzplatz"')
     expect(row).toContain('"Tisch 4, Platz 12"')
   })
 })

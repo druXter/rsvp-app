@@ -1,12 +1,11 @@
 // app/mein-konto/verify/page.tsx
 import { SubmitButton } from '../../ui/kit'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '../../lib/prisma'
 import Link from 'next/link'
 import { hashToken } from '../../lib/tokens'
 import { confirmGuestAccount } from '../actions'
 import StatusCard from '../../ui/status-card'
 
-const prisma = new PrismaClient()
 
 /**
  * Bestätigt ein frisch registriertes Nutzer-Konto. Das Öffnen des Mail-Links prüft den Token

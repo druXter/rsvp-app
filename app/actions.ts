@@ -1,7 +1,7 @@
 // app/actions.ts
 'use server'
 
-import { PrismaClient } from '@prisma/client'
+import { prisma } from './lib/prisma'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { getCurrentGuestUser } from './lib/guest-auth'
@@ -17,7 +17,6 @@ import { readHousehold } from './lib/invitations'
 import { guestOfEvent, releaseWish, reserveWish } from './lib/wishlist-store'
 import { parseEuro, WishInputError } from './lib/wishlist'
 
-const prisma = new PrismaClient()
 
 /**
  * Server Action des Web-Formulars. Übersetzt nur die FormData-Felder und stellt die

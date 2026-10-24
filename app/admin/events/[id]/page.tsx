@@ -92,7 +92,7 @@ export default async function EventOverview({ params }: { params: Promise<{ id: 
             <form action={sendReminder} className="mt-3 space-y-2">
               <input type="hidden" name="eventId" value={event.id} />
               <textarea name="customMessage" rows={2} className={inputClass} placeholder="Optionaler Zusatztext (z.B. Infos zum Parken, Treffpunkt…)" />
-              <button type="submit" className={buttonClass('secondary', 'sm')}>📧 Jetzt an {s.confirmed + s.waitlist} senden</button>
+              <button type="submit" className={buttonClass('secondary', 'sm')}>Jetzt an {s.confirmed + s.waitlist} senden</button>
             </form>
           </Card>
         )}
@@ -117,7 +117,7 @@ export default async function EventOverview({ params }: { params: Promise<{ id: 
               {isOwner && s.paymentsOpen > 0 && (
                 <form action={sendPaymentReminders}>
                   <input type="hidden" name="eventId" value={event.id} />
-                  <button type="submit" className={buttonClass('secondary', 'sm')}>💶 Zahlungserinnerung an {s.paymentsOpen} offene senden</button>
+                  <button type="submit" className={buttonClass('secondary', 'sm')}>Zahlungserinnerung an {s.paymentsOpen} offene senden</button>
                 </form>
               )}
             </div>

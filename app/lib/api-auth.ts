@@ -1,8 +1,8 @@
 // app/lib/api-auth.ts
-import { PrismaClient, GuestUser, User } from '@prisma/client'
+import { GuestUser, User } from '@prisma/client'
+import { prisma } from './prisma'
 import { createHash, randomBytes, timingSafeEqual } from 'crypto'
 
-const prisma = new PrismaClient()
 
 /**
  * Authentifizierung für die Client-API (app/api/v1/), gedacht für selbstgebaute Clients

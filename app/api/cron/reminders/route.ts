@@ -1,5 +1,5 @@
 // app/api/cron/reminders/route.ts
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '../../../lib/prisma'
 import { NextResponse } from 'next/server'
 import { sendReminderEmail } from '../../../lib/mail'
 import { sendReminderPush } from '../../../lib/push'
@@ -8,7 +8,6 @@ import { sendDuePaymentReminders } from '../../../lib/payment-reminder'
 import { sendDueInvitationReminders } from '../../../lib/invitation-reminder'
 import { sendDueFeedbackRequests } from '../../../lib/feedback'
 
-const prisma = new PrismaClient()
 
 /**
  * Automatischer Cron-Endpoint für Uptime Kuma.

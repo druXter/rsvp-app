@@ -70,7 +70,7 @@ export default async function SeriesInvitationsPage({ params, searchParams }: { 
           {canSend && unsent > 0 && (
             <form action={sendInvitations}>
               <input type="hidden" name="seriesId" value={series.id} />
-              <button type="submit" className={buttonClass('primary', 'sm')}>✉️ Einladungen per Mail senden ({unsent} noch nicht gesendet)</button>
+              <button type="submit" className={buttonClass('primary', 'sm')}>Einladungen per Mail senden ({unsent} noch nicht gesendet)</button>
             </form>
           )}
           <ButtonLink href={`/admin/einladungen/reihe/${series.id}/druck`} size="sm">🖨️ Druckliste mit QR-Codes</ButtonLink>
@@ -103,7 +103,7 @@ export default async function SeriesInvitationsPage({ params, searchParams }: { 
                       <form action={sendInvitations}>
                         <input type="hidden" name="seriesId" value={series.id} />
                         <input type="hidden" name="invitationId" value={invitation.id} />
-                        <button type="submit" className={buttonClass('secondary', 'sm')}>✉️ {invitation.sentAt ? 'erneut senden' : 'senden'}</button>
+                        <button type="submit" className={buttonClass('secondary', 'sm')}>{invitation.sentAt ? 'Erneut senden' : 'Senden'}</button>
                       </form>
                     )}
                     <DeleteInvitationButton invitationId={invitation.id} label={invitation.label} />

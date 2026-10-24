@@ -5,8 +5,7 @@ import { useState } from 'react'
 import { AGE_GROUPS, AGE_GROUP_LABEL, DIET_OPTIONS, asAgeGroup, type CompanionInput } from '../lib/persons'
 import type { MenuCourseForForm } from '../lib/menu'
 import MenuSelects from './menu-selects'
-
-const INPUT = 'w-full border border-gray-300 p-2 rounded-md bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100'
+import { inputClass } from './kit'
 
 /**
  * Begleitungen mit Name, Altersgruppe und - wenn der Termin danach fragt - Essen, Allergien, Alkohol und Menü
@@ -59,11 +58,11 @@ export default function CompanionFields({
           <div className="flex gap-2 items-end">
             <div className="flex-1">
               <label htmlFor={`companion_${i}_name`} className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Name der {i + 1}. Begleitung</label>
-              <input id={`companion_${i}_name`} name={`companion_${i}_name`} defaultValue={companion.name} required maxLength={100} className={INPUT} />
+              <input id={`companion_${i}_name`} name={`companion_${i}_name`} defaultValue={companion.name} required maxLength={100} className={inputClass} />
             </div>
             <div>
               <label htmlFor={`companion_${i}_age`} className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Alter</label>
-              <select id={`companion_${i}_age`} name={`companion_${i}_age`} defaultValue={companion.ageGroup} onChange={e => setAges({ ...ages, [key]: e.target.value })} className={INPUT}>
+              <select id={`companion_${i}_age`} name={`companion_${i}_age`} defaultValue={companion.ageGroup} onChange={e => setAges({ ...ages, [key]: e.target.value })} className={inputClass}>
                 {AGE_GROUPS.map(group => <option key={group} value={group}>{AGE_GROUP_LABEL[group]}</option>)}
               </select>
             </div>
@@ -74,13 +73,13 @@ export default function CompanionFields({
           {(askDiet || askAllergies || (askAlcohol && ageGroup === 'ADULT')) && (
             <div className="flex flex-col sm:flex-row gap-2">
               {askDiet && (
-                <select name={`companion_${i}_diet`} defaultValue={companion.dietaryOption ?? ''} aria-label={`Essenswunsch der ${i + 1}. Begleitung`} className={INPUT}>
+                <select name={`companion_${i}_diet`} defaultValue={companion.dietaryOption ?? ''} aria-label={`Essenswunsch der ${i + 1}. Begleitung`} className={inputClass}>
                   <option value="">Essenswunsch …</option>
                   {DIET_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                 </select>
               )}
               {askAllergies && (
-                <input name={`companion_${i}_allergies`} defaultValue={companion.allergies ?? ''} maxLength={300} aria-label={`Allergien der ${i + 1}. Begleitung`} placeholder="Allergien (optional)" className={INPUT} />
+                <input name={`companion_${i}_allergies`} defaultValue={companion.allergies ?? ''} maxLength={300} aria-label={`Allergien der ${i + 1}. Begleitung`} placeholder="Allergien (optional)" className={inputClass} />
               )}
               {askAlcohol && ageGroup === 'ADULT' && (
                 <AlcoholSelect name={`companion_${i}_alcohol`} value={companion.drinksAlcohol} label={`Alkohol der ${i + 1}. Begleitung`} required={required} />
@@ -105,7 +104,7 @@ export default function CompanionFields({
 /** Alkohol ja/nein einer Person (Begleitung oder Person des Haushalts) - Felder <name> mit "true"/"false". */
 export function AlcoholSelect({ name, value, label, required }: { name: string; value: boolean | null; label: string; required: boolean }) {
   return (
-    <select name={name} defaultValue={value === true ? 'true' : value === false ? 'false' : ''} aria-label={label} required={required} className={INPUT}>
+    <select name={name} defaultValue={value === true ? 'true' : value === false ? 'false' : ''} aria-label={label} required={required} className={inputClass}>
       <option value="">Alkohol …</option>
       <option value="true">Trinkt Alkohol</option>
       <option value="false">Nur alkoholfrei</option>

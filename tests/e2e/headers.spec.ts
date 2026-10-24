@@ -1,19 +1,22 @@
 import { expect, test, type APIRequestContext } from '@playwright/test'
 
-// Prüft die Header-Regeln aus next.config.ts - insbesondere die Reihenfolge (spätere Regel
-// gewinnt): /admin und /mein-konto passen auch auf die Event-Regel "/:slug" und müssen trotzdem
-// ihr "nicht einbetten" behalten, /api/suite/* überschreibt die allgemeine Referrer-Policy.
+// Prüft die Header-Regeln aus next.config.ts - insbesondere die Reihenfolge (spätere Regel gewinnt) und das
+// Muster der Suite: Einbetten grundsätzlich verboten, erlaubt nur für die Gästeseiten.
 
-// Erste Pfadebene = Event-Slugs, bewusst einbettbar (CMS-iFrame). Dazu gehören zwangsläufig auch
-// alle anderen Pfade auf erster Ebene, u. a. der Service Worker.
-const EMBEDDABLE = ['/irgendein-event', '/impressum', '/datenschutz', '/sw.js', '/manifest.webmanifest']
-const LOCKED = [
+// Gästeseiten, bewusst einbettbar (CMS-iFrame), samt der Registrierung, auf die sie im selben Frame verlinken.
+const EMBEDDABLE = [
+  '/irgendein-event', '/irgendein-event/registrieren',
+  '/reihe/gibt-es-nicht', '/reihe/gibt-es-nicht/termin', '/reihe/gibt-es-nicht/registrieren'
+]
+const PRIVATE = [
   '/admin', '/admin/login', '/admin/account', '/admin/users', '/admin/forgot-password',
   '/admin/reset-password?token=abc', '/admin/checkin/unbekannt',
   '/mein-konto', '/mein-konto/login', '/mein-konto/account', '/mein-konto/reset-password?token=abc'
 ]
+// Einteilige Seiten des Tools und alles Mehrteilige außer den Gästeseiten: nicht einbettbar.
+const NOT_EMBEDDABLE = ['/', '/verify?token=abc', '/impressum', '/datenschutz', '/manifest.webmanifest', '/api/cron/cleanup', '/api/v1/me', '/irgendein-event/sonstwas']
+const TOKEN_PAGES = ['/verify?token=abc', '/admin/reset-password?token=abc', '/mein-konto/reset-password?token=abc', '/mein-konto/verify?token=abc', '/admin/confirm-email?token=abc', '/mein-konto/confirm-email?token=abc']
 const SUITE = ['/api/suite/authorize', '/api/suite/login', '/api/suite/callback']
-const OTHER = ['/', '/reihe/gibt-es-nicht', '/reihe/gibt-es-nicht/termin', '/api/cron/cleanup', '/api/v1/me']
 
 async function headersOf(request: APIRequestContext, path: string) {
   const response = await request.get(path, { maxRedirects: 0 })
@@ -21,7 +24,7 @@ async function headersOf(request: APIRequestContext, path: string) {
 }
 
 test('allgemeine Sicherheits-Header auf jeder Pfadgruppe', async ({ request }) => {
-  for (const path of [...EMBEDDABLE, ...LOCKED, ...SUITE, ...OTHER]) {
+  for (const path of [...EMBEDDABLE, ...PRIVATE, ...NOT_EMBEDDABLE, ...SUITE, '/sw.js']) {
     const h = await headersOf(request, path)
     expect(h['x-content-type-options'], path).toBe('nosniff')
     expect(h['strict-transport-security'], path).toBe('max-age=31536000')
@@ -29,43 +32,44 @@ test('allgemeine Sicherheits-Header auf jeder Pfadgruppe', async ({ request }) =
   }
 })
 
-test('Referrer-Policy: allgemein strict-origin-when-cross-origin, Föderations-Pfade no-referrer', async ({ request }) => {
-  for (const path of [...EMBEDDABLE, ...LOCKED, ...OTHER]) {
+test('Referrer-Policy: allgemein strict-origin-when-cross-origin, Token- und Föderations-Pfade no-referrer', async ({ request }) => {
+  for (const path of [...EMBEDDABLE, '/admin', '/mein-konto/login', '/']) {
     expect((await headersOf(request, path))['referrer-policy'], path).toBe('strict-origin-when-cross-origin')
   }
-  for (const path of SUITE) {
+  for (const path of [...TOKEN_PAGES, ...SUITE]) {
     expect((await headersOf(request, path))['referrer-policy'], path).toBe('no-referrer')
   }
 })
 
-test('Event-Slugs und andere Pfade erster Ebene (inkl. /sw.js) sind einbettbar', async ({ request }) => {
+test('Gästeseiten sind einbettbar', async ({ request }) => {
   for (const path of EMBEDDABLE) {
     const h = await headersOf(request, path)
-    expect(h['content-security-policy'], path).toBe('frame-ancestors *;')
+    expect(h['content-security-policy'], path).toBe('frame-ancestors *')
     expect(h['x-frame-options'], path).toBeUndefined()
   }
 })
 
-test('Admin- und Konto-Bereich: nie einbettbar - auch die Weiterleitung ohne Sitzung', async ({ request }) => {
-  for (const path of LOCKED) {
+test('alles andere ist nicht einbettbar - auch /verify mit dem Bestätigungsknopf und /reihe ohne Reihe', async ({ request }) => {
+  for (const path of [...PRIVATE, ...NOT_EMBEDDABLE, ...SUITE, '/reihe']) {
     const h = await headersOf(request, path)
-    expect(h['content-security-policy'], path).toBe("frame-ancestors 'none'")
+    expect(h['content-security-policy'], path).toContain("frame-ancestors 'none'")
     expect(h['x-frame-options'], path).toBe('DENY')
   }
 })
 
-test('Föderations-Endpunkte /api/suite/*: nie einbettbar', async ({ request }) => {
-  for (const path of SUITE) {
+test('Verwaltung, Konto und Token-Seiten: nicht indexieren, nicht cachen', async ({ request }) => {
+  for (const path of [...PRIVATE, ...TOKEN_PAGES]) {
     const h = await headersOf(request, path)
-    expect(h['content-security-policy'], path).toBe("frame-ancestors 'none'")
-    expect(h['x-frame-options'], path).toBe('DENY')
+    expect(h['x-robots-tag'], path).toBe('noindex, nofollow')
+    expect(h['cache-control'], path).toContain('no-store')
   }
+  // Positivkontrolle: Gästeseiten bleiben auffindbar.
+  expect((await headersOf(request, '/irgendein-event'))['x-robots-tag']).toBeUndefined()
 })
 
-test('tiefere Gast- und API-Pfade tragen nur die allgemeinen Header', async ({ request }) => {
-  for (const path of OTHER) {
-    const h = await headersOf(request, path)
-    expect(h['content-security-policy'], path).toBeUndefined()
-    expect(h['x-frame-options'], path).toBeUndefined()
-  }
+test('Service Worker: nie aus dem Cache, eigene CSP', async ({ request }) => {
+  const h = await headersOf(request, '/sw.js')
+  expect(h['cache-control']).toBe('no-cache, no-store, must-revalidate')
+  expect(h['content-security-policy']).toBe("default-src 'self'; script-src 'self'; frame-ancestors 'none'")
+  expect(h['content-type']).toContain('application/javascript')
 })

@@ -280,7 +280,7 @@ test('Einlass: offene Zahlung checkt nicht automatisch ein, Abendkasse kassiert 
   await page.goto(`/admin/checkin/${unpaid.rsvp.id}`)
   await expect(page.getByRole('heading', { name: 'Offen: 25,00 €' })).toBeVisible()
   expect((await prisma.rsvp.findUniqueOrThrow({ where: { id: unpaid.rsvp.id } })).hasAttended).toBe(false)
-  await page.getByRole('button', { name: '💶 Bar kassiert - einlassen' }).click()
+  await page.getByRole('button', { name: 'Bar kassiert - einlassen' }).click()
   await expect(page.getByRole('heading', { name: 'Bereits eingecheckt' })).toBeVisible()
   expect(await prisma.rsvp.findUniqueOrThrow({ where: { id: unpaid.rsvp.id } })).toMatchObject({ hasAttended: true, paymentMethod: 'CASH' })
   await expect(page.getByTestId('checkin-ticket')).toContainText('bar bezahlt')
@@ -328,8 +328,21 @@ test('CSV-Export mit Kategorie, Betrag und Zahlstatus', async ({ page }) => {
   await prisma.rsvp.update({ where: { id: rsvp.id }, data: { ticketCategoryId: stud.id, amountCents: 2550, paymentReference: 'E2E-CSV12345', paidAt: new Date('2026-10-01T10:00:00Z'), paymentMethod: 'CASH' } })
   await login(page, owner.email)
   const csv = await (await page.request.get(`/api/export?eventId=${event.id}`, { headers: await cookieHeader(page.context()) })).text()
-  expect(csv).toContain(';Kategorie;Betrag;Verwendungszweck;Zahlstatus;Bezahlt am;Zahlart;Erstattet am')
+  expect(csv).toContain(';"Kategorie";"Betrag";"Verwendungszweck";"Zahlstatus";"Bezahlt am";"Zahlart";"Erstattet am"')
   expect(csv).toContain('"Studierende";"25,50";"E2E-CSV12345";"Bezahlt";"2026-10-01";"Bar";""')
+})
+
+test('Gästeliste-CSV entschärft Formeln aus Gast-Eingaben (CSV-Injection)', async ({ page }) => {
+  const owner = await createAccount('CREATOR')
+  const event = await createEvent(owner)
+  await createRsvp(event, { name: '=HYPERLINK("https://evil.example","Klick")' })
+  await createRsvp(event, { name: 'Anna Normal' })
+  await login(page, owner.email)
+  const csv = await (await page.request.get(`/api/export?eventId=${event.id}`, { headers: await cookieHeader(page.context()) })).text()
+  expect(csv).toContain('"\'=HYPERLINK(""https://evil.example"",""Klick"")"')
+  expect(csv).not.toMatch(/(^|;)"=HYPERLINK/m)
+  // Positivkontrolle: normale Namen bleiben unverändert.
+  expect(csv).toContain('"Anna Normal"')
 })
 
 test('Client-API: Kategorie Pflicht bei Terminen mit Kategorien', async ({ request }) => {

@@ -1,10 +1,9 @@
 // app/api/ical/[id]/route.ts
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '../../../lib/prisma'
 import { NextResponse } from 'next/server'
 import { createEvent, DateArray } from 'ics'
 import { hasEventPinAccess, tokenBelongsToEvent } from '../../../lib/pin'
 
-const prisma = new PrismaClient()
 
 /**
  * API-Route zur dynamischen Generierung einer Kalender-Datei (.ics).

@@ -4,10 +4,9 @@
 // Anzahl an ("2x Salat", "Nachtisch"), Gäste mit Zusage beanspruchen beim Antworten je einen Platz eines
 // Eintrags. Ergänzt das Freitextfeld "Mitbringsel", ersetzt es nicht.
 import { randomUUID } from 'node:crypto'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from './prisma'
 import { InputError } from './input-error'
 
-const prisma = new PrismaClient()
 
 export const BRING_LIMITS = { slots: 30, label: 80, quantity: 50 }
 

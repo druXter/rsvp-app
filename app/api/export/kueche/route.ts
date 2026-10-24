@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '../../../lib/prisma'
 import { getCurrentUser } from '../../../lib/auth'
 import { hasEventModeratorOrAbove } from '../../../lib/permissions'
+import { csvResponse } from '../../../lib/csv'
 import { loadKitchenReport } from '../../../lib/kitchen'
 import { AGE_GROUP_LABEL } from '../../../lib/persons'
 
@@ -26,10 +27,5 @@ export async function GET(request: Request) {
       p.drinksAlcohol === true ? 'Ja' : p.drinksAlcohol === false ? 'Nein' : ''
     ])
   ]
-  // Wie die Gästeliste: Semikolon, alles in Anführungszeichen, BOM für Excel. Formeln werden entschärft.
-  const cell = (value: string) => `"${(/^[=+\-@]/.test(value) ? `'${value}` : value).replace(/"/g, '""')}"`
-  const csv = '﻿' + rows.map(r => r.map(cell).join(';')).join('\n')
-  return new NextResponse(csv, {
-    headers: { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="kueche-${event.slug}.csv"` }
-  })
+  return csvResponse(rows, `kueche-${event.slug}.csv`)
 }

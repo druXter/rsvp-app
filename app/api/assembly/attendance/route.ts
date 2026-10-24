@@ -2,6 +2,10 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '../../../lib/prisma'
 import { assemblyOf, signAttendanceResult, verifyAttendanceRequest } from '../../../lib/assembly'
+import { readLimitedText } from '../../../lib/linked-tools'
+
+// Größere Nachrichten verschickt das Abstimmungstool nie; alles darüber wird gar nicht erst gelesen.
+const MAX_BODY = 20_000
 
 export const dynamic = 'force-dynamic'
 
@@ -11,7 +15,7 @@ export const dynamic = 'force-dynamic'
  * Nur für einen Termin, der genau diese Sitzung verlinkt. Keine E-Mail, keine Rsvp-ID; die Antwort ist signiert.
  */
 export async function POST(request: Request) {
-  const query = verifyAttendanceRequest(await request.text())
+  const query = verifyAttendanceRequest(await readLimitedText(request, MAX_BODY))
   if (!query) return new NextResponse('invalid', { status: 401, headers: { 'Cache-Control': 'no-store' } })
 
   const event = await prisma.event.findUnique({ where: { id: query.eventId }, include: { series: true } })

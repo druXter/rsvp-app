@@ -8,6 +8,7 @@ import QRCode from 'qrcode'
 import { prisma } from './prisma'
 import { formatEuro, formatPaymentDate, paymentDue, paymentState, type PaymentFields, type PaymentState } from './payment-state'
 import { InputError } from './input-error'
+import { escapeHtml } from './escape-html'
 
 export { PAYMENT_STATE_LABEL, formatPaymentDate, paymentDue, paymentState, type PaymentFields, type PaymentState } from './payment-state'
 
@@ -197,9 +198,6 @@ export async function paymentInfoOf(
 
 // --- Mail ---------------------------------------------------------------------------------------------
 
-function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!))
-}
 
 /**
  * Zahlungsblock für die Bestätigungs-Mail (Text, HTML und GiroCode als CID-Anhang) - null, wenn nichts zu

@@ -1,11 +1,10 @@
 // app/api/poll-link/[eventId]/route.ts
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '../../../lib/prisma'
 import { NextResponse } from 'next/server'
 import { getCurrentGuestUser } from '../../../lib/guest-auth'
 import { personalPollLink } from '../../../lib/poll-link'
 import { hasEventPinAccess } from '../../../lib/pin'
 
-const prisma = new PrismaClient()
 
 /**
  * Leitet zur externen Abstimmung eines Termins weiter (Event.pollUrl, siehe

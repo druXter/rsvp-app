@@ -1,5 +1,24 @@
 import type { NextConfig } from "next";
 
+const NO_FRAMING = [
+  { key: 'X-Frame-Options', value: 'DENY' },
+  { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
+];
+const NOT_STORED = [
+  { key: 'X-Robots-Tag', value: 'noindex, nofollow' },
+  { key: 'Cache-Control', value: 'no-store' },
+];
+const PRIVATE_PAGE = [...NO_FRAMING, ...NOT_STORED];
+// Für mehr Sicherheit lässt sich '*' durch die Adresse des CMS ersetzen.
+const EMBEDDABLE = [{ key: 'Content-Security-Policy', value: 'frame-ancestors *' }];
+
+// Mehrteilige Gästeseiten, die einbettbar bleiben: /reihe/<reihe>, /reihe/<reihe>/<termin> (auch .../registrieren)
+// und /<event>/registrieren.
+const EMBEDDABLE_DEEP = 'reihe/[^/]+/?$|reihe/[^/]+/[^/]+/?$|[^/]+/registrieren/?$';
+// Einteilige Seiten des Tools selbst - sie passen auf "/:slug", sind aber keine Event-Seiten. Neue einteilige
+// Routen hier ergänzen (tests/e2e/headers.spec.ts prüft die Header).
+const OWN_PAGES = 'admin|mein-konto|verify|impressum|datenschutz|reihe|api|sw\\.js|manifest\\.webmanifest|icon\\.svg|favicon\\.ico';
+
 const nextConfig: NextConfig = {
   // Erlaubt den Zugriff auf den Dev-Server über die LAN-IP des Servers (z.B. beim
   // Testen von einem anderen Gerät im Heimnetz). Ohne das blockiert Next.js im
@@ -17,7 +36,8 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     // Bei mehreren passenden Regeln gewinnt für denselben Header die SPÄTERE - die Reihenfolge
-    // unten ist also wichtig: erst die allgemeinen, dann die Ausnahmen für sensible Bereiche.
+    // unten ist also wichtig. Muster wie in den anderen Tools der Suite (suite-kit/docs/KONVENTIONEN.md,
+    // "Sicherheits-Header"): Einbetten ist grundsätzlich verboten, erlaubt nur für die Gästeseiten.
     return [
       {
         // Für alle Seiten: keine MIME-Sniffing-Angriffe, sparsame Referer, HSTS nur für diesen Host
@@ -30,54 +50,45 @@ const nextConfig: NextConfig = {
           { key: 'Strict-Transport-Security', value: 'max-age=31536000' },
         ],
       },
+      // Startseite und alles Mehrteilige: nicht einbettbar - außer den Gästeseiten einer Reihe und den
+      // Registrierungen (die eingebettete Event-Seite verlinkt im selben Frame dorthin).
+      { source: '/', headers: NO_FRAMING },
+      { source: `/:path((?!${EMBEDDABLE_DEEP})[^/]+/.+)`, headers: NO_FRAMING },
+      { source: `/:path(${EMBEDDABLE_DEEP})`, headers: EMBEDDABLE },
+      // Event-Seiten (erste Ebene) BEWUSST einbettbar: sie werden als iFrame in ein CMS eingebunden. Passt
+      // auch auf /admin, /verify usw. - die nimmt die nächste Regel wieder aus.
+      { source: '/:slug', headers: EMBEDDABLE },
+      { source: `/:page(${OWN_PAGES})`, headers: NO_FRAMING },
+      // Login, Konto und Verwaltung: nicht einbetten, nicht indexieren, nicht cachen.
+      { source: '/:area(admin|mein-konto)', headers: PRIVATE_PAGE },
+      { source: '/:area(admin|mein-konto)/:path*', headers: PRIVATE_PAGE },
       {
-        // Gilt für alle Routen auf der ersten Ebene (deine Event-Slugs).
-        // BEWUSST einbettbar: Event-Seiten werden als iFrame in ein CMS eingebunden.
-        // Für mehr Sicherheit kannst du '*' durch die URL deines CMS ersetzen.
-        source: '/:slug',
-        headers: [
-          {
-            key: 'Content-Security-Policy',
-            value: "frame-ancestors *;",
-          },
-        ],
+        // Seiten mit Einmal-Token in der URL (Mail-Links): den Token nie per Referer weitergeben.
+        source: '/:page(verify|admin/reset-password|admin/confirm-email|mein-konto/reset-password|mein-konto/verify|mein-konto/confirm-email)',
+        headers: [...NOT_STORED, { key: 'Referrer-Policy', value: 'no-referrer' }],
       },
       {
-        // Login, Konto und Verwaltung dürfen NICHT eingebettet werden (Clickjacking) - diese
-        // Regel steht NACH der Event-Regel oben, weil "/admin" und "/mein-konto" selbst auch auf
-        // "/:slug" passen und sonst "frame-ancestors *" bekämen.
-        source: '/:area(admin|mein-konto)/:path*',
+        // Der Service Worker darf nie aus einem Cache kommen (Browser, Cloudflare), sonst blieben Geräte auf einer
+        // alten Version hängen. Eigene CSP: er lädt nur Skripte derselben Herkunft. Wie in den anderen Tools.
+        source: '/sw.js',
         headers: [
-          { key: 'X-Frame-Options', value: 'DENY' },
-          { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
-        ],
-      },
-      {
-        source: '/:area(admin|mein-konto)',
-        headers: [
-          { key: 'X-Frame-Options', value: 'DENY' },
-          { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
+          { key: 'Content-Type', value: 'application/javascript; charset=utf-8' },
+          { key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' },
+          { key: 'Content-Security-Policy', value: "default-src 'self'; script-src 'self'; frame-ancestors 'none'" },
         ],
       },
       {
         // Die Föderations-Endpunkte tragen Einmal-Werte (Login-Bestätigung, state) in der URL:
-        // nie einbetten, nie cachen, nie per Referer weiterreichen. Steht NACH der allgemeinen
-        // Regel und überschreibt deren Referrer-Policy.
+        // nie per Referer weiterreichen.
         source: '/api/suite/:path*',
-        headers: [
-          { key: 'X-Frame-Options', value: 'DENY' },
-          { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
-          { key: 'Referrer-Policy', value: 'no-referrer' },
-        ],
+        headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }],
       },
       {
         // Verknüpfte Tools (app/lib/linked-tools.ts): Seatings Gästeliste/Platzierungen (Server zu
         // Server), die Weiterleitungen "Sitzplatz wählen", "Zeitplan", "Feedback geben" bzw. "Zur Sitzung" (editToken in der URL,
-        // signierter Link im Ziel), die Anwesenheit für Sitzungen und das Protokoll für den Zeitplan-Rückblick - nie einbetten, nie cachen, nie per Referer weiterreichen.
+        // signierter Link im Ziel), die Anwesenheit für Sitzungen und das Protokoll für den Zeitplan-Rückblick - nie cachen, nie per Referer weiterreichen.
         source: '/api/:area(seating|seating-link|timeline|timeline-link|feedback-link|assembly-link|assembly)/:path*',
         headers: [
-          { key: 'X-Frame-Options', value: 'DENY' },
-          { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
           { key: 'Referrer-Policy', value: 'no-referrer' },
           { key: 'Cache-Control', value: 'no-store' },
         ],

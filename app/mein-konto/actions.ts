@@ -4,7 +4,7 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '../lib/prisma'
 import { randomBytes } from 'node:crypto'
 import { parseAuthorizeRequest, sanitizeNextPath } from 'suite-kit'
 import { getParticipantApps, selfOrigin } from '../lib/suite'
@@ -18,7 +18,6 @@ import { clearFailures, clientIp, loginRules, passwordChangeRule, refund, regist
 import { generateApiToken, hashApiToken, NEW_API_TOKEN_COOKIE } from '../lib/api-auth'
 import { notifyLinkedToolsBeforeDelete, notifyLinkedToolsOfParticipants } from '../lib/linked-tools-notify'
 
-const prisma = new PrismaClient()
 
 /**
  * `next` kommt aus einem Formularfeld/Query-Parameter, den ein Angreifer frei befüllen

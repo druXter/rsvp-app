@@ -7,8 +7,7 @@ import type { MenuCourseForForm } from '../lib/menu'
 import type { HouseholdPersonInput } from '../lib/invitations'
 import MenuSelects from './menu-selects'
 import { AlcoholSelect } from './companion-fields'
-
-const INPUT = 'w-full border border-gray-300 p-2 rounded-md bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100'
+import { inputClass } from './kit'
 
 export type HouseholdFormRow = HouseholdPersonInput & { answered: boolean }
 
@@ -42,13 +41,13 @@ export default function HouseholdFields({ rows, extraPersons, askDiet, askAllerg
       {(askDiet || askAllergies || (askAlcohol && asAgeGroup(ageGroup) === 'ADULT')) && (
         <div className="flex flex-col sm:flex-row gap-2">
           {askDiet && (
-            <select name={`person_${i}_diet`} defaultValue={row.dietaryOption ?? ''} aria-label={`Essenswunsch von ${who}`} className={INPUT}>
+            <select name={`person_${i}_diet`} defaultValue={row.dietaryOption ?? ''} aria-label={`Essenswunsch von ${who}`} className={inputClass}>
               <option value="">Essenswunsch …</option>
               {DIET_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
           )}
           {askAllergies && (
-            <input name={`person_${i}_allergies`} defaultValue={row.allergies ?? ''} maxLength={300} aria-label={`Allergien von ${who}`} placeholder="Allergien (optional)" className={INPUT} />
+            <input name={`person_${i}_allergies`} defaultValue={row.allergies ?? ''} maxLength={300} aria-label={`Allergien von ${who}`} placeholder="Allergien (optional)" className={inputClass} />
           )}
           {askAlcohol && asAgeGroup(ageGroup) === 'ADULT' && <AlcoholSelect name={`person_${i}_alcohol`} value={row.drinksAlcohol} label={`Alkohol von ${who}`} required />}
         </div>
@@ -70,7 +69,7 @@ export default function HouseholdFields({ rows, extraPersons, askDiet, askAllerg
               <label htmlFor={`person_${i}_name`} className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
                 Name{row.ageGroup !== 'ADULT' ? ` (${AGE_GROUP_LABEL[row.ageGroup]})` : ''}
               </label>
-              <input id={`person_${i}_name`} name={`person_${i}_name`} defaultValue={row.name} required maxLength={100} className={INPUT} />
+              <input id={`person_${i}_name`} name={`person_${i}_name`} defaultValue={row.name} required maxLength={100} className={inputClass} />
             </div>
             <div className="flex gap-4 pb-2" role="radiogroup" aria-label={`Kommt ${row.name}?`}>
               {[true, false].map(value => (
@@ -101,12 +100,12 @@ export default function HouseholdFields({ rows, extraPersons, askDiet, askAllerg
             <div className="flex gap-2 items-end">
               <div className="flex-1">
                 <label htmlFor={`person_${i}_name`} className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Weitere Person</label>
-                <input id={`person_${i}_name`} name={`person_${i}_name`} defaultValue={row.name} required maxLength={100} className={INPUT} />
+                <input id={`person_${i}_name`} name={`person_${i}_name`} defaultValue={row.name} required maxLength={100} className={inputClass} />
               </div>
               <div>
                 <label htmlFor={`person_${i}_age`} className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Alter</label>
                 <select
-                  id={`person_${i}_age`} name={`person_${i}_age`} defaultValue={row.ageGroup} className={INPUT}
+                  id={`person_${i}_age`} name={`person_${i}_age`} defaultValue={row.ageGroup} className={inputClass}
                   onChange={e => {
                     const next = extras.map(x => (x.key === key ? { ...x, age: e.target.value } : x))
                     setExtras(next)

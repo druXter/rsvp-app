@@ -1,12 +1,11 @@
 // app/admin/reset-password/page.tsx
 import { SubmitButton } from '../../ui/kit'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '../../lib/prisma'
 import Link from 'next/link'
 import { resetPassword } from '../actions'
 import AuthError from '../../ui/auth-error'
 import { hashToken } from '../../lib/tokens'
 
-const prisma = new PrismaClient()
 
 /**
  * Formular zum Setzen eines neuen Passworts über einen per Mail verschickten Reset-Link.

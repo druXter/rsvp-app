@@ -4,7 +4,8 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
-import { Prisma, PrismaClient, Role, type Event, type EventSeries, type Participant, type Rsvp } from '@prisma/client'
+import { Prisma, Role, type Event, type EventSeries, type Participant, type Rsvp } from '@prisma/client'
+import { prisma } from '../lib/prisma'
 import { randomUUID } from 'crypto'
 import { sanitizeNextPath } from 'suite-kit'
 import { sendReminderEmail, sendWaitlistPromotedEmail, sendConfirmationEmail, sendVerificationEmail, sendPasswordResetEmail, sendEmailChangeConfirmation, sendPaymentReceivedEmail, sendPaymentCancelledEmail } from '../lib/mail'
@@ -44,7 +45,6 @@ import { invitationCovers } from '../lib/invitation-store'
 import { InputError } from '../lib/input-error'
 import { readShiftTiers, storedTiers, type ShiftTierInput } from '../lib/shift-helpers'
 
-const prisma = new PrismaClient()
 
 /**
  * Liest die bis zu 3 frei definierbaren Zusatzfragen aus dem Formular

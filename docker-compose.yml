@@ -8,8 +8,9 @@ services:
       # Z.B. "3005:3000" (leitet Port 3005 des Servers an Port 3000 des Containers)
       - "3005:3000" 
     volumes:
-      # Dieser Ordner speichert deine SQLite-Datenbank sicher außerhalb des Containers, 
-      # damit die Gästeliste bei Updates nicht verloren geht.
+      # Dieser Ordner speichert deine SQLite-Datenbank sicher außerhalb des Containers,
+      # damit die Gästeliste bei Updates nicht verloren geht. Der Container läuft als Nutzer
+      # "node" (UID 1000) - das Verzeichnis muss ihm gehören, siehe README "Mit Docker starten".
       - ./data:/app/data
     env_file:
       - .env

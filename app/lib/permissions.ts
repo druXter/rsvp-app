@@ -1,7 +1,7 @@
 // app/lib/permissions.ts
-import { PrismaClient, User, Role } from '@prisma/client'
+import { User, Role } from '@prisma/client'
+import { prisma } from './prisma'
 
-const prisma = new PrismaClient()
 
 export const ROLE_LABELS: Record<Role, string> = {
   ADMIN: 'Administrator',

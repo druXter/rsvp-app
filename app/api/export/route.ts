@@ -1,13 +1,13 @@
 // app/api/export/route.ts
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '../../lib/prisma'
 import { NextResponse } from 'next/server'
 import { getCurrentUser } from '../../lib/auth'
 import { hasEventModeratorOrAbove } from '../../lib/permissions'
 import { claimedLabels } from '../../lib/bring-list'
 import { PAYMENT_STATE_LABEL, paymentState } from '../../lib/payment-state'
 import { describePerson, personsOf } from '../../lib/persons'
+import { csvResponse } from '../../lib/csv'
 
-const prisma = new PrismaClient()
 
 /**
  * API-Route zum Exportieren einer Gästeliste als CSV-Datei.
@@ -115,17 +115,10 @@ export async function GET(request: Request) {
         return answers[i] || ""
       })
 
-    ].map(field => `"${String(field).replace(/"/g, '""')}"`))
+    ])
   })
 
-  const csvContent = "\uFEFF" + rows.map(e => e.join(";")).join("\n")
-
-  return new NextResponse(csvContent, {
-    headers: {
-      "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="gaesteliste-${event.slug}.csv"`,
-    }
-  })
+  return csvResponse(rows, `gaesteliste-${event.slug}.csv`)
 }
 function alcoholColumn(persons: ReturnType<typeof personsOf>): string {
   const yesNo = (value: boolean | null) => value === true ? "Ja" : value === false ? "Nein" : ""

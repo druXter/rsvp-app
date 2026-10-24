@@ -1,5 +1,5 @@
 // app/admin/users/page.tsx
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '../../lib/prisma'
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '../../lib/auth'
 import { updateUserRole } from '../actions'
@@ -8,7 +8,6 @@ import DeleteUserButton from '../delete-user-button'
 import AdminShell from '../admin-shell'
 import { ButtonLink, PageHeader } from '../../ui/kit'
 
-const prisma = new PrismaClient()
 
 /**
  * Admin-exklusive Nutzerverwaltung: Übersicht aller Konten mit ihrer Rolle und der

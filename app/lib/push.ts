@@ -1,10 +1,10 @@
 // app/lib/push.ts
 import { formatEventDate } from './event-date'
 import webpush from 'web-push'
-import { PrismaClient, Event, EventSeries, Participant } from '@prisma/client'
+import { Event, EventSeries, Participant } from '@prisma/client'
+import { prisma } from './prisma'
 import { personalEventLink } from './mail'
 
-const prisma = new PrismaClient()
 
 // Ein Event, das optional (bei Reihen-Terminen) seine EventSeries mitbringt - gleiche
 // Definition wie in app/lib/mail.ts, da personalEventLink() das braucht.

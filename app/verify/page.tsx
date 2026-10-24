@@ -1,9 +1,8 @@
 // app/verify/page.tsx
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '../lib/prisma'
 import StatusCard from '../ui/status-card'
 import VerifyForm from './verify-form'
 
-const prisma = new PrismaClient()
 
 /**
  * Double-Opt-In einer Zusage (Link aus sendVerificationEmail). Das Öffnen des Links prüft den

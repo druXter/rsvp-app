@@ -1,6 +1,6 @@
 // app/reihe/[seriesSlug]/page.tsx
 import { formatEventDate, isArchived } from '../../lib/event-date'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '../../lib/prisma'
 import { notFound } from 'next/navigation'
 import { cookies } from 'next/headers'
 import Link from 'next/link'
@@ -10,7 +10,6 @@ import { getCurrentGuestUser } from '../../lib/guest-auth'
 import { invitationCovers } from '../../lib/invitation-store'
 import { formatDeadline } from '../../lib/rsvp-deadline'
 
-const prisma = new PrismaClient()
 
 export default async function SeriesOverviewPage({
   params,

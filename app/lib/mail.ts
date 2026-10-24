@@ -10,6 +10,7 @@ import { formatEuro } from './payment-state'
 import { prisma } from './prisma'
 import { describePerson, personsOf } from './persons'
 import { describeSelection } from './menu'
+import { escapeHtml } from './escape-html'
 
 // Den Mail-Transporter mit den Daten aus der .env initialisieren
 const transporter = nodemailer.createTransport({
@@ -59,7 +60,7 @@ function seriesHintText(event: EventWithSeries, participant: Participant): strin
 
 function seriesHintHtml(event: EventWithSeries, participant: Participant): string {
   if (!event.series) return ''
-  return `<p>Dieser Termin gehört zur Reihe <strong>${event.series.title}</strong>. Weitere Termine und deine bisherigen Antworten findest du <a href="${seriesOverviewLink(event.series, participant)}">hier</a>.</p>`
+  return `<p>Dieser Termin gehört zur Reihe <strong>${escapeHtml(event.series.title)}</strong>. Weitere Termine und deine bisherigen Antworten findest du <a href="${seriesOverviewLink(event.series, participant)}">hier</a>.</p>`
 }
 
 /**
@@ -190,8 +191,8 @@ Dein Event-Team`
 
   const html = `
     <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
-      <h2>${rsvp.isAttending ? `Zusage bestätigt, ${participant.name}! 🎉` : `Absage bestätigt, ${participant.name}`}</h2>
-      <p>Vielen Dank für deine Rückmeldung zum Event <strong>${event.title}</strong>.</p>
+      <h2>${rsvp.isAttending ? `Zusage bestätigt, ${escapeHtml(participant.name)}! 🎉` : `Absage bestätigt, ${escapeHtml(participant.name)}`}</h2>
+      <p>Vielen Dank für deine Rückmeldung zum Event <strong>${escapeHtml(event.title)}</strong>.</p>
       <p>${rsvp.isAttending
         ? 'Wir freuen uns sehr, dass du dabei bist! Im Anhang findest du eine Kalenderdatei (.ics), damit du dir den Termin direkt abspeichern kannst.'
         : 'Schade, dass du nicht dabei sein kannst. Falls sich deine Pläne doch noch ändern sollten, kannst du deine Antwort jederzeit anpassen.'}</p>
@@ -257,7 +258,7 @@ export async function sendReminderEmail(
   // Wenn ein Zusatztext eingegeben wurde, bauen wir einen hervorgehobenen HTML-Block dafür
   const customMessageHtml = customMessage
     ? `<div style="background-color: #f3f4f6; padding: 15px; border-left: 4px solid #3b82f6; margin: 20px 0;">
-         <p style="margin: 0; white-space: pre-wrap;"><strong>Nachricht des Gastgebers:</strong><br><br>${customMessage}</p>
+         <p style="margin: 0; white-space: pre-wrap;"><strong>Nachricht des Gastgebers:</strong><br><br>${escapeHtml(customMessage)}</p>
        </div>`
     : ''
 
@@ -268,12 +269,12 @@ export async function sendReminderEmail(
     text: `Hallo ${participant.name},\n\nwir freuen uns, dass du bei "${event.title}" dabei bist!\n\nWann: ${formattedDate}\nWo: ${event.location || 'Wird noch bekannt gegeben'}\n\n${customMessage ? 'Nachricht des Gastgebers:\n' + customMessage + '\n\n' : ''}Deine Antworten bearbeiten: ${personalLink}`,
     html: `
       <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
-        <h2>Wir freuen uns auf dich, ${participant.name}! 🎉</h2>
-        <p>Das Event <strong>${event.title}</strong> rückt näher. Hier sind noch einmal alle wichtigen Daten für dich zusammengefasst:</p>
+        <h2>Wir freuen uns auf dich, ${escapeHtml(participant.name)}! 🎉</h2>
+        <p>Das Event <strong>${escapeHtml(event.title)}</strong> rückt näher. Hier sind noch einmal alle wichtigen Daten für dich zusammengefasst:</p>
 
         <ul style="list-style: none; padding: 0;">
           <li>📅 <strong>Wann:</strong> ${formattedDate}</li>
-          <li>📍 <strong>Wo:</strong> ${event.location || 'Wird noch bekannt gegeben'}</li>
+          <li>📍 <strong>Wo:</strong> ${escapeHtml(event.location || 'Wird noch bekannt gegeben')}</li>
         </ul>
 
         ${customMessageHtml}
@@ -313,8 +314,8 @@ export async function sendVerificationEmail(
     text: `Hallo ${participant.name},\n\nbitte klicke auf den folgenden Link, um deine E-Mail-Adresse zu bestätigen und deine Anmeldung für "${event.title}" abzuschließen:\n\n${verifyLink}\n\nErst nach der Bestätigung wird deine Anmeldung gültig.`,
     html: `
       <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
-        <h2>Fast geschafft, ${participant.name}! ✉️</h2>
-        <p>Du hast dich für das Event <strong>${event.title}</strong> angemeldet.</p>
+        <h2>Fast geschafft, ${escapeHtml(participant.name)}! ✉️</h2>
+        <p>Du hast dich für das Event <strong>${escapeHtml(event.title)}</strong> angemeldet.</p>
         <p>Um Spam zu vermeiden, bitten wir dich, deine E-Mail-Adresse über den folgenden Button zu bestätigen. Erst danach ist deine Anmeldung verbindlich und du erhältst alle weiteren Informationen (inklusive Kalender-Eintrag).</p>
 
         <p style="text-align: center; margin: 30px 0;">
@@ -361,8 +362,8 @@ export async function sendGuestVerificationEmail(guestUser: GuestUser, contextTi
     text: `Hallo ${guestUser.name},\n\ndu hast dir gerade ein Konto für "${contextTitle}" angelegt. Bitte klicke auf den folgenden Link, um dein Konto zu bestätigen - danach kannst du dich einloggen:\n\n${verifyLink}`,
     html: `
       <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
-        <h2>Fast geschafft, ${guestUser.name}! ✉️</h2>
-        <p>Du hast dir gerade ein Konto für <strong>${contextTitle}</strong> angelegt.</p>
+        <h2>Fast geschafft, ${escapeHtml(guestUser.name)}! ✉️</h2>
+        <p>Du hast dir gerade ein Konto für <strong>${escapeHtml(contextTitle)}</strong> angelegt.</p>
         <p>Bitte bestätige dein Konto über den folgenden Button - danach kannst du dich einloggen und siehst automatisch alle Termine deiner Reihen, ohne dir Links merken oder Angaben erneut eintragen zu müssen.</p>
 
         <p style="text-align: center; margin: 30px 0;">
@@ -399,7 +400,7 @@ export async function sendGuestPasswordResetEmail(guestUser: GuestUser, token: s
     html: `
       <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
         <h2>Passwort zurücksetzen</h2>
-        <p>Hallo ${guestUser.name}, für dein Konto <strong>${guestUser.email}</strong> wurde ein Passwort-Reset angefordert. Falls du das warst, klicke auf den folgenden Button, um ein neues Passwort zu vergeben:</p>
+        <p>Hallo ${escapeHtml(guestUser.name)}, für dein Konto <strong>${escapeHtml(guestUser.email)}</strong> wurde ein Passwort-Reset angefordert. Falls du das warst, klicke auf den folgenden Button, um ein neues Passwort zu vergeben:</p>
 
         <p style="text-align: center; margin: 30px 0;">
           <a href="${resetLink}" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: #fff; text-decoration: none; border-radius: 5px; font-weight: bold;">Neues Passwort vergeben</a>
@@ -437,7 +438,7 @@ export async function sendPasswordResetEmail(user: User, token: string) {
     html: `
       <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
         <h2>Passwort zurücksetzen</h2>
-        <p>Für dein Konto <strong>${user.email}</strong> wurde ein Passwort-Reset angefordert. Falls du das warst, klicke auf den folgenden Button, um ein neues Passwort zu vergeben:</p>
+        <p>Für dein Konto <strong>${escapeHtml(user.email)}</strong> wurde ein Passwort-Reset angefordert. Falls du das warst, klicke auf den folgenden Button, um ein neues Passwort zu vergeben:</p>
 
         <p style="text-align: center; margin: 30px 0;">
           <a href="${resetLink}" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: #fff; text-decoration: none; border-radius: 5px; font-weight: bold;">Neues Passwort vergeben</a>
@@ -477,7 +478,7 @@ export async function sendEmailChangeConfirmation(user: User, token: string) {
     html: `
       <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
         <h2>Neue E-Mail-Adresse bestätigen</h2>
-        <p>Für dein Konto (aktuell <strong>${user.email}</strong>) wurde eine Änderung der E-Mail-Adresse auf diese Adresse angefordert. Falls du das warst, klicke auf den folgenden Button, um die Änderung zu bestätigen:</p>
+        <p>Für dein Konto (aktuell <strong>${escapeHtml(user.email)}</strong>) wurde eine Änderung der E-Mail-Adresse auf diese Adresse angefordert. Falls du das warst, klicke auf den folgenden Button, um die Änderung zu bestätigen:</p>
 
         <p style="text-align: center; margin: 30px 0;">
           <a href="${confirmLink}" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: #fff; text-decoration: none; border-radius: 5px; font-weight: bold;">E-Mail-Adresse bestätigen</a>
@@ -514,7 +515,7 @@ export async function sendGuestEmailChangeConfirmation(guestUser: GuestUser, tok
     html: `
       <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
         <h2>Neue E-Mail-Adresse bestätigen</h2>
-        <p>Hallo ${guestUser.name}, für dein Konto (aktuell <strong>${guestUser.email}</strong>) wurde eine Änderung der E-Mail-Adresse auf diese Adresse angefordert. Falls du das warst, klicke auf den folgenden Button, um die Änderung zu bestätigen:</p>
+        <p>Hallo ${escapeHtml(guestUser.name)}, für dein Konto (aktuell <strong>${escapeHtml(guestUser.email)}</strong>) wurde eine Änderung der E-Mail-Adresse auf diese Adresse angefordert. Falls du das warst, klicke auf den folgenden Button, um die Änderung zu bestätigen:</p>
 
         <p style="text-align: center; margin: 30px 0;">
           <a href="${confirmLink}" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: #fff; text-decoration: none; border-radius: 5px; font-weight: bold;">E-Mail-Adresse bestätigen</a>
@@ -549,8 +550,8 @@ export async function sendWaitlistEmail(participant: Participant, rsvp: Rsvp, ev
     html: `
       <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
         <h2>Du bist auf der Warteliste! ⏳</h2>
-        <p>Hallo ${participant.name},</p>
-        <p>Das Event <strong>${event.title}</strong> ist aktuell leider ausgebucht, aber wir haben deine Anmeldung notiert.</p>
+        <p>Hallo ${escapeHtml(participant.name)},</p>
+        <p>Das Event <strong>${escapeHtml(event.title)}</strong> ist aktuell leider ausgebucht, aber wir haben deine Anmeldung notiert.</p>
         <p>Sobald jemand abspringt und ein Platz frei wird, rücken wir dich automatisch nach und benachrichtigen dich sofort per E-Mail!</p>
         <p style="text-align: center; margin: 30px 0;">
           <a href="${personalLink}" style="display: inline-block; padding: 12px 24px; background-color: #f97316; color: #fff; text-decoration: none; border-radius: 5px; font-weight: bold;">Zur Event-Seite</a>
@@ -582,8 +583,8 @@ export async function sendWaitlistPromotedEmail(participant: Participant, rsvp: 
     text: `Hallo ${participant.name},\n\nes ist ein Platz frei geworden und du bist von der Warteliste für "${event.title}" auf einen festen Platz nachgerückt! Deine Teilnahme ist nun verbindlich bestätigt.\n\nHier kannst du deine Anmeldung verwalten:\n${personalLink}`,
     html: `
       <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
-        <h2>Du bist dabei, ${participant.name}! 🥳</h2>
-        <p>Gute Nachrichten: Es ist ein Platz frei geworden und du bist von der Warteliste für <strong>${event.title}</strong> nachgerückt!</p>
+        <h2>Du bist dabei, ${escapeHtml(participant.name)}! 🥳</h2>
+        <p>Gute Nachrichten: Es ist ein Platz frei geworden und du bist von der Warteliste für <strong>${escapeHtml(event.title)}</strong> nachgerückt!</p>
         <p>Deine Teilnahme ist damit nun fest eingebucht.</p>
         <p style="text-align: center; margin: 30px 0;">
           <a href="${personalLink}" style="display: inline-block; padding: 12px 24px; background-color: #3b82f6; color: #fff; text-decoration: none; border-radius: 5px; font-weight: bold;">Zur Event-Seite</a>
@@ -619,7 +620,7 @@ export async function sendEventUpdatedEmail(
   const icsAttachment = buildIcsAttachment(event, participant)
 
   const changesText = changes.map(c => `- ${c.label}: ${c.detail}`).join('\n')
-  const changesHtml = changes.map(c => `<li><strong>${c.label}:</strong> ${c.detail}</li>`).join('')
+  const changesHtml = changes.map(c => `<li><strong>${escapeHtml(c.label)}:</strong> ${escapeHtml(c.detail)}</li>`).join('')
   const icsHint = icsAttachment
     ? ' Im Anhang findest du eine aktualisierte Kalenderdatei (.ics) - beim Öffnen kannst du deinen bestehenden Kalendereintrag aktualisieren, statt einen doppelten Eintrag anzulegen.'
     : ''
@@ -642,8 +643,8 @@ Viele Grüße,
 Dein Event-Team`,
     html: `
       <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
-        <h2>Wichtige Änderung an "${event.title}" ⚠️</h2>
-        <p>Hallo ${participant.name}, für den Termin, zu dem du zugesagt hast, gab es eine kurzfristige Änderung:</p>
+        <h2>Wichtige Änderung an "${escapeHtml(event.title)}" ⚠️</h2>
+        <p>Hallo ${escapeHtml(participant.name)}, für den Termin, zu dem du zugesagt hast, gab es eine kurzfristige Änderung:</p>
         <ul>${changesHtml}</ul>
         <p>Bitte beachte das bei deiner Planung.${icsHint}</p>
         <p><a href="${personalLink}" style="display: inline-block; padding: 10px 20px; background-color: #2563eb; color: #fff; text-decoration: none; border-radius: 5px;">Antwort bearbeiten</a></p>
@@ -687,8 +688,8 @@ export async function sendPaymentReceivedEmail(participant: Participant, rsvp: R
     html: `
       <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
         <h2>Zahlung eingegangen ✅</h2>
-        <p>Hallo ${participant.name},</p>
-        <p>deine Zahlung über <strong>${amount}</strong> (Verwendungszweck <span style="font-family: monospace;">${rsvp.paymentReference}</span>) für <strong>${event.title}</strong> ist eingegangen. Danke!</p>
+        <p>Hallo ${escapeHtml(participant.name)},</p>
+        <p>deine Zahlung über <strong>${amount}</strong> (Verwendungszweck <span style="font-family: monospace;">${escapeHtml(rsvp.paymentReference)}</span>) für <strong>${escapeHtml(event.title)}</strong> ist eingegangen. Danke!</p>
         ${seatLink ? `
         <p style="text-align: center; margin: 24px 0;">
           <a href="${seatLink}" style="display: inline-block; background: #65a30d; color: #fff; font-weight: bold; padding: 10px 24px; border-radius: 6px; text-decoration: none;">🪑 Sitzplatz wählen</a>
@@ -714,8 +715,8 @@ export async function sendPaymentCancelledEmail(participant: Participant, rsvp: 
     html: `
       <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
         <h2>Anmeldung storniert</h2>
-        <p>Hallo ${participant.name},</p>
-        <p>für deine Anmeldung zu <strong>${event.title}</strong> ist${due} keine Zahlung eingegangen (Verwendungszweck <span style="font-family: monospace;">${rsvp.paymentReference}</span>). Deshalb haben wir deinen Platz freigegeben.</p>
+        <p>Hallo ${escapeHtml(participant.name)},</p>
+        <p>für deine Anmeldung zu <strong>${escapeHtml(event.title)}</strong> ist${due} keine Zahlung eingegangen (Verwendungszweck <span style="font-family: monospace;">${escapeHtml(rsvp.paymentReference)}</span>). Deshalb haben wir deinen Platz freigegeben.</p>
         <p>Falls du schon überwiesen hast, melde dich bitte bei der Veranstaltung. Über deinen <a href="${personalLink}">persönlichen Link</a> kannst du dich erneut anmelden, solange es Plätze gibt.</p>
         <p>Viele Grüße,<br>Dein Event-Team</p>
       </div>
@@ -746,8 +747,8 @@ export async function sendPaymentReminderEmail(participant: Participant, rsvp: R
     html: `
       <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
         <h2>${overdue ? 'Zahlung überfällig' : 'Zahlungserinnerung'} 💶</h2>
-        <p>Hallo ${participant.name},</p>
-        <p>${intro} Falls du schon überwiesen hast, ist alles gut - die Zahlung ist dann nur noch nicht verbucht.</p>
+        <p>Hallo ${escapeHtml(participant.name)},</p>
+        <p>${escapeHtml(intro)} Falls du schon überwiesen hast, ist alles gut - die Zahlung ist dann nur noch nicht verbucht.</p>
         ${payment.html}
         <p>Deine Anmeldung findest du <a href="${personalLink}">hier</a>.</p>
         <p>Viele Grüße,<br>Dein Event-Team</p>
@@ -838,7 +839,3 @@ Viele Grüße`,
   })
 }
 
-/** Für Text, den Gäste selbst eingeben, in HTML-Mails. */
-function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!)
-}

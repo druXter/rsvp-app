@@ -1,12 +1,11 @@
 // app/mein-konto/confirm-email/page.tsx
 import { SubmitButton } from '../../ui/kit'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '../../lib/prisma'
 import Link from 'next/link'
 import { hashToken } from '../../lib/tokens'
 import { confirmGuestEmailChange } from '../actions'
 import StatusCard from '../../ui/status-card'
 
-const prisma = new PrismaClient()
 
 /**
  * Zweiter Schritt einer per requestGuestEmailChange angeforderten E-Mail-Änderung (Link an die NEUE

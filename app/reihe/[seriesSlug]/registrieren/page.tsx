@@ -1,6 +1,6 @@
 // app/reihe/[seriesSlug]/registrieren/page.tsx
-import { SubmitButton } from '../../../ui/kit'
-import { PrismaClient } from '@prisma/client'
+import { SubmitButton, inputClass } from '../../../ui/kit'
+import { prisma } from '../../../lib/prisma'
 import { notFound } from 'next/navigation'
 import { cookies } from 'next/headers'
 import Link from 'next/link'
@@ -8,7 +8,6 @@ import PinForm from '../../../[slug]/pin-form'
 import { registerGuestUser } from '../../../mein-konto/actions'
 import AuthError from '../../../ui/auth-error'
 
-const prisma = new PrismaClient()
 
 /**
  * Selbstregistrierung für ein Nutzer-Konto, gebunden an EINE Reihe (die Reihen-Slug in
@@ -69,17 +68,17 @@ export default async function RegisterGuestUserPage({
 
           <div>
             <label htmlFor="name" className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Name</label>
-            <input id="name" type="text" name="name" required className="w-full border border-gray-300 p-2 rounded text-gray-900 bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100" placeholder="Max Mustermann" />
+            <input id="name" type="text" name="name" required className={inputClass} placeholder="Max Mustermann" />
           </div>
 
           <div>
             <label htmlFor="email" className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">E-Mail</label>
-            <input id="email" type="email" name="email" required className="w-full border border-gray-300 p-2 rounded text-gray-900 bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100" placeholder="max@beispiel.de" />
+            <input id="email" type="email" name="email" required className={inputClass} placeholder="max@beispiel.de" />
           </div>
 
           <div>
             <label htmlFor="password" className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Passwort</label>
-            <input id="password" type="password" name="password" required minLength={10} className="w-full border border-gray-300 p-2 rounded text-gray-900 bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100" placeholder="Mindestens 10 Zeichen" />
+            <input id="password" type="password" name="password" required minLength={10} className={inputClass} placeholder="Mindestens 10 Zeichen" />
           </div>
 
           <SubmitButton>Konto erstellen</SubmitButton>

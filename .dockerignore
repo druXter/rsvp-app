@@ -18,5 +18,15 @@ data/
 .env
 .env.local
 
-# IDE-Dateien
+# Tests und Testergebnisse gehören nicht ins Image
+tests
+test-results
+playwright-report
+playwright.config.ts
+vitest.config.mts
+
+# IDE-Dateien und KI-Assistenten
 .vscode
+.claude
+CLAUDE.md
+AGENTS.md

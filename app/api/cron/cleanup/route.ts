@@ -1,10 +1,9 @@
 // app/api/cron/cleanup/route.ts
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '../../../lib/prisma'
 import { NextResponse } from 'next/server'
 import { safeEqual } from '../../../lib/tokens'
 import { deleteOrphanedParticipants } from '../../../lib/participants'
 
-const prisma = new PrismaClient()
 
 const EVENT_RETENTION_MONTHS = 18
 const GUEST_ACCOUNT_INACTIVITY_YEARS = 2

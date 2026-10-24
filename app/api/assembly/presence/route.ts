@@ -5,6 +5,10 @@ import { prisma } from '../../../lib/prisma'
 import { isConfirmedRsvp } from '../../../lib/linked-tools'
 import { checkInAll, checkOutAll, isPresent, leaveAll } from '../../../lib/checkin'
 import { assemblyOf, rsvpOfSubject, verifyPresenceChange } from '../../../lib/assembly'
+import { readLimitedText } from '../../../lib/linked-tools'
+
+// Größere Nachrichten verschickt das Abstimmungstool nie; alles darüber wird gar nicht erst gelesen.
+const MAX_BODY = 20_000
 
 export const dynamic = 'force-dynamic'
 
@@ -18,7 +22,7 @@ const headers = { 'Cache-Control': 'no-store' }
  * nur für Zusagen, die zählen.
  */
 export async function POST(request: Request) {
-  const change = verifyPresenceChange(await request.text())
+  const change = verifyPresenceChange(await readLimitedText(request, MAX_BODY))
   if (!change) return new NextResponse('invalid', { status: 401, headers })
 
   const event = await prisma.event.findUnique({ where: { id: change.eventId }, include: { series: true } })

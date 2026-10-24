@@ -1,10 +1,12 @@
 // app/api/v1/termine/[eventId]/antwort/route.ts
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '../../../../../lib/prisma'
 import { getGuestUserFromApiToken, apiError } from '../../../../../lib/api-auth'
 import { performRsvpSubmission, RsvpInputError } from '../../../../../lib/rsvp-submission'
 import { cleanCompanion, cleanSelection, MAX_COMPANIONS, type CompanionInput } from '../../../../../lib/persons'
+import { readLimitedText } from '../../../../../lib/linked-tools'
 
-const prisma = new PrismaClient()
+const MAX_BODY = 100_000
+
 
 /**
  * Antwort auf einen Termin abgeben oder ändern - das API-Gegenstück zum Web-Formular.
@@ -29,9 +31,12 @@ export async function POST(
 
   let body: Record<string, unknown>
   try {
-    body = await request.json()
+    const parsed: unknown = JSON.parse((await readLimitedText(request, MAX_BODY)) ?? '')
+    // `null`, Zahlen oder Arrays sind gültiges JSON, aber keine Antwort - sonst endete body.isAttending in einer 500.
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('kein Objekt')
+    body = parsed as Record<string, unknown>
   } catch {
-    return apiError(400, 'Body muss gültiges JSON sein')
+    return apiError(400, 'Body muss ein JSON-Objekt sein (höchstens 100 kB)')
   }
 
   if (typeof body.isAttending !== 'boolean') {

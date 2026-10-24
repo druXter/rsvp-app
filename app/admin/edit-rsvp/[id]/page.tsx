@@ -1,6 +1,6 @@
 // app/admin/edit-rsvp/[id]/page.tsx
 import { formatEuro } from '../../../lib/payment-state'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '../../../lib/prisma'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { updateAdminRsvp } from '../../actions'
@@ -14,7 +14,6 @@ import MenuSelects from '../../../ui/menu-selects'
 import AdminShell from '../../admin-shell'
 import { PageHeader, inputClass, SubmitButton } from '../../../ui/kit'
 
-const prisma = new PrismaClient()
 
 /**
  * Admin-Ansicht zur manuellen Bearbeitung einer einzelnen Gast-Antwort.

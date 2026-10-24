@@ -2,6 +2,10 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '../../../lib/prisma'
 import { assemblyOf, signRosterResult, verifyRosterRequest } from '../../../lib/assembly'
+import { readLimitedText } from '../../../lib/linked-tools'
+
+// Größere Nachrichten verschickt das Abstimmungstool nie; alles darüber wird gar nicht erst gelesen.
+const MAX_BODY = 20_000
 
 export const dynamic = 'force-dynamic'
 
@@ -11,7 +15,7 @@ export const dynamic = 'force-dynamic'
  * Anwesenden (keine Namen), der Zahl der Zusagen und ob der Termin QR-Einlass hat, ebenfalls signiert.
  */
 export async function POST(request: Request) {
-  const query = verifyRosterRequest(await request.text())
+  const query = verifyRosterRequest(await readLimitedText(request, MAX_BODY))
   if (!query) return new NextResponse('invalid', { status: 401, headers: { 'Cache-Control': 'no-store' } })
 
   const event = await prisma.event.findUnique({ where: { id: query.eventId }, include: { series: true } })
