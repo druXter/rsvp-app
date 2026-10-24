@@ -74,6 +74,14 @@ export default function DatenschutzPage() {
             löschen zu können (siehe Punkt 16).
           </p>
           <p className="mt-2">
+            <strong>Verwaltungs- und Teilnehmendenkonto verknüpfen (optional):</strong> Hast du beide Konten, kannst du
+            sie in den Konto-Einstellungen der Verwaltung verknüpfen. Wir speichern dann am Verwaltungskonto, welches
+            Teilnehmendenkonto dazugehört. Eine Anmeldung in der Verwaltung meldet dich danach auch unter &quot;Mein
+            Konto&quot; an (umgekehrt nicht) und zählt dort als Login (siehe Punkt 16). Rechtsgrundlage ist Art. 6
+            Abs. 1 lit. b DSGVO. Die Verknüpfung lässt sich auf beiden Seiten jederzeit lösen und verschwindet
+            automatisch, wenn eines der beiden Konten gelöscht wird.
+          </p>
+          <p className="mt-2">
             <strong>Sicherer Umgang mit Zugangsdaten:</strong> Passwörter werden mit bcrypt gehasht. Auch
             Sitzungs-Tokens sowie die Einmal-Links für Passwort-Reset, E-Mail-Änderung und die Bestätigung eines
             Teilnehmendenkontos speichern wir in der Datenbank <strong>nur als Hash</strong> - der Klartext steht allein
@@ -548,7 +556,8 @@ export default function DatenschutzPage() {
           <p className="mt-2">
             Ein Teilnehmendenkonto unter &quot;Mein Konto&quot; wird automatisch vollständig gelöscht, wenn du dich{' '}
             <strong>2 Jahre</strong> lang nicht mehr eingeloggt hast - inklusive aller Reihen-Zuordnungen, Antworten und
-            Freigaben für andere Tools. Verwaltungskonten (Veranstalter:innen) sind von dieser automatischen Löschung
+            Freigaben für andere Tools. Ist es mit einem Verwaltungskonto verknüpft, zählt jede Anmeldung in der
+            Verwaltung auch als Login hier. Verwaltungskonten (Veranstalter:innen) sind von dieser automatischen Löschung
             ausgenommen. Entziehst du eine Freigabe für ein anderes Tool, bleibt nur der Vermerk samt Kennung bis zur
             Löschung deines Kontos stehen - damit du bei einer erneuten Freigabe dort dieselbe Person bist (z.B. nicht
             doppelt abstimmst).

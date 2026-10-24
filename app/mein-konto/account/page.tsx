@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { PrismaClient } from '@prisma/client'
 import { getCurrentGuestUser } from '../../lib/guest-auth'
 import { cookies } from 'next/headers'
-import { changeGuestPassword, requestGuestEmailChange, cancelGuestEmailChange, updateConfirmationEmailPreference, createApiToken, revokeApiToken, revokeToolConsent } from '../actions'
+import { changeGuestPassword, requestGuestEmailChange, cancelGuestEmailChange, updateConfirmationEmailPreference, createApiToken, revokeApiToken, revokeToolConsent, unlinkAdminAccount } from '../actions'
 import { NEW_API_TOKEN_COOKIE } from '../../lib/api-auth'
 import AuthError from '../../ui/auth-error'
 import DeleteAccountButton from '../delete-account-button'
@@ -21,7 +21,7 @@ const prisma = new PrismaClient()
 export default async function GuestAccountPage({
   searchParams
 }: {
-  searchParams: Promise<{ error?: string; passwordChanged?: string; emailChangeRequested?: string; confirmationPrefSaved?: string; tokenCreated?: string; tokenRevoked?: string; consentRevoked?: string }>
+  searchParams: Promise<{ error?: string; passwordChanged?: string; emailChangeRequested?: string; confirmationPrefSaved?: string; tokenCreated?: string; tokenRevoked?: string; consentRevoked?: string; adminUnlinked?: string }>
 }) {
   const guestUser = await getCurrentGuestUser()
   if (!guestUser) redirect('/mein-konto/login')
@@ -46,6 +46,9 @@ export default async function GuestAccountPage({
     where: { guestUserId: guestUser.id, revokedAt: null },
     orderBy: { grantedAt: 'asc' }
   })
+  const adminUnlinked = params.adminUnlinked === '1'
+  // Verwaltungskonto, dessen Login dieses Konto mit anmeldet (siehe linkGuestAccount in app/admin/actions.ts).
+  const linkedUser = await prisma.user.findUnique({ where: { linkedGuestUserId: guestUser.id }, select: { email: true } })
   const apiTokens = await prisma.guestApiToken.findMany({
     where: { guestUserId: guestUser.id },
     orderBy: { createdAt: 'desc' }
@@ -269,6 +272,30 @@ export default async function GuestAccountPage({
                   </li>
                 ))}
               </ul>
+            )}
+          </div>
+        )}
+
+        {(linkedUser || adminUnlinked) && (
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow space-y-3">
+            <h2 className="font-bold text-gray-900 dark:text-gray-100">Verknüpftes Verwaltungskonto</h2>
+            {adminUnlinked && (
+              <p className="text-sm text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-950 p-2 rounded">
+                Verknüpfung gelöst. Eine Anmeldung in der Verwaltung meldet dich hier nicht mehr mit an.
+              </p>
+            )}
+            {linkedUser && (
+              <>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Wer sich in der Verwaltung als <strong className="text-gray-800 dark:text-gray-200">{linkedUser.email}</strong> anmeldet,
+                  ist hier automatisch mit angemeldet. Umgekehrt nicht: Eine Anmeldung hier öffnet die Verwaltung nie.
+                </p>
+                <form action={unlinkAdminAccount}>
+                  <button type="submit" className="text-xs bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300 px-2 py-1 rounded hover:bg-red-200 dark:hover:bg-red-900 transition">
+                    Verknüpfung lösen
+                  </button>
+                </form>
+              </>
             )}
           </div>
         )}

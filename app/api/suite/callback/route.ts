@@ -3,6 +3,7 @@ import type { NextRequest, NextResponse } from 'next/server'
 import { fetchDiscovery, sanitizeNextPath, verifyLoginAssertion, type DiscoveryDocument, type LoginClaims } from 'suite-kit'
 import { prisma } from '../../../lib/prisma'
 import { getCurrentUser, issueSession, sessionCookieOptions, SESSION_COOKIE, SESSION_DURATION_MS } from '../../../lib/auth'
+import { GUEST_SESSION_COOKIE, GUEST_SESSION_DURATION_MS, guestSessionCookieOptions, issueLinkedGuestSession } from '../../../lib/guest-auth'
 import { safeEqual } from '../../../lib/tokens'
 import { getIdps, mapRole, selfOrigin } from '../../../lib/suite'
 import { parseFlow, redirectResponse, SUITE_STATE_COOKIE } from '../../../lib/suite-flow'
@@ -94,8 +95,11 @@ export async function GET(request: NextRequest) {
   if (typeof userId !== 'string') return fail(userId.code, userId.detail)
 
   const token = await issueSession(userId)
+  // Verknüpftes Teilnehmendenkonto mit anmelden, wie beim Login mit Passwort (siehe loginUser).
+  const guestToken = await issueLinkedGuestSession(userId)
   const response = finish(redirectResponse(next, requestOrigin))
   response.cookies.set(SESSION_COOKIE, token, sessionCookieOptions(SESSION_DURATION_MS / 1000))
+  if (guestToken) response.cookies.set(GUEST_SESSION_COOKIE, guestToken, guestSessionCookieOptions(GUEST_SESSION_DURATION_MS / 1000))
   return response
 }
 

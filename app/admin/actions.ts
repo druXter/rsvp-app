@@ -8,7 +8,8 @@ import { Prisma, PrismaClient, Role, type Event, type EventSeries, type Particip
 import { randomUUID } from 'crypto'
 import { sanitizeNextPath } from 'suite-kit'
 import { sendReminderEmail, sendWaitlistPromotedEmail, sendConfirmationEmail, sendVerificationEmail, sendPasswordResetEmail, sendEmailChangeConfirmation, sendPaymentReceivedEmail, sendPaymentCancelledEmail } from '../lib/mail'
-import { requireUser, createSession, destroySession, SESSION_COOKIE } from '../lib/auth'
+import { getCurrentUser, requireUser, createSession, destroySession, SESSION_COOKIE } from '../lib/auth'
+import { createGuestSession, createLinkedGuestSession, destroyLinkedGuestSession } from '../lib/guest-auth'
 import { generateToken, hashToken } from '../lib/tokens'
 import { hashPassword, validatePassword, verifyAgainstDummy, verifyPassword } from '../lib/password'
 import { formPassword, formString } from '../lib/form'
@@ -313,6 +314,7 @@ export async function loginUser(formData: FormData) {
   await refund(rules.ip)
   await clearFailures([rules.email])
   await createSession(userId)
+  await createLinkedGuestSession(userId) // verknüpftes Teilnehmendenkonto gleich mit anmelden
 
   // Geht der Login im Anbieter-Ablauf für ein anderes Tool weiter, braucht es einen echten
   // Seitenwechsel statt eines Client-Router-Übergangs (siehe app/admin/login/weiter).
@@ -321,10 +323,13 @@ export async function loginUser(formData: FormData) {
 }
 
 /**
- * Beendet die Sitzung: löscht die Session in der Datenbank und das Cookie.
+ * Beendet die Sitzung: löscht die Session in der Datenbank und das Cookie. Ist ein Teilnehmendenkonto
+ * verknüpft, endet dessen Sitzung in diesem Browser mit - der Login hat sie ja auch mit geöffnet.
  */
 export async function logoutUser() {
+  const user = await getCurrentUser()
   await destroySession()
+  await destroyLinkedGuestSession(user?.linkedGuestUserId ?? null)
   // local=1: Mit SUITE_LOGIN_REDIRECT wäre man sonst über den bevorzugten Anbieter sofort wieder angemeldet.
   redirect('/admin/login?local=1')
 }
@@ -498,6 +503,46 @@ export async function unlinkIdentity(formData: FormData) {
 
   await prisma.externalIdentity.delete({ where: { id: identity.id } })
   redirect('/admin/account?unlinked=1')
+}
+
+/**
+ * Verknüpft das eigene Verwaltungskonto mit einem Teilnehmendenkonto (GuestUser) derselben Person. Danach
+ * meldet jeder Verwaltungs-Login dort mit an (nie umgekehrt, siehe User.linkedGuestUserId). Den Besitz
+ * beweist das Passwort des Teilnehmendenkontos - eine Gast-Sitzung im selben Browser reicht nicht, die
+ * könnte auf einem geteilten Gerät einer anderen Person gehören. Gedrosselt mit denselben Zählern wie
+ * der Gast-Login, sonst ließe sich hierüber dessen Drosselung umgehen; unbekannte Adresse und falsches
+ * Passwort ergeben dieselbe Meldung (siehe loginUser).
+ */
+export async function linkGuestAccount(formData: FormData) {
+  const user = await requireUser()
+  const email = formString(formData, 'guestEmail', 254).toLowerCase()
+  const password = formPassword(formData, 'guestPassword')
+
+  const rules = loginRules(await clientIp(), email, 'guest-login')
+  if (!(await reserve([rules.ip, rules.email]))) redirect('/admin/account?error=guestlink-locked')
+
+  const guestUser = email ? await prisma.guestUser.findUnique({ where: { email }, include: { linkedUser: { select: { id: true } } } }) : null
+  let passwordOk = false
+  if (guestUser) passwordOk = (await verifyPassword(password, guestUser.passwordHash)).ok
+  else await verifyAgainstDummy(password)
+
+  if (!guestUser || !passwordOk) redirect('/admin/account?error=guestlink-failed')
+  if (!guestUser.isVerified) redirect('/admin/account?error=guestlink-unverified')
+  if (guestUser.linkedUser && guestUser.linkedUser.id !== user.id) redirect('/admin/account?error=guestlink-taken')
+
+  await refund(rules.ip)
+  await clearFailures([rules.email])
+  await prisma.user.update({ where: { id: user.id }, data: { linkedGuestUserId: guestUser.id } })
+  await createGuestSession(guestUser.id)
+
+  redirect('/admin/account?guestLinked=1')
+}
+
+/** Löst die Verknüpfung mit dem Teilnehmendenkonto. Beide Konten und ihre Sitzungen bleiben bestehen. */
+export async function unlinkGuestAccount() {
+  const user = await requireUser()
+  await prisma.user.update({ where: { id: user.id }, data: { linkedGuestUserId: null } })
+  redirect('/admin/account?guestUnlinked=1')
 }
 
 /**

@@ -2,12 +2,21 @@
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '../../lib/auth'
 import { ROLE_LABELS } from '../../lib/permissions'
-import { changePassword, requestEmailChange, cancelEmailChange, unlinkIdentity } from '../actions'
+import { changePassword, requestEmailChange, cancelEmailChange, unlinkIdentity, linkGuestAccount, unlinkGuestAccount } from '../actions'
+import { getCurrentGuestUser } from '../../lib/guest-auth'
 import { prisma } from '../../lib/prisma'
 import { getIdps, idpLabel } from '../../lib/suite'
 import AuthError from '../../ui/auth-error'
 import AdminShell from '../admin-shell'
 import { PageHeader, inputClass, SubmitButton } from '../../ui/kit'
+
+// Meldungen von linkGuestAccount (../actions).
+const GUEST_LINK_ERRORS: Record<string, string> = {
+  'guestlink-failed': 'E-Mail-Adresse oder Passwort des Teilnehmendenkontos ist falsch.',
+  'guestlink-unverified': 'Dieses Teilnehmendenkonto ist noch nicht bestätigt. Bitte zuerst den Link aus der Bestätigungs-Mail öffnen.',
+  'guestlink-taken': 'Dieses Teilnehmendenkonto ist bereits mit einem anderen Verwaltungskonto verknüpft.',
+  'guestlink-locked': 'Zu viele Versuche. Bitte warte etwa 15 Minuten und versuche es dann erneut.',
+}
 
 /**
  * Konto-Einstellungen für eingeloggte Admin-Konten (jeder Rolle inkl. Admin): Passwort
@@ -18,7 +27,7 @@ import { PageHeader, inputClass, SubmitButton } from '../../ui/kit'
 export default async function AccountPage({
   searchParams
 }: {
-  searchParams: Promise<{ error?: string; passwordChanged?: string; emailChangeRequested?: string; linked?: string; unlinked?: string }>
+  searchParams: Promise<{ error?: string; passwordChanged?: string; emailChangeRequested?: string; linked?: string; unlinked?: string; guestLinked?: string; guestUnlinked?: string }>
 }) {
   const user = await getCurrentUser()
   if (!user) redirect('/admin/login')
@@ -30,6 +39,15 @@ export default async function AccountPage({
   const emailChangeRequested = params.emailChangeRequested === '1'
   const linked = params.linked === '1'
   const unlinked = params.unlinked === '1'
+
+  const guestLinked = params.guestLinked === '1'
+  const guestUnlinked = params.guestUnlinked === '1'
+  const guestLinkError = GUEST_LINK_ERRORS[params.error ?? '']
+  const linkedGuest = user.linkedGuestUserId
+    ? await prisma.guestUser.findUnique({ where: { id: user.linkedGuestUserId }, select: { email: true, isVerified: true } })
+    : null
+  // Ist in diesem Browser schon ein Teilnehmendenkonto angemeldet, ist dessen Adresse der naheliegende Vorschlag.
+  const currentGuest = linkedGuest ? null : await getCurrentGuestUser()
 
   const identities = await prisma.externalIdentity.findMany({ where: { userId: user.id }, orderBy: { createdAt: 'asc' } })
   const linkable = getIdps().filter(idp => !identities.some(i => i.issuer === idp.issuer))
@@ -105,6 +123,48 @@ export default async function AccountPage({
         </div>
           </>
         )}
+
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow space-y-3">
+          <h2 className="font-bold text-gray-900 dark:text-gray-100">Teilnehmendenkonto verknüpfen</h2>
+          {guestLinked && (
+            <div className="p-3 bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 text-sm rounded">Teilnehmendenkonto verknüpft.</div>
+          )}
+          {guestUnlinked && (
+            <div className="p-3 bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 text-sm rounded">Verknüpfung gelöst.</div>
+          )}
+          {guestLinkError && (
+            <div role="alert" className="p-3 bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 text-sm rounded">{guestLinkError}</div>
+          )}
+          {linkedGuest ? (
+            <>
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                Verknüpft mit <strong>{linkedGuest.email}</strong>. Wenn du dich hier anmeldest, bist du auch unter „Mein Konto“
+                angemeldet. Umgekehrt nicht: Eine Anmeldung unter „Mein Konto“ öffnet die Verwaltung nie.
+              </p>
+              <form action={unlinkGuestAccount}>
+                <button type="submit" className="text-sm text-red-600 dark:text-red-400 hover:underline">Verknüpfung lösen</button>
+              </form>
+            </>
+          ) : (
+            <>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Nimmst du auch selbst an Reihen teil? Dann verknüpfe dein Teilnehmendenkonto: Eine Anmeldung hier meldet dich
+                dort mit an. Beide Konten bleiben getrennt, und eine Anmeldung unter „Mein Konto“ öffnet die Verwaltung nie.
+              </p>
+              <form action={linkGuestAccount} className="space-y-3">
+                <div>
+                  <label htmlFor="guestEmail" className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">E-Mail des Teilnehmendenkontos</label>
+                  <input id="guestEmail" type="email" name="guestEmail" required defaultValue={currentGuest?.email ?? ''} className={inputClass} />
+                </div>
+                <div>
+                  <label htmlFor="guestPassword" className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Passwort des Teilnehmendenkontos</label>
+                  <input id="guestPassword" type="password" name="guestPassword" required className={inputClass} />
+                </div>
+                <SubmitButton>Verknüpfen</SubmitButton>
+              </form>
+            </>
+          )}
+        </div>
 
         {(identities.length > 0 || linkable.length > 0) && (
           <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow space-y-3">

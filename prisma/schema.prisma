@@ -49,6 +49,13 @@ model User {
   emailChangeToken          String?   @unique
   emailChangeTokenExpiresAt DateTime?
 
+  // Verknüpftes Teilnehmendenkonto derselben Person (siehe linkGuestAccount in app/admin/actions.ts).
+  // Wirkt nur in eine Richtung: Der Verwaltungs-Login meldet zusätzlich dort an, nie umgekehrt - das
+  // Passwort eines Teilnehmendenkontos lässt sich per Mail zurücksetzen und darf nie zu einer
+  // Verwaltungssitzung führen. Wird das Teilnehmendenkonto gelöscht, verschwindet die Verknüpfung mit.
+  linkedGuestUserId String?    @unique
+  linkedGuestUser   GuestUser? @relation(fields: [linkedGuestUserId], references: [id], onDelete: SetNull)
+
   events            Event[]
   series            EventSeries[]
   pushSubscriptions PushSubscription[]
@@ -591,6 +598,7 @@ model GuestUser {
   sessions          GuestSession[]
   apiTokens         GuestApiToken[]
   toolConsents      GuestToolConsent[]
+  linkedUser        User?
 }
 
 // Mitgliedschaft eines Nutzer-Kontos in einer Reihe (n:m - ein Konto kann mehreren Reihen

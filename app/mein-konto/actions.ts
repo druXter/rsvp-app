@@ -527,3 +527,14 @@ export async function revokeToolConsent(formData: FormData) {
   await prisma.guestToolConsent.updateMany({ where: { id: consentId, guestUserId: guestUser.id, revokedAt: null }, data: { revokedAt: new Date() } })
   redirect('/mein-konto/account?consentRevoked=1')
 }
+
+/**
+ * Löst auf Seite des Teilnehmendenkontos die Verknüpfung mit einem Verwaltungskonto (siehe
+ * linkGuestAccount in app/admin/actions.ts). Gehört zum Recht, selbst über das eigene Konto zu
+ * bestimmen: Ohne Verknüpfung öffnet ein Verwaltungs-Login dieses Konto nicht mehr mit.
+ */
+export async function unlinkAdminAccount() {
+  const guestUser = await requireGuestUser()
+  await prisma.user.updateMany({ where: { linkedGuestUserId: guestUser.id }, data: { linkedGuestUserId: null } })
+  redirect('/mein-konto/account?adminUnlinked=1')
+}
