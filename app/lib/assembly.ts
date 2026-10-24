@@ -202,7 +202,7 @@ export async function announceAssemblyLink(assemblyUrl: string, event: { id: str
   if (!assembly || !body) return 'unreachable'
   try {
     const response = await fetch(`${assembly.origin}/api/rsvp-assembly`, {
-      method: 'POST', headers: { 'Content-Type': 'text/plain' }, body, signal: AbortSignal.timeout(5000)
+      method: 'POST', headers: { 'Content-Type': 'text/plain' }, body, redirect: 'error', signal: AbortSignal.timeout(5000)
     })
     if (response.status === 409) return 'conflict'
     if (response.status === 404) return 'unknown'

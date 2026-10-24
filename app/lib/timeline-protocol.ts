@@ -80,7 +80,7 @@ export async function fetchDecisions(event: { id: string; assemblyUrl: string | 
   if (!assembly || !body) return { state: 'off' }
   try {
     const response = await fetch(`${assembly.origin}/api/assembly/decisions`, {
-      method: 'POST', headers: { 'Content-Type': 'text/plain' }, body, signal: AbortSignal.timeout(5000), cache: 'no-store'
+      method: 'POST', headers: { 'Content-Type': 'text/plain' }, body, redirect: 'error', signal: AbortSignal.timeout(5000), cache: 'no-store'
     })
     if (!response.ok) return { state: 'unreachable' }
     const payload = verifyFromPollTool(await response.text(), 'assembly-decisions-result')

@@ -98,7 +98,7 @@ async function post(delivery: Delivery) {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
       body: delivery.body,
-      signal: AbortSignal.timeout(5000)
+      redirect: 'error', signal: AbortSignal.timeout(5000)
     })
   } catch {
     // Best-effort - ein Fehlschlag darf nirgendwo sonst sichtbar werden. Verlorene Meldungen

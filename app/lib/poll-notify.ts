@@ -38,7 +38,7 @@ export async function notifyPollOfAttendanceChange(
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
       body: signed.body,
-      signal: AbortSignal.timeout(5000)
+      redirect: 'error', signal: AbortSignal.timeout(5000)
     })
   } catch {
     // Best-effort - siehe Doku-Kommentar oben, ein Fehlschlag hier darf nirgendwo
