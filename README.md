@@ -569,6 +569,13 @@ nicht gleichzeitig mit `npm run dev` laufen lassen.
 
 ## 🔒 Sicherheitshinweise
 
+**Bot-Schutz:** Neue Antworten ohne Konto und die Registrierung eines Teilnehmendenkontos gehen nur mit gelöster
+Rechenaufgabe (`ProofOfWork` aus `suite-kit/ui` im Formular, Prüfung mit `powError` in `app/actions.ts` bzw.
+`app/mein-konto/actions.ts`, Aufgaben unter `/api/suite/pow`). Der Browser rechnet im Hintergrund, meist bevor das
+Formular ausgefüllt ist; jede Lösung gilt einmal und höchstens 10 Minuten. Kein Drittanbieter, keine Cookies, keine
+neue Variable. Änderungen per Bearbeitungs-Link, Antworten mit Konto und die Client-API (`/api/v1`) brauchen sie nicht.
+Ohne JavaScript lassen sich die geschützten Formulare nicht abschicken. Ergänzt die Drosselung, ersetzt sie nicht.
+
 Die Datenbankdatei (`*.db`) und deine `.env`-Datei sind vom Tracking ausgeschlossen. Stelle sicher, dass du niemals echte Passwörter oder Nutzerdaten in das Git-Repository hochlädst.
 
 ## 🇪🇺 Datenschutz (DSGVO)

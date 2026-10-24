@@ -1,6 +1,7 @@
 import { createHash, createHmac, randomBytes } from 'node:crypto'
 import { PrismaClient, type Event, type EventSeries, type GuestUser, type Role, type User } from '@prisma/client'
 import { expect, type APIResponse, type BrowserContext, type Page } from '@playwright/test'
+import { solvePowChallenge } from 'suite-kit/web'
 import { hashPassword } from '../../app/lib/password'
 import {
   BASE_URL, FOREIGN_TOOL_BASE_URL, SEATING_PORT, TEST_POLL_SECRET, TEST_SEATING_BASE_URL, TEST_SEATING_SECRET,
@@ -215,6 +216,21 @@ export async function guestLogin(page: Page, email: string, password = PASSWORD,
 
 export type ReplayableForm = { url: string; fields: [string, string][] }
 
+/** Frische Lösung des Bot-Schutzes, wie sie ProofOfWork im Browser rechnet - jede gilt nur einmal. */
+export async function powSolution(page: Page): Promise<string> {
+  const solution = await solvePowChallenge(await (await page.request.get('/api/suite/pow')).json())
+  if (!solution) throw new Error('Bot-Schutz nicht lösbar')
+  return solution
+}
+
+/** Ersetzt im mitgeschnittenen Körper einer Server Action die (verbrauchte) Lösung des Bot-Schutzes durch eine frische. */
+export async function withFreshPow(page: Page, body: string): Promise<string> {
+  const pattern = /(name="(?:_?\d+_)?pow"\r\n\r\n)[^\r]*/
+  if (!pattern.test(body)) throw new Error('Kein Feld pow im Aufruf')
+  const solution = await powSolution(page)
+  return body.replace(pattern, (_m, head: string) => head + solution)
+}
+
 /**
  * Liest ein Server-Action-Formular aus, um es später (verändert, von einem anderen Konto
  * oder ohne Sitzung) erneut abzuschicken. WICHTIG: nur direkt nach einem frischen
@@ -234,7 +250,8 @@ export async function readForm(page: Page, selector: string): Promise<Replayable
 /**
  * Schickt ein zuvor gelesenes Formular ab, wie es ein Browser ohne JavaScript täte
  * (multipart, Origin der App). `overrides` ersetzt einzelne Felder. Die Cookies des
- * Kontexts gehen ausdrücklich mit (siehe cookieHeader).
+ * Kontexts gehen ausdrücklich mit (siehe cookieHeader). Trägt das Formular den Bot-Schutz, bekommt jeder Aufruf
+ * eine frische Lösung (außer `pow` steht in `overrides`).
  */
 export async function submitForm(
   page: Page,
@@ -245,6 +262,7 @@ export async function submitForm(
   const multipart: Record<string, string> = {}
   for (const [name, value] of form.fields) multipart[name] = name in overrides ? overrides[name] : value
   for (const [name, value] of Object.entries(overrides)) multipart[name] = value
+  if ('pow' in multipart && !('pow' in overrides)) multipart.pow = await powSolution(page)
   return page.request.post(form.url, {
     multipart,
     headers: { origin: BASE_URL, 'x-forwarded-for': uniqueIp(), ...(await cookieHeader(page.context())), ...headers },

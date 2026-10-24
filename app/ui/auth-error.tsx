@@ -1,4 +1,5 @@
 // app/ui/auth-error.tsx
+import { POW_MESSAGE } from 'suite-kit/web'
 
 const MESSAGES: Record<string, string> = {
   locked: 'Zu viele Versuche. Bitte warte etwa 15 Minuten und versuche es dann erneut.',
@@ -16,6 +17,7 @@ const MESSAGES: Record<string, string> = {
   'not-linked': 'Dieses Konto ist hier noch nicht verknüpft. Melde dich mit E-Mail und Passwort an und verknüpfe es unter "Konto-Einstellungen".',
   'linked-other': 'Dieses Konto ist bereits mit einem anderen Konto hier verknüpft.',
   app: 'Diese Anfrage kommt von einer nicht freigegebenen Anwendung und wurde abgelehnt.',
+  pow: POW_MESSAGE,
 }
 
 /**

@@ -1,5 +1,5 @@
 // app/[slug]/registrieren/page.tsx
-import { SubmitButton, inputClass } from '../../ui/kit'
+import { ProofOfWork, SubmitButton, inputClass } from '../../ui/kit'
 import { prisma } from '../../lib/prisma'
 import { notFound } from 'next/navigation'
 import { cookies } from 'next/headers'
@@ -82,6 +82,7 @@ export default async function RegisterGuestUserForEventPage({
             <input id="password" type="password" name="password" required minLength={10} className={inputClass} placeholder="Mindestens 10 Zeichen" />
           </div>
 
+          <ProofOfWork />
           <SubmitButton>Konto erstellen</SubmitButton>
         </form>
 

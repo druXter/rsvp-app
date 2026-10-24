@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { expect, test, type Browser, type Page, type Request } from '@playwright/test'
 import type { Event, User } from '@prisma/client'
 import {
-  BASE_URL, cookieHeader, createAccount, createEvent, createRsvp, login, prisma, readForm, submitForm
+  BASE_URL, cookieHeader, createAccount, createEvent, createRsvp, login, prisma, readForm, submitForm, withFreshPow
 } from './helpers'
 import { TEST_CRON_SECRET } from '../../playwright.config'
 
@@ -291,7 +291,7 @@ test('Antwortfrist: Hinweis vorher, danach nur lesen; Server lehnt ab', async ({
   const request = await captured
   const response = await guest.request.post(request.url(), {
     headers: { 'next-action': request.headers()['next-action'], 'content-type': request.headers()['content-type'], accept: 'text/x-component', origin: BASE_URL },
-    data: request.postDataBuffer()!.toString('utf8').replaceAll(open.id, closed.id).replace('Vorher', 'Nachher')
+    data: await withFreshPow(guest, request.postDataBuffer()!.toString('utf8').replaceAll(open.id, closed.id).replace('Vorher', 'Nachher'))
   })
   expect(await response.text()).toContain('Antwortfrist')
   expect(await prisma.participant.count({ where: { name: 'Nachher' } })).toBe(0)

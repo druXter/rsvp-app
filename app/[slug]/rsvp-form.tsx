@@ -1,7 +1,7 @@
 // app/[slug]/rsvp-form.tsx
 'use client'
 
-import { SubmitButton, inputClass } from '../ui/kit'
+import { ProofOfWork, SubmitButton, inputClass } from '../ui/kit'
 import { useState } from 'react'
 import Link from 'next/link'
 import type { Participant, Rsvp } from '@prisma/client'
@@ -496,6 +496,7 @@ export default function RsvpForm({
         <p role="alert" className="text-sm bg-red-50 text-red-800 p-3 rounded border border-red-200 dark:bg-red-950 dark:text-red-300 dark:border-red-800">{formError}</p>
       )}
 
+      <ProofOfWork />
       {!deadline?.passed && <SubmitButton>{rsvp ? "Änderungen speichern" : "Antwort absenden"}</SubmitButton>}
       </fieldset>
     </form>

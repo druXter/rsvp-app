@@ -6,7 +6,7 @@ import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { prisma } from '../lib/prisma'
 import { randomBytes } from 'node:crypto'
-import { parseAuthorizeRequest, sanitizeNextPath } from 'suite-kit'
+import { parseAuthorizeRequest, powError, sanitizeNextPath } from 'suite-kit'
 import { getParticipantApps, selfOrigin } from '../lib/suite'
 import { sendGuestVerificationEmail, sendGuestPasswordResetEmail, sendGuestEmailChangeConfirmation } from '../lib/mail'
 import { requireGuestUser, createGuestSession, destroyGuestSession, GUEST_SESSION_COOKIE } from '../lib/guest-auth'
@@ -67,7 +67,9 @@ export async function registerGuestUser(formData: FormData) {
   }
 
   // Die Registrierung ist öffentlich und löst eine Mail an eine beliebige Adresse aus - jede Anfrage
-  // zählt, damit niemand über dieses Formular fremde Postfächer mit Bestätigungs-Mails flutet.
+  // zählt, damit niemand über dieses Formular fremde Postfächer mit Bestätigungs-Mails flutet. Dazu der
+  // Bot-Schutz (ProofOfWork im Formular, suite-kit).
+  if (powError(formData)) redirect(`${registerPath}?error=pow${nextParam}`)
   if (!(await reserve(registerRules(await clientIp(), email)))) {
     redirect(`${registerPath}?error=throttled${nextParam}`)
   }

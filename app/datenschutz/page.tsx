@@ -97,6 +97,13 @@ export default function DatenschutzPage() {
             ist unser berechtigtes Interesse an der Sicherheit der Anwendung (Art. 6 Abs. 1 lit. f DSGVO).
           </p>
           <p className="mt-2">
+            <strong>Rechenaufgabe vor dem Absenden (Bot-Schutz):</strong> Bevor eine Antwort ohne Konto oder eine Registrierung abgeschickt wird, löst dein
+            Browser im Hintergrund eine kleine Rechenaufgabe, die unser Server stellt und prüft. Das hält automatisierte
+            Massen-Anfragen ab. Dabei werden keine Cookies gesetzt, keine Dienste Dritter eingebunden und keine Daten über
+            dich gespeichert; der Server merkt sich nur für höchstens 10 Minuten, welche Aufgabe schon gelöst wurde. Ohne
+            JavaScript lassen sich diese Formulare deshalb nicht abschicken.
+          </p>
+          <p className="mt-2">
             <strong>Anmeldung mit dem Konto eines anderen Tools (optional, nur Verwaltungskonten):</strong> Ist dies vom
             Betreiber eingerichtet, kannst du dich hier mit einem Konto eines verbundenen Tools anmelden (z.B. dem
             Abstimmungstool), und umgekehrt kann man sich dort mit einem Konto von hier anmelden. Das geschieht{' '}

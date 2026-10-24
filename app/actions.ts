@@ -2,7 +2,7 @@
 'use server'
 
 import { type PushSubscriptionInput, validPushSubscription } from 'suite-kit/web'
-import { safeEqual } from 'suite-kit'
+import { powError, safeEqual } from 'suite-kit'
 import { prisma } from './lib/prisma'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
@@ -25,9 +25,17 @@ import { parseEuro, WishInputError } from './lib/wishlist'
  * performRsvpSubmission (app/lib/rsvp-submission.ts), die sich die Client-API teilt.
  * Die Identität stammt ausschließlich aus dem Session-Cookie - niemals aus einem Feld des
  * abgeschickten Formulars, das ein Angreifer selbst befüllen könnte.
+ *
+ * Neue Antworten ohne Konto verlangen die Lösung des Bot-Schutzes (ProofOfWork im Formular, suite-kit) - sie
+ * belegen Plätze und lösen Mails aus. Änderungen per Bearbeitungs-Link und Antworten mit Konto nicht.
  */
 export async function submitRsvp(formData: FormData) {
   const editToken = (formData.get('editToken') as string) || null
+  const guestUser = editToken ? null : await getCurrentGuestUser()
+  if (!editToken && !guestUser) {
+    const bot = powError(formData)
+    if (bot) return { error: bot }
+  }
 
   try {
     return await performRsvpSubmission(
@@ -57,7 +65,7 @@ export async function submitRsvp(formData: FormData) {
         // Ticketkategorie (app/lib/tickets.ts): nur wenn das Formular sie gesendet hat
         ticketCategoryId: formData.has('ticketCategoryId') ? String(formData.get('ticketCategoryId')) : undefined
       },
-      editToken ? null : await getCurrentGuestUser()
+      guestUser
     )
   } catch (error) {
     // Fehler, die Gäste selbst beheben können, als Meldung zurück ans Formular
