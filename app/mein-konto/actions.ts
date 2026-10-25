@@ -9,7 +9,7 @@ import { randomBytes } from 'node:crypto'
 import { parseAuthorizeRequest, powError, sanitizeNextPath } from 'suite-kit'
 import { getParticipantApps, selfOrigin } from '../lib/suite'
 import { sendGuestVerificationEmail, sendGuestPasswordResetEmail, sendGuestEmailChangeConfirmation } from '../lib/mail'
-import { requireGuestUser, createGuestSession, destroyGuestSession, GUEST_SESSION_COOKIE } from '../lib/guest-auth'
+import { getCurrentGuestUser, requireGuestUser, createGuestSession, destroyGuestSession, GUEST_SESSION_COOKIE } from '../lib/guest-auth'
 import { generateToken, hashToken } from '../lib/tokens'
 import { hashPassword, validatePassword, verifyAgainstDummy, verifyPassword } from '../lib/password'
 import { formPassword } from '../lib/form'
@@ -538,4 +538,19 @@ export async function unlinkAdminAccount() {
   const guestUser = await requireGuestUser()
   await prisma.user.updateMany({ where: { linkedGuestUserId: guestUser.id }, data: { linkedGuestUserId: null } })
   redirect('/mein-konto/account?adminUnlinked=1')
+}
+
+/**
+ * Blendet einen Termin aus, zu dem das Konto eingeladen wurde (GuestUserEvent.hiddenAt) - nur die eigene Einladung.
+ * Der Zugang bleibt (Antworten über den Link geht weiter), der Termin steht nur nicht mehr unter "Mein Konto".
+ */
+export async function hideAccountInvite(formData: FormData) {
+  const guestUser = await getCurrentGuestUser()
+  if (!guestUser) redirect('/mein-konto/login')
+  const inviteId = formData.get('inviteId')
+  if (typeof inviteId === 'string') {
+    await prisma.guestUserEvent.updateMany({ where: { id: inviteId, guestUserId: guestUser.id }, data: { hiddenAt: new Date() } })
+  }
+  revalidatePath('/mein-konto')
+  redirect('/mein-konto')
 }

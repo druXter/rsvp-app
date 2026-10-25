@@ -12,6 +12,7 @@ import DeleteRsvpButton from '../../../delete-rsvp-button'
 import PaymentCell from '../../../payment-cell'
 import { Badge, EmptyState, buttonClass, inputClass } from '../../../../ui/kit'
 import { loadAdminEvent } from '../event-access'
+import AccountInvitesPanel from '../../../account-invites-panel'
 
 const FILTERS = [
   { key: 'alle', label: 'Alle' },
@@ -27,9 +28,9 @@ const FILTERS = [
  * Essen, Alkohol, Mitbringsel, Anmerkungen, Zusatzfragen, Platz) stehen aufklappbar unter "Details". Auf dem Handy
  * werden die Zeilen zu Karten.
  */
-export default async function EventGuests({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ filter?: string; q?: string }> }) {
+export default async function EventGuests({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ filter?: string; q?: string; eingeladen?: string }> }) {
   const { id } = await params
-  const { filter: rawFilter, q: rawQuery } = await searchParams
+  const { filter: rawFilter, q: rawQuery, eingeladen } = await searchParams
   const loaded = await loadAdminEvent(id)
   if (!loaded) notFound()
   const { event } = loaded
@@ -208,6 +209,7 @@ export default async function EventGuests({ params, searchParams }: { params: Pr
           </table>
         </div>
       )}
+      <AccountInvitesPanel event={event} user={loaded.user} invitedCount={eingeladen && /^\d{1,4}$/.test(eingeladen) ? Number(eingeladen) : undefined} />
     </div>
   )
 }

@@ -62,6 +62,7 @@ model User {
   sessions          Session[]
   resourceAccess    ResourceAccess[]
   identities        ExternalIdentity[]
+  guestUserInvites  GuestUserEvent[]
   apiTokens         UserApiToken[]
 }
 
@@ -263,6 +264,8 @@ model Event {
   // Verknüpfungen mit anderen Tools der Suite (Seating, später Zeitplan) - höchstens eine je
   // Tool-Typ, siehe EventToolLink.
   toolLinks EventToolLink[]
+  // Eingeladene Teilnehmendenkonten (GuestUserEvent, app/lib/guest-invites.ts)
+  guestUserInvites GuestUserEvent[]
 
   ownerId String
   owner   User   @relation(fields: [ownerId], references: [id])
@@ -595,6 +598,7 @@ model GuestUser {
   createdAt DateTime @default(now())
 
   seriesMemberships GuestUserSeries[]
+  eventInvites      GuestUserEvent[]
   participants      Participant[]
   sessions          GuestSession[]
   apiTokens         GuestApiToken[]
@@ -607,6 +611,25 @@ model GuestUser {
 // Selbstregistrierung auf der jeweiligen Reihen-Seite oder wird von einem Creator/Moderator
 // nachträglich für eine weitere Reihe vergeben (addGuestUserToSeries), oder automatisch
 // beim ersten Beantworten eines Termins dieser Reihe über eine bestehende Gast-Session.
+// Einladung eines Teilnehmendenkontos zu einem einzelnen Termin (Einzel-Event oder Termin einer Reihe): Der Termin
+// erscheint in "Mein Konto" wie ein Termin einer Reihe, und das eingeloggte Konto braucht keine PIN (app/lib/pin.ts).
+// Ausgesprochen von einem Verwaltungskonto mit Zugriff auf den Termin, nur für Konten aus Events/Reihen, auf die es
+// selbst Zugriff hat (app/lib/guest-invites.ts). Nicht im Einladungsmodus (Invitation). hiddenAt: vom Konto ausgeblendet.
+model GuestUserEvent {
+  id          String    @id @default(cuid())
+  guestUserId String
+  guestUser   GuestUser @relation(fields: [guestUserId], references: [id], onDelete: Cascade)
+  eventId     String
+  event       Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  invitedById String?
+  invitedBy   User?     @relation(fields: [invitedById], references: [id], onDelete: SetNull)
+  hiddenAt    DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@unique([guestUserId, eventId])
+  @@index([eventId])
+}
+
 model GuestUserSeries {
   id          String      @id @default(cuid())
   guestUserId String

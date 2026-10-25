@@ -137,6 +137,23 @@ export function guestVerificationMail(input: { name: string; contextTitle: strin
   )
 }
 
+/**
+ * Einladung eines Teilnehmendenkontos zu einem Termin (GuestUserEvent, app/lib/guest-invites.ts): Der Termin steht
+ * jetzt unter "Mein Konto"; der Knopf führt zum Termin, geantwortet wird mit dem Konto.
+ */
+export function accountInviteMail(input: { name: string; eventTitle: string; when: string; location: string | null; link: string }): MailContent {
+  return mail(
+    `Einladung: ${input.eventTitle}`,
+    `Einladung: ${input.eventTitle}`,
+    [
+      hello(input.name),
+      { kind: 'p', text: ['du bist zu ', { strong: input.eventTitle }, ` eingeladen (${input.when}${input.location ? `, ${input.location}` : ''}). Der Termin steht ab jetzt auch unter „Mein Konto“, dort kannst du mit deinem Konto zu- oder absagen.`] },
+      { kind: 'button', label: 'Zum Termin', href: input.link }
+    ],
+    { footer: 'Du bekommst diese Mail, weil dich die Veranstaltung mit deinem Teilnehmendenkonto eingeladen hat. Unter „Mein Konto“ kannst du den Termin ausblenden.' }
+  )
+}
+
 /** Passwort-Reset für ein Teilnehmenden- oder Verwaltungskonto (`name` fehlt bei Verwaltungskonten). */
 export function passwordResetMail(input: { name: string | null; email: string; link: string }): MailContent {
   return mail(

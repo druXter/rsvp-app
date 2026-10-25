@@ -2,6 +2,7 @@
 import { safeEqual } from 'suite-kit'
 import { cookies } from 'next/headers'
 import { prisma } from './prisma'
+import { getCurrentGuestUser } from './guest-auth'
 
 /**
  * Event-/Reihen-PIN: EINE gemeinsame Prüfung für alles, was dahinter liegt. Die PIN wurde früher
@@ -36,8 +37,19 @@ export async function hasSeriesPinAccess(series: Series): Promise<boolean> {
  */
 export async function hasEventPinAccess(event: EventWithSeries): Promise<boolean> {
   if (event.inviteOnly) return false
-  if (event.series) return hasSeriesPinAccess(event.series)
-  return !event.eventPin || cookieMatches(`event_pin_${event.id}`, event.eventPin)
+  const unlocked = event.series ? await hasSeriesPinAccess(event.series) : !event.eventPin || await cookieMatches(`event_pin_${event.id}`, event.eventPin)
+  return unlocked || invitedAccountHere(event.id)
+}
+
+/**
+ * Ein eingeloggtes Teilnehmendenkonto, das zu GENAU diesem Termin eingeladen ist (GuestUserEvent,
+ * app/lib/guest-invites.ts), braucht die PIN nicht - die Einladung kam von der Verwaltung. Nicht im Einladungsmodus
+ * (oben schon abgelehnt).
+ */
+async function invitedAccountHere(eventId: string): Promise<boolean> {
+  const guestUser = await getCurrentGuestUser()
+  if (!guestUser) return false
+  return !!(await prisma.guestUserEvent.findUnique({ where: { guestUserId_eventId: { guestUserId: guestUser.id, eventId } }, select: { id: true } }))
 }
 
 /**

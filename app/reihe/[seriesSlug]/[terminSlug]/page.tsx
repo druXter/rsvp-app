@@ -19,6 +19,7 @@ import AssemblyBanner from '../../../ui/assembly-banner'
 import { feedbackLinkVisible } from '../../../lib/feedback-link'
 import { bringSlotsForForm, claimedLabels } from '../../../lib/bring-list'
 import { getCurrentGuestUser } from '../../../lib/guest-auth'
+import { invitedGuestUser } from '../../../lib/guest-invites'
 import { guestPersons } from '../../../lib/guest-persons'
 import { guestTicketing } from '../../../lib/guest-ticketing'
 import { TOOL_LINKS } from '../../../lib/linked-tools-store'
@@ -64,7 +65,8 @@ export default async function SeriesEventPage({
   if (series.eventPin) {
     const cookieStore = await cookies()
     const pinCookie = cookieStore.get(`series_pin_${series.id}`)
-    if (pinCookie?.value !== series.eventPin) {
+    // Zu GENAU diesem Termin eingeladene Teilnehmendenkonten (app/lib/guest-invites.ts) brauchen keine PIN
+    if (pinCookie?.value !== series.eventPin && !(await invitedGuestUser(event))) {
       isAuthorized = false
     }
   }

@@ -17,6 +17,7 @@ import AssemblyBanner from '../ui/assembly-banner'
 import { feedbackLinkVisible } from '../lib/feedback-link'
 import { bringSlotsForForm, claimedLabels } from '../lib/bring-list'
 import { getCurrentGuestUser } from '../lib/guest-auth'
+import { invitedGuestUser } from '../lib/guest-invites'
 import { guestPersons } from '../lib/guest-persons'
 import { guestTicketing } from '../lib/guest-ticketing'
 import { TOOL_LINKS } from '../lib/linked-tools-store'
@@ -72,7 +73,8 @@ export default async function EventPage({
     const cookieStore = await cookies()
     const pinCookie = cookieStore.get(`event_pin_${event.id}`)
 
-    if (pinCookie?.value !== event.eventPin) {
+    // Eingeladene Teilnehmendenkonten (app/lib/guest-invites.ts) brauchen keine PIN
+    if (pinCookie?.value !== event.eventPin && !(await invitedGuestUser(event))) {
       isAuthorized = false;
     }
   }
@@ -98,7 +100,8 @@ export default async function EventPage({
         where: { eventId_participantId: { eventId: event.id, participantId: participant.id } }
       })
     }
-  } else if (event.requireGuestUser) {
+  } else if (event.requireGuestUser || (await invitedGuestUser(event))) {
+    // Auch ein eingeladenes Teilnehmendenkonto antwortet mit seinem Konto (performRsvpSubmission)
     // "Nur registrierte Teilnehmer": ohne editToken MUSS eine eingeloggte Gast-Session
     // vorliegen, sonst wird statt des Formulars nur das Login/Registrieren-Gate gezeigt
     // (siehe performRsvpSubmission für die serverseitige Absicherung derselben Regel).

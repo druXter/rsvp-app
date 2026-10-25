@@ -74,6 +74,17 @@ export default function DatenschutzPage() {
             löschen zu können (siehe Punkt 16).
           </p>
           <p className="mt-2">
+            <strong>Einladung deines Teilnehmendenkontos zu weiteren Terminen:</strong> Hast du mit deinem Konto bei einer
+            Veranstaltung geantwortet oder bist Mitglied einer Reihe, können dich deren Veranstalter:innen (bzw. die dort
+            Moderierenden) zu weiteren eigenen Terminen einladen. Sie sehen dafür deinen Namen und deine E-Mail-Adresse -
+            wie in der Gästeliste der Veranstaltung, bei der du schon dabei bist; andere Veranstalter:innen sehen dein
+            Konto nicht. Wir speichern die Einladung (Termin, Konto, wer eingeladen hat, Zeitpunkt), zeigen den Termin unter
+            &quot;Mein Konto&quot; und schicken dir auf Wunsch der Einladenden eine Mail. Die Veranstalter:innen des neuen
+            Termins sehen, dass du eingeladen bist. Unter &quot;Mein Konto&quot; kannst du den Termin ausblenden; mit dem
+            Konto wird auch die Einladung gelöscht. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO (Organisation von
+            Veranstaltungen im Kreis, an dem du teilnimmst).
+          </p>
+          <p className="mt-2">
             <strong>Verwaltungs- und Teilnehmendenkonto verknüpfen (optional):</strong> Hast du beide Konten, kannst du
             sie in den Konto-Einstellungen der Verwaltung verknüpfen. Wir speichern dann am Verwaltungskonto, welches
             Teilnehmendenkonto dazugehört. Eine Anmeldung in der Verwaltung meldet dich danach auch unter &quot;Mein

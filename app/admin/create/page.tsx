@@ -4,6 +4,8 @@ import { createEvent } from '../actions'
 import { getCurrentUser } from '../../lib/auth'
 import { EVENT_PRESETS } from '../../lib/event-presets'
 import AdminShell from '../admin-shell'
+import AccountInvitePicker from '../account-invite-picker'
+import { inviteCandidates } from '../../lib/guest-invites'
 import { Card, PageHeader, hintClass, inputClass, labelClass, SubmitButton } from '../../ui/kit'
 
 /**
@@ -15,6 +17,7 @@ export default async function CreateEventPage() {
   const user = await getCurrentUser()
   if (!user) redirect('/admin/login')
   if (user.role === 'MODERATOR') redirect('/admin')
+  const candidates = await inviteCandidates(user, null)
 
   return (
     <AdminShell user={user} width="narrow">
@@ -62,6 +65,17 @@ export default async function CreateEventPage() {
             </div>
           </fieldset>
         </Card>
+
+        {candidates.length > 0 && (
+          <details className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <summary className="cursor-pointer text-sm font-medium text-gray-800 dark:text-gray-200">Teilnehmendenkonten einladen (optional)</summary>
+            <p className={`${hintClass} mb-3`}>
+              Konten aus deinen Events und Reihen. Sie sehen das Event unter „Mein Konto“, antworten mit ihrem Konto und
+              brauchen keine PIN. Nicht bei Events mit Einladungen (Hochzeit) - dort gibt es persönliche Links.
+            </p>
+            <AccountInvitePicker candidates={candidates} />
+          </details>
+        )}
 
         <details className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
           <summary className="cursor-pointer text-sm font-medium text-gray-800 dark:text-gray-200">Weitere Optionen (Kapazität, Adresse, Konto-Pflicht)</summary>

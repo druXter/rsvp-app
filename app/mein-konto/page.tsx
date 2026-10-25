@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getCurrentGuestUser } from '../lib/guest-auth'
 import { getCurrentUser } from '../lib/auth'
-import { logoutGuestUser, updateGuestProfile } from './actions'
+import { hideAccountInvite, logoutGuestUser, updateGuestProfile } from './actions'
 import { inputClass } from '../ui/kit'
 
 
@@ -43,6 +43,21 @@ export default async function MeinKontoPage() {
   })
   const participantBySeriesId = new Map(participants.map(p => [p.seriesId, p]))
 
+  // Weitere Termine außerhalb der eigenen Reihen: Einladungen dieses Kontos (GuestUserEvent, app/lib/guest-invites.ts)
+  // und Einzel-Events, auf die es mit dem Konto geantwortet hat - wie ein Termin einer Reihe, bis 48 h nach Beginn.
+  const memberSeriesIds = new Set(memberships.map(m => m.seriesId))
+  const rsvpByEvent = new Map(participants.flatMap(p => p.rsvps).map(r => [r.eventId, r]))
+  const [invites, answeredSingle] = await Promise.all([
+    prisma.guestUserEvent.findMany({ where: { guestUserId: guestUser.id }, include: { event: { include: { series: true } } } }),
+    prisma.event.findMany({ where: { seriesId: null, id: { in: participants.filter(p => !p.seriesId).flatMap(p => p.rsvps.map(r => r.eventId)) } }, include: { series: true } })
+  ])
+  // Ausgeblendet bleibt ausgeblendet - auch wenn das Konto auf den Termin schon geantwortet hat
+  const hiddenEvents = new Set(invites.filter(i => i.hiddenAt).map(i => i.eventId))
+  const inviteByEvent = new Map(invites.map(i => [i.eventId, i.id]))
+  const otherEvents = [...new Map([...invites.map(i => i.event), ...answeredSingle].map(e => [e.id, e])).values()]
+    .filter(e => !hiddenEvents.has(e.id) && !isArchived(e) && !e.inviteOnly && !(e.seriesId && memberSeriesIds.has(e.seriesId)))
+    .sort((a, b) => a.date.getTime() - b.date.getTime())
+
   return (
     <main className="min-h-screen bg-gray-100 dark:bg-gray-900 py-12 px-4">
       <div className="max-w-2xl mx-auto space-y-8">
@@ -69,7 +84,38 @@ export default async function MeinKontoPage() {
           </div>
         </div>
 
-        {memberships.length === 0 ? (
+        {otherEvents.length > 0 && (
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow space-y-4" data-testid="other-events">
+            <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">Weitere Termine</h2>
+            <div className="space-y-2">
+              {otherEvents.map(event => {
+                const inviteId = inviteByEvent.get(event.id)
+                return (
+                  <div key={event.id} className="flex items-center gap-2">
+                    <Link
+                      href={event.series ? `/reihe/${event.series.slug}/${event.slug}` : `/${event.slug}`}
+                      className="flex flex-1 justify-between items-center p-3 rounded border border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-800 hover:bg-blue-50 dark:hover:bg-blue-950 transition"
+                    >
+                      <div>
+                        <p className="font-medium text-gray-900 dark:text-gray-100">{event.title}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">📅 {formatEventDate(event, 'short')}{event.series ? ` · ${event.series.title}` : ''}</p>
+                      </div>
+                      <AnswerBadge rsvp={rsvpByEvent.get(event.id)} />
+                    </Link>
+                    {inviteId && (
+                      <form action={hideAccountInvite}>
+                        <input type="hidden" name="inviteId" value={inviteId} />
+                        <button type="submit" title="Ausblenden" aria-label={`${event.title} ausblenden`} className="p-2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">✕</button>
+                      </form>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {memberships.length === 0 ? (otherEvents.length > 0 ? null :
           <p className="text-center text-gray-500 dark:text-gray-400 italic bg-white dark:bg-gray-800 p-6 rounded-lg shadow">Du bist noch keiner Reihe zugeordnet.</p>
         ) : (
           memberships.map(m => {
@@ -103,17 +149,7 @@ export default async function MeinKontoPage() {
                             <p className="font-medium text-gray-900 dark:text-gray-100">{event.title}</p>
                             <p className="text-xs text-gray-500 dark:text-gray-400">📅 {formattedDate}</p>
                           </div>
-                          {rsvp ? (
-                            rsvp.isAttending ? (
-                              rsvp.isOnWaitlist
-                                ? <span className="bg-orange-100 dark:bg-orange-950 text-orange-800 dark:text-orange-200 text-xs px-2 py-1 rounded-full font-bold whitespace-nowrap">Warteliste</span>
-                                : <span className="bg-green-100 dark:bg-green-950 text-green-800 dark:text-green-200 text-xs px-2 py-1 rounded-full font-bold whitespace-nowrap">Zugesagt</span>
-                            ) : (
-                              <span className="bg-red-100 dark:bg-red-950 text-red-800 dark:text-red-200 text-xs px-2 py-1 rounded-full font-bold whitespace-nowrap">Abgesagt</span>
-                            )
-                          ) : (
-                            <span className="bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-200 text-xs px-2 py-1 rounded-full font-bold whitespace-nowrap">Jetzt antworten</span>
-                          )}
+                          <AnswerBadge rsvp={rsvp} />
                         </Link>
                       )
                     })}
@@ -162,4 +198,14 @@ export default async function MeinKontoPage() {
       </div>
     </main>
   )
+}
+
+/** Antwortstatus eines Termins (Reihen und weitere Termine gleich). */
+function AnswerBadge({ rsvp }: { rsvp?: { isAttending: boolean; isOnWaitlist: boolean } }) {
+  const style = 'text-xs px-2 py-1 rounded-full font-bold whitespace-nowrap'
+  if (!rsvp) return <span className={`bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-200 ${style}`}>Jetzt antworten</span>
+  if (!rsvp.isAttending) return <span className={`bg-red-100 dark:bg-red-950 text-red-800 dark:text-red-200 ${style}`}>Abgesagt</span>
+  return rsvp.isOnWaitlist
+    ? <span className={`bg-orange-100 dark:bg-orange-950 text-orange-800 dark:text-orange-200 ${style}`}>Warteliste</span>
+    : <span className={`bg-green-100 dark:bg-green-950 text-green-800 dark:text-green-200 ${style}`}>Zugesagt</span>
 }

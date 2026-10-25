@@ -22,6 +22,7 @@ import { sendReminderPush } from '../lib/push'
 import { notifyAttendeesOfChange } from '../lib/event-change-notify'
 import { readToolLinks, saveToolLinks, storedToolUrl, TOOL_LINKS, type ToolLinkInput } from '../lib/linked-tools-store'
 import { createLinkedEvent, isCreatableTool } from '../lib/linked-create'
+import { inviteAccounts } from '../lib/guest-invites'
 import { parsePhotoUrl } from '../lib/photo-link'
 import { readFeedbackSettings } from '../lib/feedback-link'
 import { readAssemblySettings } from '../lib/assembly'
@@ -660,6 +661,9 @@ export async function createEvent(formData: FormData) {
       wishlist: preset.wishlist
     }
   })
+  // Gleich eingeladene Teilnehmendenkonten (app/lib/guest-invites.ts; im Einladungsmodus wirkungslos)
+  const inviteIds = formData.getAll('inviteGuestUser').filter((v): v is string => typeof v === 'string').slice(0, 1000)
+  await inviteAccounts(user, { ...created, series: null }, inviteIds, formData.get('notifyInvites') === 'on')
 
   revalidatePath('/admin', 'layout')
   redirect(preset.next.tab === 'einladungen'

@@ -12,6 +12,7 @@ import { TOOL_LINKS } from './linked-tools-store'
 import { isTimelineConfirmed, timelineLinkOf } from './timeline'
 import { isSeatingConfirmed, seatingLinkOf } from './seating'
 import { hasEventPinAccess } from './pin'
+import { isInvited } from './guest-invites'
 import { syncBringClaims } from './bring-list'
 import { hasRoom, loadCapacity } from './tickets'
 import { generatePaymentReference, paymentInfoOf, syncPaymentDue } from './payment'
@@ -116,8 +117,12 @@ export async function performRsvpSubmission(
     throw new RsvpInputError(`Die Antwortfrist ist am ${formatDeadline(event.rsvpDeadline)} abgelaufen. Änderungen bitte direkt an die Veranstaltung.`)
   }
 
+  // Ein zu diesem Termin eingeladenes Teilnehmendenkonto (app/lib/guest-invites.ts) braucht keine PIN und antwortet
+  // mit seinem Konto - auch bei einem Einzel-Event ohne Konto-Pflicht.
+  const invitedAccount = !editToken && !!guestUserCandidate && !event.inviteOnly && (await isInvited(guestUserCandidate.id, event.id))
+
   // Im Einladungsmodus ersetzt die Einladung (weiter unten geprüft) die PIN
-  if (!input.skipPinCheck && !event.inviteOnly && !(await hasEventPinAccess(event))) {
+  if (!input.skipPinCheck && !event.inviteOnly && !invitedAccount && !(await hasEventPinAccess(event))) {
     throw new Error('Für dieses Event/diese Reihe ist ein Zugangscode erforderlich. Bitte öffne die Seite und gib ihn ein.')
   }
 
@@ -131,7 +136,7 @@ export async function performRsvpSubmission(
   // Nutzer keinen Link mehr kennen, um seine reihenweite Identität wiederzufinden. Ist
   // requireGuestUser gesetzt, gilt das ausnahmsweise auch für ein Einzel-Event ohne Reihe,
   // da eine Anmeldung dort ausschließlich über ein Nutzer-Konto möglich sein soll.
-  const guestUser = !editToken && (event.seriesId || requireGuestUser) ? guestUserCandidate : null
+  const guestUser = !editToken && (event.seriesId || requireGuestUser || invitedAccount) ? guestUserCandidate : null
 
   // "Nur registrierte Teilnehmer"-Sperre: ohne editToken (also nicht über einen bereits
   // bestehenden persönlichen Link) MUSS eine eingeloggte Gast-Session vorliegen. Ein bereits

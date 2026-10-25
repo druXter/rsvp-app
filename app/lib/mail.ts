@@ -1,7 +1,7 @@
 // app/lib/mail.ts
 import { renderMail } from 'suite-kit/web'
 import {
-  confirmationMail, emailChangeMail, eventUpdatedMail, feedbackMail, guestVerificationMail, invitationMail, passwordResetMail,
+  accountInviteMail, confirmationMail, emailChangeMail, eventUpdatedMail, feedbackMail, guestVerificationMail, invitationMail, passwordResetMail,
   paymentCancelledMail, paymentReceivedMail, paymentReminderMail, reminderMail, verificationMail, waitlistMail, waitlistPromotedMail,
   type MailContent, type SeriesHint
 } from './mail-templates'
@@ -246,6 +246,14 @@ export async function sendVerificationEmail(participant: Participant, event: Eve
 export async function sendGuestVerificationEmail(guestUser: GuestUser, contextTitle: string, next: string | null | undefined, token: string) {
   const link = `${baseUrl()}/mein-konto/verify?token=${token}${next ? `&next=${encodeURIComponent(next)}` : ''}`
   return tryDeliver(guestUser.email, guestVerificationMail({ name: guestUser.name, contextTitle, link }), 'Konto-Bestätigung')
+}
+
+/** Einladung eines Teilnehmendenkontos zu einem Termin (app/lib/guest-invites.ts). */
+export async function sendAccountInviteEmail(guestUser: GuestUser, event: EventWithSeries) {
+  const path = event.series ? `/reihe/${event.series.slug}/${event.slug}` : `/${event.slug}`
+  return tryDeliver(guestUser.email, accountInviteMail({
+    name: guestUser.name, eventTitle: event.title, when: formatEventDate(event), location: event.location, link: `${baseUrl()}${path}`
+  }), 'Einladung zum Termin')
 }
 
 /** Passwort-Reset für ein Teilnehmendenkonto (requestGuestPasswordReset in app/mein-konto/actions.ts). */

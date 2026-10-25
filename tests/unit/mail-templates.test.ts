@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { renderMail } from 'suite-kit/web'
 import {
-  confirmationMail, emailChangeMail, eventUpdatedMail, feedbackMail, guestVerificationMail, invitationMail, passwordResetMail,
+  accountInviteMail, confirmationMail, emailChangeMail, eventUpdatedMail, feedbackMail, guestVerificationMail, invitationMail, passwordResetMail,
   paymentBox, paymentCancelledMail, paymentReceivedMail, paymentReminderMail, reminderMail, verificationMail, waitlistMail,
   waitlistPromotedMail, type ConfirmationInput
 } from '../../app/lib/mail-templates'
@@ -35,7 +35,8 @@ const all = [
   paymentCancelledMail({ name: EVIL, eventTitle: EVIL, due: '1.11.2026', reference: 'X-1', personalLink: LINK }),
   paymentReminderMail({ name: EVIL, eventTitle: EVIL, overdue: true, payment: paymentBox([['Betrag', '25,00 €']], true), personalLink: LINK }),
   feedbackMail({ name: EVIL, eventTitle: EVIL, link: LINK }),
-  invitationMail({ label: EVIL, title: EVIL, dates: ['a', 'b'], names: EVIL, link: LINK, reminder: false })
+  invitationMail({ label: EVIL, title: EVIL, dates: ['a', 'b'], names: EVIL, link: LINK, reminder: false }),
+  accountInviteMail({ name: EVIL, eventTitle: EVIL, when: 'Samstag', location: EVIL, link: LINK })
 ]
 
 describe('Mail-Vorlagen', () => {
