@@ -546,6 +546,9 @@ Gilt für Verwaltungskonten (`/admin/login`) **und** Teilnehmendenkonten (`/mein
 * **Mails** kommen aus der gemeinsamen Vorlage der Suite (`renderMail` aus `suite-kit/web`, Inhalt in
   `app/lib/mail-templates.ts`): Bausteine statt eigenem HTML, jeder Text escapet, nur sichere Links. Sonst ließe sich über eine Anmeldung mit fremder Adresse beliebiges HTML über unseren
   Absender an Dritte schicken.
+* **Kalenderdatei** (`app/lib/ics.ts`, Mail-Anhang und `/api/ical`): Ende als `DTEND` (der Termin-Dialog von iOS liest
+  `DURATION` aus einem Mail-Anhang nicht), Zeilen nach RFC 5545 auf 75 Bytes gefaltet ohne Zeichen zu zerschneiden
+  (Umlaute und Emojis in der Beschreibung), `charset=utf-8` am Anhang, stabile UID je Termin mit SEQUENCE.
 * **Event-/Reihen-PIN** wird überall durchgesetzt, wo ein Event über seine ID erreichbar ist (`app/lib/pin.ts`) - Antworten, Kalenderdatei (`/api/ical`), Abstimmungs-Link und Konto-Registrierung für die Reihe, nicht nur die Anzeige der Seite. Der persönliche Link aus der Bestätigungs-Mail funktioniert weiter (gültiger Token dieses Termins). Das Raten der PIN ist gedrosselt (10 Versuche pro IP und Event, 100 pro Event, jeweils 15 Minuten).
 * **Push-Abos** (Gäste über den persönlichen Link, Verwaltungskonten) werden nur gespeichert, wenn der Endpoint zu einem
   Push-Dienst der Browser-Hersteller gehört (`validPushSubscription` aus `suite-kit/web`). Der Server schickt später

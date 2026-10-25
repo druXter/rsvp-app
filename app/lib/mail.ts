@@ -7,7 +7,7 @@ import {
 } from './mail-templates'
 import { formatEventDate } from './event-date'
 import nodemailer from 'nodemailer'
-import { createEvent, DateArray } from 'ics'
+import { buildEventIcs, ICS_CONTENT_TYPE } from './ics'
 import { Event, EventSeries, GuestUser, Participant, Rsvp, User } from '@prisma/client'
 import { generateCheckinQrBuffer } from './qrcode'
 import { findToolLink } from './linked-tools-store'
@@ -91,63 +91,16 @@ async function tryDeliver(to: string, content: MailContent, what: string, attach
 }
 
 /**
- * Stabile, an die Event-ID gebundene UID für die .ics-Datei eines Termins - anders als
- * eine bei jedem Mail-Versand neu zufällig erzeugte UID erkennen Kalender-Apps (Google/
- * Apple/Outlook) eine erneut verschickte .ics mit gleicher UID und höherer SEQUENCE
- * (siehe icsSequence auf Event, hochgezählt in diffEventFields/updateEvent) als Update
- * des bestehenden Eintrags statt als neuen Duplikat-Eintrag.
- */
-function icsUid(event: Event): string {
-  let host = 'rsvp-app.local'
-  try {
-    host = new URL(baseUrl()).host
-  } catch {
-    // baseUrl() ungültig (z.B. lokale Entwicklung ohne BASE_URL) - Fallback-Host reicht,
-    // da nur Eindeutigkeit innerhalb dieser Installation zählt.
-  }
-  return `event-${event.id}@${host}`
-}
-
-/**
- * Baut den .ics-Kalender-Anhang für einen zugesagten Gast. Gemeinsam genutzt von der
- * Bestätigungs- und der Änderungs-Mail, damit beide dieselbe stabile UID/SEQUENCE
- * verwenden (siehe icsUid).
+ * Baut den .ics-Kalender-Anhang für einen zugesagten Gast (app/lib/ics.ts). Gemeinsam genutzt von der Bestätigungs- und
+ * der Änderungs-Mail, damit beide dieselbe stabile UID/SEQUENCE verwenden.
  */
 function buildIcsAttachment(event: EventWithSeries, participant: Participant) {
   // "Datum noch offen" (Event.datePending): Das Datum ist nur ein Platzhalter - kein Kalendereintrag.
   // Sobald die Terminabstimmung es festlegt, geht die Änderungs-Mail mit Anhang raus (app/lib/poll-date.ts).
   if (event.datePending) return null
-  const date = new Date(event.date)
-  const eventDate: DateArray = [
-    date.getUTCFullYear(),
-    date.getUTCMonth() + 1,
-    date.getUTCDate(),
-    date.getUTCHours(),
-    date.getUTCMinutes()
-  ]
-
   const personalLink = personalEventLink(event, participant)
-  const fullDescription = `${event.description || ''}\n\nAntwort nachträglich bearbeiten: ${personalLink}`
-
-  const { error, value } = createEvent({
-    uid: icsUid(event),
-    sequence: event.icsSequence,
-    title: event.title,
-    description: fullDescription,
-    location: event.location || '',
-    start: eventDate,
-    duration: { hours: event.duration },
-    startInputType: 'utc',
-    startOutputType: 'utc'
-  })
-
-  if (error || !value) return null
-
-  return {
-    filename: `${event.slug}.ics`,
-    content: value,
-    contentType: 'text/calendar'
-  }
+  const content = buildEventIcs(event, `${event.description || ''}\n\nAntwort nachträglich bearbeiten: ${personalLink}`, baseUrl())
+  return content ? { filename: `${event.slug}.ics`, content, contentType: ICS_CONTENT_TYPE } : null
 }
 
 /**

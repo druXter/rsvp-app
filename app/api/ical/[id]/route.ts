@@ -1,7 +1,7 @@
 // app/api/ical/[id]/route.ts
 import { prisma } from '../../../lib/prisma'
 import { NextResponse } from 'next/server'
-import { createEvent, DateArray } from 'ics'
+import { buildEventIcs, ICS_CONTENT_TYPE } from '../../../lib/ics'
 import { hasEventPinAccess, tokenBelongsToEvent } from '../../../lib/pin'
 
 
@@ -44,38 +44,15 @@ export async function GET(
   const personalLink = token ? `\n\nAntwort nachträglich bearbeiten: ${baseUrl}/${event.slug}?token=${token}` : ''
   const fullDescription = (event.description || '') + personalLink
 
-  const date = new Date(event.date)
-  
-  // Datum für das ics-Paket als numerisches Array aufbereiten
-  const eventDate: DateArray = [
-    date.getUTCFullYear(),
-    date.getUTCMonth() + 1, 
-    date.getUTCDate(),
-    date.getUTCHours(),
-    date.getUTCMinutes()
-  ]
-
-  // Kalender-Datei über die 'ics' Bibliothek generieren
-  const { error, value } = createEvent({
-    title: event.title,
-    description: fullDescription, 
-    location: event.location || '',
-    start: eventDate,
-    duration: { hours: event.duration }, 
-    
-    startInputType: 'utc',
-    startOutputType: 'utc'
-  })
-
-  // Fehlerbehandlung falls die Generierung fehlschlägt
-  if (error || !value) {
+  const value = buildEventIcs(event, fullDescription, baseUrl)
+  if (!value) {
     return new NextResponse('Fehler beim Erstellen der Kalender-Datei', { status: 500 })
   }
 
   // Den generierten Text als herunterladbare .ics Datei ausliefern
   return new NextResponse(value, {
     headers: {
-      'Content-Type': 'text/calendar; charset=utf-8',
+      'Content-Type': ICS_CONTENT_TYPE,
       'Content-Disposition': `attachment; filename="${event.slug}.ics"`,
     },
   })
