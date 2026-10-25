@@ -18,6 +18,7 @@ import { feedbackLinkVisible } from '../lib/feedback-link'
 import { bringSlotsForForm, claimedLabels } from '../lib/bring-list'
 import { getCurrentGuestUser } from '../lib/guest-auth'
 import { invitedGuestUser } from '../lib/guest-invites'
+import { findAccountParticipant } from '../lib/account-participant'
 import { guestPersons } from '../lib/guest-persons'
 import { guestTicketing } from '../lib/guest-ticketing'
 import { TOOL_LINKS } from '../lib/linked-tools-store'
@@ -100,13 +101,12 @@ export default async function EventPage({
         where: { eventId_participantId: { eventId: event.id, participantId: participant.id } }
       })
     }
-  } else if (event.requireGuestUser || (await invitedGuestUser(event))) {
-    // Auch ein eingeladenes Teilnehmendenkonto antwortet mit seinem Konto (performRsvpSubmission)
-    // "Nur registrierte Teilnehmer": ohne editToken MUSS eine eingeloggte Gast-Session
-    // vorliegen, sonst wird statt des Formulars nur das Login/Registrieren-Gate gezeigt
-    // (siehe performRsvpSubmission für die serverseitige Absicherung derselben Regel).
+  } else if (!event.inviteOnly) {
+    // Wer angemeldet ist, antwortet immer mit seinem Konto (performRsvpSubmission) - im Einladungsmodus zählt nur der
+    // persönliche Link. "Nur registrierte Teilnehmer": ohne editToken MUSS eine eingeloggte Gast-Session vorliegen,
+    // sonst wird statt des Formulars nur das Login/Registrieren-Gate gezeigt (serverseitig ebenso abgesichert).
     const guestUser = await getCurrentGuestUser()
-    if (!guestUser) {
+    if (!guestUser && event.requireGuestUser) {
       const nextPath = `/${event.slug}`
       return (
         <main className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -119,15 +119,14 @@ export default async function EventPage({
       )
     }
 
-    const guestParticipant = await prisma.participant.findFirst({
-      where: { guestUserId: guestUser.id, rsvps: { some: { eventId: event.id } } }
-    })
+    // Nicht angemeldet (ohne Konto-Pflicht): anonymes Formular wie bisher
+    const guestParticipant = guestUser ? await findAccountParticipant(guestUser, event) : null
     if (guestParticipant) {
       participant = guestParticipant
       existingRsvp = await prisma.rsvp.findUnique({
         where: { eventId_participantId: { eventId: event.id, participantId: guestParticipant.id } }
       })
-    } else {
+    } else if (guestUser) {
       // Erste Antwort dieses Kontos zu diesem Event - Formular aus dem zentralen Profil vorausfüllen
       participant = {
         name: guestUser.name,

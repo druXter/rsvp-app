@@ -45,6 +45,12 @@ Ein schlankes, anpassbares und leistungsstarkes Event-Management-System, gebaut 
   Reihen-PIN (`hasEventPinAccess`). Auf Wunsch (Voreinstellung) bekommen sie eine Mail. Sie können den Termin
   ausblenden, die Verwaltung kann die Einladung zurücknehmen. Nicht im Einladungsmodus (dort gibt es persönliche
   Links). „Weitere Termine“ zeigt außerdem Einzel-Events, auf die das Konto geantwortet hat (bis 48 h nach Beginn).
+* **Angemeldet antwortet man immer mit dem Konto** (`app/lib/account-participant.ts`): Wer unter „Mein Konto“
+  angemeldet ist, bekommt bei jedem Termin das Formular aus dem Profil vorausgefüllt, und die Antwort hängt am Konto -
+  auch bei Einzel-Events ohne Konto-Pflicht (früher nur bei Reihen und Konto-Pflicht). Ausnahmen: persönlicher Link
+  (`?token=`) und Einzel-Events im Einladungsmodus. Hat das Konto noch keine Antwort, aber gibt es eine ohne Konto mit
+  genau seiner (bestätigten) Adresse, wird diese beim nächsten Antworten übernommen und gilt als bestätigt - statt einer
+  zweiten Antwort derselben Person.
 * **Sitzplätze über Seating (optional):** Pro Termin mit einem Event im Sitzplatz-Tool Seating verknüpfbar. Zugesagte Gäste bekommen „Sitzplatz wählen“ (Seite, Erfolgsseite, Bestätigungsmail), Änderungen an Zusagen gehen automatisch an Seating, und der zugewiesene Platz erscheint als „Dein Platz: …“, beim Einlass und im CSV-Export - siehe [Verknüpfung mit Seating](#-verknüpfung-mit-seating-sitzplätze).
 * **Schichten (optional):** Pro Termin mit einem Event in Schichten (Dienste und Schichten, eigenes Tool) verknüpfbar. Helfer\*innen mit genug Schichten bekommen automatisch eine Zusage, in der Ticketkategorie ihrer Stufe („ab 1 Schicht: Helfer\*innen, ab 5: Helfer\*innen plus“) - siehe [Verknüpfung mit Schichten](#-verknüpfung-mit-schichten).
 * **Zeitplan (optional):** Pro Termin mit einem Event im Zeitplan-Tool (Ablauf großer Events) verknüpfbar. Zugesagte Gäste bekommen „Zeitplan“ (Seite, Erfolgsseite, Bestätigungsmail) und sehen damit den aktuellen Ablauf; bei Absage oder Löschung endet ihr Zugang dort automatisch. An den Zeitplan gehen nur Kennungen, keine Namen oder Adressen - außer der Termin gibt Kommen und Gehen bzw. die Beschlüsse einer Sitzung einzeln für den Rückblick frei (nur angezeigt, nicht gespeichert) - siehe [Verknüpfung mit Zeitplan](#-verknüpfung-mit-zeitplan).

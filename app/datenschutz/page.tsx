@@ -74,6 +74,14 @@ export default function DatenschutzPage() {
             löschen zu können (siehe Punkt 16).
           </p>
           <p className="mt-2">
+            <strong>Antworten mit deinem Teilnehmendenkonto:</strong> Bist du angemeldet, verknüpfen wir deine Antwort
+            auf einen Termin mit deinem Konto (Formular vorausgefüllt, Termin unter &quot;Mein Konto&quot;), Änderungen an
+            Name, Telefon, Essenswunsch und Allergien übernehmen wir ins Konto. Gibt es zu dem Termin schon eine Antwort
+            ohne Konto mit genau der E-Mail-Adresse deines (bestätigten) Kontos, ordnen wir sie beim nächsten Antworten
+            deinem Konto zu, statt eine zweite anzulegen. Ohne Anmeldung oder über deinen persönlichen Link bleibt die
+            Antwort wie bisher ohne Konto.
+          </p>
+          <p className="mt-2">
             <strong>Einladung deines Teilnehmendenkontos zu weiteren Terminen:</strong> Hast du mit deinem Konto bei einer
             Veranstaltung geantwortet oder bist Mitglied einer Reihe, können dich deren Veranstalter:innen (bzw. die dort
             Moderierenden) zu weiteren eigenen Terminen einladen. Sie sehen dafür deinen Namen und deine E-Mail-Adresse -

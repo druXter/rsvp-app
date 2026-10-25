@@ -13,6 +13,7 @@ import { isTimelineConfirmed, timelineLinkOf } from './timeline'
 import { isSeatingConfirmed, seatingLinkOf } from './seating'
 import { hasEventPinAccess } from './pin'
 import { isInvited } from './guest-invites'
+import { findAccountParticipant } from './account-participant'
 import { syncBringClaims } from './bring-list'
 import { hasRoom, loadCapacity } from './tickets'
 import { generatePaymentReference, paymentInfoOf, syncPaymentDue } from './payment'
@@ -136,7 +137,9 @@ export async function performRsvpSubmission(
   // Nutzer keinen Link mehr kennen, um seine reihenweite Identität wiederzufinden. Ist
   // requireGuestUser gesetzt, gilt das ausnahmsweise auch für ein Einzel-Event ohne Reihe,
   // da eine Anmeldung dort ausschließlich über ein Nutzer-Konto möglich sein soll.
-  const guestUser = !editToken && (event.seriesId || requireGuestUser || invitedAccount) ? guestUserCandidate : null
+  // Wer angemeldet ist, antwortet immer mit seinem Konto - nur im Einladungsmodus eines Einzel-Events zählt allein der
+  // persönliche Link (Reihen im Einladungsmodus prüfen die Einladung des Kontos-Participants weiter unten).
+  const guestUser = !editToken && (event.seriesId || requireGuestUser || invitedAccount || !event.inviteOnly) ? guestUserCandidate : null
 
   // "Nur registrierte Teilnehmer"-Sperre: ohne editToken (also nicht über einen bereits
   // bestehenden persönlichen Link) MUSS eine eingeloggte Gast-Session vorliegen. Ein bereits
@@ -151,15 +154,9 @@ export async function performRsvpSubmission(
   const existingParticipant = editToken
     ? await prisma.participant.findUnique({ where: { editToken } })
     : guestUser
-      ? await prisma.participant.findFirst({
-          where: event.seriesId
-            ? { seriesId: event.seriesId, guestUserId: guestUser.id }
-            // Bei einem Einzel-Event gibt es keine reihenweite Identität - der Participant
-            // dieses eingeloggten Kontos muss hier zusätzlich auf GENAU dieses Event
-            // eingegrenzt werden, sonst würde fälschlich der Participant eines anderen
-            // Einzel-Events desselben Kontos gefunden.
-            : { guestUserId: guestUser.id, rsvps: { some: { eventId } } }
-        })
+      // Reihe: reihenweite Identität des Kontos; Einzel-Event: die mit einer Antwort auf GENAU dieses Event. Eine
+      // frühere Antwort ohne Konto mit der Adresse des Kontos wird dabei übernommen (app/lib/account-participant.ts).
+      ? await findAccountParticipant(guestUser, event, { adopt: true })
       : null
 
   // Die Antwort zu GENAU DIESEM Termin - kann fehlen, auch wenn der Participant schon existiert
@@ -330,6 +327,13 @@ export async function performRsvpSubmission(
         ...(needsVerification ? {
           isVerified: false,
           verifyToken: existingParticipant.verifyToken || randomUUID()
+        } : {}),
+        // Eine übernommene frühere Antwort ohne Konto (app/lib/account-participant.ts) mit der Adresse des bestätigten
+        // Kontos gilt als bestätigt - das Konto hat genau diese Adresse bestätigt.
+        ...(guestAlreadyVerified && !existingParticipant.isVerified && finalEmail?.trim().toLowerCase() === guestUser!.email.trim().toLowerCase() ? {
+          isVerified: true,
+          verifiedAt: new Date(),
+          verifyToken: null
         } : {})
       }
     })

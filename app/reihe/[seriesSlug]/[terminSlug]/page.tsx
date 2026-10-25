@@ -20,6 +20,7 @@ import { feedbackLinkVisible } from '../../../lib/feedback-link'
 import { bringSlotsForForm, claimedLabels } from '../../../lib/bring-list'
 import { getCurrentGuestUser } from '../../../lib/guest-auth'
 import { invitedGuestUser } from '../../../lib/guest-invites'
+import { findAccountParticipant } from '../../../lib/account-participant'
 import { guestPersons } from '../../../lib/guest-persons'
 import { guestTicketing } from '../../../lib/guest-ticketing'
 import { TOOL_LINKS } from '../../../lib/linked-tools-store'
@@ -113,7 +114,7 @@ export default async function SeriesEventPage({
     }
 
     if (guestUser) {
-      const guestParticipant = await prisma.participant.findFirst({ where: { seriesId: series.id, guestUserId: guestUser.id } })
+      const guestParticipant = await findAccountParticipant(guestUser, event)
       if (guestParticipant) {
         participant = guestParticipant
         existingRsvp = await prisma.rsvp.findUnique({
