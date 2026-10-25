@@ -28,6 +28,11 @@ export const TEST_TIMELINE_BASE_URL = `http://127.0.0.1:${TIMELINE_PORT}`
 // nicht umgekehrt. Die Tests spielen die Meldungen selbst (tests/e2e/shift-helpers.spec.ts).
 export const TEST_SHIFTS_SECRET = 'e2e-shifts-secret-0123456789abcdef01234'
 export const TEST_SHIFTS_BASE_URL = 'http://127.0.0.1:3110'
+// Wichteln (app/lib/wichteln.ts): eigenes Secret und ein Origin, unter dem tests/e2e/wichteln.spec.ts einen
+// Schein-Wichteln startet, der die Anstöße mitschreibt.
+export const TEST_WICHTELN_SECRET = 'e2e-wichteln-secret-0123456789abcdef0123'
+export const WICHTELN_PORT = 3111
+export const TEST_WICHTELN_BASE_URL = `http://127.0.0.1:${WICHTELN_PORT}`
 // Origin des Abstimmungstools für die Terminabstimmung (app/lib/poll-date.ts): Dort läuft in den
 // Tests nichts - rsvp-app prüft nur, ob eine pollUrl zu diesem Origin gehört. Ausgehende
 // Zu-/Absage-Meldungen dorthin scheitern sofort (best-effort, siehe app/lib/poll-notify.ts).
@@ -76,6 +81,8 @@ const SERVER_ENV: Record<string, string> = {
   TIMELINE_BASE_URL: TEST_TIMELINE_BASE_URL,
   SHIFTS_SECRET: TEST_SHIFTS_SECRET,
   SHIFTS_BASE_URL: TEST_SHIFTS_BASE_URL,
+  WICHTELN_SECRET: TEST_WICHTELN_SECRET,
+  WICHTELN_BASE_URL: TEST_WICHTELN_BASE_URL,
   // Anbieter nur für Teilnehmendenkonten: SUITE_TRUSTED_APPS bleibt leer, Verwaltungskonten
   // werden also für niemanden bestätigt; als Empfänger (SUITE_IDPS) ist nichts eingerichtet.
   SUITE_SIGNING_KEY: TEST_SUITE_SIGNING_KEY,

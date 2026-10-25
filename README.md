@@ -53,6 +53,7 @@ Ein schlankes, anpassbares und leistungsstarkes Event-Management-System, gebaut 
   zweiten Antwort derselben Person.
 * **Sitzplätze über Seating (optional):** Pro Termin mit einem Event im Sitzplatz-Tool Seating verknüpfbar. Zugesagte Gäste bekommen „Sitzplatz wählen“ (Seite, Erfolgsseite, Bestätigungsmail), Änderungen an Zusagen gehen automatisch an Seating, und der zugewiesene Platz erscheint als „Dein Platz: …“, beim Einlass und im CSV-Export - siehe [Verknüpfung mit Seating](#-verknüpfung-mit-seating-sitzplätze).
 * **Schichten (optional):** Pro Termin mit einem Event in Schichten (Dienste und Schichten, eigenes Tool) verknüpfbar. Helfer\*innen mit genug Schichten bekommen automatisch eine Zusage, in der Ticketkategorie ihrer Stufe („ab 1 Schicht: Helfer\*innen, ab 5: Helfer\*innen plus“) - siehe [Verknüpfung mit Schichten](#-verknüpfung-mit-schichten).
+* **Wichteln (optional):** Pro Termin mit einem Wichteln (eigenes Tool) verknüpfbar. Alle mit Zusage werden dort zum Wichteln eingeladen - siehe [Verknüpfung mit Wichteln](#-verknüpfung-mit-wichteln).
 * **Zeitplan (optional):** Pro Termin mit einem Event im Zeitplan-Tool (Ablauf großer Events) verknüpfbar. Zugesagte Gäste bekommen „Zeitplan“ (Seite, Erfolgsseite, Bestätigungsmail) und sehen damit den aktuellen Ablauf; bei Absage oder Löschung endet ihr Zugang dort automatisch. An den Zeitplan gehen nur Kennungen, keine Namen oder Adressen - außer der Termin gibt Kommen und Gehen bzw. die Beschlüsse einer Sitzung einzeln für den Rückblick frei (nur angezeigt, nicht gespeichert) - siehe [Verknüpfung mit Zeitplan](#-verknüpfung-mit-zeitplan).
 * **Wunschliste (optional, z.B. für eine Hochzeit):** Schalter „Wunschliste“ pro Event/Termin, Wünsche im Reiter „Wünsche“: Geschenke mit Anzahl, Link und ungefährem Preis oder **Geldwünsche mit Zielbetrag**, an denen sich mehrere mit Teilbeträgen beteiligen. Gäste reservieren über ihren persönlichen Link (nach einer Antwort bzw. mit Einladung) und sehen nur den Stand, nie wer was schenkt; mehr Stück als frei verhindert eine atomare SQL-Anweisung, auch bei gleichzeitigen Reservierungen. Mit „Überraschung“ (Standard) sieht auch die Verwaltung keine Namen. Die Art „Hochzeit“ schaltet die Wunschliste gleich ein. Konzept: [docs/KONZEPT-WUNSCHLISTE.md](docs/KONZEPT-WUNSCHLISTE.md).
 * **Mitbringliste (optional):** Pro Event/Termin Einträge mit Anzahl (Abschnitt „Mitbringliste“ im Formular, eine Zeile pro Eintrag: `2x Salat`, `Nachtisch`). Gäste mit Zusage kreuzen beim Antworten an, was sie übernehmen („Salat 1/2“); volle Einträge sind gesperrt, auch serverseitig und bei gleichzeitigen Zusagen (`app/lib/bring-list.ts`, eine atomare SQL-Anweisung). Absage oder Warteliste geben Einträge frei, ein aus der Liste entfernter Eintrag nimmt seine Beanspruchungen mit. Sichtbar in der Gästeliste („Bringt mit“), in der Verwaltung (Stand je Eintrag) und im CSV-Export, zusammen mit dem Freitext „Mitbringsel“. Die Client-API (`/api/v1`) lässt bestehende Beanspruchungen unverändert. **Vorlage für Reihen** (`EventSeries.bringTemplate`, Einstellungen der Reihe): Neue Termine bekommen die Liste und lassen sich danach einzeln ändern; auf Wunsch übernehmen auch kommende Termine ohne eigene Liste die Vorlage (bestehende Listen werden nie überschrieben). Im Termin speichert „Als Vorlage der Reihe speichern“ die Liste dieses Termins als neue Vorlage.
@@ -157,6 +158,11 @@ TIMELINE_BASE_URL=https://zeitplan.deine-domain.de
 # RSVP_SHIFTS_SECRET in Schichten, mind. 32 Zeichen, eigenes Secret.
 SHIFTS_SECRET=...
 SHIFTS_BASE_URL=https://schichten.deine-domain.de
+
+# Anbindung an Wichteln (eigenständiges Projekt) - siehe "Verknüpfung mit Wichteln" unten. Secret identisch zu
+# RSVP_WICHTELN_SECRET in Wichteln, mind. 32 Zeichen, eigenes Secret.
+WICHTELN_SECRET=...
+WICHTELN_BASE_URL=https://wichteln.deine-domain.de
 ```
 
 > **Impressum-Platzhalter:** Die Impressum-Seite (`app/impressum/page.tsx`) liest ihre Angaben zur Laufzeit aus `IMPRESSUM_NAME`/`IMPRESSUM_STREET`/`IMPRESSUM_ZIP`/`IMPRESSUM_CITY`/`IMPRESSUM_EMAIL`/`IMPRESSUM_PHONE`. Sind diese Variablen nicht gesetzt, zeigt die Seite generische Platzhalter (`[Dein Vorname] [Dein Nachname]` etc.) statt echter Daten an. So bleibt das Repository frei von personenbezogenen Daten - trag deine echten Angaben ausschließlich in deine eigene, nicht versionierte `.env` ein (lokal wie auf dem Server).
@@ -286,7 +292,7 @@ Regeln in `app/lib/feedback-link.ts`, Versand in `app/lib/feedback.ts`:
 ## 🔌 Verknüpfte Tools (Anbindungen)
 
 Ein Termin kann mit Events in anderen, eigenständigen Tools der Suite verknüpft werden - **Seating** (Sitzplätze,
-siehe unten), das **Zeitplan-Tool** (Ablauf des Events) und **Schichten** (Helfer\*innen), jeweils unten beschrieben. Alles Gemeinsame steht in `app/lib/linked-tools.ts`:
+siehe unten), das **Zeitplan-Tool** (Ablauf des Events), **Schichten** (Helfer\*innen) und **Wichteln** (Zusagen einladen), jeweils unten beschrieben. Alles Gemeinsame steht in `app/lib/linked-tools.ts`:
 
 * **Liste der Tools** (`DEFINITIONS`): pro Tool-Typ die Env-Variablen für Adresse und Secret, die Form des Links auf ein
   Event dort (`<Adresse>/<Segment>/<Event-ID>`), der Name des ID-Felds in den Nachrichten und der Webhook-Pfad. Ein neues
@@ -304,8 +310,8 @@ siehe unten), das **Zeitplan-Tool** (Ablauf des Events) und **Schichten** (Helfe
   eigenem Inhalt, Secret und Empfänger; nicht verknüpfte, nicht eingerichtete oder unbekannte Tools bekommen nichts. Pro
   Tool in Reihenfolge, verschiedene Tools parallel, 5 s Timeout, erst nach der Antwort (`after()`).
 * **Anlegen beim Tool** (Idee Q1, `app/lib/linked-create.ts`, Vertrag in suite-kit `src/linked-create.ts`): Ist ein
-  Termin noch nicht mit dem Zeitplan bzw. mit Schichten verknüpft, zeigt „Verknüpfungen“ den Knopf „Im Zeitplan
-  anlegen“ bzw. „In Schichten anlegen“ (Schichten nicht im Einladungsmodus). Vorher fragt rsvp-app das Tool
+  Termin noch nicht mit dem Zeitplan, mit Schichten bzw. mit Wichteln verknüpft, zeigt „Verknüpfungen“ den Knopf „Im
+  Zeitplan anlegen“, „In Schichten anlegen“ (nicht im Einladungsmodus) bzw. „In Wichteln anlegen“. Vorher fragt rsvp-app das Tool
   (`event-create-status`, im Suspense-Rahmen, 5 s Timeout), ob das Konto dort anlegen darf. Das Event gehört dem Konto im
   Tool, das über den Konten-Verbund mit dem eigenen verknüpft ist (gesendet werden die eigene Konto-ID und, falls man
   sich hier über das Tool anmeldet, die Konto-ID dort); ohne Verknüpfung steht statt des Knopfs ein Anmelde-Link. Der
@@ -455,6 +461,29 @@ an `POST /api/shifts/helpers` (`shift-helpers`: `helperId`, Name, E-Mail, Zahl d
 **Vertrag** (`app/lib/shift-helpers.ts`, Gegenstück in Schichten `app/lib/rsvp/token.ts`): Format wie bei allen
 verknüpften Tools, `SHIFTS_SECRET`, höchstens 1 Stunde gültig. Antwort: `{ ok, outcome: "applied" | "stale", conflicts }`;
 401 bei ungültiger Nachricht, 404 ohne Verknüpfung. rsvp-app schickt Schichten nichts von sich aus.
+
+## 🎁 Verknüpfung mit Wichteln
+
+Ein Termin kann optional mit einem Wichteln im separaten Tool **Wichteln** verknüpft werden: Alle mit Zusage werden dort
+zum Wichteln eingeladen (Mail mit persönlichem Link, mitmachen müssen sie dort selbst). Rein additiv: Ohne Wichtel-Link
+ändert sich nichts.
+
+**Einrichten:**
+
+1. In beiden `.env`-Dateien dasselbe, **eigene** Secret eintragen: hier `WICHTELN_SECRET`, in Wichteln
+   `RSVP_WICHTELN_SECRET`. Dazu hier `WICHTELN_BASE_URL`, dort `RSVP_APP_BASE_URL`.
+2. **Beide Seiten stimmen zu:** In Wichteln unter „Einstellungen“ → „Zusagen aus rsvp-app“ die ID des Termins eintragen
+   und hier unter „Verknüpfungen“ den dort angezeigten Wichtel-Link (`<Wichteln>/rsvp/<id>`) – oder hier „In Wichteln
+   anlegen“ (legt dort ein Wichteln „nur mit Einladung“ an, schon verknüpft).
+
+**Ablauf:** Wichteln fragt `POST /api/wichteln/guests` (`wichtel-guests-request`) und bekommt `wichtel-guests` mit Name und
+E-Mail aller Zusagen, die bei verknüpften Tools zählen (zugesagt, nicht Warteliste, ggf. verifiziert), jede Adresse
+einmal; keine Begleitungen, keine weiteren Angaben. Bei jeder Änderung einer Zusage geht der Webhook `rsvp-change` an
+Wichteln - nur ein Anstoß mit den beiden Event-IDs, ohne Namen; Wichteln holt danach die Liste neu.
+
+**Vertrag** (`app/lib/wichteln.ts`, Gegenstück in Wichteln `app/lib/rsvp/token.ts`): Format wie bei allen verknüpften
+Tools, `WICHTELN_SECRET`; feste Prüfnachrichten in `tests/unit/wichteln.test.ts` (auf beiden Seiten). 401 bei ungültiger
+Nachricht, 404 ohne Verknüpfung auf beiden Seiten.
 
 ## 🔐 Konto-Sicherheit
 

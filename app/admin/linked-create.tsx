@@ -8,7 +8,8 @@ export const LINKED_CREATE_FORM = 'linked-create-form'
 
 const NAME: Record<CreatableTool, { label: string; inTool: string }> = {
   timeline: { label: 'Im Zeitplan anlegen', inTool: 'im Zeitplan' },
-  shifts: { label: 'In Schichten anlegen', inTool: 'in Schichten' }
+  shifts: { label: 'In Schichten anlegen', inTool: 'in Schichten' },
+  wichteln: { label: 'In Wichteln anlegen', inTool: 'in Wichteln' }
 }
 
 /** Formular, an das die Knöpfe „… anlegen“ senden (Feld `tool` kommt vom Knopf). Neben, nicht in den Einstellungen. */

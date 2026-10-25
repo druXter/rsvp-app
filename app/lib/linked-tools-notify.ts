@@ -5,6 +5,7 @@ import { prisma } from './prisma'
 import { configuredTools, linkedToolsOf, type ConfiguredTool, type StoredToolLink, type ToolLink, type ToolType } from './linked-tools'
 import { seatingRsvpChange } from './seating'
 import { timelineRsvpChange } from './timeline'
+import { wichtelnRsvpChange } from './wichteln'
 import { TOOL_LINKS } from './linked-tools-store'
 
 /**
@@ -64,7 +65,9 @@ type ChangeInput = {
 const RSVP_CHANGE: Record<ToolType, ((input: ChangeInput) => string) | null> = {
   seating: seatingRsvpChange,
   timeline: timelineRsvpChange,
-  shifts: null
+  shifts: null,
+  // Nur ein Anstoß - Wichteln holt danach selbst die Gästeliste (app/lib/wichteln.ts)
+  wichteln: wichtelnRsvpChange
 }
 
 export type Delivery = { url: string; body: string }

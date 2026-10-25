@@ -8,6 +8,7 @@ import { deadlineInputValue } from '../lib/rsvp-deadline'
 import { allowedSeatingOrigin } from '../lib/seating'
 import { allowedTimelineOrigin } from '../lib/timeline'
 import { allowedShiftsOrigin, formatShiftTiers, parseStoredTiers } from '../lib/shift-helpers'
+import { allowedWichtelnOrigin } from '../lib/wichteln'
 import { TOOL_LINKS, storedToolUrl } from '../lib/linked-tools-store'
 import { allowedFeedbackOrigin, FEEDBACK_DELAY_OPTIONS } from '../lib/feedback-link'
 import { SettingsSection, hintClass, inputClass, labelClass, SubmitButton } from '../ui/kit'
@@ -92,6 +93,8 @@ export default function EventSettingsForm({ event, userId, open = 'grunddaten' }
   const timelineUrl = storedToolUrl(event.toolLinks, 'timeline')
   const shiftsUrl = storedToolUrl(event.toolLinks, 'shifts')
   const shiftsOrigin = allowedShiftsOrigin()
+  const wichtelnUrl = storedToolUrl(event.toolLinks, 'wichteln')
+  const wichtelnOrigin = allowedWichtelnOrigin()
   const feedbackOrigin = allowedFeedbackOrigin()
   const formId = 'event-settings-form'
   // Fest gesperrt: Konto-Pflicht wird beim Anlegen festgelegt, Termine einer Einladungs-Reihe haben keine Kategorien
@@ -232,7 +235,7 @@ export default function EventSettingsForm({ event, userId, open = 'grunddaten' }
       </SettingsSection>
 
       <SettingsSection id="verknuepfungen" title="Verknüpfungen" open={open === 'verknuepfungen'} marker="lime"
-        summary={summary([seatingUrl && 'Seating', timelineUrl && (event.timelinePresence || event.timelineDecisions ? 'Zeitplan mit Protokoll' : 'Zeitplan'), shiftsUrl && 'Schichten', event.pollUrl && 'Abstimmung', event.photoUrl && 'Fotos', event.feedbackUrl && 'Feedback', event.assemblyUrl && 'Sitzung'], 'keine')}>
+        summary={summary([seatingUrl && 'Seating', timelineUrl && (event.timelinePresence || event.timelineDecisions ? 'Zeitplan mit Protokoll' : 'Zeitplan'), shiftsUrl && 'Schichten', wichtelnUrl && 'Wichteln', event.pollUrl && 'Abstimmung', event.photoUrl && 'Fotos', event.feedbackUrl && 'Feedback', event.assemblyUrl && 'Sitzung'], 'keine')}>
         {seatingOrigin && (
           <div>
             <Field id="seatingUrl" label="Sitzplätze (Seating)" hint={<>Link aus den Event-Einstellungen in Seating. ID dieses Termins für Seating: <code className="select-all">{event.id}</code>. Name, E-Mail und Begleitungen der Zusagen gehen dafür an Seating.</>}>
@@ -269,6 +272,14 @@ export default function EventSettingsForm({ event, userId, open = 'grunddaten' }
               <textarea id="shiftTiers" name="shiftTiers" rows={2} defaultValue={formatShiftTiers(parseStoredTiers(event.shiftTiers), event.ticketCategories)} className={inputClass}
                 placeholder={event.ticketCategories.length > 0 ? `1: ${event.ticketCategories[0].label}` : '1'} />
             </Field>
+          </div>
+        )}
+        {wichtelnOrigin && (
+          <div className="space-y-3">
+            <Field id="wichtelnUrl" label="Wichteln" hint={<>Link aus den Einstellungen des Wichtelns. ID dieses Termins für Wichteln: <code className="select-all">{event.id}</code>. Wichteln holt Name und E-Mail aller Zusagen und lädt sie zum Wichteln ein; mitmachen müssen sie dort selbst.</>}>
+              <input id="wichtelnUrl" type="url" name="wichtelnUrl" defaultValue={wichtelnUrl} className={inputClass} placeholder={`${wichtelnOrigin}/rsvp/…`} />
+            </Field>
+            {!wichtelnUrl && <Suspense fallback={null}><LinkedCreateButton type="wichteln" eventId={event.id} userId={userId} /></Suspense>}
           </div>
         )}
         <div className="grid gap-4 sm:grid-cols-2">

@@ -9,7 +9,7 @@ import { saveToolLinks } from './linked-tools-store'
 
 /**
  * „Einmal anlegen, überall verknüpfen“ (Idee Q1, Vertrag in suite-kit src/linked-create.ts): Beim Termin unter
- * „Verknüpfungen“ legt ein Knopf das passende Event im Zeitplan bzw. in Schichten an - als Entwurf mit Titel und
+ * „Verknüpfungen“ legt ein Knopf das passende Event im Zeitplan, in Schichten bzw. in Wichteln an - als Entwurf mit Titel und
  * Datum, dort gleich mit diesem Termin verknüpft - und trägt hier den Link ein. Seating (Raumplan, Modus, Ende) bleibt
  * bei der Verknüpfung von Hand.
  *
@@ -18,7 +18,7 @@ import { saveToolLinks } from './linked-tools-store'
  * nur mit Links auf den Origin des Tools (readLinkedCreateResult).
  */
 
-export const CREATABLE_TOOLS = ['timeline', 'shifts'] as const satisfies readonly ToolType[]
+export const CREATABLE_TOOLS = ['timeline', 'shifts', 'wichteln'] as const satisfies readonly ToolType[]
 export type CreatableTool = (typeof CREATABLE_TOOLS)[number]
 
 export function isCreatableTool(value: unknown): value is CreatableTool {

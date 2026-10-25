@@ -70,7 +70,9 @@ const ON_RELINK: Record<ToolType, (tx: Prisma.TransactionClient, eventId: string
   timeline: async () => {},
   // Helfer-Zusagen aus Schichten werden zu gewöhnlichen Zusagen: Das bisherige Schichten-Event verwaltet sie nicht
   // mehr; ein neu verknüpftes übernimmt nur, was es selbst meldet (app/lib/shift-helpers.ts)
-  shifts: (tx, eventId) => tx.rsvp.updateMany({ where: { eventId, shiftHelperId: { not: null } }, data: { shiftHelperId: null, shiftCount: null } })
+  shifts: (tx, eventId) => tx.rsvp.updateMany({ where: { eventId, shiftHelperId: { not: null } }, data: { shiftHelperId: null, shiftCount: null } }),
+  // Wichteln holt nur die Gästeliste - hier gibt es nichts zu leeren
+  wichteln: async () => {}
 }
 
 /** Speichert die gelesenen Verknüpfungen eines Termins. Unveränderte Links bleiben samt syncedAt unberührt. */

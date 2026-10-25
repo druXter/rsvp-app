@@ -4,7 +4,8 @@ import { createHmac, timingSafeEqual } from 'crypto'
 /**
  * Verknüpfte Tools ("Anbindungen"): andere, eigenständige Anwendungen der Suite, mit denen ein
  * Termin verknüpft werden kann - Seating (Sitzplätze, app/lib/seating.ts), das Zeitplan-Tool
- * (Ablauf des Events, app/lib/timeline.ts) und Schichten (Helfer*innen, app/lib/shift-helpers.ts).
+ * (Ablauf des Events, app/lib/timeline.ts), Schichten (Helfer*innen, app/lib/shift-helpers.ts) und Wichteln
+ * (Zusagen werden eingeladen, app/lib/wichteln.ts).
  *
  * Jedes Tool steht einmal in TOOL_DEFINITIONS und hat
  * - eine eigene Adresse (<PREFIX>_BASE_URL): nur Links mit genau diesem Origin werden
@@ -96,6 +97,19 @@ const DEFINITIONS = {
     formField: 'shiftsUrl',
     linkSegment: 'rsvp',
     remoteIdField: 'shiftsEventId',
+    webhookPath: '/api/rsvp-webhook'
+  },
+  // Wichteln (eigenes Repo, dort app/lib/rsvp/token.ts): holt Name und E-Mail der Zusagen und lädt sie ein
+  // (app/lib/wichteln.ts). Der Webhook ist nur ein Anstoß ohne Inhalt, danach holt Wichteln die Gästeliste.
+  wichteln: {
+    type: 'wichteln',
+    label: 'Wichteln',
+    linkLabel: 'Wichtel-Link',
+    secretEnv: 'WICHTELN_SECRET',
+    baseUrlEnv: 'WICHTELN_BASE_URL',
+    formField: 'wichtelnUrl',
+    linkSegment: 'rsvp',
+    remoteIdField: 'wichtelnEventId',
     webhookPath: '/api/rsvp-webhook'
   }
 } as const satisfies Record<string, ToolDefinition>

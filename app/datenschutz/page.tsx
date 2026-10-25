@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { allowedSeatingOrigin } from '../lib/seating'
 import { allowedTimelineOrigin } from '../lib/timeline'
 import { allowedShiftsOrigin } from '../lib/shift-helpers'
+import { allowedWichtelnOrigin } from '../lib/wichteln'
 
 // Liest Verantwortlichen- und Infrastruktur-Angaben zur Laufzeit aus der (nicht
 // versionierten) .env, analog zu app/impressum/page.tsx - siehe dort für die
@@ -24,6 +25,8 @@ export default function DatenschutzPage() {
   const timelineHost = allowedTimelineOrigin() ?? '[Zeitplan-Anwendung nicht eingerichtet]'
   // Und die von Schichten (app/lib/shift-helpers.ts)
   const shiftsHost = allowedShiftsOrigin() ?? '[Schichten-Anwendung nicht eingerichtet]'
+  // Und die von Wichteln (app/lib/wichteln.ts)
+  const wichtelnHost = allowedWichtelnOrigin() ?? '[Wichteln-Anwendung nicht eingerichtet]'
 
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12 px-4">
@@ -134,8 +137,8 @@ export default function DatenschutzPage() {
             (&quot;Mein Konto&quot;) gilt der folgende, eigene Ablauf.
           </p>
           <p className="mt-2">
-            <strong>Verknüpftes Event im Zeitplan oder in Schichten anlegen (optional, nur Verwaltungskonten):</strong>{' '}
-            Klickst du bei einem Termin auf &quot;Im Zeitplan anlegen&quot; bzw. &quot;In Schichten anlegen&quot;, fragen
+            <strong>Verknüpftes Event im Zeitplan, in Schichten oder in Wichteln anlegen (optional, nur Verwaltungskonten):</strong>{' '}
+            Klickst du bei einem Termin auf &quot;Im Zeitplan anlegen&quot;, &quot;In Schichten anlegen&quot; bzw. &quot;In Wichteln anlegen&quot;, fragen
             wir beim Öffnen der Einstellungen und beim Klick das jeweilige Tool mit einer signierten, eine Minute gültigen
             Nachricht. Sie enthält <strong>die Kennung des Termins und deines Kontos</strong> (bzw. die Kennung deines
             Kontos dort, wenn du dich hier über das Tool anmeldest), beim Anlegen zusätzlich <strong>Titel und Datum des
@@ -460,6 +463,24 @@ export default function DatenschutzPage() {
             unverändert, und wir teilen Schichten nur mit, dass es sie gibt. Wir übermitteln an Schichten keine weiteren
             Daten. Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO (Organisation der Veranstaltung, zu der die Helfer*innen
             gehören).
+          </p>
+        </div>
+
+        <div>
+          <h2 className="font-bold text-lg">11b. Wichteln</h2>
+          <p className="mt-2">
+            Veranstalter:innen können einen Termin mit einem Wichteln in der separaten Anwendung „Wichteln“ unter{' '}
+            <code>{wichtelnHost}</code> verknüpfen. Wichteln ist ein eigenständiges Angebot mit einer eigenen
+            Datenschutzerklärung. Ist ein Termin nicht verknüpft, passiert nichts.
+          </p>
+          <p className="mt-2">
+            Bei einem verknüpften Termin fragt Wichteln uns nach den Zusagen und bekommt von uns für jede Zusage mit
+            E-Mail-Adresse <strong>deinen Namen und deine E-Mail-Adresse</strong> - keine Begleitungen und keine weiteren
+            Angaben. Wichteln lädt dich damit per Mail zum Wichteln ein; ob du mitmachst, entscheidest du dort. Ändert sich
+            eine Zusage, schicken wir Wichteln nur einen Hinweis mit den Kennungen der beiden Termine (ohne Namen), damit es
+            die Liste neu abfragt. Ziehst du deine Zusage zurück, lädt Wichteln dich wieder aus, solange du dort noch nicht
+            mitmachst. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse der Veranstalter:innen, die
+            Gäste ihrer Veranstaltung zum Wichteln einzuladen).
           </p>
         </div>
 
