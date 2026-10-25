@@ -481,6 +481,11 @@ E-Mail aller Zusagen, die bei verknüpften Tools zählen (zugesagt, nicht Wartel
 einmal; keine Begleitungen, keine weiteren Angaben. Bei jeder Änderung einer Zusage geht der Webhook `rsvp-change` an
 Wichteln - nur ein Anstoß mit den beiden Event-IDs, ohne Namen; Wichteln holt danach die Liste neu.
 
+**Opt-out im Formular:** Bei einem verknüpften Termin zeigt das Antwortformular bei einer Zusage das Häkchen „Beim
+Wichteln mitmachen“, standardmäßig gesetzt. Wer es abwählt (`Rsvp.wichtelnOptOut`), fehlt in der Gästeliste - Wichteln
+lädt nicht ein bzw. lädt wieder aus, wer schon mitmacht, wird dort für die Verwaltung markiert. Wieder anhaken lädt
+erneut ein. Die Client-API ändert die Wahl nicht.
+
 **Vertrag** (`app/lib/wichteln.ts`, Gegenstück in Wichteln `app/lib/rsvp/token.ts`): Format wie bei allen verknüpften
 Tools, `WICHTELN_SECRET`; feste Prüfnachrichten in `tests/unit/wichteln.test.ts` (auf beiden Seiten). 401 bei ungültiger
 Nachricht, 404 ohne Verknüpfung auf beiden Seiten.

@@ -68,6 +68,11 @@ export type RsvpSubmissionInput = {
    */
   ticketCategoryId?: string | null
   /**
+   * Nicht zum verknüpften Wichteln einladen (app/lib/wichteln.ts). undefined = das Formular hat das Häkchen nicht
+   * gezeigt (kein Wichteln verknüpft, Client-API) - dann bleibt die bisherige Wahl.
+   */
+  wichtelnOptOut?: boolean
+  /**
    * NUR für die Client-API (app/api/v1/): Der Aufrufer ist dort per API-Token ein Mitglied der Reihe
    * (GuestUserSeries, wird vor dem Aufruf geprüft), das die Reihe über die PIN-geschützte Registrierung
    * bzw. durch einen Creator betreten hat. Das Web-Formular setzt das NIE.
@@ -389,7 +394,8 @@ export async function performRsvpSubmission(
     bringingItem: isAttending ? bringingItem : null,
     declineReason: isAttending ? null : declineReason,
     customAnswers,
-    isOnWaitlist
+    isOnWaitlist,
+    ...(input.wichtelnOptOut !== undefined ? { wichtelnOptOut: input.wichtelnOptOut } : {})
   }
 
   let savedRsvp

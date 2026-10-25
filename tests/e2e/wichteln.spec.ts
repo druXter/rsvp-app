@@ -105,3 +105,39 @@ test('Anstoß rsvp-change bei einer Zusage - nur Kennungen, an Wichteln mit eige
   await page.waitForTimeout(1000)
   expect(toWichteln.length).toBe(count)
 })
+
+test('Formular: „Beim Wichteln mitmachen“ ist vorausgewählt, abgewählt fehlt die Zusage in der Gästeliste', async ({ page, request: http }) => {
+  const { event, remote } = await linkedEvent()
+  const guests = async () => {
+    const response = await http.post('/api/wichteln/guests', { data: request(remote, event.id), headers: { 'content-type': 'text/plain' } })
+    return (decodeCouplingToken(await response.text()).guests as { name: string }[]).map(g => g.name)
+  }
+  await prisma.event.update({ where: { id: event.id }, data: { formConfig: JSON.stringify({ askEmail: true, askDiet: false, askAlcohol: false }) } })
+
+  await page.goto(`/${event.slug}`)
+  await page.getByLabel('Dein Name').fill('Opt-out-Gast')
+  await page.locator('input[name="isAttending"][value="true"]').check()
+  const box = page.getByRole('checkbox', { name: /Beim Wichteln mitmachen/ })
+  await expect(box).toBeChecked()
+  await box.uncheck()
+  await page.getByLabel(/E-Mail/).first().fill(`optout-${randomBytes(4).toString('hex')}@example.test`)
+  await page.getByRole('button', { name: 'Antwort absenden' }).click()
+  await expect(page.getByText('Deine Rückmeldung wurde erfolgreich gespeichert.')).toBeVisible()
+  const rsvp = await prisma.rsvp.findFirstOrThrow({ where: { eventId: event.id }, include: { participant: true } })
+  expect(rsvp.wichtelnOptOut).toBe(true)
+  expect(await guests()).toEqual([])
+
+  // Wieder angehakt (persönlicher Link): dabei
+  await page.goto(`/${event.slug}?token=${rsvp.participant.editToken}`)
+  await expect(page.getByRole('checkbox', { name: /Beim Wichteln mitmachen/ })).not.toBeChecked()
+  await page.getByRole('checkbox', { name: /Beim Wichteln mitmachen/ }).check()
+  await page.getByRole('button', { name: 'Änderungen speichern' }).click()
+  await expect(page.getByText('erfolgreich gespeichert')).toBeVisible()
+  expect(await guests()).toEqual(['Opt-out-Gast'])
+
+  // Ohne Wichteln-Verknüpfung kein Häkchen
+  const other = await createEvent(await createAccount('CREATOR'))
+  await page.goto(`/${other.slug}`)
+  await page.locator('input[name="isAttending"][value="true"]').check()
+  await expect(page.getByRole('checkbox', { name: /Beim Wichteln mitmachen/ })).toHaveCount(0)
+})

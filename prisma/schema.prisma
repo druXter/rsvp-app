@@ -365,6 +365,8 @@ model Rsvp {
   // Schichten verwaltet die Zusage (Gäste sagen nicht selbst ab, die Kategorie folgt den Stufen Event.shiftTiers).
   shiftHelperId  String?
   shiftCount     Int?
+  // Opt-out im Formular: nicht zum verknüpften Wichteln einladen (app/lib/wichteln.ts). Standard: mitmachen.
+  wichtelnOptOut Boolean      @default(false)
   createdAt      DateTime     @default(now())
   // Beanspruchte Einträge der Mitbringliste (BringClaim), verschwinden mit der Rsvp.
   bringClaims    BringClaim[]

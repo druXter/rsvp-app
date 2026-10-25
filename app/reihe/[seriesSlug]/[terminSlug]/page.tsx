@@ -25,6 +25,7 @@ import { guestPersons } from '../../../lib/guest-persons'
 import { guestTicketing } from '../../../lib/guest-ticketing'
 import { TOOL_LINKS } from '../../../lib/linked-tools-store'
 import { isTimelineConfirmed, timelineLinkOf } from '../../../lib/timeline'
+import { wichtelnLinkOf } from '../../../lib/wichteln'
 import { deadlinePassed, formatDeadline } from '../../../lib/rsvp-deadline'
 import EventHeader from '../../../ui/event-header'
 import WishList from '../../../ui/wish-list'
@@ -225,6 +226,7 @@ export default async function SeriesEventPage({
           household={household}
           {...await guestTicketing(event, existingRsvp, !!participant?.isVerified, series.requireVerification)}
           seatingLabel={existingRsvp?.seatingLabel ?? null}
+          wichteln={!!wichtelnLinkOf(event)}
           canOpenTimeline={!!timelineLinkOf(event) && !!existingRsvp && isTimelineConfirmed(existingRsvp, { isVerified: !!participant?.isVerified }, series.requireVerification)}
           isGuestListVisible={series.isGuestListVisible}
           isSeriesShared={true}

@@ -43,7 +43,8 @@ export default function RsvpForm({
   menu = [],
   ownMenu = {},
   household = null,
-  deadline = null
+  deadline = null,
+  wichteln = false
 }: {
   eventId: string;
   formConfig: string | null;
@@ -84,6 +85,8 @@ export default function RsvpForm({
   household?: { label: string; rows: HouseholdFormRow[]; extraPersons: number } | null;
   // Antwortfrist (app/lib/rsvp-deadline.ts): Datum als Text und ob sie abgelaufen ist (dann nur noch lesen).
   deadline?: { label: string; passed: boolean } | null;
+  // Termin mit verknüpftem Wichteln (app/lib/wichteln.ts): Häkchen „Beim Wichteln mitmachen“, Standard an.
+  wichteln?: boolean;
 }) {
   const [isAttending, setIsAttending] = useState<boolean | null>(rsvp ? rsvp.isAttending : null)
   const isHousehold = !!household
@@ -455,6 +458,19 @@ export default function RsvpForm({
               </div>
               {isOnWaitlist && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Auf der Warteliste hältst du noch keine Einträge.</p>}
             </fieldset>
+          )}
+
+          {wichteln && (
+            <div>
+              <input type="hidden" name="wichtelnShown" value="1" />
+              <label className="flex items-start gap-2 text-sm text-gray-800 dark:text-gray-200 cursor-pointer">
+                <input type="checkbox" name="wichtelnJoin" defaultChecked={!rsvp?.wichtelnOptOut} className="w-4 h-4 mt-0.5" />
+                <span>
+                  🎁 Beim Wichteln mitmachen
+                  <span className="block text-xs text-gray-500 dark:text-gray-400">Du bekommst eine Einladung zum Wichteln per Mail und entscheidest dort. Ohne Häkchen kommt keine Einladung. Schon beim Wichteln dabei? Dann tritt bitte dort über deinen persönlichen Link aus.</span>
+                </span>
+              </label>
+            </div>
           )}
 
           {config.askBringingItem && (

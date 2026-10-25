@@ -478,8 +478,9 @@ export default function DatenschutzPage() {
             E-Mail-Adresse <strong>deinen Namen und deine E-Mail-Adresse</strong> - keine Begleitungen und keine weiteren
             Angaben. Wichteln lädt dich damit per Mail zum Wichteln ein; ob du mitmachst, entscheidest du dort. Ändert sich
             eine Zusage, schicken wir Wichteln nur einen Hinweis mit den Kennungen der beiden Termine (ohne Namen), damit es
-            die Liste neu abfragt. Ziehst du deine Zusage zurück, lädt Wichteln dich wieder aus, solange du dort noch nicht
-            mitmachst. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse der Veranstalter:innen, die
+            die Liste neu abfragt. Im Antwortformular kannst du „Beim Wichteln mitmachen“ abwählen - dann geben wir deine
+            Angaben nicht an Wichteln weiter. Ziehst du deine Zusage zurück oder wählst das Wichteln ab, lädt Wichteln dich
+            wieder aus, solange du dort noch nicht mitmachst. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse der Veranstalter:innen, die
             Gäste ihrer Veranstaltung zum Wichteln einzuladen).
           </p>
         </div>

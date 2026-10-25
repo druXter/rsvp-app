@@ -16,11 +16,15 @@ export async function linkedWichtelnEvent(message: WichtelnRequest) {
   return { event, link }
 }
 
-/** Alle Zusagen des Termins, die für Wichteln zählen, mit E-Mail; jede Adresse einmal (die älteste Zusage). */
+/**
+ * Alle Zusagen des Termins, die für Wichteln zählen, mit E-Mail; jede Adresse einmal (die älteste Zusage). Ohne die,
+ * die im Formular „Beim Wichteln mitmachen“ abgewählt haben (Rsvp.wichtelnOptOut) - Wichteln behandelt sie wie eine
+ * zurückgezogene Zusage.
+ */
 export async function wichtelnGuests(event: { id: string; requireVerification: boolean; series: { requireVerification: boolean } | null }): Promise<WichtelnGuest[]> {
   const requireVerification = event.series ? event.series.requireVerification : event.requireVerification
   const rsvps = await prisma.rsvp.findMany({
-    where: { eventId: event.id, isAttending: true, isOnWaitlist: false },
+    where: { eventId: event.id, isAttending: true, isOnWaitlist: false, wichtelnOptOut: false },
     select: { id: true, isAttending: true, isOnWaitlist: true, participant: { select: { name: true, email: true, isVerified: true } } },
     orderBy: { createdAt: 'asc' },
     take: MAX_GUESTS

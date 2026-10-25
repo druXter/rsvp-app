@@ -63,7 +63,9 @@ export async function submitRsvp(formData: FormData) {
         // Mitbringliste: nur wenn das Formular sie angezeigt hat (Markierungsfeld), sonst unangetastet
         bringSlotIds: formData.has('bringSlotsShown') ? formData.getAll('bringSlot').map(String) : undefined,
         // Ticketkategorie (app/lib/tickets.ts): nur wenn das Formular sie gesendet hat
-        ticketCategoryId: formData.has('ticketCategoryId') ? String(formData.get('ticketCategoryId')) : undefined
+        ticketCategoryId: formData.has('ticketCategoryId') ? String(formData.get('ticketCategoryId')) : undefined,
+        // Wichteln (app/lib/wichteln.ts): nur wenn das Formular das Häkchen gezeigt hat; Häkchen weg = Opt-out
+        wichtelnOptOut: formData.has('wichtelnShown') ? formData.get('wichtelnJoin') !== 'on' : undefined
       },
       guestUser
     )
