@@ -55,14 +55,16 @@ export async function registerGuestUser(formData: FormData) {
 
   const series = seriesId ? await prisma.eventSeries.findUnique({ where: { id: seriesId } }) : null
   const event = eventId ? await prisma.event.findUnique({ where: { id: eventId }, include: { series: true } }) : null
-  if (!series && !event) return
+  // Ohne Reihe und Event: allgemeine Registrierung (/mein-konto/registrieren). Eine angegebene, aber unbekannte
+  // Reihe bzw. ein unbekanntes Event bricht dagegen ab.
+  if ((seriesId && !series) || (eventId && !event)) return
 
-  const contextTitle = series ? series.title : event!.title
-  const registerPath = series ? `/reihe/${series.slug}/registrieren` : `/${event!.slug}/registrieren`
+  const contextTitle = series ? series.title : event ? event.title : null
+  const registerPath = series ? `/reihe/${series.slug}/registrieren` : event ? `/${event.slug}/registrieren` : '/mein-konto/registrieren'
 
   // Bei PIN-geschützter Reihe/Event nur MIT PIN-Freischaltung: Sonst wäre die Registrierung ein Weg an der
   // PIN vorbei - die Mitgliedschaft in der Reihe erlaubt später sogar Antworten über die Client-API.
-  if (!(series ? await hasSeriesPinAccess(series) : await hasEventPinAccess(event!))) {
+  if ((series || event) && !(series ? await hasSeriesPinAccess(series) : await hasEventPinAccess(event!))) {
     redirect(`${registerPath}?error=pin${nextParam}`)
   }
 

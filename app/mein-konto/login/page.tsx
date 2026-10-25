@@ -74,6 +74,8 @@ export default async function GuestLoginPage({ searchParams }: { searchParams: P
 
         <p className="text-sm text-center text-gray-500 dark:text-gray-400">
           <Link href="/mein-konto/forgot-password" className="text-blue-600 hover:underline">Passwort vergessen?</Link>
+          {' · '}
+          Noch kein Konto? <Link href={`/mein-konto/registrieren${next ? `?next=${encodeURIComponent(next)}` : ''}`} className="text-blue-600 hover:underline">Konto anlegen</Link>
         </p>
 
         <p className="text-xs text-center text-gray-400 dark:text-gray-500 border-t dark:border-gray-700 pt-4">

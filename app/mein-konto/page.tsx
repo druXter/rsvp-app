@@ -116,7 +116,7 @@ export default async function MeinKontoPage() {
         )}
 
         {memberships.length === 0 ? (otherEvents.length > 0 ? null :
-          <p className="text-center text-gray-500 dark:text-gray-400 italic bg-white dark:bg-gray-800 p-6 rounded-lg shadow">Du bist noch keiner Reihe zugeordnet.</p>
+          <p className="text-center text-gray-500 dark:text-gray-400 italic bg-white dark:bg-gray-800 p-6 rounded-lg shadow">Noch keine Termine. Hier erscheinen die Termine deiner Reihen, Termine, zu denen du eingeladen wirst, und Events, auf die du mit diesem Konto antwortest.</p>
         ) : (
           memberships.map(m => {
             const participant = participantBySeriesId.get(m.series.id)

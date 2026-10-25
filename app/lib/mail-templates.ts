@@ -124,13 +124,15 @@ export function verificationMail(input: { name: string; eventTitle: string; link
   )
 }
 
-export function guestVerificationMail(input: { name: string; contextTitle: string; link: string }): MailContent {
+export function guestVerificationMail(input: { name: string; contextTitle: string | null; link: string }): MailContent {
   return mail(
-    `Bitte bestätige dein Konto für ${input.contextTitle}`,
+    input.contextTitle ? `Bitte bestätige dein Konto für ${input.contextTitle}` : 'Bitte bestätige dein Konto',
     'Bitte bestätige dein Konto',
     [
       hello(input.name),
-      { kind: 'p', text: ['du hast dir ein Konto für ', { strong: input.contextTitle }, ' angelegt. Nach der Bestätigung kannst du dich anmelden und siehst alle Termine deiner Reihen, ohne dir Links merken oder Angaben erneut eintragen zu müssen.'] },
+      input.contextTitle
+        ? { kind: 'p', text: ['du hast dir ein Konto für ', { strong: input.contextTitle }, ' angelegt. Nach der Bestätigung kannst du dich anmelden und siehst alle Termine deiner Reihen, ohne dir Links merken oder Angaben erneut eintragen zu müssen.'] }
+        : { kind: 'p', text: 'du hast dir ein Teilnehmendenkonto angelegt. Nach der Bestätigung kannst du dich anmelden und siehst unter „Mein Konto“ deine Termine, ohne dir Links merken oder Angaben erneut eintragen zu müssen.' },
       { kind: 'button', label: 'Konto bestätigen', href: input.link }
     ],
     { footer: 'Falls du kein Konto angelegt hast, kannst du diese Mail ignorieren.' }

@@ -240,10 +240,10 @@ export async function sendVerificationEmail(participant: Participant, event: Eve
 /**
  * Bestätigung eines neu registrierten Teilnehmendenkontos (registerGuestUser in app/mein-konto/actions.ts) - nicht
  * die Verifizierung einer einzelnen Anmeldung. `contextTitle` ist der Titel der Reihe oder (Registrierung für ein
- * Einzel-Event mit requireGuestUser) des Events. `next` (optional) ist der Pfad, zu dem die Seite nach dem Bestätigen
+ * Einzel-Event mit requireGuestUser) des Events, null bei der allgemeinen Registrierung (/mein-konto/registrieren). `next` (optional) ist der Pfad, zu dem die Seite nach dem Bestätigen
  * weiterleitet - so landet ein Gast, der sich von einem Termin aus registriert hat, wieder dort.
  */
-export async function sendGuestVerificationEmail(guestUser: GuestUser, contextTitle: string, next: string | null | undefined, token: string) {
+export async function sendGuestVerificationEmail(guestUser: GuestUser, contextTitle: string | null, next: string | null | undefined, token: string) {
   const link = `${baseUrl()}/mein-konto/verify?token=${token}${next ? `&next=${encodeURIComponent(next)}` : ''}`
   return tryDeliver(guestUser.email, guestVerificationMail({ name: guestUser.name, contextTitle, link }), 'Konto-Bestätigung')
 }
