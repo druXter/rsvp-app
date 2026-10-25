@@ -5,7 +5,7 @@ Hallo Ramón,
 du hast dir ein Konto für Feste der Fachschaft angelegt. Nach der Bestätigung kannst du dich anmelden und siehst alle Termine deiner Reihen, ohne dir Links merken oder Angaben erneut eintragen zu müssen.
 
 Konto bestätigen:
-https://rsvp.ramonroeser.de/mein-konto/verify?token=x
+https://rsvp.example.de/mein-konto/verify?token=x
 
 -- 
 Falls du kein Konto angelegt hast, kannst du diese Mail ignorieren.

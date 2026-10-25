@@ -1,13 +1,13 @@
 # Antwort „Vielleicht“ – Konzept
 
-Idee L26 der Suite (`suite-kit/docs/IDEEN.md`), Konzept vom 2026-10-25, noch nicht umgesetzt. Gäste können pro Termin
+Idee L26 der Suite (`suite-kit/docs/IDEEN.md`), Konzept und Umsetzung vom 2026-10-25. Gäste können pro Termin
 statt Zu- oder Absage „Vielleicht“ antworten, wenn die Verwaltung es erlaubt. Sie legen dabei fest, wann sie erinnert
 werden, und müssen sich bis zum Stichtag entscheiden, sonst gilt die Antwort als Absage.
 
 ## Grundsatz: „Vielleicht“ ist für alles außer der Gästeliste eine Absage
 
-* Gespeichert als Absage (`Rsvp.isAttending = false`) mit eigenem Merker und Erinnerungszeitpunkt (z. B.
-  `Rsvp.maybeAt`, `Rsvp.maybeRemindAt`, `Rsvp.maybeRemindedAt`). Kein Status mit drei Werten: `isAttending` hat über
+* Gespeichert als Absage (`Rsvp.isAttending = false`) mit eigenem Merker und Erinnerungszeitpunkt
+  (`Rsvp.isMaybe`, `Rsvp.maybeRemindAt`, `Rsvp.maybeRemindedAt`, im Einladungsmodus `RsvpPerson.isMaybe`). Kein Status mit drei Werten: `isAttending` hat über
   200 Fundstellen, eine übersehene könnte Zugang gewähren.
 * Damit gilt ohne Änderung an den Verträgen: kein Zugang zu Abstimmungstool, Sitzung, Seating, Zeitplan, Wichteln,
   Fotos, Feedback; kein Platz, keine Warteliste, keine Mitbringliste, kein Menü, kein Ticket, keine Erinnerung an
@@ -32,7 +32,9 @@ werden, und müssen sich bis zum Stichtag entscheiden, sonst gilt die Antwort al
   Antwortfrist also Beginn − 12 h.
 * Der Gast wählt einen **Erinnerungszeitpunkt** (volle Stunde, der Cron `/api/cron/reminders` läuft stündlich): in der
   Zukunft und spätestens 24 h vor dem Stichtag.
-* „Vielleicht“ wird nur angeboten, solange so ein Zeitpunkt noch möglich ist (jetzt + 1 h ≤ Stichtag − 24 h).
+* „Vielleicht“ wird nur angeboten, solange so ein Zeitpunkt noch möglich ist (die nächste volle Stunde liegt
+  spätestens 24 h vor dem Stichtag). Ein bestehendes „Vielleicht“ danach zeigt das Formular ohne Auswahl mit der Bitte,
+  zu- oder abzusagen.
 * **Erinnerung:** Mail (und Push, falls der Gast Push eingerichtet hat) mit der Bitte, zu- oder abzusagen. Der Link
   führt auf die persönliche Seite mit Knöpfen bzw. dem Formular, nie eine Zusage per Klick im Link (Link-Scanner).
   Hinweis, dass bei vollem Termin eine Zusage auf die Warteliste führt.
@@ -57,7 +59,7 @@ werden, und müssen sich bis zum Stichtag entscheiden, sonst gilt die Antwort al
 * **Schalter ausgeschaltet** bei vorhandenen „Vielleicht“: Warnung mit Anzahl, dann werden alle auf Absage gesetzt und
   per Mail informiert, dass sie selbst zusagen können (sofern die Antwortfrist das noch erlaubt).
 
-## Begleitungen und Einladungen (Vorschlag, noch zu bestätigen)
+## Begleitungen und Einladungen
 
 * **Offene Anmeldung mit Begleitungen:** „Vielleicht“ nur für die ganze Antwort. Begleitungen kommen dort heute nur
   zusammen mit der anmeldenden Person (`rsvp-submission.ts`), „Begleitung kommt ohne mich“ gibt es in diesem Modus
@@ -72,7 +74,24 @@ werden, und müssen sich bis zum Stichtag entscheiden, sonst gilt die Antwort al
 * Sagt eine Person mit „Vielleicht“ später zu, gilt die bestehende Platzregel: Ist kein Platz mehr frei, lehnt das
   Formular die zusätzliche Person mit Meldung ab.
 
+## Verwaltung
+
+* Gästeliste: Filter „Vielleicht“, Abzeichen und Stand der Erinnerung („Mail nicht bestätigt“, „Erinnerung …“,
+  „erinnert am …“), bei Haushalten die Personen. Kennzahlen zählen „vielleicht“ eigens, nicht als Absage. CSV mit
+  Spalte „Vielleicht“, APIs mit `maybe`.
+* „Antwort bearbeiten“: „Vielleicht“ lässt sich nur behalten oder durch Zu- bzw. Absage ersetzen, nie setzen.
+* Termin-Änderungen gehen an Zusagen und an „vielleicht“ mit bestätigter Adresse.
+
+## Technik
+
+* Regeln rein in `app/lib/maybe.ts` (Stichtag, Erinnerungszeitpunkt, Formular, Anzeige), Datenbank und Versand in
+  `app/lib/maybe-store.ts` (Cron, Abschalten, Vorverlegen). Die Antwort selbst nur in `performRsvpSubmission`.
+* Invariante: `Rsvp.maybeRemindAt` ist genau dann gesetzt, wenn etwas auf „vielleicht“ steht.
+* Tests: `tests/unit/maybe.test.ts`, `tests/e2e/maybe.spec.ts` (Formular, Seating bleibt zu, API mit Grenzfällen, Cron,
+  Einstellungen mit umgangenem Formular, Verwaltung, Einladungsmodus).
+
 ## Datenschutz
 
-`/datenschutz` ergänzen: Erinnerungszeitpunkt, Pflicht zur bestätigten Adresse bei „Vielleicht“, Erinnerungs- und
-Absage-Mail bzw. Push, Löschung mit der Antwort.
+`/datenschutz` Punkte 5, 6, 7 und 17: Erinnerungszeitpunkt, Pflicht zur bestätigten Adresse bei „Vielleicht“,
+Erinnerungs- und Absage-Mail bzw. Push, Anzeige in der öffentlichen Gästeliste, Löschung des Zeitpunkts mit der
+Entscheidung.

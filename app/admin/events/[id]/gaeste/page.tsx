@@ -13,12 +13,14 @@ import PaymentCell from '../../../payment-cell'
 import { Badge, EmptyState, buttonClass, inputClass } from '../../../../ui/kit'
 import { loadAdminEvent } from '../event-access'
 import AccountInvitesPanel from '../../../account-invites-panel'
+import { effectiveAllowMaybe, maybeStatusLabel } from '../../../../lib/maybe'
 
 const FILTERS = [
   { key: 'alle', label: 'Alle' },
   { key: 'zusagen', label: 'Zusagen' },
   { key: 'warteliste', label: 'Warteliste' },
   { key: 'absagen', label: 'Absagen' },
+  { key: 'vielleicht', label: 'Vielleicht' },
   { key: 'zahlung-offen', label: 'Zahlung offen' }
 ] as const
 
@@ -60,10 +62,14 @@ export default async function EventGuests({ params, searchParams }: { params: Pr
     alle: () => true,
     zusagen: r => r.isAttending && !r.isOnWaitlist,
     warteliste: r => r.isAttending && r.isOnWaitlist,
-    absagen: r => !r.isAttending,
+    absagen: r => !r.isAttending && !r.isMaybe,
+    // Ganz oder für einzelne Personen eines Haushalts noch offen (app/lib/maybe.ts)
+    vielleicht: r => r.maybeRemindAt !== null,
     'zahlung-offen': r => ['open', 'overdue'].includes(paymentState(r, now))
   }
-  const filter = FILTERS.find(f => f.key === rawFilter && (f.key !== 'zahlung-offen' || withTickets))?.key ?? 'alle'
+  const withMaybe = effectiveAllowMaybe(event) || rsvps.some(r => r.maybeRemindAt)
+  const shownFilter = (key: string) => (key !== 'zahlung-offen' || withTickets) && (key !== 'vielleicht' || withMaybe)
+  const filter = FILTERS.find(f => f.key === rawFilter && shownFilter(f.key))?.key ?? 'alle'
   const query = (rawQuery ?? '').trim().toLowerCase().slice(0, 100)
   const shown = rsvps.filter(matches[filter]).filter(r => !query || [r.participant.name, r.participant.email ?? '', ...r.persons.map(p => p.name ?? '')].some(v => v.toLowerCase().includes(query)))
   const href = (key: string) => `/admin/events/${event.id}/gaeste${key === 'alle' ? '' : `?filter=${key}`}`
@@ -72,7 +78,7 @@ export default async function EventGuests({ params, searchParams }: { params: Pr
     <div className="space-y-4">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <nav className="flex flex-wrap gap-1" aria-label="Filter">
-          {FILTERS.filter(f => f.key !== 'zahlung-offen' || withTickets).map(f => {
+          {FILTERS.filter(f => shownFilter(f.key)).map(f => {
             const count = rsvps.filter(matches[f.key]).length
             const active = f.key === filter
             return (
@@ -123,7 +129,7 @@ export default async function EventGuests({ params, searchParams }: { params: Pr
                       {others.length > 0 && (
                         <div className="mt-0.5 text-xs text-gray-600 dark:text-gray-400" data-testid="guest-persons">
                           {event.inviteOnly
-                            ? others.map(p => `${p.isAttending ? '✓' : '✗'} ${describePerson(p)}`).join('; ')
+                            ? others.map(p => `${p.isAttending ? '✓' : p.isMaybe ? '~' : '✗'} ${describePerson(p)}`).join('; ')
                             : `+ ${others.map(p => describePerson(p)).join('; ')}`}
                         </div>
                       )}
@@ -159,7 +165,12 @@ export default async function EventGuests({ params, searchParams }: { params: Pr
                     </td>
                     <td className="mt-2 block md:mt-0 md:table-cell md:px-4 md:py-3 align-top">
                       <div className="flex flex-wrap items-center gap-2">
-                        {!rsvp.isAttending ? <Badge tone="red">Abgesagt</Badge> : rsvp.isOnWaitlist ? <Badge tone="orange">Warteliste</Badge> : <Badge tone="green">Kommt</Badge>}
+                        {rsvp.isMaybe ? <Badge tone="blue">Vielleicht</Badge> : !rsvp.isAttending ? <Badge tone="red">Abgesagt</Badge> : rsvp.isOnWaitlist ? <Badge tone="orange">Warteliste</Badge> : <Badge tone="green">Kommt</Badge>}
+                        {rsvp.maybeRemindAt && (
+                          <span className="text-xs text-gray-600 dark:text-gray-400" data-testid="maybe-status">
+                            {rsvp.isMaybe ? '' : `${persons.filter(p => p.isMaybe).map(p => p.name).join(', ')} vielleicht · `}{maybeStatusLabel(rsvp, rsvp.participant)}
+                          </span>
+                        )}
                         {rsvp.isAttending && rsvp.isOnWaitlist && (
                           <form action={promoteFromWaitlist}>
                             <input type="hidden" name="rsvpId" value={rsvp.id} />

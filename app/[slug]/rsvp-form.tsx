@@ -20,6 +20,7 @@ import type { CompanionInput } from '../lib/persons'
 import type { MenuCourseForForm, MenuSelection } from '../lib/menu'
 import MenuSelects from '../ui/menu-selects'
 import HouseholdFields, { type HouseholdFormRow } from '../ui/household-fields'
+import { formatMaybeTime, type MaybeForForm } from '../lib/maybe'
 
 export default function RsvpForm({
   eventId,
@@ -44,7 +45,8 @@ export default function RsvpForm({
   ownMenu = {},
   household = null,
   deadline = null,
-  wichteln = false
+  wichteln = false,
+  maybe = null
 }: {
   eventId: string;
   formConfig: string | null;
@@ -87,9 +89,17 @@ export default function RsvpForm({
   deadline?: { label: string; passed: boolean } | null;
   // Termin mit verknüpftem Wichteln (app/lib/wichteln.ts): Häkchen „Beim Wichteln mitmachen“, Standard an.
   wichteln?: boolean;
+  // „Vielleicht“ (app/lib/maybe.ts): null = gerade nicht wählbar (aus, oder zu kurz vor dem Stichtag)
+  maybe?: MaybeForForm | null;
 }) {
-  const [isAttending, setIsAttending] = useState<boolean | null>(rsvp ? rsvp.isAttending : null)
+  // Ein bestehendes „Vielleicht“, das nicht mehr wählbar ist, startet ohne Auswahl: Zu- oder Absage ist jetzt fällig
+  const [isAttending, setIsAttending] = useState<boolean | null>(rsvp ? (rsvp.isMaybe && !maybe ? null : rsvp.isAttending) : null)
+  const [isMaybe, setIsMaybe] = useState<boolean>(!!rsvp?.isMaybe && !!maybe)
+  // Einladungsmodus: steht mindestens eine Person auf „vielleicht“?
+  const [householdMaybe, setHouseholdMaybe] = useState<boolean>(!!maybe && !!household?.rows.some(r => r.answered && r.isMaybe))
+  const [maybeResult, setMaybeResult] = useState<{ remindAt: string | null; verify: boolean }>({ remindAt: null, verify: false })
   const isHousehold = !!household
+  const maybeShown = isHousehold ? householdMaybe : isMaybe
   const [submittedToken, setSubmittedToken] = useState<string | null>(null)
 
   const [showVerifyScreen, setShowVerifyScreen] = useState<boolean>(false)
@@ -139,10 +149,29 @@ export default function RsvpForm({
     setTimelineAfterSubmit(result.canOpenTimeline)
     setPaymentAfterSubmit(result.payment)
     setSeatAfterPaymentSubmit(result.seatAfterPayment)
+    setMaybeResult({ remindAt: result.maybeRemindAt, verify: result.needsVerification })
   }
 
   if (submittedToken) {
     const personalLink = typeof window !== 'undefined' ? `${window.location.origin}${window.location.pathname}?token=${submittedToken}` : ''
+
+    // „Vielleicht“: Erinnerung, ggf. erst nach Bestätigung der Adresse (auch ein Haushalt, aus dem niemand fest kommt)
+    if (isMaybe || (householdMaybe && isAttending !== true)) {
+      return (
+        <div className={`flex flex-col items-center ${isEmbed ? 'py-6 text-blue-900 dark:text-blue-200' : 'p-6 bg-blue-50 text-blue-900 rounded-lg shadow dark:bg-blue-950 dark:text-blue-200'}`} data-testid="maybe-success">
+          <h3 className="text-xl font-bold mb-2 text-center">Notiert: vielleicht 🤔</h3>
+          <MaybeNote remindAt={maybeResult.remindAt} verify={maybeResult.verify} cutoff={maybe?.cutoff ?? null} />
+          <div className="w-full text-left mt-4">
+            <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Dein persönlicher Link (zum Zu- oder Absagen):</p>
+            <input type="text" readOnly value={personalLink} className="w-full bg-white border border-blue-200 rounded p-2 text-sm text-gray-700 outline-none cursor-pointer dark:bg-gray-800 dark:border-blue-800 dark:text-gray-300" onClick={(e) => e.currentTarget.select()} />
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2 justify-center">
+            <PushSubscribeToggle editToken={submittedToken} vapidPublicKey={vapidPublicKey} />
+            <DeleteMyDataButton editToken={submittedToken} eventId={eventId} isSeriesShared={isSeriesShared} />
+          </div>
+        </div>
+      )
+    }
 
     // Spezieller Screen für Absagen
     if (isAttending === false) {
@@ -167,7 +196,9 @@ export default function RsvpForm({
       )
     }
 
-    if (showVerifyScreen) {
+    // Im Einladungsmodus gibt es keine Verifizierungs-Pflicht - eine Bestätigung dort gilt nur dem „Vielleicht“ einzelner
+    // Personen (Hinweis auf dem normalen Screen)
+    if (showVerifyScreen && !isHousehold) {
       return (
         <div className={`flex flex-col items-center ${isEmbed ? 'py-6 text-yellow-800 dark:text-yellow-300' : 'p-6 bg-yellow-50 text-yellow-800 rounded-lg shadow dark:bg-yellow-950 dark:text-yellow-300'}`}>
           <h3 className="text-xl font-bold mb-2 text-center">Fast geschafft! ✉️</h3>
@@ -188,6 +219,7 @@ export default function RsvpForm({
         <div className={`flex flex-col items-center ${isEmbed ? 'py-6 text-orange-800 dark:text-orange-300' : 'p-6 bg-orange-50 text-orange-800 rounded-lg shadow dark:bg-orange-950 dark:text-orange-300'}`}>
           <h3 className="text-xl font-bold mb-2 text-center">Du stehst auf der Warteliste! ⏳</h3>
           <p className="mb-6 text-center">Das Event ist leider aktuell ausgebucht. Wir haben deine Anmeldung aber notiert.</p>
+          {maybeResult.remindAt && <MaybeNote remindAt={maybeResult.remindAt} verify={maybeResult.verify} cutoff={maybe?.cutoff ?? null} household />}
           <p className="text-sm bg-orange-100 p-4 rounded w-full mb-6 dark:bg-orange-900">
             Sobald jemand abspringt und ein Platz für dich frei wird, rückt dein Platz automatisch nach und wir benachrichtigen dich sofort per E-Mail!
           </p>
@@ -208,6 +240,7 @@ export default function RsvpForm({
       <div className={`flex flex-col items-center ${isEmbed ? 'py-6 text-green-800 dark:text-green-300' : 'p-6 bg-green-50 text-green-800 rounded-lg shadow dark:bg-green-950 dark:text-green-300'}`}>
         <h3 className="text-xl font-bold mb-2 text-center">Danke für deine Anmeldung! 🎉</h3>
         <p className="mb-6 text-center">Deine Rückmeldung wurde erfolgreich gespeichert.</p>
+        {maybeResult.remindAt && <MaybeNote remindAt={maybeResult.remindAt} verify={maybeResult.verify} cutoff={maybe?.cutoff ?? null} household />}
 
         <div className={`w-full mb-6 ${isEmbed ? 'p-4 border border-green-200 rounded dark:border-green-800' : 'bg-white p-4 rounded border border-green-200 dark:bg-gray-800 dark:border-green-800'}`}>
           <p className="text-sm font-bold mb-2 text-green-900 dark:text-green-300">🔗 Dein persönlicher Bearbeitungs-Link:</p>
@@ -288,7 +321,7 @@ export default function RsvpForm({
 
       {isGuestListVisible && (
         <p className="text-xs bg-blue-50 text-blue-800 p-3 rounded border border-blue-100 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
-          ℹ️ Für dieses Event ist eine öffentliche Gästeliste aktiv: Dein Name{maxCompanions > 0 ? ' und die Namen deiner Begleitungen' : ''} (nicht deine E-Mail, Telefonnummer oder Allergien) {maxCompanions > 0 ? 'sind' : 'ist'} für andere Gäste sichtbar, sobald du zusagst.
+          ℹ️ Für dieses Event ist eine öffentliche Gästeliste aktiv: Dein Name{maxCompanions > 0 ? ' und die Namen deiner Begleitungen' : ''} (nicht deine E-Mail, Telefonnummer oder Allergien) {maxCompanions > 0 ? 'sind' : 'ist'} für andere Gäste sichtbar, sobald du zusagst{maybe ? ' oder „vielleicht“ angibst' : ''}.
         </p>
       )}
 
@@ -299,7 +332,7 @@ export default function RsvpForm({
           <input type="hidden" name="isAttending" value={isAttending ? 'true' : 'false'} />
           <HouseholdFields
             rows={household.rows} extraPersons={household.extraPersons} askDiet={!!config.askDiet} askAllergies={!!config.askAllergies} askAlcohol={!!config.askAlcohol} menu={menu}
-            onAttendingChange={setIsAttending}
+            onAttendingChange={setIsAttending} allowMaybe={!!maybe} onMaybeChange={setHouseholdMaybe}
           />
         </>
       ) : (
@@ -320,16 +353,27 @@ export default function RsvpForm({
       ) : (
       <fieldset>
         <legend className="block text-sm font-medium mb-1">Bist du dabei?</legend>
-        <div className="flex gap-4">
+        <div className="flex flex-wrap gap-x-4 gap-y-2">
           <label className="flex items-center gap-2 cursor-pointer">
-            <input type="radio" name="isAttending" value="true" defaultChecked={rsvp?.isAttending === true} required onChange={() => setIsAttending(true)} />
+            <input type="radio" name="isAttending" value="true" defaultChecked={rsvp?.isAttending === true} required onChange={() => { setIsAttending(true); setIsMaybe(false) }} />
             Ja, ich komme
           </label>
           <label className="flex items-center gap-2 cursor-pointer">
-            <input type="radio" name="isAttending" value="false" defaultChecked={rsvp?.isAttending === false} required onChange={() => setIsAttending(false)} />
+            <input type="radio" name="isAttending" value="false" defaultChecked={rsvp?.isAttending === false && !rsvp.isMaybe} required onChange={() => { setIsAttending(false); setIsMaybe(false) }} />
             Nein, leider nicht
           </label>
+          {maybe && (
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="isAttending" value="maybe" defaultChecked={!!rsvp?.isMaybe} required onChange={() => { setIsAttending(false); setIsMaybe(true) }} />
+              Vielleicht
+            </label>
+          )}
         </div>
+        {rsvp?.isMaybe && !maybe && (
+          <p className="mt-2 text-sm bg-blue-50 text-blue-900 p-3 rounded border border-blue-200 dark:bg-blue-950 dark:text-blue-200 dark:border-blue-800" data-testid="maybe-closed">
+            Du hast mit „vielleicht“ geantwortet. Jetzt ist es Zeit, dich zu entscheiden: Bitte sag zu oder ab.
+          </p>
+        )}
       </fieldset>
       )}
       </>
@@ -494,7 +538,40 @@ export default function RsvpForm({
         </div>
       )}
 
-      {isAttending === false && (
+      {maybeShown && maybe && (
+        <div className="space-y-4 pt-4 border-t border-gray-200 dark:border-gray-700" data-testid="maybe-fields">
+          <p className="text-sm text-gray-700 dark:text-gray-300">
+            {isHousehold ? 'Wer „vielleicht“ angibt, kommt erst einmal nicht.' : '„Vielleicht“ zählt erst einmal als Absage.'} Wir erinnern dich zum gewählten Zeitpunkt per Mail
+            {vapidPublicKey ? ' (und Push, wenn du ihn einschaltest)' : ''}, dich zu entscheiden.
+            {maybe.cutoff ? <> Wer bis <strong>{maybe.cutoff}</strong> nicht zu- oder absagt, gilt als abgesagt.</> : ' Der Stichtag steht fest, sobald das Datum feststeht.'}
+          </p>
+          {!isHousehold && rsvp?.isAttending && (
+            <p className="text-sm bg-orange-50 text-orange-900 p-3 rounded border border-orange-200 dark:bg-orange-950 dark:text-orange-200 dark:border-orange-800">
+              Mit „vielleicht“ gibst du {rsvp.isOnWaitlist ? 'deinen Platz auf der Warteliste' : 'deinen Platz'} frei.
+            </p>
+          )}
+          {maybe.capacity && <p className="text-xs text-gray-500 dark:text-gray-400">Die Plätze sind begrenzt: Ist der Termin voll, wenn du zusagst, kommst du auf die Warteliste.</p>}
+          {config.askEmail && isAttending !== true && (
+            <div>
+              <label htmlFor="maybe-email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">E-Mail-Adresse (für die Erinnerung)</label>
+              <input
+                id="maybe-email" type="email" name="email" defaultValue={participant?.email || ''} required readOnly={!!participant?.isVerified}
+                className={participant?.isVerified ? `${inputClass} bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400` : inputClass} placeholder="max@beispiel.de"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                {participant?.isVerified ? '🔒 Bestätigt.' : 'Du bekommst einen Link, um sie zu bestätigen - ohne Bestätigung keine Erinnerung.'}
+              </p>
+            </div>
+          )}
+          <div>
+            <label htmlFor="maybeRemindAt" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Erinnere mich am</label>
+            <input id="maybeRemindAt" type="datetime-local" name="maybeRemindAt" step={3600} min={maybe.min} max={maybe.max ?? undefined} defaultValue={maybe.value} required className={`${inputClass} sm:w-64`} />
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Volle Stunde{maybe.max ? `, spätestens 24 Stunden vor dem Stichtag` : ''}.</p>
+          </div>
+        </div>
+      )}
+
+      {isAttending === false && !maybeShown && (
         <div className="space-y-4 pt-4 border-t dark:border-gray-700">
           {payment?.state === 'paid' && (
             <p className="text-sm bg-pink-50 text-pink-900 p-3 rounded border border-pink-200 dark:bg-pink-950 dark:text-pink-100 dark:border-pink-800">
@@ -523,6 +600,18 @@ export default function RsvpForm({
         <DeleteMyDataButton editToken={participant.editToken} eventId={eventId} isSeriesShared={isSeriesShared} />
       </div>
     )}
+    </div>
+  )
+}
+
+/** Erinnerung bei „Vielleicht“ auf der Erfolgsseite. `household`: nur einzelne Personen stehen auf vielleicht. */
+function MaybeNote({ remindAt, verify, cutoff, household = false }: { remindAt: string | null; verify: boolean; cutoff: string | null; household?: boolean }) {
+  const when = remindAt ? formatMaybeTime(new Date(remindAt)) : null
+  return (
+    <div className="w-full text-sm bg-white/70 dark:bg-gray-800/70 p-4 rounded border border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-200 space-y-1 mb-4" data-testid="maybe-note">
+      <p>{household ? 'Wer „vielleicht“ angegeben hat, ist notiert. ' : ''}Wir erinnern dich {when ? <>am <strong>{when}</strong></> : 'zum gewählten Zeitpunkt'}, dich zu entscheiden.</p>
+      {cutoff && <p>Wer bis {cutoff} nicht zu- oder absagt, gilt als abgesagt.</p>}
+      {verify && <p className="font-medium">✉️ Bitte bestätige vorher deine E-Mail-Adresse über den Link, den wir dir gerade geschickt haben - sonst können wir dich nicht erinnern.</p>}
     </div>
   )
 }

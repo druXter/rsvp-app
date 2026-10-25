@@ -27,7 +27,8 @@ export async function notifyAttendeesOfChange(
   const event = await prisma.event.findUnique({
     where: { id: eventId },
     include: {
-      rsvps: { where: { isAttending: true }, include: { participant: true } },
+      // Auch „Vielleicht“ (app/lib/maybe.ts): wer noch überlegt, soll von einer Änderung wissen
+      rsvps: { where: { OR: [{ isAttending: true }, { maybeRemindAt: { not: null } }] }, include: { participant: true } },
       series: true
     }
   })
@@ -35,7 +36,10 @@ export async function notifyAttendeesOfChange(
 
   const requireVerification = event.series ? event.series.requireVerification : event.requireVerification
   const skip = new Set(skipEmailHashes)
-  const rsvps = event.rsvps.filter(rsvp => !(rsvp.participant.email && skip.has(emailHash(rsvp.participant.email))))
+  const rsvps = event.rsvps
+    .filter(rsvp => !(rsvp.participant.email && skip.has(emailHash(rsvp.participant.email))))
+    // „Vielleicht“ ohne bestätigte Adresse bekommt nichts (wie die Erinnerung)
+    .filter(rsvp => rsvp.isAttending || rsvp.participant.isVerified)
 
   const validRsvps = rsvps.filter(rsvp =>
     rsvp.participant.email && rsvp.participant.email.trim() !== '' &&

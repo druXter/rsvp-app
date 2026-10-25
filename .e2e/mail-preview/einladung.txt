@@ -10,7 +10,7 @@ Eingeladen: Ramón, Alex, Mia
 Bitte gebt uns Bescheid, wer von euch kommt - über den Knopf sagt ihr für jede Person einzeln zu oder ab.
 
 Jetzt antworten:
-https://rsvp.ramonroeser.de/reihe/vorschau/herbstfest?token=nur-eine-vorschau
+https://rsvp.example.de/reihe/vorschau/herbstfest?token=nur-eine-vorschau
 
 Viele Grüße
 

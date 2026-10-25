@@ -4,6 +4,7 @@ import { prisma } from './prisma'
 import { baseUrl } from './base-url'
 import { extractPollId, type PollDateOwner } from './poll-verification'
 import { notifyAttendeesOfChange } from './event-change-notify'
+import { applyMaybeScheduleChange } from './maybe-store'
 import { formatEventDate } from './event-date'
 
 /**
@@ -106,6 +107,8 @@ export async function applyPollDate(
       [{ label: 'Datum', detail: `${formatEventDate({ date: message.startsAt })} (per Terminabstimmung festgelegt)` }],
       { skipEmailHashes: message.skipEmailHashes }
     )
+    // „Vielleicht“: Mit dem Datum steht der Stichtag fest, zu späte Erinnerungen rücken nach vorn
+    await applyMaybeScheduleChange(event.id)
   }
 
   let created: { id: string; title: string; url: string; adminUrl: string } | null = null

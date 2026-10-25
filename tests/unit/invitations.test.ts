@@ -33,7 +33,7 @@ describe('Einladungen (docs/KONZEPT-EINLADUNGEN.md)', () => {
 
   const invited = [{ id: 'p1', name: 'Anna', ageGroup: 'ADULT', position: 0 }, { id: 'p2', name: 'Clara', ageGroup: 'CHILD', position: 1 }]
   const answer = (id: string | null, name: string, isAttending: boolean, ageGroup: 'ADULT' | 'CHILD' | 'INFANT' = 'ADULT'): HouseholdPersonInput =>
-    ({ invitationPersonId: id, name, ageGroup, isAttending, dietaryOption: null, allergies: null, menu: {}, drinksAlcohol: null })
+    ({ invitationPersonId: id, name, ageGroup, isAttending, isMaybe: false, dietaryOption: null, allergies: null, menu: {}, drinksAlcohol: null })
 
   it('resolveHousehold: jede eingeladene Person genau einmal, Altersgruppe aus der Einladung, Name korrigierbar', () => {
     const result = resolveHousehold(invited, 1, [answer('p2', 'Klara', true, 'ADULT'), answer('p1', '', false), answer(null, 'Max', true)])
@@ -75,10 +75,30 @@ describe('Einladungen (docs/KONZEPT-EINLADUNGEN.md)', () => {
     form.set('person_2_attending', 'true')
     form.set('person_3_name', '')
     expect(readHousehold(form)).toEqual([
-      { invitationPersonId: 'p1', name: 'Anna', ageGroup: 'ADULT', isAttending: true, dietaryOption: 'Vegan', allergies: null, menu: {}, drinksAlcohol: false },
-      { invitationPersonId: 'p2', name: '', ageGroup: 'ADULT', isAttending: false, dietaryOption: null, allergies: null, menu: {}, drinksAlcohol: null },
-      { invitationPersonId: null, name: 'Max', ageGroup: 'CHILD', isAttending: true, dietaryOption: null, allergies: null, menu: {}, drinksAlcohol: null }
+      { invitationPersonId: 'p1', name: 'Anna', ageGroup: 'ADULT', isAttending: true, isMaybe: false, dietaryOption: 'Vegan', allergies: null, menu: {}, drinksAlcohol: false },
+      { invitationPersonId: 'p2', name: '', ageGroup: 'ADULT', isAttending: false, isMaybe: false, dietaryOption: null, allergies: null, menu: {}, drinksAlcohol: null },
+      { invitationPersonId: null, name: 'Max', ageGroup: 'CHILD', isAttending: true, isMaybe: false, dietaryOption: null, allergies: null, menu: {}, drinksAlcohol: null }
     ])
+  })
+
+  it('„Vielleicht“ pro Person (docs/KONZEPT-VIELLEICHT.md): kommt nicht, nur für Eingeladene, im Stand eigens', () => {
+    const form = new FormData()
+    form.set('householdShown', '1')
+    form.set('person_0_id', 'p1')
+    form.set('person_0_name', 'Anna')
+    form.set('person_0_attending', 'maybe')
+    expect(readHousehold(form)).toMatchObject([{ invitationPersonId: 'p1', isAttending: false, isMaybe: true }])
+    // Zusage und vielleicht zugleich gibt es nicht; selbst eingetragene Zusatzpersonen sind nie „vielleicht“
+    const result = resolveHousehold(invited, 1, [{ ...answer('p1', 'Anna', false), isMaybe: true }, { ...answer('p2', 'Clara', true), isMaybe: true }, { ...answer(null, 'Max', true), isMaybe: true }])
+    expect('persons' in result && result.persons.map(p => [p.isAttending, p.isMaybe])).toEqual([[false, true], [true, false], [true, false]])
+    const rsvp = { isAttending: false, isOnWaitlist: false, isMaybe: true, persons: [
+      { invitationPersonId: 'p1', name: 'Anna', ageGroup: 'ADULT', isAttending: false, isMaybe: true, position: 0 },
+      { invitationPersonId: 'p2', name: 'Clara', ageGroup: 'CHILD', isAttending: false, isMaybe: false, position: 1 }
+    ] }
+    expect(invitationStatus(invited, rsvp)).toEqual({ state: 'maybe', persons: [
+      { name: 'Anna', ageGroup: 'ADULT', status: 'maybe', extra: false },
+      { name: 'Clara', ageGroup: 'CHILD', status: 'no', extra: false }
+    ] })
   })
 
   it('invitationStatus: pro Person kommt/kommt nicht/offen, Zusatzpersonen, Stand der Einladung', () => {

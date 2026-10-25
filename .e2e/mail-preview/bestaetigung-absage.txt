@@ -5,7 +5,7 @@ Hallo Ramón,
 vielen Dank für deine Rückmeldung zu Herbstfest 2026. Schade, dass du nicht dabei sein kannst - falls sich deine Pläne ändern, kannst du deine Antwort jederzeit anpassen.
 
 Antwort bearbeiten:
-https://rsvp.ramonroeser.de/reihe/vorschau/herbstfest?token=nur-eine-vorschau
+https://rsvp.example.de/reihe/vorschau/herbstfest?token=nur-eine-vorschau
 
 Viele Grüße
 Dein Event-Team

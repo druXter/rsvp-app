@@ -32,8 +32,10 @@ export default function VerifyForm({ token }: { token: string }) {
     return (
       <StatusCard title="Erfolgreich bestätigt! 🎉" tone="success">
         <p className="mb-6">
-          Deine E-Mail-Adresse wurde verifiziert{results.length === 1 && (
+          Deine E-Mail-Adresse wurde verifiziert{results.length === 1 && !results[0].maybe && (
             <> und deine Anmeldung für <strong>{results[0].title}</strong> ist nun gültig</>
+          )}{results.length === 1 && results[0].maybe && (
+            <>. Wir erinnern dich am {results[0].maybe} an <strong>{results[0].title}</strong>, damit du zu- oder absagst</>
           )}.
         </p>
 
@@ -41,7 +43,7 @@ export default function VerifyForm({ token }: { token: string }) {
           <div className="text-left mb-6 space-y-2">
             {results.map(r => (
               <div key={r.slug} className={`text-sm p-3 rounded ${r.isOnWaitlist ? 'bg-orange-50 text-orange-700 dark:bg-orange-950 dark:text-orange-300' : 'bg-gray-50 text-gray-700 dark:bg-gray-700 dark:text-gray-300'}`}>
-                <strong>{r.title}</strong>: {r.isOnWaitlist ? 'Warteliste' : 'Bestätigt'}
+                <strong>{r.title}</strong>: {r.maybe ? `Vielleicht - Erinnerung am ${r.maybe}` : r.isOnWaitlist ? 'Warteliste' : 'Bestätigt'}
               </div>
             ))}
           </div>
@@ -52,7 +54,7 @@ export default function VerifyForm({ token }: { token: string }) {
             Du stehst aktuell auf der Warteliste. Wir haben dir dazu eine E-Mail gesendet.
           </p>
         )}
-        {results.length === 1 && !results[0].isOnWaitlist && (
+        {results.length === 1 && !results[0].isOnWaitlist && !results[0].maybe && (
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
             Wir haben dir soeben die finale Bestätigung inkl. Kalendereintrag per E-Mail gesendet.
           </p>
@@ -60,7 +62,7 @@ export default function VerifyForm({ token }: { token: string }) {
 
         {link && (
           <Link href={link} className="inline-block bg-blue-600 text-white font-bold py-2 px-6 rounded hover:bg-blue-700 transition">
-            Zurück zu deiner Anmeldung
+            {first?.maybe ? 'Zurück zum Termin' : 'Zurück zu deiner Anmeldung'}
           </Link>
         )}
       </StatusCard>
@@ -69,7 +71,7 @@ export default function VerifyForm({ token }: { token: string }) {
 
   return (
     <StatusCard title="Anmeldung bestätigen" tone="neutral">
-      <p className="mb-6">Bitte bestätige mit einem Klick, dass dies deine E-Mail-Adresse ist - erst danach ist deine Anmeldung gültig.</p>
+      <p className="mb-6">Bitte bestätige mit einem Klick, dass dies deine E-Mail-Adresse ist - erst danach ist deine Anmeldung gültig bzw. bekommst du die Erinnerung zu deinem „Vielleicht“.</p>
       <form action={formAction}>
         <input type="hidden" name="token" value={token} />
         <SubmitButton disabled={pending}>{pending ? 'Wird bestätigt …' : 'Jetzt bestätigen'}</SubmitButton>

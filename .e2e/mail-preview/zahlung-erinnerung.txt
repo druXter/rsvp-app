@@ -19,7 +19,7 @@ Bitte gib den Verwendungszweck genau so an, damit wir deine Zahlung zuordnen kö
 GiroCode: in der Banking-App scannen
 
 Zur Anmeldung:
-https://rsvp.ramonroeser.de/reihe/vorschau/herbstfest?token=nur-eine-vorschau
+https://rsvp.example.de/reihe/vorschau/herbstfest?token=nur-eine-vorschau
 
 Viele Grüße
 Dein Event-Team

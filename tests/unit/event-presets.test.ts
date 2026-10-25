@@ -37,10 +37,15 @@ describe('Kennzahlen eines Events', () => {
       { ...base, isAttending: false }
     ], 8, now)
     expect(s).toEqual({
-      confirmed: 4, seats: 5, waitlist: 1, declined: 1, checkedIn: 3, attendees: 6,
+      confirmed: 4, seats: 5, waitlist: 1, declined: 1, maybe: 0, checkedIn: 3, attendees: 6,
       paymentsOpen: 1, paymentsOverdue: 1, openCents: 2500, paidCents: 3000, invitationsOpen: 2
     })
     expect(summarizeEvent([], null).invitationsOpen).toBeNull()
+  })
+
+  it('„Vielleicht“ zählt eigens, nicht als Absage (app/lib/maybe.ts)', () => {
+    const s = summarizeEvent([{ ...base, isAttending: false, isMaybe: true }, { ...base, isAttending: false }, { ...base, isAttending: false, isMaybe: true }], null, now)
+    expect([s.confirmed, s.declined, s.maybe]).toEqual([0, 1, 2])
   })
 
   it('vergangen erst nach dem Ende, offenes Datum nie', () => {

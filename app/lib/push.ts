@@ -160,3 +160,21 @@ export async function sendConfirmationPush(event: EventWithSeries, participant: 
     url: personalEventLink(event, participant)
   })
 }
+
+/** Erinnerung bei „Vielleicht“ (app/lib/maybe-store.ts) - neben der Mail. */
+export async function sendMaybeReminderPush(event: EventWithSeries, participant: Participant, cutoff: string | null) {
+  await sendPushToParticipant(participant.id, {
+    title: `🤔 Kommst du? ${event.title}`,
+    body: `Bitte sag zu oder ab${cutoff ? ` - bis ${cutoff}` : ''}.`,
+    url: personalEventLink(event, participant)
+  })
+}
+
+/** „Vielleicht“ wurde zur Absage (Stichtag oder abgeschaltet) - neben der Mail. */
+export async function sendMaybeDeclinedPush(event: EventWithSeries, participant: Participant) {
+  await sendPushToParticipant(participant.id, {
+    title: `Als abgesagt eingetragen: ${event.title}`,
+    body: '„Vielleicht“ gilt jetzt als Absage.',
+    url: personalEventLink(event, participant)
+  })
+}

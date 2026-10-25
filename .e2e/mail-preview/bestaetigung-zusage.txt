@@ -31,17 +31,17 @@ GiroCode: in der Banking-App scannen
 Dein persönlicher Einlass-QR-Code - bitte am Einlass bereithalten.
 
 Antwort bearbeiten:
-https://rsvp.ramonroeser.de/reihe/vorschau/herbstfest?token=nur-eine-vorschau
+https://rsvp.example.de/reihe/vorschau/herbstfest?token=nur-eine-vorschau
 
 Sitzplatz wählen:
-https://rsvp.ramonroeser.de/api/seating-link/vorschau?token=x
+https://rsvp.example.de/api/seating-link/vorschau?token=x
 
 Zeitplan ansehen:
-https://rsvp.ramonroeser.de/api/timeline-link/vorschau?token=x
+https://rsvp.example.de/api/timeline-link/vorschau?token=x
 
 Im Anhang findest du eine Kalenderdatei (.ics) und deinen Einlass-QR-Code.
 
-Dieser Termin gehört zur Reihe Feste der Fachschaft. Weitere Termine und deine bisherigen Antworten: Zur Reihe (https://rsvp.ramonroeser.de/reihe/vorschau?token=x)
+Dieser Termin gehört zur Reihe Feste der Fachschaft. Weitere Termine und deine bisherigen Antworten: Zur Reihe (https://rsvp.example.de/reihe/vorschau?token=x)
 
 Viele Grüße
 Dein Event-Team

@@ -15,9 +15,10 @@ export type HouseholdFormRow = HouseholdPersonInput & { answered: boolean }
  * Antwort eines eingeladenen Haushalts (docs/KONZEPT-EINLADUNGEN.md, Abschnitt 3): jede eingeladene Person mit
  * Zu-/Absage, korrigierbarem Namen und - wenn sie kommt - Essen, Allergien, Alkohol (Erwachsene) und Menü; dazu bis
  * zu `extraPersons` selbst eingetragene Personen. Felder person_<i>_id/_name/_age/_attending/_diet/_allergies/_alcohol/_menu_<Gang>, gelesen
- * von readHousehold. `onAttendingChange` meldet, ob jemand kommt (für die übrigen Felder des Formulars).
+ * von readHousehold. `onAttendingChange` meldet, ob jemand kommt (für die übrigen Felder des Formulars). Mit `allowMaybe`
+ * gibt es pro eingeladener Person auch „vielleicht“ (app/lib/maybe.ts, Wert `maybe`), gemeldet über `onMaybeChange`.
  */
-export default function HouseholdFields({ rows, extraPersons, askDiet, askAllergies, askAlcohol = false, menu, onAttendingChange }: {
+export default function HouseholdFields({ rows, extraPersons, askDiet, askAllergies, askAlcohol = false, menu, onAttendingChange, allowMaybe = false, onMaybeChange }: {
   rows: HouseholdFormRow[]
   extraPersons: number
   askDiet: boolean
@@ -25,16 +26,22 @@ export default function HouseholdFields({ rows, extraPersons, askDiet, askAllerg
   askAlcohol?: boolean
   menu: MenuCourseForForm[]
   onAttendingChange: (anyAttending: boolean | null) => void
+  allowMaybe?: boolean
+  onMaybeChange?: (anyMaybe: boolean) => void
 }) {
   const invited = rows.filter(r => r.invitationPersonId)
-  const [attending, setAttending] = useState<(boolean | null)[]>(() => invited.map(r => (r.answered ? r.isAttending : null)))
+  // Pro eingeladener Person: kommt (true), kommt nicht (false), vielleicht ('maybe') oder noch offen (null). Ein
+  // „vielleicht“, das nicht mehr wählbar ist, ist wieder offen.
+  const [attending, setAttending] = useState<(boolean | 'maybe' | null)[]>(() => invited.map(r => (!r.answered ? null : r.isMaybe ? (allowMaybe ? 'maybe' : null) : r.isAttending)))
   const [extras, setExtras] = useState(() => rows.filter(r => !r.invitationPersonId).map((r, i) => ({ key: i, row: r, age: r.ageGroup as string })))
   const [nextKey, setNextKey] = useState(extras.length)
 
-  const report = (nextAttending: (boolean | null)[], nextExtras: typeof extras) => {
+  const report = (nextAttending: (boolean | 'maybe' | null)[], nextExtras: typeof extras) => {
     const comes = nextAttending.some((a, i) => a === true && invited[i].ageGroup !== 'INFANT') || nextExtras.some(e => e.age !== 'INFANT')
     onAttendingChange(comes ? true : nextAttending.every(a => a !== null) ? false : null)
+    onMaybeChange?.(nextAttending.some(a => a === 'maybe'))
   }
+  const choices: [boolean | 'maybe', string][] = [[true, 'kommt'], [false, 'kommt nicht'], ...(allowMaybe ? [['maybe', 'vielleicht'] as [boolean | 'maybe', string]] : [])]
 
   const details = (i: number, row: HouseholdPersonInput, who: string, ageGroup: string) => (
     <div className="space-y-2">
@@ -71,19 +78,19 @@ export default function HouseholdFields({ rows, extraPersons, askDiet, askAllerg
               </label>
               <input id={`person_${i}_name`} name={`person_${i}_name`} defaultValue={row.name} required maxLength={100} className={inputClass} />
             </div>
-            <div className="flex gap-4 pb-2" role="radiogroup" aria-label={`Kommt ${row.name}?`}>
-              {[true, false].map(value => (
+            <div className="flex flex-wrap gap-x-4 gap-y-1 pb-2" role="radiogroup" aria-label={`Kommt ${row.name}?`}>
+              {choices.map(([value, label]) => (
                 <label key={String(value)} className="flex items-center gap-1 text-sm cursor-pointer">
                   <input
                     type="radio" name={`person_${i}_attending`} value={String(value)} required
-                    defaultChecked={row.answered && row.isAttending === value}
+                    defaultChecked={attending[i] === value}
                     onChange={() => {
                       const next = attending.map((a, j) => (j === i ? value : a))
                       setAttending(next)
                       report(next, extras)
                     }}
                   />
-                  {value ? 'kommt' : 'kommt nicht'}
+                  {label}
                 </label>
               ))}
             </div>
@@ -135,7 +142,7 @@ export default function HouseholdFields({ rows, extraPersons, askDiet, askAllerg
         <button
           type="button" className="text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400"
           onClick={() => {
-            const next = [...extras, { key: nextKey, row: { invitationPersonId: null, name: '', ageGroup: 'ADULT' as const, isAttending: true, dietaryOption: null, allergies: null, menu: {}, drinksAlcohol: null, answered: false }, age: 'ADULT' }]
+            const next = [...extras, { key: nextKey, row: { invitationPersonId: null, name: '', ageGroup: 'ADULT' as const, isAttending: true, isMaybe: false, dietaryOption: null, allergies: null, menu: {}, drinksAlcohol: null, answered: false }, age: 'ADULT' }]
             setExtras(next)
             setNextKey(nextKey + 1)
             report(attending, next)

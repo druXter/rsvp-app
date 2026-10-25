@@ -4,8 +4,10 @@ import { sendWaitlistEmail, sendConfirmationEmail } from './mail'
 import { notifyLinkedToolsOfRsvps } from './linked-tools-notify'
 import { hasRoom, loadCapacity } from './tickets'
 import { syncPaymentDue } from './payment'
+import { formatMaybeTime } from './maybe'
 
-export type VerifiedRsvp = { title: string; slug: string; seriesSlug: string | null; isOnWaitlist: boolean }
+/** `maybe`: Antwort „Vielleicht“ mit dem Zeitpunkt der Erinnerung (jetzt aktiv), sonst null. */
+export type VerifiedRsvp = { title: string; slug: string; seriesSlug: string | null; isOnWaitlist: boolean; maybe: string | null }
 
 /**
  * Double-Opt-In einer Zusage abschließen (Klick auf "Jetzt bestätigen" auf /verify, siehe
@@ -31,9 +33,16 @@ export async function verifyParticipantByToken(token: string): Promise<{ editTok
   if (claimed.count !== 1) return null
   const verifiedParticipant = await prisma.participant.findUniqueOrThrow({ where: { id: participant.id } })
 
-  // Alle Zusagen dieser Person, die auf die Verifizierung gewartet haben
-  const pendingRsvps = await prisma.rsvp.findMany({
+  // Alle Zusagen dieser Person, die auf die Verifizierung gewartet haben - nur bei Terminen mit Verifizierungs-Pflicht:
+  // Seit „Vielleicht“ (docs/KONZEPT-VIELLEICHT.md) bestätigen auch Gäste von Terminen ohne Pflicht ihre Adresse, ihre
+  // Zusagen dort haben die Bestätigung schon bekommen.
+  const pendingRsvps = (await prisma.rsvp.findMany({
     where: { participantId: participant.id, isAttending: true },
+    include: { event: { include: { series: true } } }
+  })).filter(r => (r.event.series ? r.event.series.requireVerification : r.event.requireVerification))
+  // „Vielleicht“-Antworten: ab jetzt läuft die Erinnerung (Cron), hier nur zur Anzeige
+  const maybeRsvps = await prisma.rsvp.findMany({
+    where: { participantId: participant.id, maybeRemindAt: { not: null } },
     include: { event: { include: { series: true } } }
   })
 
@@ -73,8 +82,12 @@ export async function verifyParticipantByToken(token: string): Promise<{ editTok
       title: rsvp.event.title,
       slug: rsvp.event.slug,
       seriesSlug: rsvp.event.series?.slug ?? null,
-      isOnWaitlist: updatedRsvp.isOnWaitlist
+      isOnWaitlist: updatedRsvp.isOnWaitlist,
+      maybe: null
     })
+  }
+  for (const rsvp of maybeRsvps.filter(r => !results.some(x => x.slug === r.event.slug))) {
+    results.push({ title: rsvp.event.title, slug: rsvp.event.slug, seriesSlug: rsvp.event.series?.slug ?? null, isOnWaitlist: false, maybe: formatMaybeTime(rsvp.maybeRemindAt!) })
   }
 
   return { editToken: verifiedParticipant.editToken, results }

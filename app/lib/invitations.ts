@@ -92,6 +92,8 @@ export type HouseholdPersonInput = {
   name: string
   ageGroup: AgeGroup
   isAttending: boolean
+  /** „Vielleicht“ (docs/KONZEPT-VIELLEICHT.md): kommt nicht (isAttending false), entscheidet sich noch */
+  isMaybe?: boolean
   dietaryOption: string | null
   allergies: string | null
   menu: MenuSelection
@@ -121,6 +123,7 @@ export function readHousehold(formData: FormData): HouseholdPersonInput[] | unde
       name,
       ageGroup: asAgeGroup(get('age')),
       isAttending: get('attending') === 'true',
+      isMaybe: get('attending') === 'maybe',
       dietaryOption: clean(get('diet') ?? '').slice(0, 100) || null,
       allergies: clean(get('allergies') ?? '').slice(0, 300) || null,
       menu: readMenuSelection(formData, `person_${i}_menu_`) ?? {},
@@ -137,6 +140,7 @@ export function cleanHouseholdPerson(raw: Record<string, unknown>): HouseholdPer
     name: clean(typeof raw.name === 'string' ? raw.name : '').slice(0, 100),
     ageGroup: asAgeGroup(raw.ageGroup),
     isAttending: raw.isAttending === true,
+    isMaybe: raw.isAttending !== true && raw.isMaybe === true,
     dietaryOption: typeof raw.dietaryOption === 'string' ? clean(raw.dietaryOption).slice(0, 100) || null : null,
     allergies: typeof raw.allergies === 'string' ? clean(raw.allergies).slice(0, 300) || null : null,
     menu: cleanSelection(raw.menu),
@@ -172,9 +176,10 @@ export function resolveHousehold(
       ...ordered.map(p => {
         const answer = byId.get(p.id)!
         const ageGroup = asAgeGroup(p.ageGroup)
-        return { ...answer, invitationPersonId: p.id, name: answer.name || p.name, ageGroup, drinksAlcohol: alcoholFor(ageGroup, answer.drinksAlcohol) }
+        return { ...answer, isMaybe: !answer.isAttending && !!answer.isMaybe, invitationPersonId: p.id, name: answer.name || p.name, ageGroup, drinksAlcohol: alcoholFor(ageGroup, answer.drinksAlcohol) }
       }),
-      ...extras.map(p => ({ ...p, drinksAlcohol: alcoholFor(p.ageGroup, p.drinksAlcohol) }))
+      // Selbst eingetragene Zusatzpersonen kommen oder werden entfernt - „vielleicht“ gibt es nur für Eingeladene
+      ...extras.map(p => ({ ...p, isMaybe: false, drinksAlcohol: alcoholFor(p.ageGroup, p.drinksAlcohol) }))
     ]
   }
 }
@@ -184,9 +189,9 @@ export function householdAttends(persons: readonly { isAttending: boolean; ageGr
   return persons.some(p => p.isAttending && p.ageGroup !== 'INFANT')
 }
 
-export type InvitationPersonStatus = { name: string; ageGroup: AgeGroup; status: 'yes' | 'no' | 'open'; extra: boolean }
+export type InvitationPersonStatus = { name: string; ageGroup: AgeGroup; status: 'yes' | 'no' | 'maybe' | 'open'; extra: boolean }
 export type InvitationStatus = {
-  state: 'open' | 'attending' | 'waitlist' | 'declined'
+  state: 'open' | 'attending' | 'waitlist' | 'declined' | 'maybe'
   persons: InvitationPersonStatus[]
 }
 
@@ -196,18 +201,18 @@ export type InvitationStatus = {
  */
 export function invitationStatus(
   invited: readonly { id: string; name: string; ageGroup: string; position: number }[],
-  rsvp: { isAttending: boolean; isOnWaitlist: boolean; persons: readonly { invitationPersonId: string | null; name: string | null; ageGroup: string; isAttending: boolean; position: number }[] } | null
+  rsvp: { isAttending: boolean; isOnWaitlist: boolean; isMaybe?: boolean; persons: readonly { invitationPersonId: string | null; name: string | null; ageGroup: string; isAttending: boolean; isMaybe?: boolean; position: number }[] } | null
 ): InvitationStatus {
   const answers = rsvp?.persons ?? []
   const persons: InvitationPersonStatus[] = [
     ...[...invited].sort((a, b) => a.position - b.position).map(p => {
       const answer = answers.find(a => a.invitationPersonId === p.id)
-      return { name: answer?.name || p.name, ageGroup: asAgeGroup(p.ageGroup), status: answer ? (answer.isAttending ? 'yes' as const : 'no' as const) : 'open' as const, extra: false }
+      return { name: answer?.name || p.name, ageGroup: asAgeGroup(p.ageGroup), status: answer ? (answer.isAttending ? 'yes' as const : answer.isMaybe ? 'maybe' as const : 'no' as const) : 'open' as const, extra: false }
     }),
     ...[...answers].filter(a => !a.invitationPersonId).sort((a, b) => a.position - b.position)
       .map(a => ({ name: a.name ?? 'Weitere Person', ageGroup: asAgeGroup(a.ageGroup), status: a.isAttending ? 'yes' as const : 'no' as const, extra: true }))
   ]
-  const state = !rsvp ? 'open' : !rsvp.isAttending ? 'declined' : rsvp.isOnWaitlist ? 'waitlist' : 'attending'
+  const state = !rsvp ? 'open' : rsvp.isMaybe ? 'maybe' : !rsvp.isAttending ? 'declined' : rsvp.isOnWaitlist ? 'waitlist' : 'attending'
   return { state, persons }
 }
 

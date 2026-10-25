@@ -14,7 +14,7 @@ Bitte bringt warme Kleidung mit - wir sind ab 21 Uhr draußen am Feuer.
 Falls sich an deiner Zusage etwas ändert, kannst du sie jederzeit anpassen.
 
 Antwort bearbeiten:
-https://rsvp.ramonroeser.de/reihe/vorschau/herbstfest?token=nur-eine-vorschau
+https://rsvp.example.de/reihe/vorschau/herbstfest?token=nur-eine-vorschau
 
 Bis bald!
 

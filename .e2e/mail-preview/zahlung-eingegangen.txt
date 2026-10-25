@@ -10,10 +10,10 @@ Verwendungszweck: HERBST-7Q4K
 Jetzt kannst du deinen Sitzplatz wählen.
 
 Sitzplatz wählen:
-https://rsvp.ramonroeser.de/api/seating-link/vorschau?token=x
+https://rsvp.example.de/api/seating-link/vorschau?token=x
 
 Zur Anmeldung:
-https://rsvp.ramonroeser.de/reihe/vorschau/herbstfest?token=nur-eine-vorschau
+https://rsvp.example.de/reihe/vorschau/herbstfest?token=nur-eine-vorschau
 
 Viele Grüße
 Dein Event-Team

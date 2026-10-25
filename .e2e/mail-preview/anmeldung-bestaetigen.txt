@@ -5,7 +5,7 @@ Hallo Ramón,
 du hast dich für Herbstfest 2026 angemeldet. Bitte bestätige deine E-Mail-Adresse - erst danach ist deine Anmeldung verbindlich und du bekommst alle weiteren Informationen samt Kalendereintrag.
 
 E-Mail-Adresse bestätigen:
-https://rsvp.ramonroeser.de/verify?token=x
+https://rsvp.example.de/verify?token=x
 
 -- 
 Falls du dich nicht angemeldet hast, kannst du diese Mail ignorieren - ohne Bestätigung wird die Anmeldung nicht gültig.

@@ -24,6 +24,8 @@ import { householdAttends, resolveHousehold, type HouseholdPersonInput } from '.
 import { invitationOf } from './invitation-store'
 import { deadlinePassed, formatDeadline } from './rsvp-deadline'
 import { syncRsvpCheckin } from './checkin'
+import { checkMaybeReminder, maybeAvailable } from './maybe'
+import { sendMaybeVerificationEmail } from './mail'
 
 
 /**
@@ -36,6 +38,13 @@ export type RsvpSubmissionInput = {
   editToken: string | null
   name: string
   isAttending: boolean
+  /**
+   * Antwort „Vielleicht“ (docs/KONZEPT-VIELLEICHT.md, app/lib/maybe.ts) - nur zusammen mit isAttending false. Im
+   * Einladungsmodus steht „vielleicht“ stattdessen pro Person in `household`.
+   */
+  isMaybe?: boolean
+  /** Erinnerungszeitpunkt bei „Vielleicht“ (wird auf die volle Stunde abgerundet und gegen den Stichtag geprüft). */
+  maybeRemindAt?: Date | null
   phone?: string | null
   dietaryOption?: string | null
   allergies?: string | null
@@ -203,10 +212,24 @@ export async function performRsvpSubmission(
   }
   const isAttending = invitation ? householdAttends(householdRows) : input.isAttending
   const name = invitation ? invitation.label : input.name
+
+  // „Vielleicht“ (docs/KONZEPT-VIELLEICHT.md): gespeichert als Absage, damit verknüpfte Tools es nie als Zusage sehen.
+  // Ganze Antwort (offene Anmeldung) oder einzelne Personen eines Haushalts; braucht eine bestätigte Adresse und einen
+  // Erinnerungszeitpunkt spätestens 24 h vor dem Stichtag.
+  const maybePersons = invitation ? householdRows.some(p => p.isMaybe) : false
+  const answerMaybe = invitation ? !isAttending && maybePersons : !input.isAttending && !!input.isMaybe
+  const anyMaybe = answerMaybe || maybePersons
+  let maybeRemindAt: Date | null = null
+  if (anyMaybe) {
+    if (!maybeAvailable(event)) throw new RsvpInputError('„Vielleicht“ ist für diesen Termin nicht (mehr) möglich. Bitte sag zu oder ab.')
+    const checked = checkMaybeReminder(event, input.maybeRemindAt ?? null)
+    if ('error' in checked) throw new RsvpInputError(checked.error)
+    maybeRemindAt = checked.remindAt
+  }
   // Helfer-Zusage aus Schichten (app/lib/shift-helpers-store.ts): Zusage und Kategorie folgen den Schichten, die
   // übrigen Angaben (Menü, Allergien …) pflegt der Gast selbst. Kapazität gilt für sie nicht.
   const shiftManaged = !!existingRsvp?.shiftHelperId && existingRsvp.isAttending
-  if (shiftManaged && !isAttending) {
+  if (shiftManaged && (!isAttending || anyMaybe)) {
     throw new RsvpInputError('Deine Zusage kommt von deinen Schichten. Absagen geht über Schichten: Trag dich dort aus oder biete deine Schichten in der Tauschbörse an.')
   }
 
@@ -240,15 +263,17 @@ export async function performRsvpSubmission(
   // zentralen Konto (guestUser.email) trotzdem die richtige Angabe, nicht "keine E-Mail".
   const finalEmail = (existingParticipant && existingParticipant.isVerified && existingParticipant.email)
     ? existingParticipant.email
-    : (isAttending ? (emailInput || guestUser?.email || existingParticipant?.email || null) : (existingParticipant?.email ?? guestUser?.email ?? null))
+    : (isAttending || anyMaybe ? (emailInput || guestUser?.email || existingParticipant?.email || null) : (existingParticipant?.email ?? guestUser?.email ?? null))
+  if (anyMaybe && !finalEmail) throw new RsvpInputError('Für „Vielleicht“ brauchen wir deine E-Mail-Adresse, damit wir dich erinnern können.')
 
   // Ein eingeloggter Nutzer (GuestUser), dessen Konto bereits verifiziert ist, hat seine
   // E-Mail-Adresse schon bei der Kontoregistrierung bestätigt - für ihn braucht es beim
   // ersten Termin einer NEUEN Reihe keine zusätzliche, redundante Double-Opt-In-Mail mehr.
   const guestAlreadyVerified = !!(guestUser && guestUser.isVerified)
 
+  // „Vielleicht“ braucht immer eine bestätigte Adresse (sonst keine Erinnerung), auch ohne Verifizierungs-Pflicht
   let needsVerification = false
-  if (requireVerification && isAttending && finalEmail !== null && !guestAlreadyVerified) {
+  if (((requireVerification && isAttending) || anyMaybe) && finalEmail !== null && !guestAlreadyVerified) {
     if (!existingParticipant) {
       needsVerification = true
     } else if (existingParticipant.email !== finalEmail || !existingParticipant.isVerified) {
@@ -392,9 +417,13 @@ export async function performRsvpSubmission(
     drinksAlcohol: isAttending && !invitation ? drinksAlcohol : null,
     additionalInfo: isAttending ? additionalInfo : null,
     bringingItem: isAttending ? bringingItem : null,
-    declineReason: isAttending ? null : declineReason,
+    declineReason: isAttending || answerMaybe ? null : declineReason,
     customAnswers,
     isOnWaitlist,
+    isMaybe: answerMaybe,
+    maybeRemindAt,
+    // Gleicher Zeitpunkt wie bisher: eine schon verschickte Erinnerung bleibt verschickt
+    maybeRemindedAt: maybeRemindAt && existingRsvp?.maybeRemindAt?.getTime() === maybeRemindAt.getTime() ? existingRsvp.maybeRemindedAt : null,
     ...(input.wichtelnOptOut !== undefined ? { wichtelnOptOut: input.wichtelnOptOut } : {})
   }
 
@@ -416,7 +445,7 @@ export async function performRsvpSubmission(
     // Event-Owner per Push benachrichtigen (nur bei brandneuen Antworten, nicht bei Änderungen)
     try {
       await sendPushToUser(event.ownerId, {
-        title: isAttending ? 'Neue Zusage 🎉' : 'Neue Absage',
+        title: isAttending ? 'Neue Zusage 🎉' : answerMaybe ? 'Neues Vielleicht 🤔' : 'Neue Absage',
         body: `${name}${companions.length > 0 ? ` (+${companions.length})` : ''} - ${event.title}`,
         url: '/admin'
       })
@@ -464,9 +493,18 @@ export async function performRsvpSubmission(
   notifyLinkedToolsOfRsvps([savedRsvp.id])
 
   // E-Mail Logik für den GAST
+  // Bestätigung der Adresse nur wegen „Vielleicht“ (ohne Pflicht für Zusagen): eigene Mail, die Zusage-Mails unten
+  // laufen davon unabhängig wie bisher
+  if (participant.email && needsVerification && !(requireVerification && savedRsvp.isAttending)) {
+    try {
+      await sendMaybeVerificationEmail(participant, event, maybeRemindAt!)
+    } catch (error) {
+      console.error("Fehler beim E-Mail-Versand:", error)
+    }
+  }
   if (participant.email && savedRsvp.isAttending) {
     try {
-      if (needsVerification) {
+      if (needsVerification && requireVerification) {
         // Schickt die Verifizierungsmail auch bei einer neuen E-Mail-Adresse im Update-Fall
         await sendVerificationEmail(participant, event)
       } else if (participant.isVerified || !requireVerification) {
@@ -520,6 +558,8 @@ export async function performRsvpSubmission(
     payment,
     needsVerification,
     isOnWaitlist: savedRsvp.isOnWaitlist,
+    isMaybe: answerMaybe,
+    maybeRemindAt: maybeRemindAt?.toISOString() ?? null,
     qrCode,
     canChooseSeat,
     seatAfterPayment,
@@ -532,7 +572,7 @@ export async function performRsvpSubmission(
  */
 export async function savePersons(
   rsvpId: string,
-  persons: readonly { name: string | null; ageGroup: string; isAttending: boolean; dietaryOption: string | null; allergies: string | null; menu?: MenuSelection; drinksAlcohol?: boolean | null; invitationPersonId?: string | null }[]
+  persons: readonly { name: string | null; ageGroup: string; isAttending: boolean; isMaybe?: boolean; dietaryOption: string | null; allergies: string | null; menu?: MenuSelection; drinksAlcohol?: boolean | null; invitationPersonId?: string | null }[]
 ) {
   // Einlass bleibt bei einer Änderung erhalten (app/lib/checkin.ts): eingeladene Personen über ihre Einladung,
   // sonst über die Position - solange die Person weiter zusagt. Hatte die Antwort noch keine Personen, gilt ihr

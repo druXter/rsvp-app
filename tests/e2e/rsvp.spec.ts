@@ -99,7 +99,7 @@ test.describe('Client-API (/api/v1)', () => {
     const body = JSON.parse(text)
     const find = (seriesId: string, eventId: string) =>
       body.series.find((s: { id: string }) => s.id === seriesId).events.find((e: { id: string }) => e.id === eventId)
-    expect(find(visible.id, termin.id).responses).toEqual({ yes: 2, no: 1, waitlist: 1, persons: 3 })
+    expect(find(visible.id, termin.id).responses).toEqual({ yes: 2, no: 1, maybe: 0, waitlist: 1, persons: 3 })
     expect(find(hidden.id, other.id).responses).toBeNull()
   })
 

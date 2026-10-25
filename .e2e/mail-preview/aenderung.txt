@@ -10,7 +10,7 @@ Ort: Aula statt Gemeindesaal
 Bitte beachte das bei deiner Planung.
 
 Antwort bearbeiten:
-https://rsvp.ramonroeser.de/reihe/vorschau/herbstfest?token=nur-eine-vorschau
+https://rsvp.example.de/reihe/vorschau/herbstfest?token=nur-eine-vorschau
 
 Im Anhang findest du die aktualisierte Kalenderdatei (.ics) - beim Öffnen wird dein bestehender Kalendereintrag aktualisiert statt doppelt angelegt.
 

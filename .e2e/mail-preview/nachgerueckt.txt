@@ -5,7 +5,7 @@ Hallo Ramón,
 es ist ein Platz frei geworden: Du bist von der Warteliste für Herbstfest 2026 nachgerückt. Deine Teilnahme ist damit fest gebucht.
 
 Zur Event-Seite:
-https://rsvp.ramonroeser.de/reihe/vorschau/herbstfest?token=nur-eine-vorschau
+https://rsvp.example.de/reihe/vorschau/herbstfest?token=nur-eine-vorschau
 
 Viele Grüße
 Dein Event-Team

@@ -1,7 +1,8 @@
 // app/lib/mail.ts
 import { renderMail } from 'suite-kit/web'
 import {
-  accountInviteMail, confirmationMail, emailChangeMail, eventUpdatedMail, feedbackMail, guestVerificationMail, invitationMail, passwordResetMail,
+  accountInviteMail, confirmationMail, emailChangeMail, eventUpdatedMail, feedbackMail, guestVerificationMail, invitationMail, maybeDeclinedMail,
+  maybeReminderMail, maybeVerificationMail, passwordResetMail,
   paymentCancelledMail, paymentReceivedMail, paymentReminderMail, reminderMail, verificationMail, waitlistMail, waitlistPromotedMail,
   type MailContent, type SeriesHint
 } from './mail-templates'
@@ -16,6 +17,7 @@ import { formatEuro } from './payment-state'
 import { prisma } from './prisma'
 import { describePerson, personsOf } from './persons'
 import { describeSelection } from './menu'
+import { formatMaybeTime } from './maybe'
 
 // Den Mail-Transporter mit den Daten aus der .env initialisieren
 const transporter = nodemailer.createTransport({
@@ -190,6 +192,32 @@ export async function sendVerificationEmail(participant: Participant, event: Eve
   }), 'Verifizierungs-Mail')
 }
 
+/** „Vielleicht“ (app/lib/maybe.ts): Adresse bestätigen, sonst keine Erinnerung. Gleicher Link wie die Verifizierung. */
+export async function sendMaybeVerificationEmail(participant: Participant, event: EventWithSeries, remindAt: Date) {
+  return tryDeliver(participant.email!, maybeVerificationMail({
+    name: participant.name, eventTitle: event.title, remindAt: `am ${formatMaybeTime(remindAt)}`, link: `${baseUrl()}/verify?token=${participant.verifyToken}`
+  }), 'Verifizierungs-Mail (vielleicht)')
+}
+
+/** Erinnerung zum gewählten Zeitpunkt (sendDueMaybeReminders). `who`: Personen eines Haushalts, die noch offen sind. */
+export async function sendMaybeReminderEmail(participant: Participant, event: EventWithSeries, who: string | null, cutoff: Date | null) {
+  return tryDeliver(participant.email!, maybeReminderMail({
+    name: participant.name,
+    event: { title: event.title, when: formatEventDate(event), location: event.location },
+    who,
+    cutoff: cutoff ? formatMaybeTime(cutoff) : null,
+    capacity: event.maxCapacity !== null,
+    personalLink: personalEventLink(event, participant)
+  }), 'Vielleicht-Erinnerung')
+}
+
+/** „Vielleicht“ ist zur Absage geworden (Stichtag oder abgeschaltet, app/lib/maybe-store.ts). */
+export async function sendMaybeDeclinedEmail(participant: Participant, event: EventWithSeries, reason: 'expired' | 'disabled', who: string | null, canAnswer: boolean) {
+  return tryDeliver(participant.email!, maybeDeclinedMail({
+    name: participant.name, eventTitle: event.title, reason, who, canAnswer, personalLink: personalEventLink(event, participant)
+  }), 'Vielleicht-Absage')
+}
+
 /**
  * Bestätigung eines neu registrierten Teilnehmendenkontos (registerGuestUser in app/mein-konto/actions.ts) - nicht
  * die Verifizierung einer einzelnen Anmeldung. `contextTitle` ist der Titel der Reihe oder (Registrierung für ein
@@ -278,7 +306,9 @@ export async function sendEventUpdatedEmail(
     changes,
     ics: !!icsAttachment,
     personalLink: personalEventLink(event, participant),
-    series: seriesHint(event, participant)
+    series: seriesHint(event, participant),
+    // „Vielleicht“ (app/lib/maybe.ts) bekommt Änderungen auch
+    maybe: !rsvp.isAttending
   }), 'Änderungs-Mail', icsAttachment ? [icsAttachment] : [])
 }
 

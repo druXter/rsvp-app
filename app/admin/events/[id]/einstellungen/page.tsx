@@ -10,6 +10,7 @@ import { LinkedCreateForm } from '../../../linked-create'
 import { createLinkedToolEvent } from '../../../actions'
 import { isCreatableTool } from '../../../../lib/linked-create'
 import { toolDefinition } from '../../../../lib/linked-tools'
+import { countOpenMaybes } from '../../../../lib/maybe-store'
 
 const SECTIONS = ['grunddaten', 'formular', 'zugang', 'ablauf', 'menue', 'mitbringliste', 'tickets', 'verknuepfungen']
 
@@ -30,7 +31,7 @@ export default async function EventSettingsPage({ params, searchParams }: { para
       {gespeichert && <Notice tone="success" role="status">✅ Gespeichert.</Notice>}
       {neu && <Notice tone="success" role="status">🎉 Event angelegt. Hier stellt ihr alles Weitere ein - die Abschnitte lassen sich auf- und zuklappen.</Notice>}
       {isCreatableTool(tool) && <LinkedCreateNotice label={toolDefinition(tool).label} angelegt={angelegt} anlegen={anlegen} remoteId={event.toolLinks.find(l => l.type === tool)?.remoteEventId} url={event.toolLinks.find(l => l.type === tool)?.url} />}
-      <EventSettingsForm event={event} userId={loaded.user.id} open={SECTIONS.includes(abschnitt ?? '') ? abschnitt : 'grunddaten'} />
+      <EventSettingsForm event={event} userId={loaded.user.id} open={SECTIONS.includes(abschnitt ?? '') ? abschnitt : 'grunddaten'} openMaybes={await countOpenMaybes([event.id])} />
       <LinkedCreateForm eventId={event.id} action={createLinkedToolEvent} />
 
       {!event.seriesId && (

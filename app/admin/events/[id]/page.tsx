@@ -27,7 +27,7 @@ export default async function EventOverview({ params }: { params: Promise<{ id: 
     prisma.rsvp.findMany({
       where: { eventId: event.id },
       select: {
-        isAttending: true, isOnWaitlist: true, hasAttended: true, leftAt: true, amountCents: true, paidAt: true, refundedAt: true, paymentDueAt: true, ticketCategoryId: true,
+        isAttending: true, isMaybe: true, isOnWaitlist: true, hasAttended: true, leftAt: true, amountCents: true, paidAt: true, refundedAt: true, paymentDueAt: true, ticketCategoryId: true,
         persons: { select: { isAttending: true, ageGroup: true, checkedInAt: true, leftAt: true } }
       }
     }),
@@ -50,7 +50,7 @@ export default async function EventOverview({ params }: { params: Promise<{ id: 
           progress={event.maxCapacity !== null ? { value: s.seats, max: event.maxCapacity } : null}
         />
         <Stat label="Warteliste" value={s.waitlist} tone={s.waitlist > 0 ? 'orange' : undefined} testId="stat-waitlist" />
-        <Stat label="Absagen" value={s.declined} testId="stat-declined" />
+        <Stat label="Absagen" value={s.declined} hint={s.maybe > 0 ? `${s.maybe} vielleicht` : undefined} testId="stat-declined" />
         {s.invitationsOpen !== null
           ? <Stat label="Einladungen ohne Antwort" value={s.invitationsOpen} hint={`von ${invitationCount} Haushalten`} testId="stat-invitations" />
           : event.enableCheckin

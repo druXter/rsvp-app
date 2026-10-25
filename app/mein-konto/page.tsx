@@ -201,9 +201,10 @@ export default async function MeinKontoPage() {
 }
 
 /** Antwortstatus eines Termins (Reihen und weitere Termine gleich). */
-function AnswerBadge({ rsvp }: { rsvp?: { isAttending: boolean; isOnWaitlist: boolean } }) {
+function AnswerBadge({ rsvp }: { rsvp?: { isAttending: boolean; isOnWaitlist: boolean; isMaybe: boolean } }) {
   const style = 'text-xs px-2 py-1 rounded-full font-bold whitespace-nowrap'
   if (!rsvp) return <span className={`bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-200 ${style}`}>Jetzt antworten</span>
+  if (rsvp.isMaybe) return <span className={`bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-200 ${style}`}>Vielleicht</span>
   if (!rsvp.isAttending) return <span className={`bg-red-100 dark:bg-red-950 text-red-800 dark:text-red-200 ${style}`}>Abgesagt</span>
   return rsvp.isOnWaitlist
     ? <span className={`bg-orange-100 dark:bg-orange-950 text-orange-800 dark:text-orange-200 ${style}`}>Warteliste</span>

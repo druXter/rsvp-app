@@ -7,6 +7,7 @@ import { sendReminderPush } from '../../../lib/push'
 import { sendDuePaymentReminders } from '../../../lib/payment-reminder'
 import { sendDueInvitationReminders } from '../../../lib/invitation-reminder'
 import { sendDueFeedbackRequests } from '../../../lib/feedback'
+import { declineExpiredMaybes, sendDueMaybeReminders } from '../../../lib/maybe-store'
 
 
 /**
@@ -89,6 +90,9 @@ export async function GET(request: Request) {
   const invitationReminders = await sendDueInvitationReminders(now)
   // Feedback-Fragebogen nach dem Event (app/lib/feedback.ts) - je Zusage einmal
   const feedbackRequests = await sendDueFeedbackRequests(now)
+  // „Vielleicht“ (app/lib/maybe-store.ts): erst nach dem Stichtag zur Absage, dann die fälligen Erinnerungen
+  const maybeDeclined = await declineExpiredMaybes(now)
+  const maybeReminders = await sendDueMaybeReminders(now)
 
-  return NextResponse.json({ success: true, processedEvents: sentCount, paymentReminders, invitationReminders, feedbackRequests })
+  return NextResponse.json({ success: true, processedEvents: sentCount, paymentReminders, invitationReminders, feedbackRequests, maybeReminders, maybeDeclined })
 }

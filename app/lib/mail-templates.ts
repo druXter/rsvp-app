@@ -212,13 +212,13 @@ export function waitlistPromotedMail(input: { name: string; eventTitle: string; 
   )
 }
 
-export function eventUpdatedMail(input: { name: string; eventTitle: string; changes: { label: string; detail: string }[]; ics: boolean; personalLink: string; series: SeriesHint }): MailContent {
+export function eventUpdatedMail(input: { name: string; eventTitle: string; changes: { label: string; detail: string }[]; ics: boolean; personalLink: string; series: SeriesHint; maybe?: boolean }): MailContent {
   return mail(
     `Wichtige Änderung: ${input.eventTitle}`,
     `Änderung: ${input.eventTitle}`,
     [
       hello(input.name),
-      { kind: 'p', text: 'für den Termin, zu dem du zugesagt hast, hat sich etwas geändert:' },
+      { kind: 'p', text: input.maybe ? 'für den Termin, bei dem du „vielleicht“ angegeben hast, hat sich etwas geändert:' : 'für den Termin, zu dem du zugesagt hast, hat sich etwas geändert:' },
       { kind: 'box', tone: 'amber', blocks: [{ kind: 'rows', rows: input.changes.map(c => [c.label, c.detail] as [string, string]) }] },
       { kind: 'p', text: 'Bitte beachte das bei deiner Planung.' },
       { kind: 'button', label: 'Antwort bearbeiten', href: input.personalLink },
@@ -309,5 +309,66 @@ export function invitationMail(input: { label: string; title: string; dates: str
       { kind: 'p', text: 'Viele Grüße' }
     ],
     { footer: 'Der Link ist persönlich für euch - bitte nicht weitergeben.' }
+  )
+}
+
+/**
+ * „Vielleicht“ (docs/KONZEPT-VIELLEICHT.md): Bestätigung der Adresse, ohne die keine Erinnerung kommt. Eigene Mail,
+ * weil die Antwort keine Anmeldung ist - der Link führt auf dieselbe Seite /verify.
+ */
+export function maybeVerificationMail(input: { name: string; eventTitle: string; remindAt: string; link: string }): MailContent {
+  return mail(
+    `Bitte bestätige deine E-Mail-Adresse für ${input.eventTitle}`,
+    'Bitte bestätige deine E-Mail-Adresse',
+    [
+      hello(input.name),
+      { kind: 'p', text: ['du hast bei ', { strong: input.eventTitle }, ' mit „vielleicht“ geantwortet. Wir erinnern dich ', { strong: input.remindAt }, ' daran, dich zu entscheiden - aber nur, wenn du vorher deine E-Mail-Adresse bestätigst.'] },
+      { kind: 'button', label: 'E-Mail-Adresse bestätigen', href: input.link },
+      CLOSING
+    ],
+    { footer: 'Falls du nicht geantwortet hast, kannst du diese Mail ignorieren - ohne Bestätigung schicken wir dir nichts weiter.' }
+  )
+}
+
+/** Erinnerung zum selbst gewählten Zeitpunkt: zu- oder absagen bis zum Stichtag, sonst gilt die Antwort als Absage. */
+export function maybeReminderMail(input: {
+  name: string; event: { title: string; when: string; location: string | null }; who: string | null; cutoff: string | null; capacity: boolean; personalLink: string
+}): MailContent {
+  return mail(
+    `Kommst du zu ${input.event.title}?`,
+    'Bitte sag zu oder ab',
+    [
+      hello(input.name),
+      { kind: 'p', text: [input.who ? `für ${input.who} steht bei ` : 'du hast bei ', { strong: input.event.title }, ` noch „vielleicht“${input.who ? '' : ' angegeben'}. Wie du es dir gewünscht hast, erinnern wir dich jetzt: Bitte sag zu oder ab.`] },
+      eventRows(input.event),
+      input.cutoff && { kind: 'box', tone: 'amber', title: 'Bis wann?', blocks: [{ kind: 'p', text: `Bis ${input.cutoff}. Danach gilt „vielleicht“ als Absage.` }] },
+      input.capacity && { kind: 'small', text: 'Die Plätze sind begrenzt: Ist der Termin voll, kommst du mit einer Zusage auf die Warteliste.' },
+      { kind: 'button', label: 'Jetzt zu- oder absagen', href: input.personalLink },
+      CLOSING
+    ],
+    { footer: `Du bekommst diese Mail, weil du bei „${input.event.title}“ mit „vielleicht“ geantwortet und eine Erinnerung gewählt hast.` }
+  )
+}
+
+/**
+ * „Vielleicht“ wurde zur Absage: am Stichtag (`expired`) oder weil die Veranstaltung „Vielleicht“ abgeschaltet hat
+ * (`disabled`). `canAnswer`: ob der Gast noch selbst zusagen kann (keine Antwortfrist abgelaufen).
+ */
+export function maybeDeclinedMail(input: { name: string; eventTitle: string; reason: 'expired' | 'disabled'; who: string | null; canAnswer: boolean; personalLink: string }): MailContent {
+  const whom = input.who ? `${input.who} ist` : 'du bist'
+  return mail(
+    `Als abgesagt eingetragen: ${input.eventTitle}`,
+    'Als abgesagt eingetragen',
+    [
+      hello(input.name),
+      { kind: 'p', text: input.reason === 'expired'
+        ? ['bis zum Stichtag kam keine Entscheidung zu ', { strong: input.eventTitle }, `. Deshalb ${whom} jetzt als abgesagt eingetragen.`]
+        : ['die Veranstaltung von ', { strong: input.eventTitle }, ` nimmt keine „vielleicht“-Antworten mehr an. Deshalb ${whom} jetzt als abgesagt eingetragen.`] },
+      input.canAnswer
+        ? { kind: 'p', text: 'Wenn du doch kommen möchtest, kannst du über deinen persönlichen Link selbst zusagen.' }
+        : { kind: 'p', text: 'Die Antwortfrist ist abgelaufen. Wenn du doch kommen möchtest, wende dich bitte direkt an die Veranstaltung.' },
+      { kind: 'button', label: 'Zur Event-Seite', href: input.personalLink },
+      CLOSING
+    ]
   )
 }

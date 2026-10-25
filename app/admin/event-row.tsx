@@ -63,6 +63,7 @@ export default function EventRow({ event, muted = false }: { event: EventRowData
         <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-700 dark:text-gray-300" data-testid="event-row-stats">
           <span><strong className="font-semibold">{s.confirmed}</strong> {s.confirmed === 1 ? 'Zusage' : 'Zusagen'}{s.seats !== s.confirmed && <> · {s.seats} Personen</>}</span>
           {s.declined > 0 && <span className="text-gray-500 dark:text-gray-400">{s.declined} Absagen</span>}
+          {s.maybe > 0 && <Badge tone="blue">{s.maybe} vielleicht</Badge>}
           {s.waitlist > 0 && <Badge tone="orange">{s.waitlist} Warteliste</Badge>}
           {s.invitationsOpen !== null && s.invitationsOpen > 0 && <Badge tone="indigo">{s.invitationsOpen} Einladungen offen</Badge>}
           {s.paymentsOpen > 0 && <Badge tone={s.paymentsOverdue > 0 ? 'red' : 'pink'}>{formatEuro(s.openCents)} offen{s.paymentsOverdue > 0 ? ` · ${s.paymentsOverdue} überfällig` : ''}</Badge>}

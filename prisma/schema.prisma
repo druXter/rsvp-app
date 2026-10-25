@@ -122,6 +122,10 @@ model EventSeries {
   // bekommen sie als eigene Liste (addTerminToSeries), die sich danach pro Termin frei ändern lässt.
   bringTemplate String?
 
+  // Antwort „Vielleicht“ (Idee L26, docs/KONZEPT-VIELLEICHT.md, app/lib/maybe.ts) für alle Termine der Reihe - wie
+  // requireVerification ist der Wert der Reihe maßgeblich, Event.allowMaybe eines Termins wird nicht gelesen.
+  allowMaybe Boolean @default(false)
+
   createdAt    DateTime          @default(now())
   events       Event[]
   participants Participant[]
@@ -260,6 +264,9 @@ model Event {
   // Nachrücken etwas. rsvpReminderDays: Erinnerung an Einladungen ohne Antwort so viele Tage vorher (Cron).
   rsvpDeadline        DateTime?
   rsvpReminderDays    Int?
+  // Antwort „Vielleicht“ (Idee L26, docs/KONZEPT-VIELLEICHT.md, app/lib/maybe.ts). Bei Reihen-Terminen gilt
+  // EventSeries.allowMaybe (effectiveAllowMaybe).
+  allowMaybe          Boolean  @default(false)
 
   // Verknüpfungen mit anderen Tools der Suite (Seating, später Zeitplan) - höchstens eine je
   // Tool-Typ, siehe EventToolLink.
@@ -349,6 +356,14 @@ model Rsvp {
   plusOneName    String?
   bringingItem   String?
   isOnWaitlist   Boolean      @default(false)
+  // Antwort „Vielleicht“ (docs/KONZEPT-VIELLEICHT.md, app/lib/maybe.ts): gespeichert als Absage (isAttending false),
+  // damit „Vielleicht“ für alle verknüpften Tools eine Absage ist. isMaybe = die ganze Antwort ist vielleicht; im
+  // Einladungsmodus stehen einzelne Personen auf vielleicht (RsvpPerson.isMaybe). maybeRemindAt (volle Stunde, vom
+  // Gast gewählt) ist gesetzt, solange etwas auf vielleicht steht; maybeRemindedAt = Erinnerung verschickt (vor dem
+  // Versand atomar gesetzt).
+  isMaybe        Boolean      @default(false)
+  maybeRemindAt  DateTime?
+  maybeRemindedAt DateTime?
   hasAttended    Boolean      @default(false)
   checkedInAt    DateTime?
   // Nur mit Event.trackPresence: gegangen um (alle eingecheckten Personen sind weg), null = da bzw. nie da gewesen.
@@ -406,6 +421,8 @@ model RsvpPerson {
   name          String?
   ageGroup      String       @default("ADULT")
   isAttending   Boolean
+  // Nur im Einladungsmodus: Person steht auf „vielleicht“ (zählt als Absage, docs/KONZEPT-VIELLEICHT.md)
+  isMaybe       Boolean      @default(false)
   dietaryOption String?
   allergies     String?
   menuChoices   MenuChoice[]

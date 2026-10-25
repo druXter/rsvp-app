@@ -15,6 +15,7 @@ import { verifyParticipantByToken, type VerifiedRsvp } from './lib/participant-v
 import { readCompanions } from './lib/persons'
 import { readMenuSelection } from './lib/menu'
 import { readHousehold } from './lib/invitations'
+import { parseBerlinDateTime } from './lib/rsvp-deadline'
 import { guestOfEvent, releaseWish, reserveWish } from './lib/wishlist-store'
 import { parseEuro, WishInputError } from './lib/wishlist'
 
@@ -44,6 +45,9 @@ export async function submitRsvp(formData: FormData) {
         editToken,
         name: formData.get('name') as string,
         isAttending: formData.get('isAttending') === 'true',
+        // „Vielleicht“ (app/lib/maybe.ts): dritte Wahl, Erinnerungszeitpunkt aus dem datetime-local-Feld (Berliner Zeit)
+        isMaybe: formData.get('isAttending') === 'maybe',
+        maybeRemindAt: formData.has('maybeRemindAt') ? parseBerlinDateTime(String(formData.get('maybeRemindAt'))) : null,
         phone: formData.get('phone') as string || null,
         dietaryOption: formData.get('dietaryOption') as string || null,
         allergies: formData.get('allergies') as string || null,

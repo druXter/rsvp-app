@@ -5,7 +5,7 @@ Hallo,
 für dein Konto (bisher alt@example.de) soll künftig diese Adresse gelten. Falls du das warst, bestätige die Änderung über den Knopf. Der Link ist eine Stunde gültig.
 
 E-Mail-Adresse bestätigen:
-https://rsvp.ramonroeser.de/admin/confirm-email?token=x
+https://rsvp.example.de/admin/confirm-email?token=x
 
 -- 
 Falls du das nicht warst, kannst du diese Mail ignorieren - die Adresse des Kontos bleibt unverändert.

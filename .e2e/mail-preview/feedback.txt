@@ -5,7 +5,7 @@ Hallo Ramón,
 danke, dass du bei Herbstfest 2026 dabei warst! Wir würden gern wissen, wie es dir gefallen hat - der kurze Fragebogen dauert nur ein paar Minuten.
 
 Feedback geben:
-https://rsvp.ramonroeser.de/api/feedback-link/vorschau?token=x
+https://rsvp.example.de/api/feedback-link/vorschau?token=x
 
 Deine Antworten sind nicht mit deinem Namen oder deiner E-Mail-Adresse verknüpft. Du kannst sie über denselben Link ändern, solange der Fragebogen läuft.
 

@@ -4,6 +4,7 @@ import { getGuestUserFromApiToken, apiError } from '../../../lib/api-auth'
 import { companionsOf, menuOf } from '../../../lib/persons'
 import { courseOptions } from '../../../lib/menu'
 import { summarizeEvent } from '../../../lib/event-summary'
+import { latestMaybeReminder, maybeAvailable } from '../../../lib/maybe'
 
 
 /**
@@ -45,7 +46,7 @@ export async function GET(request: Request) {
     ? await prisma.rsvp.findMany({
         where: { eventId: { in: countedEventIds } },
         select: {
-          eventId: true, isAttending: true, isOnWaitlist: true, hasAttended: true,
+          eventId: true, isAttending: true, isMaybe: true, isOnWaitlist: true, hasAttended: true,
           amountCents: true, paidAt: true, refundedAt: true, paymentDueAt: true,
           persons: { select: { isAttending: true, ageGroup: true } }
         }
@@ -53,7 +54,7 @@ export async function GET(request: Request) {
     : []
   function responsesOf(eventId: string) {
     const summary = summarizeEvent(allRsvps.filter(r => r.eventId === eventId))
-    return { yes: summary.confirmed, no: summary.declined, waitlist: summary.waitlist, persons: summary.attendees }
+    return { yes: summary.confirmed, no: summary.declined, maybe: summary.maybe, waitlist: summary.waitlist, persons: summary.attendees }
   }
 
   return Response.json({
@@ -79,6 +80,10 @@ export async function GET(request: Request) {
           rsvpDeadline: event.rsvpDeadline ? event.rsvpDeadline.toISOString() : null,
           // Menü: Gänge mit Optionen, beim Antworten als menu bzw. companions[].menu {Gang-ID: Option}
           menuCourses: event.menuCourses.map(c => ({ id: c.id, label: c.label, options: courseOptions(c.options) })),
+          // „Vielleicht“ (app/lib/maybe.ts): ob es gerade wählbar ist und der späteste Erinnerungszeitpunkt (null = offen)
+          maybe: maybeAvailable({ ...event, series: m.series })
+            ? { latestReminder: latestMaybeReminder(event)?.toISOString() ?? null }
+            : null,
           url: `/reihe/${m.series.slug}/${event.slug}`,
           // Verknüpfte Abstimmung (Event.pollUrl); den persönlichen Link gibt GET .../[id]/abstimmung
           poll: event.pollUrl ? { label: event.pollLabel || null } : null,
@@ -89,6 +94,9 @@ export async function GET(request: Request) {
             ? {
                 isAttending: rsvp.isAttending,
                 isOnWaitlist: rsvp.isOnWaitlist,
+                // „Vielleicht“ mit Erinnerungszeitpunkt (isAttending ist dann false)
+                maybe: rsvp.isMaybe,
+                maybeRemindAt: rsvp.maybeRemindAt ? rsvp.maybeRemindAt.toISOString() : null,
                 // Begleitungen (alle Personen außer der eigenen), plusOne/plusOneName als Kurzform von früher
                 companions: companionsOf(rsvp.persons),
                 // Eigene Menüwahl (Gang-ID -> Option), die der Begleitungen steht in companions[].menu

@@ -39,6 +39,8 @@ export type PersonData = {
   name: string | null
   ageGroup: AgeGroup
   isAttending: boolean
+  /** Nur im Einladungsmodus: steht auf „vielleicht“ (app/lib/maybe.ts), zählt als Absage */
+  isMaybe?: boolean
   dietaryOption: string | null
   allergies: string | null
   /** Menüwahl (app/lib/menu.ts): Gang-ID -> Option */
@@ -58,7 +60,7 @@ export type PersonData = {
 export type CompanionInput = { name: string; ageGroup: AgeGroup; dietaryOption: string | null; allergies: string | null; menu: MenuSelection; drinksAlcohol: boolean | null }
 
 type PersonRow = {
-  position: number; name: string | null; ageGroup: string; isAttending: boolean; dietaryOption: string | null; allergies: string | null
+  position: number; name: string | null; ageGroup: string; isAttending: boolean; isMaybe?: boolean; dietaryOption: string | null; allergies: string | null
   menuChoices?: readonly { courseId: string; option: string }[]
   drinksAlcohol?: boolean | null
   checkedInAt?: Date | null
@@ -99,7 +101,7 @@ export function personsOf(
     return [...rsvp.persons]
       .sort((a, b) => a.position - b.position)
       .map(p => ({
-        name: p.name, ageGroup: asAgeGroup(p.ageGroup), isAttending: p.isAttending, dietaryOption: p.dietaryOption, allergies: p.allergies, menu: menuOf(p),
+        name: p.name, ageGroup: asAgeGroup(p.ageGroup), isAttending: p.isAttending, isMaybe: !!p.isMaybe, dietaryOption: p.dietaryOption, allergies: p.allergies, menu: menuOf(p),
         drinksAlcohol: alcoholFor(p.ageGroup, p.drinksAlcohol), checkedIn: !!p.checkedInAt && !p.leftAt, left: !!p.checkedInAt && !!p.leftAt
       }))
   }

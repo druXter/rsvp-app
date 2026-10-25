@@ -20,6 +20,7 @@ import { clearFailures, clientIp, loginRules, passwordChangeRule, refund, reserv
 import { isOwnerOrAdmin, hasEventModeratorOrAbove, hasSeriesModeratorOrAbove } from '../lib/permissions'
 import { sendReminderPush } from '../lib/push'
 import { notifyAttendeesOfChange } from '../lib/event-change-notify'
+import { applyMaybeScheduleChange, endMaybesOnDisable } from '../lib/maybe-store'
 import { readToolLinks, saveToolLinks, storedToolUrl, TOOL_LINKS, type ToolLinkInput } from '../lib/linked-tools-store'
 import { createLinkedEvent, isCreatableTool } from '../lib/linked-create'
 import { inviteAccounts } from '../lib/guest-invites'
@@ -107,6 +108,25 @@ async function assertInviteOnlyAllowed(
     hasCategories && 'Ticketkategorien'
   ].filter(Boolean)
   if (conflicts.length > 0) throw new InputError(`Einladungsmodus: nicht zusammen mit ${conflicts.join(', ')}. Der persönliche Link ersetzt diese Zugänge.`)
+}
+
+/**
+ * Antwort „Vielleicht“ (docs/KONZEPT-VIELLEICHT.md): braucht eine Adresse für Bestätigung und Erinnerung - also die
+ * E-Mail-Abfrage, außer bei Konto-Pflicht (Konten haben eine bestätigte Adresse). Wirft, bevor etwas gespeichert ist.
+ */
+function assertMaybeAllowed(allowMaybe: boolean, settings: { askEmail: boolean; requireGuestUser: boolean }) {
+  if (allowMaybe && !settings.askEmail && !settings.requireGuestUser) {
+    throw new InputError('„Vielleicht“ braucht die E-Mail-Abfrage: Gäste bestätigen ihre Adresse und bekommen dort die Erinnerung.')
+  }
+}
+
+/**
+ * Nach dem Speichern: „Vielleicht“ abgeschaltet → offene „vielleicht“ werden zur Absage (mit Mail). Termin früher oder
+ * Antwortfrist früher (bzw. Datum aus der Terminabstimmung) → Erinnerungen rücken nach vorn (app/lib/maybe-store.ts).
+ */
+async function applyMaybeSettings(eventIds: string[], disabled: boolean, scheduleChanged: boolean) {
+  if (disabled) await endMaybesOnDisable(eventIds)
+  else if (scheduleChanged) for (const id of eventIds) await applyMaybeScheduleChange(id)
 }
 
 /**
@@ -763,8 +783,12 @@ async function saveEvent(formData: FormData): Promise<string | undefined> {
   await assertInviteOnlyAllowed(inviteOnly, { eventPin, requireVerification, requireGuestUser: existingEvent.requireGuestUser }, ticketing.ticketCategories, { eventId: id })
   assertShiftsAllowed(inviteOnly, toolLinks)
 
+  const askEmail = formData.get('askEmail') === 'on'
+  const allowMaybe = formData.get('allowMaybe') === 'on'
+  assertMaybeAllowed(allowMaybe, { askEmail, requireGuestUser: existingEvent.requireGuestUser })
+
   const formConfig = JSON.stringify({
-    askEmail: formData.get('askEmail') === 'on',
+    askEmail,
     askPhone: formData.get('askPhone') === 'on',
     askDiet: formData.get('askDiet') === 'on',
     askAlcohol: formData.get('askAlcohol') === 'on',
@@ -804,6 +828,7 @@ async function saveEvent(formData: FormData): Promise<string | undefined> {
       datePending,
       maxCompanions,
       inviteOnly,
+      allowMaybe,
       ...feedback,
       ...assembly,
       ...readProtocolSettings(formData),
@@ -821,6 +846,7 @@ async function saveEvent(formData: FormData): Promise<string | undefined> {
   await resetRemindersOnNewDeadline(id, existingEvent.rsvpDeadline, deadline.rsvpDeadline)
   await applyTicketing(id, ticketing, ticketing.seatingRequiresPayment !== undefined && ticketing.seatingRequiresPayment !== existingEvent.seatingRequiresPayment)
   await saveShiftTiers(id, shiftTiers)
+  await applyMaybeSettings([id], existingEvent.allowMaybe && !allowMaybe, maybeScheduleChanged(existingEvent, { date, datePending, rsvpDeadline: deadline.rsvpDeadline }))
 
   if (notifyGuests && changes.length > 0) {
     await notifyAttendeesOfChange(id, changes)
@@ -828,6 +854,12 @@ async function saveEvent(formData: FormData): Promise<string | undefined> {
 
   revalidatePath('/admin', 'layout')
   return `/admin/events/${id}/einstellungen?gespeichert=1`
+}
+
+/** Hat sich etwas geändert, das den Stichtag von „Vielleicht“ verschiebt (Datum, Datum offen, Antwortfrist)? */
+function maybeScheduleChanged(before: { date: Date; datePending: boolean; rsvpDeadline: Date | null }, after: { date: Date; datePending: boolean; rsvpDeadline?: Date | null }) {
+  return before.date.getTime() !== after.date.getTime() || before.datePending !== after.datePending
+    || (after.rsvpDeadline !== undefined && (before.rsvpDeadline?.getTime() ?? null) !== (after.rsvpDeadline?.getTime() ?? null))
 }
 
 /**
@@ -888,6 +920,9 @@ export async function updateAdminRsvp(formData: FormData) {
   const id = formData.get('rsvpId') as string
   const name = formData.get('name') as string
   const requestedAttending = formData.get('isAttending') === 'true'
+  // „Vielleicht“ setzt nur der Gast (docs/KONZEPT-VIELLEICHT.md) - die Verwaltung kann es nur beibehalten oder durch
+  // eine Zu- bzw. Absage ersetzen
+  const keepMaybe = formData.get('isAttending') === 'maybe'
 
   const email = formData.get('email') as string || null
   const phone = formData.get('phone') as string || null
@@ -925,6 +960,7 @@ export async function updateAdminRsvp(formData: FormData) {
   const invitation = await prisma.invitation.findUnique({ where: { participantId: existingRsvp.participantId }, include: { events: { select: { eventId: true } } } })
   const isHousehold = !!invitation && invitationCovers(invitation, existingRsvp.event)
   const isAttending = isHousehold ? existingRsvp.isAttending : requestedAttending
+  const endsMaybe = !isHousehold && existingRsvp.isMaybe && !keepMaybe
   const usesPersons = !isHousehold && ((categories.length === 0 && existingRsvp.event.maxCompanions > 0) || existingRsvp.persons.length > 0 || menu.length > 0)
   const companions = categories.length > 0 ? [] : (companionsInput ?? companionsOf(existingRsvp.persons)).slice(0, MAX_COMPANIONS)
   const ownMenu = readMenuSelection(formData, 'menu_') ?? (existingRsvp.persons[0] ? menuOf(existingRsvp.persons[0]) : {})
@@ -948,7 +984,8 @@ export async function updateAdminRsvp(formData: FormData) {
       drinksAlcohol: isAttending ? drinksAlcohol : null,
       additionalInfo: isAttending ? additionalInfo : null,
       bringingItem: isAttending ? bringingItem : null,
-      declineReason: isAttending ? null : declineReason
+      declineReason: isAttending || (existingRsvp.isMaybe && !endsMaybe) ? null : declineReason,
+      ...(endsMaybe ? { isMaybe: false, maybeRemindAt: null, maybeRemindedAt: null } : {})
     }
   })
   if (usesPersons) await savePersons(id, persons)
@@ -1298,6 +1335,8 @@ async function saveEventSeries(formData: FormData): Promise<string | undefined> 
   // Einladungsmodus der Reihe (docs/KONZEPT-EINLADUNGEN.md): gilt für alle Termine, gespiegelt auf Event.inviteOnly
   const inviteOnly = formData.has('inviteOnlyShown') ? formData.get('inviteOnly') === 'on' : existingSeries.inviteOnly
   await assertInviteOnlyAllowed(inviteOnly, { eventPin, requireVerification, requireGuestUser: existingSeries.requireGuestUser }, null, { seriesId: id })
+  const allowMaybe = formData.get('allowMaybe') === 'on'
+  assertMaybeAllowed(allowMaybe, { askEmail, requireGuestUser: existingSeries.requireGuestUser })
   // Mitbringliste als Vorlage für neue Termine (Idee L5); auf Wunsch auch für kommende Termine ohne eigene Liste
   const bringTemplate = readBringTemplate(formData)
 
@@ -1306,10 +1345,13 @@ async function saveEventSeries(formData: FormData): Promise<string | undefined> 
   await prisma.$transaction([
     prisma.eventSeries.update({
       where: { id },
-      data: { title, slug, description, askEmail, askPhone, askDiet, askAllergies, requireVerification, isGuestListVisible, eventPin, inviteOnly, ...(bringTemplate !== undefined ? { bringTemplate } : {}) }
+      data: { title, slug, description, askEmail, askPhone, askDiet, askAllergies, requireVerification, isGuestListVisible, eventPin, inviteOnly, allowMaybe, ...(bringTemplate !== undefined ? { bringTemplate } : {}) }
     }),
     prisma.event.updateMany({ where: { seriesId: id }, data: { inviteOnly } })
   ])
+  if (existingSeries.allowMaybe && !allowMaybe) {
+    await applyMaybeSettings((await prisma.event.findMany({ where: { seriesId: id }, select: { id: true } })).map(e => e.id), true, false)
+  }
   if (bringTemplate && formData.get('bringTemplateApply') === 'on') {
     const upcoming = await prisma.event.findMany({ where: { seriesId: id, date: { gte: new Date() } }, select: { id: true } })
     for (const termin of upcoming) await applyBringTemplate(termin.id, bringTemplate)
@@ -1496,6 +1538,7 @@ async function saveSeriesTermin(formData: FormData): Promise<string | undefined>
   await resetRemindersOnNewDeadline(id, existingEvent.rsvpDeadline, deadline.rsvpDeadline)
   await applyTicketing(id, ticketing, ticketing.seatingRequiresPayment !== undefined && ticketing.seatingRequiresPayment !== existingEvent.seatingRequiresPayment)
   await saveShiftTiers(id, shiftTiers)
+  await applyMaybeSettings([id], false, maybeScheduleChanged(existingEvent, { date, datePending, rsvpDeadline: deadline.rsvpDeadline }))
 
   if (notifyGuests && changes.length > 0) {
     await notifyAttendeesOfChange(id, changes)

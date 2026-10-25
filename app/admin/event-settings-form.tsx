@@ -66,6 +66,7 @@ const RULES: FieldRule[] = [
   { requires: 'rsvpReminderDays', needs: 'rsvpDeadline', hint: 'braucht eine Antwortfrist (Grunddaten)' },
   { requires: 'paymentReminderDays', needs: 'paymentDueDays', hint: 'braucht eine Zahlfrist' },
   { requires: 'datePending', needs: 'pollUrl', hint: 'braucht einen Link auf eine Abstimmung' },
+  { requires: 'allowMaybe', needs: 'askEmail', hint: 'braucht die E-Mail-Abfrage (für Bestätigung und Erinnerung)' },
   { requires: 'trackPresence', needs: 'enableCheckin', hint: 'braucht den Einlass mit QR-Code' },
   { requires: 'timelinePresence', needs: 'timelineUrl', hint: 'braucht einen Zeitplan-Link' },
   { requires: 'timelinePresence', needs: 'trackPresence', hint: 'braucht „Kommen und Gehen protokollieren“ (Einlass)' },
@@ -80,7 +81,7 @@ const summary = (parts: (string | null | false | undefined)[], empty = 'aus') =>
  * Profil-, Zugangs- und Verifizierungs-Felder). Feldnamen wie bisher, damit die Server Actions unverändert lesen.
  * `open`: Abschnitt, der aufgeklappt startet (z.B. nach dem Anlegen "tickets").
  */
-export default function EventSettingsForm({ event, userId, open = 'grunddaten' }: { event: SettingsEvent; userId: string; open?: string }) {
+export default function EventSettingsForm({ event, userId, open = 'grunddaten', openMaybes = 0 }: { event: SettingsEvent; userId: string; open?: string; openMaybes?: number }) {
   const isTermin = !!event.seriesId
   const seatingOrigin = allowedSeatingOrigin()
   const timelineOrigin = allowedTimelineOrigin()
@@ -106,7 +107,8 @@ export default function EventSettingsForm({ event, userId, open = 'grunddaten' }
   return (
     <SettingsForm id={formId} action={isTermin ? updateSeriesTermin : updateEvent} className="space-y-3">
       <input type="hidden" name="eventId" value={event.id} />
-      <FieldRules formId={formId} labels={RULE_LABELS} rules={RULES} fixed={fixed} />
+      {/* Mit Konto-Pflicht hat jede Antwort eine bestätigte Adresse - „Vielleicht“ braucht dann keine E-Mail-Abfrage */}
+      <FieldRules formId={formId} labels={RULE_LABELS} rules={event.requireGuestUser ? RULES.filter(r => !('requires' in r) || r.requires !== 'allowMaybe') : RULES} fixed={fixed} />
 
       <SettingsSection id="grunddaten" title="Grunddaten" open={open === 'grunddaten'} marker="blue"
         summary={`${d.toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin' })}${event.location ? ` · ${event.location}` : ''}`}>
@@ -142,9 +144,10 @@ export default function EventSettingsForm({ event, userId, open = 'grunddaten' }
         summary={summary([
           !isTermin && onOff(config.askEmail, 'E-Mail'), !isTermin && onOff(config.askPhone, 'Handy'), !isTermin && onOff(config.askDiet, 'Essen'),
           !isTermin && onOff(config.askAllergies, 'Allergien'), onOff(config.askAlcohol, 'Alkohol'), onOff(config.askBringingItem, 'Mitbringsel'),
-          event.maxCompanions > 0 && `bis ${event.maxCompanions} Begleitung${event.maxCompanions === 1 ? '' : 'en'}`, customQuestions.length > 0 && `${customQuestions.length} Zusatzfrage(n)`
+          event.maxCompanions > 0 && `bis ${event.maxCompanions} Begleitung${event.maxCompanions === 1 ? '' : 'en'}`, customQuestions.length > 0 && `${customQuestions.length} Zusatzfrage(n)`,
+          (isTermin ? event.series!.allowMaybe : event.allowMaybe) && '„Vielleicht“'
         ], 'nur Name und Zu-/Absage')}
-        description={isTermin ? 'E-Mail, Handy, Essen und Allergien fragt die Reihe einmal für alle Termine ab (Einstellungen der Reihe).' : undefined}>
+        description={isTermin ? 'E-Mail, Handy, Essen, Allergien und „Vielleicht“ stellt die Reihe einmal für alle Termine ein (Einstellungen der Reihe).' : undefined}>
         <div className="grid gap-3 sm:grid-cols-2">
           {!isTermin && <Check name="askEmail" label="E-Mail-Adresse" defaultChecked={config.askEmail} />}
           {!isTermin && <Check name="askPhone" label="Handynummer" defaultChecked={config.askPhone} />}
@@ -153,6 +156,18 @@ export default function EventSettingsForm({ event, userId, open = 'grunddaten' }
           <Check name="askAlcohol" label="Alkohol ja/nein" defaultChecked={config.askAlcohol} />
           <Check name="askBringingItem" label="Mitbringsel als Freitext" defaultChecked={config.askBringingItem} />
         </div>
+        {!isTermin && (
+          <div>
+            <Check name="allowMaybe" defaultChecked={event.allowMaybe} label="🤔 Antwort „Vielleicht“ erlauben"
+              hint={<>Gäste können „vielleicht“ angeben, bestätigen ihre E-Mail-Adresse und wählen, wann wir sie erinnern (spätestens 24 Stunden vor dem Stichtag). Stichtag ist die Antwortfrist, spätestens 12 Stunden vor Beginn - wer dann noch „vielleicht“ steht, gilt als abgesagt. Für verknüpfte Tools ist „vielleicht“ immer eine Absage.{event.requireGuestUser ? '' : ' Braucht die E-Mail-Abfrage.'}</>} />
+            {!event.requireGuestUser && <RuleNote name="allowMaybe" indent />}
+            {openMaybes > 0 && (
+              <p className="ml-7 mt-1 text-xs text-amber-700 dark:text-amber-300" data-testid="maybe-disable-warning">
+                ⚠️ {openMaybes === 1 ? '1 Antwort steht' : `${openMaybes} Antworten stehen`} auf „vielleicht“. Beim Ausschalten werden sie abgesagt und per Mail informiert, dass sie selbst zusagen können.
+              </p>
+            )}
+          </div>
+        )}
         <Field id="maxCompanions" label="Begleitungen pro Anmeldung" hint="0 = keine. Jede Begleitung mit Name, Altersgruppe und den Angaben oben. Nicht zusammen mit Ticketkategorien.">
           <input id="maxCompanions" type="number" name="maxCompanions" min={0} max={20} defaultValue={event.maxCompanions} className={`${inputClass} sm:w-32`} />
           <RuleNote name="maxCompanions" />

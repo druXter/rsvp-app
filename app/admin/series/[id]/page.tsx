@@ -12,7 +12,7 @@ import { EmptyState, inputClass, labelClass, SubmitButton } from '../../../ui/ki
 import { loadAdminSeries } from './series-access'
 
 const TERMIN_SUMMARY = {
-  rsvps: { select: { isAttending: true, isOnWaitlist: true, hasAttended: true, amountCents: true, paidAt: true, refundedAt: true, paymentDueAt: true, persons: { select: { isAttending: true, ageGroup: true, checkedInAt: true } } } },
+  rsvps: { select: { isAttending: true, isMaybe: true, isOnWaitlist: true, hasAttended: true, amountCents: true, paidAt: true, refundedAt: true, paymentDueAt: true, persons: { select: { isAttending: true, ageGroup: true, checkedInAt: true } } } },
   _count: { select: { ticketCategories: true, menuCourses: true } }
 } satisfies Prisma.EventInclude
 

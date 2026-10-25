@@ -57,7 +57,7 @@ export default async function InvitationsPage({ params, searchParams }: { params
           <p className="text-sm" data-testid="invitation-summary">
             <strong>{invitations.length} Haushalte</strong> ({rows.filter(r => r.status.state === 'open').length} ohne Antwort) · Personen: {totals.yes} kommen
             ({totals.adults} Erwachsene, {totals.children} Kinder, {totals.infants} Kleinkinder),
-            {' '}{totals.no} kommen nicht, {totals.open} offen
+            {' '}{totals.no} kommen nicht, {totals.maybe > 0 ? `${totals.maybe} vielleicht, ` : ''}{totals.open} offen
             {deadline && <> · Antwortfrist: {deadline}</>}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
@@ -155,7 +155,7 @@ async function TerminInvitations({ loaded, erinnert }: { loaded: AdminEvent; eri
       <Card>
         <p className="text-sm" data-testid="invitation-summary">
           <strong>{invitations.length} Haushalte</strong> zu diesem Termin eingeladen ({rows.filter(r => r.status.state === 'open').length} ohne Antwort) · Personen: {totals.yes} kommen
-          ({totals.adults} Erwachsene, {totals.children} Kinder, {totals.infants} Kleinkinder), {totals.no} kommen nicht, {totals.open} offen
+          ({totals.adults} Erwachsene, {totals.children} Kinder, {totals.infants} Kleinkinder), {totals.no} kommen nicht, {totals.maybe > 0 ? `${totals.maybe} vielleicht, ` : ''}{totals.open} offen
           {deadline && <> · Antwortfrist: {deadline}</>}
         </p>
         <div className="mt-3 flex flex-wrap gap-2">

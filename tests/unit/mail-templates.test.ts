@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { renderMail } from 'suite-kit/web'
 import {
-  accountInviteMail, confirmationMail, emailChangeMail, eventUpdatedMail, feedbackMail, guestVerificationMail, invitationMail, passwordResetMail,
+  accountInviteMail, confirmationMail, emailChangeMail, eventUpdatedMail, feedbackMail, guestVerificationMail, invitationMail, maybeDeclinedMail,
+  maybeReminderMail, maybeVerificationMail, passwordResetMail,
   paymentBox, paymentCancelledMail, paymentReceivedMail, paymentReminderMail, reminderMail, verificationMail, waitlistMail,
   waitlistPromotedMail, type ConfirmationInput
 } from '../../app/lib/mail-templates'
@@ -36,7 +37,11 @@ const all = [
   paymentReminderMail({ name: EVIL, eventTitle: EVIL, overdue: true, payment: paymentBox([['Betrag', '25,00 €']], true), personalLink: LINK }),
   feedbackMail({ name: EVIL, eventTitle: EVIL, link: LINK }),
   invitationMail({ label: EVIL, title: EVIL, dates: ['a', 'b'], names: EVIL, link: LINK, reminder: false }),
-  accountInviteMail({ name: EVIL, eventTitle: EVIL, when: 'Samstag', location: EVIL, link: LINK })
+  accountInviteMail({ name: EVIL, eventTitle: EVIL, when: 'Samstag', location: EVIL, link: LINK }),
+  maybeVerificationMail({ name: EVIL, eventTitle: EVIL, remindAt: 'am Mo., 02.11.2026, 18:00 Uhr', link: LINK }),
+  maybeReminderMail({ name: EVIL, event: { title: EVIL, when: 'Samstag', location: EVIL }, who: EVIL, cutoff: 'Fr., 06.11.2026, 23:59 Uhr', capacity: true, personalLink: LINK }),
+  maybeDeclinedMail({ name: EVIL, eventTitle: EVIL, reason: 'expired', who: null, canAnswer: false, personalLink: LINK }),
+  maybeDeclinedMail({ name: EVIL, eventTitle: EVIL, reason: 'disabled', who: EVIL, canAnswer: true, personalLink: LINK })
 ]
 
 describe('Mail-Vorlagen', () => {
@@ -65,6 +70,21 @@ describe('Mail-Vorlagen', () => {
     expect(text).toContain('Sitzplatz wählen:\nhttps://rsvp.example.test/api/seating-link/e1?token=abc')
     expect(text).toContain('Im Anhang findest du eine Kalenderdatei (.ics) und deinen Einlass-QR-Code.')
     expect(text).toContain('Zur Reihe (https://rsvp.example.test/reihe/r?token=abc)')
+  })
+
+  it('„Vielleicht“: Erinnerung mit Stichtag und Warteliste, Absage je nach Grund und Antwortfrist', () => {
+    const reminder = renderMail(maybeReminderMail({ name: 'Anna', event: { title: 'Fest', when: 'Samstag', location: null }, who: null, cutoff: 'Fr., 06.11.2026, 23:59 Uhr', capacity: true, personalLink: LINK }).mail).text
+    expect(reminder).toContain('Bis Fr., 06.11.2026, 23:59 Uhr. Danach gilt „vielleicht“ als Absage.')
+    expect(reminder).toContain('Warteliste')
+    const open = renderMail(maybeReminderMail({ name: 'Anna', event: { title: 'Fest', when: 'Samstag', location: null }, who: 'Ben', cutoff: null, capacity: false, personalLink: LINK }).mail).text
+    expect(open).toContain('für Ben steht bei')
+    expect(open).not.toContain('Warteliste')
+    const expired = renderMail(maybeDeclinedMail({ name: 'Anna', eventTitle: 'Fest', reason: 'expired', who: null, canAnswer: false, personalLink: LINK }).mail).text
+    expect(expired).toContain('bis zum Stichtag')
+    expect(expired).toContain('direkt an die Veranstaltung')
+    const disabled = renderMail(maybeDeclinedMail({ name: 'Anna', eventTitle: 'Fest', reason: 'disabled', who: null, canAnswer: true, personalLink: LINK }).mail).text
+    expect(disabled).toContain('keine „vielleicht“-Antworten mehr')
+    expect(disabled).toContain('selbst zusagen')
   })
 
   it('Absage: kein Termin-Block, keine Anhänge erwähnt', () => {

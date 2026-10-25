@@ -14,7 +14,7 @@ import { Badge, ButtonLink, EmptyState, PageHeader } from '../ui/kit'
 const EVENT_SUMMARY = {
   rsvps: {
     select: {
-      isAttending: true, isOnWaitlist: true, hasAttended: true, amountCents: true, paidAt: true, refundedAt: true, paymentDueAt: true,
+      isAttending: true, isMaybe: true, isOnWaitlist: true, hasAttended: true, amountCents: true, paidAt: true, refundedAt: true, paymentDueAt: true,
       persons: { select: { isAttending: true, ageGroup: true, checkedInAt: true } }
     }
   },

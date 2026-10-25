@@ -7,6 +7,8 @@ import { paymentState } from './payment-state'
 
 type SummaryRsvp = {
   isAttending: boolean
+  /** „Vielleicht“ (app/lib/maybe.ts): gespeichert als Absage, hier eigens gezählt */
+  isMaybe?: boolean
   isOnWaitlist: boolean
   hasAttended: boolean
   amountCents: number | null
@@ -22,7 +24,10 @@ export type EventSummary = {
   /** Plätze dieser Zusagen (Personen ohne Kleinkinder) */
   seats: number
   waitlist: number
+  /** Absagen ohne „Vielleicht“ */
   declined: number
+  /** Antworten, die ganz auf „vielleicht“ stehen */
+  maybe: number
   /** Eingecheckte Personen und alle zusagenden Personen mit festem Platz (mit Kleinkindern) - Einlass pro Person */
   checkedIn: number
   attendees: number
@@ -42,7 +47,8 @@ export function summarizeEvent(rsvps: readonly SummaryRsvp[], invitationCount: n
     confirmed: fixed.length,
     seats: fixed.reduce((sum, r) => sum + seatsOf(r.persons), 0),
     waitlist: rsvps.filter(r => r.isAttending && r.isOnWaitlist).length,
-    declined: rsvps.filter(r => !r.isAttending).length,
+    declined: rsvps.filter(r => !r.isAttending && !r.isMaybe).length,
+    maybe: rsvps.filter(r => !r.isAttending && !!r.isMaybe).length,
     checkedIn: fixed.reduce((sum, r) => sum + (r.persons?.length ? r.persons.filter(p => p.isAttending && p.checkedInAt).length : r.hasAttended ? 1 : 0), 0),
     attendees: fixed.reduce((sum, r) => sum + (r.persons?.length ? r.persons.filter(p => p.isAttending).length : 1), 0),
     paymentsOpen: states.filter(x => x.state === 'open' || x.state === 'overdue').length,

@@ -250,9 +250,20 @@ export default function DatenschutzPage() {
             Antwortfrist noch nicht geantwortet habt - einmal eine Erinnerung (bei einer Reihe pro Termin mit Frist).
           </p>
           <p className="mt-2">
+            <strong>Antwort „Vielleicht“:</strong> Erlaubt eine Veranstaltung „vielleicht“ als Antwort und wählst du es
+            (bzw. für eine Person deines Haushalts), brauchen wir eine E-Mail-Adresse, die du über einen Link bestätigst,
+            und den von dir gewählten Erinnerungszeitpunkt. Zu diesem Zeitpunkt schicken wir dir einmal eine Erinnerung,
+            dich zu entscheiden; ohne bestätigte Adresse schicken wir nichts. Wer bis zum Stichtag (Antwortfrist,
+            spätestens 12 Stunden vor Beginn) noch „vielleicht“ angegeben hat, wird als abgesagt eingetragen und bekommt
+            darüber eine Mitteilung - ebenso, wenn die Veranstalter:innen „vielleicht“ für die Veranstaltung abschalten.
+            Rechtsgrundlage ist die Durchführung der von dir gewünschten Anmeldung (Art. 6 Abs. 1 lit. b DSGVO).
+            Verknüpfte Tools (z. B. Abstimmungen, Sitzplatzwahl, Zeitplan) behandeln „vielleicht“ wie eine Absage und
+            erfahren davon nichts weiter.
+          </p>
+          <p className="mt-2">
             <strong>Änderungs-Mitteilungen:</strong> Ändert die Veranstalter:in nach deiner Zusage wesentliche Angaben
             zum Termin (Titel, Datum, Dauer, Ort oder Beschreibung), kann sie alle bereits zugesagten Gäste darüber
-            informieren. Du erhältst diese Mitteilung per E-Mail und - falls du Push-Benachrichtigungen aktiviert hast
+            informieren - und alle, die „vielleicht“ angegeben und ihre Adresse bestätigt haben. Du erhältst diese Mitteilung per E-Mail und - falls du Push-Benachrichtigungen aktiviert hast
             - zusätzlich als Push-Benachrichtigung (siehe Punkt 6).
           </p>
           <p className="mt-2">
@@ -275,7 +286,8 @@ export default function DatenschutzPage() {
           </p>
           <ul className="list-disc list-inside mt-2 space-y-1 text-sm">
             <li>
-              <strong>Als Gast:</strong> Erinnerungen an bevorstehende Termine, Mitteilungen über Termin-Änderungen
+              <strong>Als Gast:</strong> Erinnerungen an bevorstehende Termine, Mitteilungen über Termin-Änderungen,
+              bei „vielleicht“ die Erinnerung zum gewählten Zeitpunkt und die Mitteilung über die automatische Absage
               und - falls du Bestätigungs-Mails abbestellt hast (Punkt 5) - die Bestätigung deiner Zusage. Bei einer
               Veranstaltungsreihe gilt eine einmal aktivierte Benachrichtigung für alle Termine dieser Reihe.
             </li>
@@ -296,7 +308,7 @@ export default function DatenschutzPage() {
           <h2 className="font-bold text-lg">7. Öffentliche Gästeliste</h2>
           <p className="mt-2">
             Manche Veranstaltungen zeigen optional eine öffentliche Gästeliste, auf der andere Gäste sehen können, wer
-            zugesagt hat, wer eine Begleitung mitbringt und wer welches Mitbringsel beisteuert (auch die übernommenen
+            zugesagt oder „vielleicht“ angegeben hat, wer eine Begleitung mitbringt und wer welches Mitbringsel beisteuert (auch die übernommenen
             Einträge einer Mitbringliste). Ohne öffentliche Gästeliste sehen andere Gäste bei einer Mitbringliste nur,
             wie viele Plätze eines Eintrags vergeben sind, nicht an wen. Dort wird
             ausschließlich dein <strong>Name</strong> angezeigt - deine E-Mail-Adresse, Handynummer und Allergien
@@ -625,6 +637,8 @@ export default function DatenschutzPage() {
             Termine der Reihe älter als 18 Monate, wird auch dieses Profil automatisch gelöscht. Ticket- und
             Zahlungsangaben (Punkt 4) hängen an deiner Antwort und werden mit ihr gelöscht; müssen Veranstalter:innen
             Zahlungen länger nachweisen (z.B. für eine Vereinsbuchhaltung), sichern sie dafür selbst einen Export.
+            Der Erinnerungszeitpunkt bei „vielleicht“ wird gelöscht, sobald du zu- oder absagst oder die Antwort am
+            Stichtag zur Absage wird.
           </p>
           <p className="mt-2">
             Löschen Veranstalter:innen einen Termin, eine Einladung oder deine Antwort schon vorher, werden deine Angaben

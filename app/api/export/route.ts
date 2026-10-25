@@ -7,6 +7,7 @@ import { hasEventModeratorOrAbove } from '../../lib/permissions'
 import { claimedLabels } from '../../lib/bring-list'
 import { PAYMENT_STATE_LABEL, paymentState } from '../../lib/payment-state'
 import { describePerson, personsOf } from '../../lib/persons'
+import { effectiveAllowMaybe, maybeStatusLabel } from '../../lib/maybe'
 
 
 /**
@@ -37,6 +38,8 @@ export async function GET(request: Request) {
   const withShifts = event.rsvps.some(r => r.shiftHelperId)
   // Tickets und Bezahlung (docs/KONZEPT-TICKETS.md) nur als Spalten, wenn der Termin Kategorien oder Beträge hat
   const withTickets = event._count.ticketCategories > 0 || event.rsvps.some(r => r.amountCents)
+  // „Vielleicht“ (app/lib/maybe.ts): wer noch offen ist und ob die Erinnerung läuft
+  const withMaybe = effectiveAllowMaybe(event) || event.rsvps.some(r => r.maybeRemindAt)
   const isoDate = (d: Date | null) => d ? d.toISOString().split('T')[0] : ''
 
   // CSV-Kopfzeile definieren (NEU: Spalte 'Verifizierung' hinzugefügt)
@@ -57,6 +60,7 @@ export async function GET(request: Request) {
       "Datum",
       ...(withSeating ? ["Sitzplatz"] : []),
       ...(withShifts ? ["Schichten"] : []),
+      ...(withMaybe ? ["Vielleicht"] : []),
       ...(withTickets ? ["Kategorie", "Betrag", "Verwendungszweck", "Zahlstatus", "Bezahlt am", "Zahlart", "Erstattet am"] : []),
       ...customQuestions
     ]
@@ -76,7 +80,7 @@ export async function GET(request: Request) {
 
     rows.push([
       participant.name,
-      rsvp.isAttending ? "Kommt" : "Abgesagt",
+      rsvp.isMaybe ? "Vielleicht" : rsvp.isAttending ? "Kommt" : "Abgesagt",
       participant.email || "",
       verificationStatus, // <-- NEU
       participant.phone || "",
@@ -99,6 +103,8 @@ export async function GET(request: Request) {
       ...(withSeating ? [rsvp.seatingLabel || ""] : []),
       // Helfer-Zusagen aus Schichten: Zahl der Schichten, sonst leer
       ...(withShifts ? [rsvp.shiftHelperId ? String(rsvp.shiftCount ?? 0) : ""] : []),
+      // Haushalt: wer noch vielleicht kommt, dazu der Stand der Erinnerung
+      ...(withMaybe ? [rsvp.maybeRemindAt ? `${rsvp.isMaybe ? '' : `${persons.filter(p => p.isMaybe).map(p => p.name).join(', ')}: `}${maybeStatusLabel(rsvp, participant)}` : ""] : []),
 
       ...(withTickets ? [
         rsvp.ticketCategory?.label || "",

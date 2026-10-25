@@ -26,7 +26,7 @@ export async function GET(request: Request) {
       menuCourses: { orderBy: { position: 'asc' } },
       rsvps: {
         select: {
-          isAttending: true, isOnWaitlist: true, hasAttended: true, amountCents: true, paidAt: true, refundedAt: true, paymentDueAt: true,
+          isAttending: true, isMaybe: true, isOnWaitlist: true, hasAttended: true, amountCents: true, paidAt: true, refundedAt: true, paymentDueAt: true,
           persons: { select: { isAttending: true, ageGroup: true } }
         }
       }
@@ -45,7 +45,7 @@ export async function GET(request: Request) {
         location: event.location,
         series: event.series,
         isOwner: isOwnerOrAdmin(user, event.ownerId),
-        responses: { yes: summary.confirmed, no: summary.declined, waitlist: summary.waitlist, persons: summary.attendees },
+        responses: { yes: summary.confirmed, no: summary.declined, maybe: summary.maybe, waitlist: summary.waitlist, persons: summary.attendees },
         menu: event.menuCourses.map(c => ({ id: c.id, label: c.label, options: courseOptions(c.options) }))
       }
     })

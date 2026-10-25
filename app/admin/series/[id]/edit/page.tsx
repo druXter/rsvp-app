@@ -10,11 +10,14 @@ import GuestMembersPanel from '../../../guest-members-panel'
 import ThemeSection, { themeClasses } from '../../../../ui/theme-section'
 import { SettingsError, SettingsForm } from '../../../settings-form'
 import FieldRules, { RuleNote, type FieldRule } from '../../../field-rules'
+import { countOpenMaybes } from '../../../../lib/maybe-store'
 
 
 // Einladungsmodus schließt PIN und Verifizierung aus - prüft der Server ebenso (assertInviteOnlyAllowed)
 const RULE_LABELS = { inviteOnly: '„Nur mit Einladung“', eventPin: 'einer Reihen-PIN', requireVerification: 'E-Mail-Verifizierung' }
 const RULES: FieldRule[] = [{ excludes: ['inviteOnly', 'eventPin'] }, { excludes: ['inviteOnly', 'requireVerification'] }]
+// „Vielleicht“ braucht die E-Mail-Abfrage, außer mit Konto-Pflicht (assertMaybeAllowed)
+const MAYBE_RULE: FieldRule = { requires: 'allowMaybe', needs: 'askEmail', hint: 'braucht die E-Mail-Abfrage (für Bestätigung und Erinnerung)' }
 
 export default async function EditEventSeriesPage({
   params,
@@ -47,6 +50,7 @@ export default async function EditEventSeriesPage({
   const fixed: Record<string, string> = series.requireGuestUser
     ? { inviteOnly: 'nur mit Teilnehmendenkonto (beim Anlegen festgelegt)' }
     : hasCategories ? { inviteOnly: 'Termine der Reihe haben Ticketkategorien' } : {}
+  const openMaybes = await countOpenMaybes((await prisma.event.findMany({ where: { seriesId: series.id }, select: { id: true } })).map(e => e.id))
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -62,7 +66,7 @@ export default async function EditEventSeriesPage({
         <SettingsForm id="edit-series-form" action={updateEventSeries} className="space-y-4 rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Einstellungen der Reihe</h2>
           <input type="hidden" name="seriesId" value={series.id} />
-          <FieldRules formId="edit-series-form" labels={RULE_LABELS} rules={RULES} fixed={fixed} />
+          <FieldRules formId="edit-series-form" labels={RULE_LABELS} rules={series.requireGuestUser ? RULES : [...RULES, MAYBE_RULE]} fixed={fixed} />
 
           <div>
             <label htmlFor="title" className="block text-sm font-medium mb-1">Titel der Reihe</label>
@@ -109,6 +113,19 @@ export default async function EditEventSeriesPage({
               <span className={`text-sm font-medium ${themeClasses('yellow').heading}`}>Verifizierung zwingend erforderlich</span>
             </label>
             <RuleNote name="requireVerification" />
+          </ThemeSection>
+
+          <ThemeSection color="gray" title="Antwort „Vielleicht“" description="Gilt für alle Termine der Reihe. Gäste bestätigen ihre E-Mail-Adresse und wählen, wann wir sie erinnern (spätestens 24 Stunden vor dem Stichtag: Antwortfrist des Termins, spätestens 12 Stunden vor Beginn). Wer dann noch „vielleicht“ steht, gilt als abgesagt. Für verknüpfte Tools ist „vielleicht“ immer eine Absage.">
+            <label className={`flex items-center gap-2 cursor-pointer text-sm font-medium ${themeClasses('gray').heading}`}>
+              <input type="checkbox" name="allowMaybe" defaultChecked={series.allowMaybe} className={`w-4 h-4 ${themeClasses('gray').accent}`} />
+              🤔 „Vielleicht“ erlauben
+            </label>
+            <RuleNote name="allowMaybe" />
+            {openMaybes > 0 && (
+              <p className="mt-1 text-xs text-amber-700 dark:text-amber-300" data-testid="maybe-disable-warning">
+                ⚠️ {openMaybes === 1 ? '1 Antwort steht' : `${openMaybes} Antworten stehen`} auf „vielleicht“. Beim Ausschalten werden sie abgesagt und per Mail informiert, dass sie selbst zusagen können.
+              </p>
+            )}
           </ThemeSection>
 
           <ThemeSection color="indigo" title="Gruppen- & Vereins-Features (gelten für alle Termine der Reihe)">

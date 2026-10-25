@@ -26,6 +26,7 @@ import { guestTicketing } from '../../../lib/guest-ticketing'
 import { TOOL_LINKS } from '../../../lib/linked-tools-store'
 import { isTimelineConfirmed, timelineLinkOf } from '../../../lib/timeline'
 import { wichtelnLinkOf } from '../../../lib/wichteln'
+import { maybeForForm } from '../../../lib/maybe'
 import { deadlinePassed, formatDeadline } from '../../../lib/rsvp-deadline'
 import EventHeader from '../../../ui/event-header'
 import WishList from '../../../ui/wish-list'
@@ -36,8 +37,9 @@ type PublicRsvp = Prisma.RsvpGetPayload<{
   select: {
     id: true
     isAttending: true
+    isMaybe: true
     isOnWaitlist: true
-    persons: { select: { position: true, name: true, ageGroup: true, isAttending: true } }
+    persons: { select: { position: true, name: true, ageGroup: true, isAttending: true, isMaybe: true } }
     bringingItem: true
     declineReason: true
     createdAt: true
@@ -172,8 +174,9 @@ export default async function SeriesEventPage({
       select: {
         id: true,
         isAttending: true,
+        isMaybe: true,
         isOnWaitlist: true,
-        persons: { select: { position: true, name: true, ageGroup: true, isAttending: true }, orderBy: { position: 'asc' } },
+        persons: { select: { position: true, name: true, ageGroup: true, isAttending: true, isMaybe: true }, orderBy: { position: 'asc' } },
         bringingItem: true,
         declineReason: true,
         createdAt: true,
@@ -227,6 +230,7 @@ export default async function SeriesEventPage({
           {...await guestTicketing(event, existingRsvp, !!participant?.isVerified, series.requireVerification)}
           seatingLabel={existingRsvp?.seatingLabel ?? null}
           wichteln={!!wichtelnLinkOf(event)}
+          maybe={maybeForForm({ ...event, series }, existingRsvp)}
           canOpenTimeline={!!timelineLinkOf(event) && !!existingRsvp && isTimelineConfirmed(existingRsvp, { isVerified: !!participant?.isVerified }, series.requireVerification)}
           isGuestListVisible={series.isGuestListVisible}
           isSeriesShared={true}
@@ -256,6 +260,9 @@ export default async function SeriesEventPage({
                       {event.inviteOnly && guest.isAttending && (
                         <span className="text-gray-500 dark:text-gray-400 text-sm ml-1">({guest.persons.filter(p => p.isAttending).map(p => p.name).join(', ')})</span>
                       )}
+                      {event.inviteOnly && guest.persons.some(p => p.isMaybe) && (
+                        <span className="text-gray-500 dark:text-gray-400 text-sm ml-1">{guest.isAttending ? 'vielleicht auch' : ''} ({guest.persons.filter(p => p.isMaybe).map(p => p.name).join(', ')})</span>
+                      )}
                       {!event.inviteOnly && guest.persons.length > 1 && guest.isAttending && (
                         <span className="text-gray-500 dark:text-gray-400 text-sm ml-1">(+ {guest.persons.slice(1).map(p => p.name || 'Begleitung').join(', ')})</span>
                       )}
@@ -266,7 +273,7 @@ export default async function SeriesEventPage({
                         </div>
                       )}
 
-                      {!guest.isAttending && guest.declineReason && (
+                      {!guest.isAttending && !guest.isMaybe && guest.declineReason && (
                         <div className="text-sm text-gray-500 dark:text-gray-400 mt-1 italic">
                           &quot;{guest.declineReason}&quot;
                         </div>
@@ -280,6 +287,8 @@ export default async function SeriesEventPage({
                         ) : (
                           <span className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-xs px-2 py-1 rounded-full font-bold">Dabei</span>
                         )
+                      ) : guest.isMaybe ? (
+                        <span className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 text-xs px-2 py-1 rounded-full font-bold">Vielleicht</span>
                       ) : (
                         <span className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 text-xs px-2 py-1 rounded-full font-bold">Abgesagt</span>
                       )}

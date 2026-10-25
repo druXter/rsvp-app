@@ -60,7 +60,7 @@ export default async function SeriesInvitationsPage({ params, searchParams }: { 
             return (
               <li key={t.id} data-testid="termin-summary">
                 <Link href={`/admin/events/${t.id}/einladungen`} className="font-medium hover:underline">{t.title}</Link>
-                <span className="text-gray-600 dark:text-gray-400">: {statuses.length} Haushalte ({statuses.filter(s => s.state === 'open').length} ohne Antwort) · {totals.yes} kommen, {totals.no} kommen nicht, {totals.open} offen</span>
+                <span className="text-gray-600 dark:text-gray-400">: {statuses.length} Haushalte ({statuses.filter(s => s.state === 'open').length} ohne Antwort) · {totals.yes} kommen, {totals.no} kommen nicht, {totals.maybe > 0 ? `${totals.maybe} vielleicht, ` : ''}{totals.open} offen</span>
               </li>
             )
           })}

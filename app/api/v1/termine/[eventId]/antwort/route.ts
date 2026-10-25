@@ -42,6 +42,9 @@ export async function POST(
   if (typeof body.isAttending !== 'boolean') {
     return apiError(400, 'Feld "isAttending" (true/false) fehlt')
   }
+  // „Vielleicht“ (app/lib/maybe.ts): isAttending false, maybe true und ein Erinnerungszeitpunkt (ISO 8601)
+  const isMaybe = !body.isAttending && body.maybe === true
+  const maybeRemindAt = isMaybe && typeof body.maybeRemindAt === 'string' ? new Date(body.maybeRemindAt) : null
 
   const event = await prisma.event.findUnique({ where: { id: eventId } })
   if (!event || !event.seriesId) {
@@ -66,6 +69,8 @@ export async function POST(
         skipPinCheck: true, // Mitgliedschaft (GuestUserSeries) wurde oben geprüft
         name: guestUser.name,
         isAttending: body.isAttending,
+        isMaybe,
+        maybeRemindAt,
         phone: guestUser.phone,
         dietaryOption: guestUser.dietaryOption,
         allergies: guestUser.allergies,
@@ -90,6 +95,9 @@ export async function POST(
 
   return Response.json({
     isAttending: body.isAttending,
+    maybe: result.isMaybe,
+    // Erinnerung bei „Vielleicht“ (auf die volle Stunde abgerundet), sonst null
+    maybeRemindAt: result.maybeRemindAt,
     isOnWaitlist: result.isOnWaitlist,
     needsVerification: result.needsVerification,
     // Einlass-QR-Code als Data-URL, nur bei bestätigtem festen Platz auf einem Termin mit

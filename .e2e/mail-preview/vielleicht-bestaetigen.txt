@@ -1,0 +1,15 @@
+Betreff: Bitte bestätige deine E-Mail-Adresse für Herbstfest 2026
+
+Hallo Ramón,
+
+du hast bei Herbstfest 2026 mit „vielleicht“ geantwortet. Wir erinnern dich am Mo., 02.11.2026, 18:00 Uhr daran, dich zu entscheiden - aber nur, wenn du vorher deine E-Mail-Adresse bestätigst.
+
+E-Mail-Adresse bestätigen:
+https://rsvp.example.de/verify?token=x
+
+Viele Grüße
+Dein Event-Team
+
+-- 
+Falls du nicht geantwortet hast, kannst du diese Mail ignorieren - ohne Bestätigung schicken wir dir nichts weiter.
+RSVP
