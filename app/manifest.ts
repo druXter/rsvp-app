@@ -10,6 +10,13 @@ export default function manifest(): MetadataRoute.Manifest {
     // #12) - start_url zeigt daher auf die neutrale Startseite, die zu beiden Bereichen
     // verlinkt, statt fest auf /admin.
     start_url: '/',
+    // Feste Kennung der App (entspricht dem bisherigen Standardwert aus start_url, bestehende Installationen bleiben
+    // dieselbe App) und ausdrücklich die ganze Seite als Bereich: Auf Android öffnet die installierte App damit Links
+    // auf jeden Termin (z.B. /biernachten-2026), sofern unter App-Info → „Standardmäßig öffnen“ erlaubt.
+    id: '/',
+    scope: '/',
+    // Ein Link öffnet die schon laufende App und führt sie zum Termin, statt ein zweites Fenster zu öffnen.
+    launch_handler: { client_mode: ['navigate-existing', 'auto'] },
     display: 'standalone',
     background_color: '#f3f4f6',
     theme_color: '#2563eb',
