@@ -1,6 +1,6 @@
 // app/admin/event-settings-form.tsx
 import type { Prisma } from '@prisma/client'
-import type { ReactNode } from 'react'
+import { Suspense, type ReactNode } from 'react'
 import { updateEvent, updateSeriesTermin } from './actions'
 import { formatBringSlots } from '../lib/bring-list'
 import { courseOptions } from '../lib/menu'
@@ -16,6 +16,7 @@ import { SeatingPaymentToggle, TicketFields } from './ticket-settings-section'
 import NotifyGuestsToggle from './notify-guests-toggle'
 import { SettingsError, SettingsForm } from './settings-form'
 import FieldRules, { RuleNote, type FieldRule } from './field-rules'
+import { LinkedCreateButton } from './linked-create'
 
 export const SETTINGS_INCLUDE = {
   series: true,
@@ -78,7 +79,7 @@ const summary = (parts: (string | null | false | undefined)[], empty = 'aus') =>
  * Profil-, Zugangs- und Verifizierungs-Felder). Feldnamen wie bisher, damit die Server Actions unverändert lesen.
  * `open`: Abschnitt, der aufgeklappt startet (z.B. nach dem Anlegen "tickets").
  */
-export default function EventSettingsForm({ event, open = 'grunddaten' }: { event: SettingsEvent; open?: string }) {
+export default function EventSettingsForm({ event, userId, open = 'grunddaten' }: { event: SettingsEvent; userId: string; open?: string }) {
   const isTermin = !!event.seriesId
   const seatingOrigin = allowedSeatingOrigin()
   const timelineOrigin = allowedTimelineOrigin()
@@ -245,6 +246,7 @@ export default function EventSettingsForm({ event, open = 'grunddaten' }: { even
             <Field id="timelineUrl" label="Zeitplan" hint={<>Link aus den Event-Einstellungen im Zeitplan. ID dieses Termins: <code className="select-all">{event.id}</code>. An den Zeitplan gehen nur Kennungen, keine Namen - außer ihr gebt unten etwas für den Rückblick frei.</>}>
               <input id="timelineUrl" type="url" name="timelineUrl" defaultValue={timelineUrl} className={inputClass} placeholder={`${timelineOrigin}/rsvp/…`} />
             </Field>
+            {!timelineUrl && <Suspense fallback={null}><LinkedCreateButton type="timeline" eventId={event.id} userId={userId} /></Suspense>}
             <input type="hidden" name="protocolShown" value="1" />
             <Check name="timelinePresence" defaultChecked={event.timelinePresence} label="Kommen und Gehen im Zeitplan-Rückblick zeigen"
               hint="Für Sitzungen: Wer wann kommt und geht, steht im Rückblick beim jeweiligen Tagesordnungspunkt - mit Namen, für alle mit Zugriff auf das Event im Zeitplan. Der Zeitplan lädt das nur zum Anzeigen und speichert es nicht." />
@@ -260,6 +262,7 @@ export default function EventSettingsForm({ event, open = 'grunddaten' }: { even
               <input id="shiftsUrl" type="url" name="shiftsUrl" defaultValue={shiftsUrl} className={inputClass} placeholder={`${shiftsOrigin}/rsvp/…`} />
               <RuleNote name="shiftsUrl" />
             </Field>
+            {!shiftsUrl && !event.inviteOnly && <Suspense fallback={null}><LinkedCreateButton type="shifts" eventId={event.id} userId={userId} /></Suspense>}
             <Field id="shiftTiers" label="Stufen: ab wie vielen Schichten welche Zusage" hint={event.ticketCategories.length > 0
               ? <>Eine Zeile pro Stufe, „Schichten: Kategorie“, z. B. „1: Helfer*innen“ und „5: Helfer*innen plus“. Die höchste erreichte Stufe gilt. Kapazität und Kontingente gelten für Helfer*innen nicht, der Preis der Kategorie schon. Leer = keine Helfer-Zusagen.</>
               : <>Ab wie vielen Schichten es eine Zusage gibt, z. B. „1“. Leer = keine Helfer-Zusagen.</>}>

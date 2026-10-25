@@ -20,7 +20,8 @@ import { clearFailures, clientIp, loginRules, passwordChangeRule, refund, reserv
 import { isOwnerOrAdmin, hasEventModeratorOrAbove, hasSeriesModeratorOrAbove } from '../lib/permissions'
 import { sendReminderPush } from '../lib/push'
 import { notifyAttendeesOfChange } from '../lib/event-change-notify'
-import { readToolLinks, saveToolLinks, type ToolLinkInput } from '../lib/linked-tools-store'
+import { readToolLinks, saveToolLinks, storedToolUrl, TOOL_LINKS, type ToolLinkInput } from '../lib/linked-tools-store'
+import { createLinkedEvent, isCreatableTool } from '../lib/linked-create'
 import { parsePhotoUrl } from '../lib/photo-link'
 import { readFeedbackSettings } from '../lib/feedback-link'
 import { readAssemblySettings } from '../lib/assembly'
@@ -823,6 +824,30 @@ async function saveEvent(formData: FormData): Promise<string | undefined> {
 
   revalidatePath('/admin', 'layout')
   return `/admin/events/${id}/einstellungen?gespeichert=1`
+}
+
+/**
+ * Knopf „Im Zeitplan anlegen“ bzw. „In Schichten anlegen“ unter „Verknüpfungen“ (Idee Q1, app/lib/linked-create.ts):
+ * Das Tool legt ein verknüpftes Event an, hier wird der Link eingetragen. Nur Owner und Admins, nur ohne bestehende
+ * Verknüpfung; Schichten nicht im Einladungsmodus (wie beim Eintragen von Hand). Ergebnis als Hinweis auf der Seite.
+ */
+export async function createLinkedToolEvent(formData: FormData) {
+  const user = await requireUser()
+  const id = formData.get('eventId') as string
+  const type = formData.get('tool')
+  if (!id || !isCreatableTool(type)) return
+  const event = await prisma.event.findUnique({ where: { id }, include: { toolLinks: TOOL_LINKS } })
+  if (!event || !isOwnerOrAdmin(user, event.ownerId)) return
+
+  const back = (query: string) => redirect(`/admin/events/${id}/einstellungen?abschnitt=verknuepfungen&tool=${type}&${query}`)
+  if (storedToolUrl(event.toolLinks, type)) back('anlegen=schon')
+  if (type === 'shifts' && event.inviteOnly) back('anlegen=einladung')
+
+  const result = await createLinkedEvent(type, event, user.id)
+  revalidatePath('/admin', 'layout')
+  if (!result) back('anlegen=fehler')
+  else if (result.status === 'created' || result.status === 'linked') back(`angelegt=${result.status}`)
+  else back(`anlegen=${result.status}`)
 }
 
 /**

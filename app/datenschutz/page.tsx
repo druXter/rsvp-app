@@ -115,6 +115,15 @@ export default function DatenschutzPage() {
             (&quot;Mein Konto&quot;) gilt der folgende, eigene Ablauf.
           </p>
           <p className="mt-2">
+            <strong>Verknüpftes Event im Zeitplan oder in Schichten anlegen (optional, nur Verwaltungskonten):</strong>{' '}
+            Klickst du bei einem Termin auf &quot;Im Zeitplan anlegen&quot; bzw. &quot;In Schichten anlegen&quot;, fragen
+            wir beim Öffnen der Einstellungen und beim Klick das jeweilige Tool mit einer signierten, eine Minute gültigen
+            Nachricht. Sie enthält <strong>die Kennung des Termins und deines Kontos</strong> (bzw. die Kennung deines
+            Kontos dort, wenn du dich hier über das Tool anmeldest), beim Anlegen zusätzlich <strong>Titel und Datum des
+            Termins</strong>. Das Event gehört dort dem Konto, das mit deinem verknüpft ist; ohne Verknüpfung legt das
+            Tool nichts an.
+          </p>
+          <p className="mt-2">
             <strong>Mit deinem Teilnehmendenkonto in einem anderen Tool anmelden (optional):</strong> Ist dies vom
             Betreiber eingerichtet, kannst du dich mit deinem Konto unter &quot;Mein Konto&quot; auch in einem
             verbundenen Tool anmelden, z.B. um im Abstimmungstool abzustimmen. Beim ersten Mal fragen wir dich auf einer

@@ -264,7 +264,7 @@ Regeln in `app/lib/feedback-link.ts`, Versand in `app/lib/feedback.ts`:
 ## 🔌 Verknüpfte Tools (Anbindungen)
 
 Ein Termin kann mit Events in anderen, eigenständigen Tools der Suite verknüpft werden - **Seating** (Sitzplätze,
-siehe unten) und das **Zeitplan-Tool** (Ablauf des Events, siehe unten). Alles Gemeinsame steht in `app/lib/linked-tools.ts`:
+siehe unten), das **Zeitplan-Tool** (Ablauf des Events) und **Schichten** (Helfer\*innen), jeweils unten beschrieben. Alles Gemeinsame steht in `app/lib/linked-tools.ts`:
 
 * **Liste der Tools** (`DEFINITIONS`): pro Tool-Typ die Env-Variablen für Adresse und Secret, die Form des Links auf ein
   Event dort (`<Adresse>/<Segment>/<Event-ID>`), der Name des ID-Felds in den Nachrichten und der Webhook-Pfad. Ein neues
@@ -281,6 +281,16 @@ siehe unten) und das **Zeitplan-Tool** (Ablauf des Events, siehe unten). Alles G
 * **Webhook `rsvp-change`** bei jeder Änderung einer Zusage an **alle** gültig verknüpften Tools des Termins, jeweils mit
   eigenem Inhalt, Secret und Empfänger; nicht verknüpfte, nicht eingerichtete oder unbekannte Tools bekommen nichts. Pro
   Tool in Reihenfolge, verschiedene Tools parallel, 5 s Timeout, erst nach der Antwort (`after()`).
+* **Anlegen beim Tool** (Idee Q1, `app/lib/linked-create.ts`, Vertrag in suite-kit `src/linked-create.ts`): Ist ein
+  Termin noch nicht mit dem Zeitplan bzw. mit Schichten verknüpft, zeigt „Verknüpfungen“ den Knopf „Im Zeitplan
+  anlegen“ bzw. „In Schichten anlegen“ (Schichten nicht im Einladungsmodus). Vorher fragt rsvp-app das Tool
+  (`event-create-status`, im Suspense-Rahmen, 5 s Timeout), ob das Konto dort anlegen darf. Das Event gehört dem Konto im
+  Tool, das über den Konten-Verbund mit dem eigenen verknüpft ist (gesendet werden die eigene Konto-ID und, falls man
+  sich hier über das Tool anmeldet, die Konto-ID dort); ohne Verknüpfung steht statt des Knopfs ein Anmelde-Link. Der
+  Klick (`createLinkedToolEvent`, nur Owner und Admins) schickt Titel und Datum (`event-create`), das Tool legt einen
+  Entwurf an und antwortet mit dem Link, den rsvp-app nur übernimmt, wenn er auf die Adresse des Tools zeigt. Gibt es
+  dort schon ein Event zu diesem Termin, wird es verknüpft. Seating bleibt bei der Verknüpfung von Hand (braucht
+  Raumplan, Modus und Ende).
 * **Weiterleitungs-Routen** („Sitzplatz wählen“, „Zeitplan“) prüfen über `app/lib/linked-tools-access.ts`, wer
   weitergeleitet werden darf (editToken genau dieses Termins oder verifizierte Gast-Session, PIN, Zusage zählt), und
   stellen dann bei jedem Klick einen frischen, kurz gültigen Link nach dem Vertrag des Tools aus.
