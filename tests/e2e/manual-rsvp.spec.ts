@@ -1,9 +1,9 @@
 import { expect, test, type Browser, type Page } from '@playwright/test'
 import type { User } from '@prisma/client'
-import { BASE_URL, createAccount, createEvent, login, prisma, readForm, submitForm, unique, uniqueEmail } from './helpers'
+import { BASE_URL, cookieHeader, createAccount, createEvent, login, prisma, readForm, submitForm, unique, uniqueEmail } from './helpers'
 
 // Gäste von Hand eintragen (Reiter „Gäste“, app/admin/manual-rsvp-actions.ts): Zusage, Vielleicht oder Absage mit
-// optionaler Adresse, die nur mit Haken als bestätigt gilt. Es geht keine Mail raus.
+// optionaler Adresse, die nur mit Haken als bestätigt gilt, Mail nur auf Wunsch, dazu eine interne Notiz.
 
 const DAY = 24 * 60 * 60 * 1000
 
@@ -16,7 +16,7 @@ async function pageFor(browser: Browser, user: User | null): Promise<Page> {
   return page
 }
 
-async function addGuest(page: Page, fields: { name: string; status: 'Zusage' | 'Vielleicht' | 'Absage'; email?: string; verified?: boolean; sendMail?: boolean }) {
+async function addGuest(page: Page, fields: { name: string; status: 'Zusage' | 'Vielleicht' | 'Absage'; email?: string; verified?: boolean; sendMail?: boolean; note?: string }) {
   const panel = page.getByTestId('manual-rsvp')
   if (!(await panel.evaluate(el => (el as HTMLDetailsElement).open))) await panel.getByText('+ Gast eintragen').click()
   await panel.getByLabel('Name').fill(fields.name)
@@ -24,6 +24,7 @@ async function addGuest(page: Page, fields: { name: string; status: 'Zusage' | '
   await panel.getByLabel('E-Mail (optional)').fill(fields.email ?? '')
   await panel.getByLabel(/Adresse ist bestätigt/).setChecked(!!fields.verified)
   await panel.getByLabel('Mail an den Gast schicken').setChecked(!!fields.sendMail)
+  await panel.getByLabel('Notiz (nur für euch)').fill(fields.note ?? '')
   await panel.getByRole('button', { name: 'Eintragen' }).click()
 }
 
@@ -159,5 +160,60 @@ test('Bearbeiten: geänderte Adresse ist ohne Haken unbestätigt, mit Haken best
   const confirmed = await save(changed, true)
   expect(confirmed.isVerified).toBe(true)
   expect(confirmed.verifiedAt).not.toBeNull()
+  await page.close()
+})
+
+test('Notiz: beim Eintragen und Bearbeiten, in Liste, Suche und CSV - nie auf der Gästeseite', async ({ browser }) => {
+  const owner = await createAccount('CREATOR')
+  const event = await createEvent(owner)
+  const page = await pageFor(browser, owner)
+  await page.goto(`/admin/events/${event.id}/gaeste`)
+
+  const note = 'telefonisch zugesagt ' + unique()
+  await addGuest(page, { name: 'Paula Telefon', status: 'Zusage', email: uniqueEmail('paula'), note })
+  await expect(page.getByTestId('guest-row')).toHaveCount(1)
+  await addGuest(page, { name: 'Otto Ohne', status: 'Absage' })
+  await expect(page.getByTestId('guest-row')).toHaveCount(2)
+  await expect(page.getByTestId('guest-row').filter({ hasText: 'Paula Telefon' }).getByTestId('guest-note')).toContainText(note)
+  await expect(page.getByTestId('guest-note')).toHaveCount(1)
+  const rsvp = await prisma.rsvp.findFirstOrThrow({ where: { eventId: event.id, participant: { name: 'Paula Telefon' } }, include: { participant: true, note: true } })
+  expect(rsvp.note?.text).toBe(note)
+
+  // Suche findet auch die Notiz
+  await page.goto(`/admin/events/${event.id}/gaeste?q=${encodeURIComponent('telefonisch')}`)
+  await expect(page.getByTestId('guest-row')).toHaveCount(1)
+
+  // CSV-Export der Verwaltung enthält sie
+  const csv = await (await page.request.get(`/api/export?eventId=${event.id}`, { headers: await cookieHeader(page.context()) })).text()
+  expect(csv).toContain('Notiz (intern)')
+  expect(csv).toContain(note)
+
+  // Der Gast sieht sie nicht - auch nicht im Seitenquelltext (Positivkontrolle: seine Antwort ist geladen)
+  const guest = await pageFor(browser, null)
+  const response = await guest.goto(`/${event.slug}?token=${rsvp.participant.editToken}`)
+  const html = await response!.text()
+  expect(html).toContain(rsvp.participant.email!)
+  expect(html).not.toContain(note)
+  await guest.close()
+
+  // Bearbeiten: ändern, dann leeren löscht sie
+  const edit = async (text: string) => {
+    await page.goto(`/admin/edit-rsvp/${rsvp.id}`)
+    await page.getByLabel('Notiz (nur für euch)').fill(text)
+    await page.getByRole('button', { name: 'Änderungen speichern' }).click()
+    await expect(page).toHaveURL(`${BASE_URL}/admin/events/${event.id}/gaeste`)
+  }
+  await page.goto(`/admin/edit-rsvp/${rsvp.id}`)
+  await expect(page.getByLabel('Notiz (nur für euch)')).toHaveValue(note)
+  await edit('zahlt bar an der Abendkasse')
+  expect((await prisma.rsvpNote.findUniqueOrThrow({ where: { rsvpId: rsvp.id } })).text).toBe('zahlt bar an der Abendkasse')
+  await edit('   ')
+  expect(await prisma.rsvpNote.count({ where: { rsvpId: rsvp.id } })).toBe(0)
+  await expect(page.getByTestId('guest-note')).toHaveCount(0)
+
+  // Mit der Antwort verschwindet auch die Notiz
+  await edit('bleibt nicht')
+  await prisma.rsvp.delete({ where: { id: rsvp.id } })
+  expect(await prisma.rsvpNote.count({ where: { rsvpId: rsvp.id } })).toBe(0)
   await page.close()
 })

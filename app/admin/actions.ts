@@ -48,6 +48,7 @@ import { resetInvitationReminders } from '../lib/invitation-reminder'
 import { invitationCovers } from '../lib/invitation-store'
 import { InputError } from '../lib/input-error'
 import { verificationAfterAdminEdit } from '../lib/manual-rsvp'
+import { readRsvpNote, saveRsvpNote } from '../lib/rsvp-note'
 import { readShiftTiers, storedTiers, type ShiftTierInput } from '../lib/shift-helpers'
 
 
@@ -992,6 +993,8 @@ export async function updateAdminRsvp(formData: FormData) {
     }
   })
   if (usesPersons) await savePersons(id, persons)
+  // Interne Notiz der Verwaltung (app/lib/rsvp-note.ts) - nur, wenn das Formular das Feld hat
+  if (formData.has('adminNote')) await saveRsvpNote(id, readRsvpNote(formData))
   await syncPaymentDue({ rsvpIds: [id] })
 
   // Absage gibt beanspruchte Einträge der Mitbringliste frei

@@ -35,7 +35,7 @@ const MANUAL_SAVED: Record<string, string> = {
 
 /**
  * Reiter "Gäste" (docs/KONZEPT-OBERFLAECHE.md): kompakte Liste mit Filter und Suche. Pro Antwort Name, Personen,
- * Status, je nach Event Ticket/Zahlung, Menü und Check-in, dazu Bearbeiten/Löschen. Alle übrigen Angaben (Kontakt,
+ * Status, je nach Event Ticket/Zahlung, Menü und Check-in, dazu Bearbeiten/Löschen und die interne Notiz. Alle übrigen Angaben (Kontakt,
  * Essen, Alkohol, Mitbringsel, Anmerkungen, Zusatzfragen, Platz) stehen aufklappbar unter "Details". Auf dem Handy
  * werden die Zeilen zu Karten.
  */
@@ -51,6 +51,7 @@ export default async function EventGuests({ params, searchParams }: { params: Pr
       where: { eventId: event.id },
       include: {
         participant: true,
+        note: { select: { text: true } },
         persons: { include: { menuChoices: true } },
         bringClaims: { select: { slot: { select: { label: true, position: true } } } }
       },
@@ -80,7 +81,7 @@ export default async function EventGuests({ params, searchParams }: { params: Pr
   const shownFilter = (key: string) => (key !== 'zahlung-offen' || withTickets) && (key !== 'vielleicht' || withMaybe)
   const filter = FILTERS.find(f => f.key === rawFilter && shownFilter(f.key))?.key ?? 'alle'
   const query = (rawQuery ?? '').trim().toLowerCase().slice(0, 100)
-  const shown = rsvps.filter(matches[filter]).filter(r => !query || [r.participant.name, r.participant.email ?? '', ...r.persons.map(p => p.name ?? '')].some(v => v.toLowerCase().includes(query)))
+  const shown = rsvps.filter(matches[filter]).filter(r => !query || [r.participant.name, r.participant.email ?? '', r.note?.text ?? '', ...r.persons.map(p => p.name ?? '')].some(v => v.toLowerCase().includes(query)))
   const href = (key: string) => `/admin/events/${event.id}/gaeste${key === 'alle' ? '' : `?filter=${key}`}`
 
   return (
@@ -101,7 +102,7 @@ export default async function EventGuests({ params, searchParams }: { params: Pr
         <div className="flex gap-2">
           <form className="flex gap-2" role="search">
             {filter !== 'alle' && <input type="hidden" name="filter" value={filter} />}
-            <input name="q" defaultValue={rawQuery ?? ''} placeholder="Name oder E-Mail suchen" aria-label="Gäste suchen" className={`${inputClass} md:w-56`} />
+            <input name="q" defaultValue={rawQuery ?? ''} placeholder="Name, E-Mail oder Notiz" aria-label="Gäste suchen" className={`${inputClass} md:w-56`} />
           </form>
           <a href={`/api/export?eventId=${event.id}`} download className={buttonClass('secondary')}>📥 CSV</a>
         </div>
@@ -148,6 +149,7 @@ export default async function EventGuests({ params, searchParams }: { params: Pr
                         </div>
                       )}
                       {rsvp.participant.email && <div className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{rsvp.participant.email}</div>}
+                      {rsvp.note && <div className="mt-0.5 whitespace-pre-line text-xs italic text-gray-600 dark:text-gray-400" data-testid="guest-note" title="Notiz (nur für euch)">📝 {rsvp.note.text}</div>}
                       <details className="mt-1 text-xs">
                         <summary className="cursor-pointer text-blue-700 hover:underline dark:text-blue-300">Details</summary>
                         <dl className="mt-2 grid grid-cols-[auto,1fr] gap-x-3 gap-y-1 text-gray-700 dark:text-gray-300">

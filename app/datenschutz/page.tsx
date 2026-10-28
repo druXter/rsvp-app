@@ -207,7 +207,10 @@ export default function DatenschutzPage() {
             Deine Adresse gilt nur dann als bestätigt, wenn die Veranstalter:innen das ausdrücklich angeben (z.B. weil du sie ihnen selbst
             genannt hast); sonst ist sie unbestätigt wie bei einer selbst abgegebenen Antwort, bis du sie über den
             Bestätigungslink bestätigst. Ändern die Veranstalter:innen deine Adresse, gilt sie danach wieder als
-            unbestätigt, außer sie geben ausdrücklich an, dass sie bestätigt ist.
+            unbestätigt, außer sie geben ausdrücklich an, dass sie bestätigt ist. Zu jeder Antwort - auch zu einer selbst
+            abgegebenen - können die Veranstalter:innen eine interne Notiz hinterlegen (z.B. „telefonisch zugesagt“). Sie
+            sehen nur die Veranstalter:innen und ihre Helfer:innen (Gästeliste, CSV-Export), sie wird nicht an verknüpfte
+            Tools weitergegeben und mit der Antwort gelöscht.
           </p>
           <p className="mt-2">
             <strong>Antwortfrist:</strong> Legen die Veranstalter:innen eine Antwortfrist fest, kannst du deine Antwort

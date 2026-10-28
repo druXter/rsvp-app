@@ -3,6 +3,7 @@ import { addManualRsvp } from './manual-rsvp-actions'
 import { SettingsError, SettingsForm } from './settings-form'
 import { formatEuro } from '../lib/payment-state'
 import { formatMaybeTime, defaultMaybeReminder, maybeAvailable } from '../lib/maybe'
+import { RSVP_NOTE_MAX } from '../lib/rsvp-note'
 import { Disclosure, SubmitButton, hintClass, inputClass, labelClass } from '../ui/kit'
 
 type PanelEvent = Parameters<typeof maybeAvailable>[0] & {
@@ -71,6 +72,11 @@ export default function ManualRsvpPanel({ event, categories }: { event: PanelEve
             Ein Vielleicht mit unbestätigter Adresse bekommt die Bitte um Bestätigung (sonst keine Erinnerung), eine Absage keine Mail.
             {requireVerification ? ' Ohne bestätigte Adresse zählt eine Zusage erst nach der Bestätigung - die Mail dafür geht auch später unter „Details“ mit „erneut senden“.' : ''}
           </p>
+        </div>
+        <div>
+          <label htmlFor="manual-note" className={labelClass}>Notiz (nur für euch)</label>
+          <input id="manual-note" name="adminNote" maxLength={RSVP_NOTE_MAX} placeholder="z. B. telefonisch zugesagt" className={inputClass} />
+          <p className={hintClass}>Steht in der Gästeliste und im CSV-Export, der Gast sieht sie nie.</p>
         </div>
         <p className={hintClass}>Eine Zusage bekommt einen festen Platz, auch über die Kapazität hinaus (wie „Zulassen“). Begleitungen, Menü und weitere Angaben danach über „Bearbeiten“.</p>
         <SubmitButton inline>Eintragen</SubmitButton>

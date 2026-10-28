@@ -405,9 +405,21 @@ model Rsvp {
   // Personen der Antwort (docs/KONZEPT-EINLADUNGEN.md): die anmeldende Person (Position 0) und ihre Begleitungen.
   // Leer bei Terminen ohne Begleitungen - dann ist die Antwort genau eine Person (personsOf in app/lib/persons.ts).
   persons RsvpPerson[]
+  // Interne Notiz der Verwaltung (RsvpNote) - eigene Tabelle, damit sie nie mit der Antwort zum Gast gelangt.
+  note    RsvpNote?
 
   @@unique([eventId, participantId])
   @@unique([eventId, shiftHelperId])
+}
+
+// Interne Notiz der Verwaltung zu einer Antwort ("telefonisch zugesagt"), nur in der Verwaltung und im CSV-Export.
+// Eigene Tabelle statt Feld an Rsvp: Die Gästeseiten geben die ganze Rsvp an das Formular weiter, eine Relation
+// lädt Prisma nur auf ausdrücklichen Wunsch (include: { note: true }).
+model RsvpNote {
+  rsvpId    String   @id
+  rsvp      Rsvp     @relation(fields: [rsvpId], references: [id], onDelete: Cascade)
+  text      String
+  updatedAt DateTime @updatedAt
 }
 
 // Eine Person einer Antwort (docs/KONZEPT-EINLADUNGEN.md). Position 0 ist bei offener Anmeldung die

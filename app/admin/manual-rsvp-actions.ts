@@ -18,6 +18,7 @@ import { sendConfirmationEmail, sendMaybeVerificationEmail, sendVerificationEmai
 import { defaultMaybeReminder, maybeAvailable } from '../lib/maybe'
 import { generatePaymentReference, syncPaymentDue } from '../lib/payment'
 import { savePersons } from '../lib/rsvp-submission'
+import { readRsvpNote } from '../lib/rsvp-note'
 import { notifyLinkedToolsOfRsvps } from '../lib/linked-tools-notify'
 import type { SettingsState } from './actions'
 
@@ -34,6 +35,7 @@ export async function addManualRsvp(_state: SettingsState, formData: FormData): 
   let mailSent = false
   try {
     const input = readManualRsvp(formData)
+    const note = readRsvpNote(formData)
     if (event.inviteOnly) throw new InputError('Im Einladungsmodus kommen Gäste über Einladungen dazu.')
     const isAttending = input.status === 'yes'
     const isMaybe = input.status === 'maybe'
@@ -77,7 +79,9 @@ export async function addManualRsvp(_state: SettingsState, formData: FormData): 
         maybeRemindAt: isMaybe ? defaultMaybeReminder(event, now) : null,
         ticketCategoryId: category?.id ?? null,
         amountCents,
-        paymentReference: amountCents ? generatePaymentReference(event.slug) : null
+        paymentReference: amountCents ? generatePaymentReference(event.slug) : null,
+        // Interne Notiz ("telefonisch zugesagt") - nur für die Verwaltung (app/lib/rsvp-note.ts)
+        ...(note ? { note: { create: { text: note } } } : {})
       }
     })
     // Mit Begleitungen oder Menü hat jede Antwort Personen (Begleitungen und Menü dann über „Bearbeiten“)

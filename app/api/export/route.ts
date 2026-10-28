@@ -26,7 +26,7 @@ export async function GET(request: Request) {
 
   const event = await prisma.event.findUnique({
     where: { id: eventId },
-    include: { rsvps: { include: { participant: true, persons: true, ticketCategory: { select: { label: true } }, bringClaims: { select: { slot: { select: { label: true, position: true } } } } } }, series: true, toolLinks: { select: { type: true } }, _count: { select: { ticketCategories: true } } }
+    include: { rsvps: { include: { participant: true, note: { select: { text: true } }, persons: true, ticketCategory: { select: { label: true } }, bringClaims: { select: { slot: { select: { label: true, position: true } } } } } }, series: true, toolLinks: { select: { type: true } }, _count: { select: { ticketCategories: true } } }
   })
 
   if (!event || !(await hasEventModeratorOrAbove(user, event))) return new NextResponse("Event nicht gefunden", { status: 404 })
@@ -57,6 +57,7 @@ export async function GET(request: Request) {
       "Alkohol",
       "Mitbringsel",
       "Anmerkungen / Grund",
+      "Notiz (intern)",
       "Datum",
       ...(withSeating ? ["Sitzplatz"] : []),
       ...(withShifts ? ["Schichten"] : []),
@@ -97,6 +98,8 @@ export async function GET(request: Request) {
       [...claimedLabels(rsvp), ...(rsvp.bringingItem ? [rsvp.bringingItem] : [])].join(", "),
 
       rsvp.isAttending ? (rsvp.additionalInfo || "") : (rsvp.declineReason || ""),
+      // Interne Notiz der Verwaltung (app/lib/rsvp-note.ts)
+      rsvp.note?.text || "",
 
       rsvp.createdAt.toISOString().split('T')[0],
 

@@ -12,6 +12,7 @@ import { menuForForm } from '../../../lib/menu-store'
 import { invitationCovers } from '../../../lib/invitation-store'
 import MenuSelects from '../../../ui/menu-selects'
 import AdminShell from '../../admin-shell'
+import { RSVP_NOTE_MAX } from '../../../lib/rsvp-note'
 import { Badge, PageHeader, inputClass, SubmitButton } from '../../../ui/kit'
 
 
@@ -25,7 +26,7 @@ export default async function EditRsvpPage({ params }: { params: Promise<{ id: s
 
   // Die spezifische Antwort aus der Datenbank abrufen (inkl. des geteilten Gast-Profils)
   const { id } = await params
-  const rsvp = await prisma.rsvp.findUnique({ where: { id }, include: { participant: true, persons: { orderBy: { position: 'asc' }, include: { menuChoices: true } }, event: { include: { ticketCategories: { orderBy: { position: 'asc' } } } } } })
+  const rsvp = await prisma.rsvp.findUnique({ where: { id }, include: { participant: true, note: true, persons: { orderBy: { position: 'asc' }, include: { menuChoices: true } }, event: { include: { ticketCategories: { orderBy: { position: 'asc' } } } } } })
 
   if (!rsvp || !(await hasEventModeratorOrAbove(user, rsvp.event))) return <div className="p-8 dark:text-gray-100">Antwort nicht gefunden.</div>
 
@@ -162,6 +163,12 @@ export default async function EditRsvpPage({ params }: { params: Promise<{ id: s
               rows={3}
               className={inputClass}
             ></textarea>
+          </div>
+
+          <div className="pt-4 border-t dark:border-gray-700">
+            <label htmlFor="adminNote" className="block text-sm font-medium mb-1">Notiz (nur für euch)</label>
+            <textarea id="adminNote" name="adminNote" defaultValue={rsvp.note?.text ?? ''} maxLength={RSVP_NOTE_MAX} rows={2} placeholder="z. B. telefonisch zugesagt" className={inputClass}></textarea>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Steht in der Gästeliste und im CSV-Export, der Gast sieht sie nie.</p>
           </div>
 
           <SubmitButton>Änderungen speichern</SubmitButton>
