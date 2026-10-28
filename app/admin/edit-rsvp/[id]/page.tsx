@@ -12,7 +12,7 @@ import { menuForForm } from '../../../lib/menu-store'
 import { invitationCovers } from '../../../lib/invitation-store'
 import MenuSelects from '../../../ui/menu-selects'
 import AdminShell from '../../admin-shell'
-import { PageHeader, inputClass, SubmitButton } from '../../../ui/kit'
+import { Badge, PageHeader, inputClass, SubmitButton } from '../../../ui/kit'
 
 
 /**
@@ -79,6 +79,16 @@ export default async function EditRsvpPage({ params }: { params: Promise<{ id: s
             <div>
               <label htmlFor="email" className="block text-sm font-medium mb-1">E-Mail</label>
               <input id="email" type="email" name="email" defaultValue={participant.email || ''} className={inputClass} />
+              {participant.email && (
+                <p className="mt-1" data-testid="email-status">
+                  {participant.isVerified ? <Badge tone="green">bestätigt</Badge> : <Badge tone="amber">nicht bestätigt</Badge>}
+                </p>
+              )}
+              <label className="mt-2 flex items-start gap-2 text-sm">
+                <input type="checkbox" name="emailVerified" className="mt-0.5 h-4 w-4 accent-blue-600" />
+                <span>{participant.isVerified ? 'Geänderte Adresse ist bestätigt' : 'Adresse ist bestätigt'}</span>
+              </label>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Änderst du die Adresse, ist sie danach unbestätigt - außer mit Haken.</p>
             </div>
             <div>
               <label htmlFor="phone" className="block text-sm font-medium mb-1">Handy</label>

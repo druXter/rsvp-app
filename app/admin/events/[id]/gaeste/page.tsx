@@ -25,6 +25,14 @@ const FILTERS = [
   { key: 'zahlung-offen', label: 'Zahlung offen' }
 ] as const
 
+/** Rückmeldung nach „Gast eintragen“ (app/admin/manual-rsvp-actions.ts), je nach verschickter Mail. */
+const MANUAL_SAVED: Record<string, string> = {
+  '1': 'Gast eingetragen.',
+  bestaetigung: 'Gast eingetragen, Bestätigung verschickt.',
+  verifizierung: 'Gast eingetragen, Bitte um Bestätigung der Adresse verschickt.',
+  mailfehler: 'Gast eingetragen, aber die Mail ließ sich nicht verschicken.'
+}
+
 /**
  * Reiter "Gäste" (docs/KONZEPT-OBERFLAECHE.md): kompakte Liste mit Filter und Suche. Pro Antwort Name, Personen,
  * Status, je nach Event Ticket/Zahlung, Menü und Check-in, dazu Bearbeiten/Löschen. Alle übrigen Angaben (Kontakt,
@@ -99,7 +107,9 @@ export default async function EventGuests({ params, searchParams }: { params: Pr
         </div>
       </div>
 
-      {eingetragen === '1' && <Notice tone="success" role="status" testId="manual-rsvp-saved">Gast eingetragen.</Notice>}
+      {eingetragen && Object.hasOwn(MANUAL_SAVED, eingetragen) && (
+        <Notice tone={eingetragen === 'mailfehler' ? 'warning' : 'success'} role="status" testId="manual-rsvp-saved">{MANUAL_SAVED[eingetragen]}</Notice>
+      )}
       <ManualRsvpPanel event={event} categories={categories} />
 
       {shown.length === 0 ? (

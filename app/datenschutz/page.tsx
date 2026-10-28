@@ -202,10 +202,12 @@ export default function DatenschutzPage() {
             anderem Weg (z.B. persönlich oder am Telefon) zu-, ab- oder „vielleicht“ gesagt, können sie deine Antwort
             selbst eintragen: deinen Namen und optional deine E-Mail-Adresse. Diese Daten stammen von den
             Veranstalter:innen (Art. 14 DSGVO), wir verwenden sie wie eine selbst abgegebene Antwort nur zur Organisation
-            der Veranstaltung und löschen sie mit ihr. Beim Eintragen schicken wir dir keine Mail. Deine Adresse gilt
-            nur dann als bestätigt, wenn die Veranstalter:innen das ausdrücklich angeben (z.B. weil du sie ihnen selbst
+            der Veranstaltung und löschen sie mit ihr. Eine Mail (z.B. die Bestätigung mit Kalenderdatei oder die Bitte,
+            deine Adresse zu bestätigen) schicken wir dir nur, wenn die Veranstalter:innen das beim Eintragen wählen.
+            Deine Adresse gilt nur dann als bestätigt, wenn die Veranstalter:innen das ausdrücklich angeben (z.B. weil du sie ihnen selbst
             genannt hast); sonst ist sie unbestätigt wie bei einer selbst abgegebenen Antwort, bis du sie über den
-            Bestätigungslink bestätigst.
+            Bestätigungslink bestätigst. Ändern die Veranstalter:innen deine Adresse, gilt sie danach wieder als
+            unbestätigt, außer sie geben ausdrücklich an, dass sie bestätigt ist.
           </p>
           <p className="mt-2">
             <strong>Antwortfrist:</strong> Legen die Veranstalter:innen eine Antwortfrist fest, kannst du deine Antwort

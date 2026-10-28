@@ -14,7 +14,8 @@ type PanelEvent = Parameters<typeof maybeAvailable>[0] & {
 
 /**
  * Reiter „Gäste“: eine Antwort von Hand eintragen (app/admin/manual-rsvp-actions.ts) - Name, Zusage/Vielleicht/
- * Absage, E-Mail. Die Adresse ist nur mit Haken bestätigt. Nicht im Einladungsmodus (dort über Einladungen).
+ * Absage, E-Mail. Die Adresse ist nur mit Haken bestätigt, eine Mail geht nur mit Haken raus. Nicht im Einladungsmodus
+ * (dort über Einladungen).
  */
 export default function ManualRsvpPanel({ event, categories }: { event: PanelEvent; categories: { id: string; label: string; priceCents: number }[] }) {
   if (event.inviteOnly) return null
@@ -60,8 +61,15 @@ export default function ManualRsvpPanel({ event, categories }: { event: PanelEve
             <input type="checkbox" name="emailVerified" className="mt-0.5 h-4 w-4 accent-blue-600" />
             <span>Adresse ist bestätigt (z. B. weil der Gast sie dir selbst geschrieben hat)</span>
           </label>
+          <label className="mt-2 flex items-start gap-2 text-sm text-gray-800 dark:text-gray-200">
+            <input type="checkbox" name="sendMail" className="mt-0.5 h-4 w-4 accent-blue-600" />
+            <span>Mail an den Gast schicken</span>
+          </label>
           <p className={hintClass}>
-            Es geht keine Mail raus.{requireVerification ? ' Ohne Haken zählt eine Zusage erst, wenn der Gast die Adresse bestätigt - die Mail dafür verschickst du unter „Details“ mit „erneut senden“.' : ''}
+            Ohne Haken geht keine Mail raus. Mit Haken bekommt eine Zusage die Bestätigung mit Kalenderdatei, Einlass-QR-Code
+            und Zahlungsdaten (je nach Termin){requireVerification ? ' - ist die Adresse nicht bestätigt, zuerst die Bitte um Bestätigung, die Bestätigung folgt nach dem Klick' : ''}.
+            Ein Vielleicht mit unbestätigter Adresse bekommt die Bitte um Bestätigung (sonst keine Erinnerung), eine Absage keine Mail.
+            {requireVerification ? ' Ohne bestätigte Adresse zählt eine Zusage erst nach der Bestätigung - die Mail dafür geht auch später unter „Details“ mit „erneut senden“.' : ''}
           </p>
         </div>
         <p className={hintClass}>Eine Zusage bekommt einen festen Platz, auch über die Kapazität hinaus (wie „Zulassen“). Begleitungen, Menü und weitere Angaben danach über „Bearbeiten“.</p>

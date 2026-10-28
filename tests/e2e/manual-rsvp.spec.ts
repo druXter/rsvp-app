@@ -16,13 +16,14 @@ async function pageFor(browser: Browser, user: User | null): Promise<Page> {
   return page
 }
 
-async function addGuest(page: Page, fields: { name: string; status: 'Zusage' | 'Vielleicht' | 'Absage'; email?: string; verified?: boolean }) {
+async function addGuest(page: Page, fields: { name: string; status: 'Zusage' | 'Vielleicht' | 'Absage'; email?: string; verified?: boolean; sendMail?: boolean }) {
   const panel = page.getByTestId('manual-rsvp')
   if (!(await panel.evaluate(el => (el as HTMLDetailsElement).open))) await panel.getByText('+ Gast eintragen').click()
   await panel.getByLabel('Name').fill(fields.name)
   await panel.getByLabel('Antwort').selectOption({ label: fields.status })
   await panel.getByLabel('E-Mail (optional)').fill(fields.email ?? '')
   await panel.getByLabel(/Adresse ist bestätigt/).setChecked(!!fields.verified)
+  await panel.getByLabel('Mail an den Gast schicken').setChecked(!!fields.sendMail)
   await panel.getByRole('button', { name: 'Eintragen' }).click()
 }
 
@@ -53,6 +54,8 @@ test('Zusage, Vielleicht und Absage eintragen - Adresse nur mit Haken bestätigt
   expect(byName('Vito Vielleicht').participant.isVerified).toBe(false)
   expect(byName('Anton Absage')).toMatchObject({ isAttending: false, isMaybe: false, maybeRemindAt: null })
   expect(byName('Anton Absage').participant.email).toBeNull()
+  // Ohne „Mail an den Gast schicken“ auch kein Bestätigungslink
+  expect(rows.every(r => r.participant.verifyToken === null)).toBe(true)
 
   // Nicht bestätigt mit Verifizierungs-Pflicht: wie bei einem Gast, der den Link noch nicht geklickt hat
   const ullaRow = page.getByTestId('guest-row').filter({ hasText: 'Ulla Unbestätigt' })
@@ -112,4 +115,49 @@ test('Rechte: fremdes Konto und ohne Sitzung wirkungslos, Moderator*in des Event
   const rsvps = await prisma.rsvp.findMany({ where: { eventId: event.id }, include: { participant: true } })
   expect(rsvps.map(r => r.participant.name)).toEqual(['Von Moderation'])
   for (const p of [ownerPage, strangerPage, anonymous, modPage]) await p.close()
+})
+
+test('Mail auf Wunsch: unbestätigte Zusage mit Verifizierungs-Pflicht bekommt einen Bestätigungslink', async ({ browser }) => {
+  const owner = await createAccount('CREATOR')
+  const event = await createEvent(owner, { requireVerification: true })
+  const page = await pageFor(browser, owner)
+  await page.goto(`/admin/events/${event.id}/gaeste`)
+
+  await addGuest(page, { name: 'Tina Telefon', status: 'Zusage', email: uniqueEmail('telefon'), sendMail: true })
+  // Im Test gibt es keinen Mailserver: eingetragen, mit Hinweis auf den gescheiterten Versand
+  await expect(page.getByTestId('manual-rsvp-saved')).toContainText('Gast eingetragen')
+  const participant = await prisma.participant.findFirstOrThrow({ where: { rsvps: { some: { eventId: event.id } } } })
+  expect(participant).toMatchObject({ name: 'Tina Telefon', isVerified: false })
+  expect(participant.verifyToken).not.toBeNull()
+  await page.close()
+})
+
+test('Bearbeiten: geänderte Adresse ist ohne Haken unbestätigt, mit Haken bestätigt, unveränderte bleibt', async ({ browser }) => {
+  const owner = await createAccount('CREATOR')
+  const event = await createEvent(owner, { requireVerification: true })
+  const participant = await prisma.participant.create({
+    data: { name: 'Vera Verifiziert', email: uniqueEmail('vera'), isVerified: true, verifiedAt: new Date(), verifyToken: null }
+  })
+  const rsvp = await prisma.rsvp.create({ data: { eventId: event.id, participantId: participant.id, isAttending: true } })
+  const page = await pageFor(browser, owner)
+  const save = async (email: string, verified: boolean) => {
+    await page.goto(`/admin/edit-rsvp/${rsvp.id}`)
+    await page.getByLabel('E-Mail').fill(email)
+    await page.getByLabel(/Adresse ist bestätigt/).setChecked(verified)
+    await page.getByRole('button', { name: 'Änderungen speichern' }).click()
+    await expect(page).toHaveURL(`${BASE_URL}/admin/events/${event.id}/gaeste`)
+    return prisma.participant.findUniqueOrThrow({ where: { id: participant.id } })
+  }
+
+  await page.goto(`/admin/edit-rsvp/${rsvp.id}`)
+  await expect(page.getByTestId('email-status')).toContainText('bestätigt')
+  expect(await save(participant.email!, false)).toMatchObject({ isVerified: true })
+  const changed = uniqueEmail('neu')
+  expect(await save(changed, false)).toMatchObject({ email: changed, isVerified: false, verifiedAt: null, verifyToken: null })
+  await page.goto(`/admin/edit-rsvp/${rsvp.id}`)
+  await expect(page.getByTestId('email-status')).toContainText('nicht bestätigt')
+  const confirmed = await save(changed, true)
+  expect(confirmed.isVerified).toBe(true)
+  expect(confirmed.verifiedAt).not.toBeNull()
+  await page.close()
 })

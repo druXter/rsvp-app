@@ -29,7 +29,7 @@ import { readFeedbackSettings } from '../lib/feedback-link'
 import { readAssemblySettings } from '../lib/assembly'
 import { readProtocolSettings } from '../lib/timeline-protocol'
 import { applyBringTemplate, formatBringSlots, readBringSlots, readBringTemplate, saveBringSlots } from '../lib/bring-list'
-import { notifyLinkedToolsBeforeDelete, notifyLinkedToolsOfRsvps } from '../lib/linked-tools-notify'
+import { notifyLinkedToolsBeforeDelete, notifyLinkedToolsOfParticipants, notifyLinkedToolsOfRsvps } from '../lib/linked-tools-notify'
 import { deleteOrphanedParticipants } from '../lib/participants'
 import { assertCategoriesRemovable, readTicketCategories, saveTicketCategories, type TicketCategoryInput } from '../lib/tickets'
 import { generatePaymentReference, paymentDue, paymentState, readPaymentSettings, syncPaymentDue, type PaymentSettings } from '../lib/payment'
@@ -47,6 +47,7 @@ import { checkInAll, checkOutAll, toggleAll, togglePerson, undoLastPresence } fr
 import { resetInvitationReminders } from '../lib/invitation-reminder'
 import { invitationCovers } from '../lib/invitation-store'
 import { InputError } from '../lib/input-error'
+import { verificationAfterAdminEdit } from '../lib/manual-rsvp'
 import { readShiftTiers, storedTiers, type ShiftTierInput } from '../lib/shift-helpers'
 
 
@@ -936,8 +937,10 @@ export async function updateAdminRsvp(formData: FormData) {
   const companionsInput = readCompanions(formData)
   const bringingItem = formData.get('bringingItem') as string || null
 
-  const existingRsvp = await prisma.rsvp.findUnique({ where: { id }, include: { persons: { orderBy: { position: 'asc' }, include: { menuChoices: true } }, event: { include: { ticketCategories: true, menuCourses: true } } } })
+  const existingRsvp = await prisma.rsvp.findUnique({ where: { id }, include: { participant: true, persons: { orderBy: { position: 'asc' }, include: { menuChoices: true } }, event: { include: { ticketCategories: true, menuCourses: true } } } })
   if (!existingRsvp || !(await hasEventModeratorOrAbove(user, existingRsvp.event))) return
+  // Adresse bestätigt nur mit Haken; eine geänderte Adresse ist sonst unbestätigt (app/lib/manual-rsvp.ts)
+  const verification = verificationAfterAdminEdit(existingRsvp.participant, email, formData.get('emailVerified') === 'on')
 
   // Ticketkategorie: Die Verwaltung darf sie jederzeit ändern, auch in eine volle (wie "Zulassen"). Vor der
   // Zahlung folgt der Betrag dem Preis der neuen Kategorie, danach bleibt der bezahlte Betrag stehen.
@@ -971,7 +974,7 @@ export async function updateAdminRsvp(formData: FormData) {
 
   await prisma.participant.update({
     where: { id: existingRsvp.participantId },
-    data: { name, email, phone, dietaryOption, allergies }
+    data: { name, email, phone, dietaryOption, allergies, ...verification }
   })
 
   await prisma.rsvp.update({
@@ -994,13 +997,20 @@ export async function updateAdminRsvp(formData: FormData) {
   // Absage gibt beanspruchte Einträge der Mitbringliste frei
   if (!isAttending) await prisma.bringClaim.deleteMany({ where: { rsvpId: id } })
 
-  // Name/Adresse/Begleitung/Zu-/Absage können sich geändert haben
+  // Name/Adresse/Begleitung/Zu-/Absage können sich geändert haben. Die Bestätigung gilt für die Person, also für alle
+  // ihre Antworten (Reihe); mit Verifizierungs-Pflicht zählen deren Zusagen erst bzw. nicht mehr.
   notifyLinkedToolsOfRsvps([id])
+  if (verification) notifyLinkedToolsOfParticipants([existingRsvp.participantId])
 
   // Ein fester Platz wird frei (Absage, andere Kategorie oder weniger Personen): Wartende rücken nach
   const fewerSeats = usesPersons && seatsOf(persons) < seatsOf(existingRsvp.persons)
   if (existingRsvp.isAttending && !existingRsvp.isOnWaitlist && (!isAttending || ticketCategoryId !== existingRsvp.ticketCategoryId || fewerSeats)) {
     await fillFreeSeats(existingRsvp.eventId)
+  }
+  // Jetzt bestätigt: Wartende dieser Person dürfen mit Verifizierungs-Pflicht erst jetzt nachrücken
+  if (verification?.isVerified) {
+    const waiting = await prisma.rsvp.findMany({ where: { participantId: existingRsvp.participantId, isAttending: true, isOnWaitlist: true }, select: { eventId: true } })
+    for (const eventId of new Set(waiting.map(r => r.eventId))) await fillFreeSeats(eventId)
   }
 
   revalidatePath('/admin', 'layout')
