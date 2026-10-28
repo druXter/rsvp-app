@@ -920,8 +920,8 @@ export async function updateAdminRsvp(formData: FormData) {
   const id = formData.get('rsvpId') as string
   const name = formData.get('name') as string
   const requestedAttending = formData.get('isAttending') === 'true'
-  // „Vielleicht“ setzt nur der Gast (docs/KONZEPT-VIELLEICHT.md) - die Verwaltung kann es nur beibehalten oder durch
-  // eine Zu- bzw. Absage ersetzen
+  // „Vielleicht“ setzt der Gast (docs/KONZEPT-VIELLEICHT.md) oder die Verwaltung beim Eintragen von Hand - hier kann
+  // sie es nur beibehalten oder durch eine Zu- bzw. Absage ersetzen
   const keepMaybe = formData.get('isAttending') === 'maybe'
 
   const email = formData.get('email') as string || null

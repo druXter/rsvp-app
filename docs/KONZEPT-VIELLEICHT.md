@@ -24,7 +24,9 @@ werden, und müssen sich bis zum Stichtag entscheiden, sonst gilt die Antwort al
   Reihen-Einstellungen).
 * Nur aktivierbar, wenn die E-Mail-Adresse abgefragt wird. Das Formular sperrt den Schalter mit Hinweis, wenn etwas
   dagegen spricht. Antworten, die Schichten verwaltet (`shiftHelperId`), können nie „Vielleicht“ sein.
-* Die Verwaltung kann „Vielleicht“ nicht selbst eintragen (keine bestätigte Adresse, keine Entscheidung des Gasts).
+* Beim Bearbeiten einer Antwort kann die Verwaltung „Vielleicht“ nur behalten oder beenden. Neu setzen kann sie es nur
+  beim Eintragen eines Gasts von Hand (Reiter „Gäste“, `app/admin/manual-rsvp-actions.ts`): Erinnerung zum spätesten
+  erlaubten Zeitpunkt, nur an eine bestätigte Adresse (bestätigt nur mit Haken), am Stichtag Absage wie sonst.
 
 ## Stichtag und Erinnerung
 

@@ -198,6 +198,16 @@ export default function DatenschutzPage() {
             verschwindet auch die Einladung.
           </p>
           <p className="mt-2">
+            <strong>Von den Veranstalter:innen eingetragene Antworten:</strong> Hast du den Veranstalter:innen auf
+            anderem Weg (z.B. persönlich oder am Telefon) zu-, ab- oder „vielleicht“ gesagt, können sie deine Antwort
+            selbst eintragen: deinen Namen und optional deine E-Mail-Adresse. Diese Daten stammen von den
+            Veranstalter:innen (Art. 14 DSGVO), wir verwenden sie wie eine selbst abgegebene Antwort nur zur Organisation
+            der Veranstaltung und löschen sie mit ihr. Beim Eintragen schicken wir dir keine Mail. Deine Adresse gilt
+            nur dann als bestätigt, wenn die Veranstalter:innen das ausdrücklich angeben (z.B. weil du sie ihnen selbst
+            genannt hast); sonst ist sie unbestätigt wie bei einer selbst abgegebenen Antwort, bis du sie über den
+            Bestätigungslink bestätigst.
+          </p>
+          <p className="mt-2">
             <strong>Antwortfrist:</strong> Legen die Veranstalter:innen eine Antwortfrist fest, kannst du deine Antwort
             danach nicht mehr selbst ändern (wohl aber deine Daten löschen); Änderungen nehmen dann die
             Veranstalter:innen vor.

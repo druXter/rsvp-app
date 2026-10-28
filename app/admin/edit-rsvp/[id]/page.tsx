@@ -56,7 +56,7 @@ export default async function EditRsvpPage({ params }: { params: Promise<{ id: s
               <select id="isAttending" name="isAttending" defaultValue={rsvp.isMaybe ? 'maybe' : rsvp.isAttending ? 'true' : 'false'} className={inputClass}>
                 <option value="true">Zusage</option>
                 <option value="false">Absage</option>
-                {/* „Vielleicht“ setzt nur der Gast selbst (bestätigte Adresse, Erinnerung) - hier nur beibehalten */}
+                {/* „Vielleicht“ setzt der Gast selbst oder die Verwaltung beim Eintragen von Hand - hier nur beibehalten */}
                 {rsvp.isMaybe && <option value="maybe">Vielleicht (vom Gast, bleibt)</option>}
               </select>
             </div>

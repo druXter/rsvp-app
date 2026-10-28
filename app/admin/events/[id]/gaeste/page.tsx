@@ -10,9 +10,10 @@ import { isPresent } from '../../../../lib/checkin'
 import { promoteFromWaitlist, resendVerificationEmail, toggleAttendance, togglePersonAttendance } from '../../../actions'
 import DeleteRsvpButton from '../../../delete-rsvp-button'
 import PaymentCell from '../../../payment-cell'
-import { Badge, EmptyState, buttonClass, inputClass } from '../../../../ui/kit'
+import { Badge, EmptyState, Notice, buttonClass, inputClass } from '../../../../ui/kit'
 import { loadAdminEvent } from '../event-access'
 import AccountInvitesPanel from '../../../account-invites-panel'
+import ManualRsvpPanel from '../../../manual-rsvp-panel'
 import { effectiveAllowMaybe, maybeStatusLabel } from '../../../../lib/maybe'
 
 const FILTERS = [
@@ -30,9 +31,9 @@ const FILTERS = [
  * Essen, Alkohol, Mitbringsel, Anmerkungen, Zusatzfragen, Platz) stehen aufklappbar unter "Details". Auf dem Handy
  * werden die Zeilen zu Karten.
  */
-export default async function EventGuests({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ filter?: string; q?: string; eingeladen?: string }> }) {
+export default async function EventGuests({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ filter?: string; q?: string; eingeladen?: string; eingetragen?: string }> }) {
   const { id } = await params
-  const { filter: rawFilter, q: rawQuery, eingeladen } = await searchParams
+  const { filter: rawFilter, q: rawQuery, eingeladen, eingetragen } = await searchParams
   const loaded = await loadAdminEvent(id)
   if (!loaded) notFound()
   const { event } = loaded
@@ -47,7 +48,7 @@ export default async function EventGuests({ params, searchParams }: { params: Pr
       },
       orderBy: { createdAt: 'desc' }
     }),
-    prisma.ticketCategory.findMany({ where: { eventId: event.id }, select: { id: true, label: true } }),
+    prisma.ticketCategory.findMany({ where: { eventId: event.id }, orderBy: { position: 'asc' }, select: { id: true, label: true, priceCents: true } }),
     prisma.menuCourse.findMany({ where: { eventId: event.id }, orderBy: { position: 'asc' }, select: { id: true, label: true } })
   ])
 
@@ -97,6 +98,9 @@ export default async function EventGuests({ params, searchParams }: { params: Pr
           <a href={`/api/export?eventId=${event.id}`} download className={buttonClass('secondary')}>📥 CSV</a>
         </div>
       </div>
+
+      {eingetragen === '1' && <Notice tone="success" role="status" testId="manual-rsvp-saved">Gast eingetragen.</Notice>}
+      <ManualRsvpPanel event={event} categories={categories} />
 
       {shown.length === 0 ? (
         <EmptyState>{rsvps.length === 0 ? 'Bisher noch keine Antworten.' : 'Keine Antworten für diesen Filter.'}</EmptyState>
