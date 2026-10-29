@@ -9,6 +9,7 @@ import { changeGuestPassword, requestGuestEmailChange, cancelGuestEmailChange, u
 import { NEW_API_TOKEN_COOKIE } from '../../lib/api-auth'
 import AuthError from '../../ui/auth-error'
 import DeleteAccountButton from '../delete-account-button'
+import { guestUserHasPush } from '../../lib/push-subscriptions'
 
 
 /**
@@ -33,9 +34,7 @@ export default async function GuestAccountPage({
   const emailChangeRequested = params.emailChangeRequested === '1'
   const confirmationPrefSaved = params.confirmationPrefSaved === '1'
 
-  const hasPushSubscription = (await prisma.participantPushSubscription.count({
-    where: { participant: { guestUserId: guestUser.id }, expiredAt: null }
-  })) > 0
+  const hasPushSubscription = await guestUserHasPush(guestUser.id)
 
   const tokenCreated = params.tokenCreated === '1'
   const tokenRevoked = params.tokenRevoked === '1'
@@ -82,7 +81,7 @@ export default async function GuestAccountPage({
           <div className="p-3 bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 text-sm rounded">Bestätigungslink an die neue Adresse gesendet. Die Änderung wird erst nach dem Klick darauf wirksam.</div>
         )}
         {noPushSubscription && (
-          <div className="p-3 bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 text-sm rounded">Dafür brauchst du zuerst mindestens ein aktiviertes Push-Abo für eine deiner Reihen.</div>
+          <div className="p-3 bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 text-sm rounded">Dafür brauchst du zuerst Push-Benachrichtigungen - für alle Termine unter „Mein Konto“ oder auf einer Termin-Seite.</div>
         )}
         {confirmationPrefSaved && (
           <div className="p-3 bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 text-sm rounded">Einstellung gespeichert.</div>
@@ -134,7 +133,7 @@ export default async function GuestAccountPage({
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow space-y-3">
           <h2 className="font-bold text-gray-900 dark:text-gray-100">Bestätigungs-Mails</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Wenn du Push-Benachrichtigungen für eine deiner Reihen aktiviert hast, siehst du eine Zusage
+            Wenn du Push-Benachrichtigungen aktiviert hast, siehst du eine Zusage
             auch direkt in dieser App. Du kannst dann auf die separate Bestätigungs-Mail verzichten.
           </p>
           <form action={updateConfirmationEmailPreference} className="space-y-2">
@@ -149,7 +148,7 @@ export default async function GuestAccountPage({
               <span>Keine Bestätigungs-Mails mehr schicken, wenn ich per Push benachrichtigt werde</span>
             </label>
             {!hasPushSubscription && (
-              <p className="text-xs text-gray-400 dark:text-gray-500">Aktiviere zuerst Push-Benachrichtigungen auf einer deiner Termin-Seiten.</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500">Aktiviere zuerst Push-Benachrichtigungen - für alle Termine unter „Mein Konto“ oder auf einer Termin-Seite.</p>
             )}
             <SubmitButton>Speichern</SubmitButton>
           </form>
@@ -288,6 +287,7 @@ export default async function GuestAccountPage({
                 <p className="text-sm text-gray-500 dark:text-gray-400">
                   Wer sich in der Verwaltung als <strong className="text-gray-800 dark:text-gray-200">{linkedUser.email}</strong> anmeldet,
                   ist hier automatisch mit angemeldet. Umgekehrt nicht: Eine Anmeldung hier öffnet die Verwaltung nie.
+                  Geräte mit Push in der Verwaltung bekommen auch die Benachrichtigungen zu deinen Terminen.
                 </p>
                 <form action={unlinkAdminAccount}>
                   <button type="submit" className="text-xs bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300 px-2 py-1 rounded hover:bg-red-200 dark:hover:bg-red-900 transition">

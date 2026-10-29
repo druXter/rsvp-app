@@ -7,6 +7,7 @@ import { getCurrentGuestUser } from '../lib/guest-auth'
 import { getCurrentUser } from '../lib/auth'
 import { hideAccountInvite, logoutGuestUser, updateGuestProfile } from './actions'
 import { inputClass } from '../ui/kit'
+import AccountPushToggle from './account-push-toggle'
 
 
 /**
@@ -73,6 +74,7 @@ export default async function MeinKontoPage() {
                 🔀 Verwaltung ({user.email})
               </Link>
             )}
+            <AccountPushToggle vapidPublicKey={process.env.VAPID_PUBLIC_KEY || null} />
             <Link href="/mein-konto/account" className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition text-sm font-medium flex items-center">
               ⚙️ Konto-Einstellungen
             </Link>

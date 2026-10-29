@@ -17,6 +17,8 @@ import { hasEventPinAccess, hasSeriesPinAccess } from '../lib/pin'
 import { clearFailures, clientIp, loginRules, passwordChangeRule, refund, registerRules, reserve, resetRules } from '../lib/throttle'
 import { generateApiToken, hashApiToken, NEW_API_TOKEN_COOKIE } from '../lib/api-auth'
 import { notifyLinkedToolsBeforeDelete, notifyLinkedToolsOfParticipants } from '../lib/linked-tools-notify'
+import { guestUserHasPush } from '../lib/push-subscriptions'
+import { type PushSubscriptionInput, validPushSubscription } from 'suite-kit/web'
 
 
 /**
@@ -348,25 +350,50 @@ export async function updateGuestProfile(formData: FormData) {
  * Setzt die Präferenz, Bestätigungs-Mails (sendConfirmationEmail) zugunsten einer
  * Push-Benachrichtigung (sendConfirmationPush, siehe app/lib/push.ts und
  * shouldSuppressConfirmationEmail in app/actions.ts) zu unterdrücken. Das Aktivieren wird
- * serverseitig abgelehnt, solange keine der eigenen Participant-Zeilen (über alle Reihen
- * hinweg) eine aktive ParticipantPushSubscription hat - sonst bekäme der Gast beim nächsten
- * Zusagen gar keine Benachrichtigung mehr. Das Deaktivieren ist immer erlaubt.
+ * serverseitig abgelehnt, solange das Konto gar kein aktives Push-Abo hat (für einen Termin,
+ * für alle Termine oder über das verknüpfte Verwaltungskonto, guestUserHasPush) - sonst bekäme
+ * der Gast beim nächsten Zusagen gar keine Benachrichtigung mehr. Das Deaktivieren ist immer erlaubt.
  */
 export async function updateConfirmationEmailPreference(formData: FormData) {
   const guestUser = await requireGuestUser()
   const disable = formData.get('disableConfirmationEmails') === 'true'
 
   if (disable) {
-    const hasPushSubscription = await prisma.participantPushSubscription.findFirst({
-      where: { participant: { guestUserId: guestUser.id }, expiredAt: null }
-    })
-    if (!hasPushSubscription) {
+    if (!(await guestUserHasPush(guestUser.id))) {
       redirect('/mein-konto/account?error=nopush')
     }
   }
 
   await prisma.guestUser.update({ where: { id: guestUser.id }, data: { disableConfirmationEmails: disable } })
   redirect('/mein-konto/account?confirmationPrefSaved=1')
+}
+
+/**
+ * "Push für alle Termine" (Schalter unter /mein-konto): Das Abo dieses Geräts hängt am Konto statt an einem Termin und
+ * gilt damit für alle Termine und Reihen des Kontos, auch künftige (pushRecipientsForParticipant in
+ * app/lib/push-subscriptions.ts). Nur mit Gast-Sitzung, nur für das eigene Konto, nur Endpoints der Push-Dienste der
+ * Browser-Hersteller (SSRF-Schutz).
+ */
+export async function subscribeGuestUserToPush(input: PushSubscriptionInput) {
+  const subscription = validPushSubscription(input)
+  if (!subscription) return
+  const guestUser = await getCurrentGuestUser()
+  if (!guestUser) return
+
+  await prisma.guestUserPushSubscription.upsert({
+    where: { guestUserId_endpoint: { guestUserId: guestUser.id, endpoint: subscription.endpoint } },
+    update: { p256dh: subscription.p256dh, auth: subscription.auth, expiredAt: null },
+    create: { ...subscription, guestUserId: guestUser.id }
+  })
+}
+
+/** Schaltet "Push für alle Termine" auf diesem Gerät wieder ab - nur die Zeile des eigenen Kontos. */
+export async function unsubscribeGuestUserFromPush(endpoint: unknown) {
+  if (typeof endpoint !== 'string' || !endpoint) return
+  const guestUser = await getCurrentGuestUser()
+  if (!guestUser) return
+
+  await prisma.guestUserPushSubscription.deleteMany({ where: { endpoint, guestUserId: guestUser.id } })
 }
 
 /**

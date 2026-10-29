@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('../../app/lib/prisma', () => ({ prisma: {} }))
 
-const { describePushError, isExpiredPushError } = await import('../../app/lib/push-subscriptions')
+const { combinePushStatus, describePushError, isExpiredPushError } = await import('../../app/lib/push-subscriptions')
 
 describe('Push-Versandfehler (app/lib/push-subscriptions.ts)', () => {
   const endpoint = 'https://fcm.googleapis.com/fcm/send/geheime-kennung'
@@ -22,5 +22,18 @@ describe('Push-Versandfehler (app/lib/push-subscriptions.ts)', () => {
     expect(other).toBe('fcm.googleapis.com 429 (Too many requests)')
     expect(describePushError(endpoint, new Error('socket hang up'))).toBe('fcm.googleapis.com ohne Status (socket hang up)')
     for (const line of [expired, other]) expect(line).not.toContain('geheime-kennung')
+  })
+})
+
+describe('Stand eines Schalters mit umfassenderem Abo (combinePushStatus)', () => {
+  it('ein aktives Konto-Abo deckt ab, sonst zählt das eigene, abgelaufen heißt erneuern', () => {
+    expect(combinePushStatus('none', 'active')).toBe('covered')
+    expect(combinePushStatus('active', 'active')).toBe('covered')
+    expect(combinePushStatus('expired', 'active')).toBe('covered')
+    expect(combinePushStatus('active', 'none')).toBe('active')
+    expect(combinePushStatus('active', 'expired')).toBe('active')
+    expect(combinePushStatus('expired', 'none')).toBe('expired')
+    expect(combinePushStatus('none', 'expired')).toBe('expired')
+    expect(combinePushStatus('none', 'none')).toBe('none')
   })
 })

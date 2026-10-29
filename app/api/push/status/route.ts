@@ -3,7 +3,8 @@ import { readLimitedText, validPushSubscription, type PushSubscriptionInput } fr
 import { NextResponse } from 'next/server'
 import { prisma } from '../../../lib/prisma'
 import { getCurrentUser } from '../../../lib/auth'
-import { participantPushStatus, userPushStatus, type PushStatus } from '../../../lib/push-subscriptions'
+import { getCurrentGuestUser } from '../../../lib/guest-auth'
+import { guestUserPushStatus, participantPushStatus, userPushStatus, type PushStatus } from '../../../lib/push-subscriptions'
 
 const MAX_BODY = 4_000
 
@@ -15,12 +16,13 @@ function reply(status: PushStatus) {
 
 /**
  * Stand des Push-Abos dieses Browsers aus Sicht des Servers (app/lib/push-subscriptions.ts) - für die Schalter auf der
- * Gästeseite (`editToken`) und in der Verwaltung (Sitzung). Die Schalter zeigen „aktiv“ nur bei `active`; bei
- * `expired` holt der Browser ein neues Abo und meldet es an /api/push/resubscribe. Unbekannte Gäste, fehlende
- * Anmeldung und ungültige Eingaben ergeben einheitlich `none`.
+ * Gästeseite (`editToken`), unter „Mein Konto“ (`scope: 'account'`, Gast-Sitzung) und in der Verwaltung (Sitzung).
+ * Die Schalter zeigen „aktiv“ bei `active` und „über das Konto“ bei `covered`; bei `expired` holt der Browser ein
+ * neues Abo und meldet es an /api/push/resubscribe. Unbekannte Gäste, fehlende Anmeldung und ungültige Eingaben
+ * ergeben einheitlich `none`.
  */
 export async function POST(request: Request) {
-  let input: { editToken?: unknown; subscription?: unknown } = {}
+  let input: { editToken?: unknown; scope?: unknown; subscription?: unknown } = {}
   try {
     const parsed: unknown = JSON.parse((await readLimitedText(request, MAX_BODY)) ?? '')
     if (parsed && typeof parsed === 'object') input = parsed
@@ -32,8 +34,13 @@ export async function POST(request: Request) {
 
   if (typeof input.editToken === 'string') {
     if (!input.editToken) return reply('none')
-    const participant = await prisma.participant.findUnique({ where: { editToken: input.editToken }, select: { id: true } })
-    return reply(participant ? await participantPushStatus(participant.id, subscription.endpoint) : 'none')
+    const participant = await prisma.participant.findUnique({ where: { editToken: input.editToken }, select: { id: true, guestUserId: true } })
+    return reply(participant ? await participantPushStatus(participant, subscription.endpoint) : 'none')
+  }
+
+  if (input.scope === 'account') {
+    const guestUser = await getCurrentGuestUser()
+    return reply(guestUser ? await guestUserPushStatus(guestUser.id, subscription.endpoint) : 'none')
   }
 
   const user = await getCurrentUser()

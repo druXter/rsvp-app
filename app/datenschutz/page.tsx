@@ -304,10 +304,14 @@ export default function DatenschutzPage() {
               <strong>Als Gast:</strong> Erinnerungen an bevorstehende Termine, Mitteilungen über Termin-Änderungen,
               bei „vielleicht“ die Erinnerung zum gewählten Zeitpunkt und die Mitteilung über die automatische Absage
               und - falls du Bestätigungs-Mails abbestellt hast (Punkt 5) - die Bestätigung deiner Zusage. Bei einer
-              Veranstaltungsreihe gilt eine einmal aktivierte Benachrichtigung für alle Termine dieser Reihe.
+              Veranstaltungsreihe gilt eine einmal aktivierte Benachrichtigung für alle Termine dieser Reihe. Mit einem
+              Teilnehmendenkonto kannst du unter &quot;Mein Konto&quot; auch „Push für alle Termine“ einschalten: Das Abo
+              hängt dann an deinem Konto und gilt für alle seine Reihen und Termine, auch für künftige.
             </li>
             <li>
-              <strong>Als Veranstalter:in:</strong> Hinweise auf neue Zu- und Absagen zu den eigenen Veranstaltungen.
+              <strong>Als Veranstalter:in:</strong> Hinweise auf neue Zu- und Absagen zu den eigenen Veranstaltungen. Hast
+              du dein Verwaltungskonto mit deinem Teilnehmendenkonto verknüpft, bekommen dieselben Geräte auch die
+              Benachrichtigungen zu deinen eigenen Terminen als Gast.
             </li>
           </ul>
           <p className="mt-2">
@@ -709,7 +713,8 @@ export default function DatenschutzPage() {
             Bestätigung über einen an die neue Adresse geschickten Link wirksam. Ebenfalls dort steuerst du, ob du
             Bestätigungs-Mails erhalten möchtest (Punkt 5) und welche anderen Tools dich mit deinem Teilnehmendenkonto
             anmelden dürfen (&quot;Anmeldung in anderen Tools&quot;, Punkt 3 - dort entziehst du eine Freigabe);
-            Push-Benachrichtigungen deaktivierst du direkt auf der jeweiligen Termin-Seite bzw. im Dashboard (Punkt 6).
+            Push-Benachrichtigungen deaktivierst du direkt auf der jeweiligen Termin-Seite, unter &quot;Mein Konto&quot;
+            („Push für alle Termine“) bzw. im Dashboard (Punkt 6).
           </p>
           <p className="mt-2">
             Unabhängig davon hast du das Recht, dich bei einer Datenschutz-Aufsichtsbehörde zu beschweren, wenn du der

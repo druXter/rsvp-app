@@ -4,7 +4,7 @@ import webpush from 'web-push'
 import { Event, EventSeries, Participant } from '@prisma/client'
 import { prisma } from './prisma'
 import { personalEventLink } from './mail'
-import { describePushError, isExpiredPushError, markEndpointExpired } from './push-subscriptions'
+import { describePushError, isExpiredPushError, markEndpointExpired, pushRecipientsForParticipant } from './push-subscriptions'
 
 
 // Ein Event, das optional (bei Reihen-Terminen) seine EventSeries mitbringt - gleiche
@@ -63,13 +63,15 @@ export async function sendPushToUser(userId: string, payload: PushPayload) {
  * siehe subscribeParticipantToPush in app/actions.ts) - z.B. für Erinnerungen oder
  * Termin-Änderungen. Bewusst getrennt von sendPushToUser (admin-seitig): Gast-Push hängt
  * an der Participant-Identität, nicht an einem GuestUser-Konto, damit auch anonyme
- * editToken-Gäste ohne Konto Push abonnieren können. Abgelaufene Abos bekommen nichts.
+ * editToken-Gäste ohne Konto Push abonnieren können. Gehört der Gast zu einem Konto, gehen
+ * zusätzlich dessen Konto-Abos ("Push für alle Termine") und die Geräte des verknüpften
+ * Verwaltungskontos mit (pushRecipientsForParticipant). Abgelaufene Abos bekommen nichts.
  */
 export async function sendPushToParticipant(participantId: string, payload: PushPayload) {
   ensureVapidConfigured()
   if (!vapidConfigured) return // Keine VAPID-Keys konfiguriert -> Feature bleibt inaktiv
 
-  const subscriptions = await prisma.participantPushSubscription.findMany({ where: { participantId, expiredAt: null } })
+  const subscriptions = await pushRecipientsForParticipant(participantId)
   if (subscriptions.length === 0) return
   await deliver(`Gast-Push an Participant ${participantId}`, subscriptions, payload)
 }

@@ -22,7 +22,7 @@ export default function PushSubscribeButton({ vapidPublicKey }: { vapidPublicKey
     // resolvePushState dabei selbst (app/lib/push-client.ts).
     navigator.serviceWorker.register('/sw.js').then(async (registration) => {
       setSupported(true)
-      setSubscribed(await resolvePushState(registration, vapidPublicKey, { admin: true }))
+      setSubscribed((await resolvePushState(registration, vapidPublicKey, { admin: true })) === 'active')
     }).catch((error) => {
       console.error('Service-Worker-Registrierung fehlgeschlagen:', error)
     })

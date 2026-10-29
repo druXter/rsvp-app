@@ -79,12 +79,13 @@ export async function GET(request: Request) {
   const expiredPushCutoff = new Date(Date.now() - EXPIRED_PUSH_RETENTION_DAYS * 24 * 60 * 60 * 1000)
   const deletedGuestPush = await prisma.participantPushSubscription.deleteMany({ where: { expiredAt: { lt: expiredPushCutoff } } })
   const deletedUserPush = await prisma.pushSubscription.deleteMany({ where: { expiredAt: { lt: expiredPushCutoff } } })
+  const deletedAccountPush = await prisma.guestUserPushSubscription.deleteMany({ where: { expiredAt: { lt: expiredPushCutoff } } })
 
   return NextResponse.json({
     success: true,
     deletedEvents: oldEventIds.length,
     deletedOrphanedParticipants,
     deletedInactiveGuestUsers: inactiveGuestUserIds.length,
-    deletedExpiredPushSubscriptions: deletedGuestPush.count + deletedUserPush.count
+    deletedExpiredPushSubscriptions: deletedGuestPush.count + deletedUserPush.count + deletedAccountPush.count
   })
 }

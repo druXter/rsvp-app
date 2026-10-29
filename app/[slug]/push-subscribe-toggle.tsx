@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from 'react'
 import { subscribeParticipantToPush, unsubscribeParticipantFromPush } from '../actions'
-import { resolvePushState, urlBase64ToUint8Array } from '../lib/push-client'
+import { resolvePushState, urlBase64ToUint8Array, type PushState } from '../lib/push-client'
 
 /**
  * Gast-seitiges Gegenstück zu app/admin/push-subscribe-button.tsx - abonniert dasselbe
@@ -11,11 +11,13 @@ import { resolvePushState, urlBase64ToUint8Array } from '../lib/push-client'
  * sendPushToParticipant). Anders als beim Admin-Pendant hängt das Abo am editToken des
  * Participants statt an einer Login-Session, funktioniert also auch ganz ohne
  * "Mein Konto"-Konto. Bei einem Reihen-Termin deckt ein einmaliges Abo automatisch alle
- * Termine der Reihe ab, da der Participant dort geteilt ist.
+ * Termine der Reihe ab, da der Participant dort geteilt ist. Hat das Konto des Gasts auf diesem
+ * Gerät schon "Push für alle Termine" (oder das verknüpfte Verwaltungskonto Push), zeigt der
+ * Schalter nur das an - abschalten geht dann unter "Mein Konto" bzw. in der Verwaltung.
  */
 export default function PushSubscribeToggle({ editToken, vapidPublicKey }: { editToken: string; vapidPublicKey: string | null }) {
   const [supported, setSupported] = useState(false)
-  const [subscribed, setSubscribed] = useState(false)
+  const [state, setState] = useState<PushState>('none')
   const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => {
@@ -30,7 +32,7 @@ export default function PushSubscribeToggle({ editToken, vapidPublicKey }: { edi
     // ersetzt resolvePushState dabei selbst (app/lib/push-client.ts).
     navigator.serviceWorker.register('/sw.js').then(async (registration) => {
       setSupported(true)
-      if (editToken) setSubscribed(await resolvePushState(registration, vapidPublicKey, { editToken }))
+      if (editToken) setState(await resolvePushState(registration, vapidPublicKey, { editToken }))
     }).catch((error) => {
       console.error('Service-Worker-Registrierung fehlgeschlagen:', error)
     })
@@ -48,7 +50,7 @@ export default function PushSubscribeToggle({ editToken, vapidPublicKey }: { edi
       })
 
       await subscribeParticipantToPush(editToken, subscription.toJSON() as { endpoint: string; keys: { p256dh: string; auth: string } })
-      setSubscribed(true)
+      setState('active')
     } catch (error) {
       console.error('Push-Abo fehlgeschlagen:', error)
       alert('Push-Benachrichtigungen konnten nicht aktiviert werden. Hast du die Erlaubnis für Benachrichtigungen abgelehnt?')
@@ -67,12 +69,24 @@ export default function PushSubscribeToggle({ editToken, vapidPublicKey }: { edi
       if (subscription) {
         await unsubscribeParticipantFromPush(editToken, subscription.endpoint)
       }
-      setSubscribed(false)
+      setState('none')
     } finally {
       setIsLoading(false)
     }
   }
 
+  if (state === 'covered') {
+    return (
+      <span
+        className="text-sm font-medium px-3 py-1.5 rounded bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200"
+        title="Auf diesem Gerät bekommst du schon alle Benachrichtigungen deines Kontos. Abschalten unter „Mein Konto“."
+      >
+        🔔 Push aktiv über dein Konto
+      </span>
+    )
+  }
+
+  const subscribed = state === 'active'
   return (
     <button
       type="button"

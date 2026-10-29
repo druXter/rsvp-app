@@ -347,6 +347,26 @@ model ParticipantPushSubscription {
   @@index([endpoint])
 }
 
+// Push-Abo eines Geräts für ein ganzes Teilnehmendenkonto ("Push für alle Termine" unter /mein-konto): Es hängt
+// am GuestUser statt an einem Participant und deckt deshalb alle Termine des Kontos ab, auch künftige - aufgelöst
+// erst beim Versand (pushRecipientsForParticipant in app/lib/push-subscriptions.ts). Ebenso bekommen die Geräte
+// eines verknüpften Verwaltungskontos (User.linkedGuestUserId, PushSubscription) alles, was an das Konto geht.
+// expiredAt wie bei ParticipantPushSubscription.
+model GuestUserPushSubscription {
+  id        String    @id @default(cuid())
+  endpoint  String
+  p256dh    String
+  auth      String
+  createdAt DateTime  @default(now())
+  expiredAt DateTime?
+
+  guestUserId String
+  guestUser   GuestUser @relation(fields: [guestUserId], references: [id], onDelete: Cascade)
+
+  @@unique([guestUserId, endpoint])
+  @@index([endpoint])
+}
+
 // Die Antwort eines Participants zu GENAU EINEM Termin (Zusage/Absage, Warteliste
 // und alles, was pro Termin einzeln abgefragt wird).
 model Rsvp {
@@ -560,7 +580,8 @@ model MenuChoice {
 
 // Ein Gerät (Browser), auf dem sich EIN BESTIMMTER Nutzer für Web-Push-Benachrichtigungen
 // angemeldet hat. Bei einer neuen Zu-/Absage wird nur der Owner des jeweiligen Events
-// benachrichtigt (auf all seinen Geräten), nie fremde Nutzer.
+// benachrichtigt (auf all seinen Geräten), nie fremde Nutzer. Ist das Konto mit einem Teilnehmendenkonto verknüpft
+// (linkedGuestUserId), bekommen dieselben Geräte auch alles, was an dessen Termine geht (siehe GuestUserPushSubscription).
 model PushSubscription {
   id        String    @id @default(cuid())
   endpoint  String    @unique
@@ -645,6 +666,7 @@ model GuestUser {
   sessions          GuestSession[]
   apiTokens         GuestApiToken[]
   toolConsents      GuestToolConsent[]
+  pushSubscriptions GuestUserPushSubscription[]
   linkedUser        User?
 }
 

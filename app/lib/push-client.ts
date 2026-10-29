@@ -11,30 +11,42 @@ export function urlBase64ToUint8Array(base64String: string) {
   return Uint8Array.from([...rawData].map(char => char.charCodeAt(0)))
 }
 
-type Owner = { editToken: string } | { admin: true }
+// Wessen Abo der Schalter zeigt: ein Gast (persönlicher Link), das ganze Teilnehmendenkonto (Gast-Sitzung) oder das
+// Verwaltungskonto (Sitzung).
+type Owner = { editToken: string } | { account: true } | { admin: true }
+
+/** Was ein Schalter anzeigt: an, über ein umfassenderes Abo schon abgedeckt (Konto bzw. Verwaltung) oder aus. */
+export type PushState = 'active' | 'covered' | 'none'
+
+function ownerFields(owner: Owner) {
+  if ('editToken' in owner) return { editToken: owner.editToken }
+  if ('account' in owner) return { scope: 'account' }
+  return {}
+}
 
 async function serverStatus(owner: Owner, subscription: PushSubscription): Promise<string> {
   const response = await fetch('/api/push/status', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...('editToken' in owner ? { editToken: owner.editToken } : {}), subscription: subscription.toJSON() })
+    body: JSON.stringify({ ...ownerFields(owner), subscription: subscription.toJSON() })
   })
   if (!response.ok) return 'none'
   return ((await response.json()) as { status?: string }).status ?? 'none'
 }
 
 /**
- * Ist Push auf diesem Gerät für diesen Gast bzw. dieses Konto wirklich aktiv? Fragt den Server statt nur den Browser:
+ * Ist Push auf diesem Gerät für diesen Gast bzw. dieses Konto wirklich aktiv (oder über das Konto schon abgedeckt)?
+ * Fragt den Server statt nur den Browser:
  * Ein Abo, das der Browser noch kennt, kann beim Push-Dienst längst abgelaufen sein. Meldet der Server es als
  * abgelaufen und ist die Erlaubnis noch erteilt, holt der Browser ein neues Abo und ersetzt das alte überall
  * (/api/push/resubscribe) - Push geht dann ohne weiteres Zutun wieder.
  */
-export async function resolvePushState(registration: ServiceWorkerRegistration, vapidPublicKey: string, owner: Owner): Promise<boolean> {
+export async function resolvePushState(registration: ServiceWorkerRegistration, vapidPublicKey: string, owner: Owner): Promise<PushState> {
   const existing = await registration.pushManager.getSubscription()
-  if (!existing) return false
+  if (!existing) return 'none'
   const status = await serverStatus(owner, existing)
-  if (status === 'active') return true
-  if (status !== 'expired' || Notification.permission !== 'granted') return false
+  if (status === 'active' || status === 'covered') return status
+  if (status !== 'expired' || Notification.permission !== 'granted') return 'none'
 
   try {
     const oldEndpoint = existing.endpoint
@@ -45,9 +57,10 @@ export async function resolvePushState(registration: ServiceWorkerRegistration, 
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ oldEndpoint, subscription: fresh.toJSON() })
     })
-    return (await serverStatus(owner, fresh)) === 'active'
+    const renewed = await serverStatus(owner, fresh)
+    return renewed === 'active' || renewed === 'covered' ? renewed : 'none'
   } catch (error) {
     console.error('Push-Abo erneuern fehlgeschlagen:', error)
-    return false
+    return 'none'
   }
 }

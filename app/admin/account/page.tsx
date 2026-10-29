@@ -149,6 +149,10 @@ export default async function AccountPage({
                 Verknüpft mit <strong>{linkedGuest.email}</strong>. Wenn du dich hier anmeldest, bist du auch unter „Mein Konto“
                 angemeldet. Umgekehrt nicht: Eine Anmeldung unter „Mein Konto“ öffnet die Verwaltung nie.
               </p>
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                Geräte, auf denen du hier Push-Benachrichtigungen eingeschaltet hast, bekommen auch alles für deine Termine als
+                Teilnehmer*in - für alle Reihen und Termine des Kontos, auch künftige.
+              </p>
               <form action={unlinkGuestAccount}>
                 <button type="submit" className="text-sm text-red-600 dark:text-red-400 hover:underline">Verknüpfung lösen</button>
               </form>
@@ -157,7 +161,8 @@ export default async function AccountPage({
             <>
               <p className="text-xs text-gray-500 dark:text-gray-400">
                 Nimmst du auch selbst an Reihen teil? Dann verknüpfe dein Teilnehmendenkonto: Eine Anmeldung hier meldet dich
-                dort mit an. Beide Konten bleiben getrennt, und eine Anmeldung unter „Mein Konto“ öffnet die Verwaltung nie.
+                dort mit an, und deine Push-Benachrichtigungen hier umfassen auch deine Termine dort. Beide Konten bleiben
+                getrennt, und eine Anmeldung unter „Mein Konto“ öffnet die Verwaltung nie.
               </p>
               <form action={linkGuestAccount} className="space-y-3">
                 <div>
