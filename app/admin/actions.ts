@@ -1634,7 +1634,7 @@ export async function subscribeToPush(input: PushSubscriptionInput) {
 
   await prisma.pushSubscription.upsert({
     where: { endpoint: subscription.endpoint },
-    update: { p256dh: subscription.p256dh, auth: subscription.auth, userId: user.id },
+    update: { p256dh: subscription.p256dh, auth: subscription.auth, userId: user.id, expiredAt: null },
     create: { ...subscription, userId: user.id }
   })
 }

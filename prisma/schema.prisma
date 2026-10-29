@@ -325,16 +325,26 @@ model Participant {
 // editToken-Teilnehmer als auch für eingeloggte GuestUser gleichermaßen, ganz ohne
 // Konto-Pflicht (siehe subscribeParticipantToPush in app/actions.ts). Bei einem
 // Reihen-Termin deckt EIN Abo automatisch alle Termine der Reihe ab, da der Participant
-// dort geteilt ist.
+// dort geteilt ist. Ein Gerät (endpoint) kann für mehrere Participants abonniert sein (z.B.
+// zwei Reihen) - eindeutig ist nur das Paar.
+//
+// expiredAt (auch in PushSubscription): Der Push-Dienst hat das Abo mit 404/410 abgelehnt. Die Zeile
+// bleibt stehen (ohne Versand), damit das Gerät beim nächsten Seitenbesuch ein neues Abo holen und das
+// alte ersetzen kann (app/lib/push-subscriptions.ts, /api/push/*); der Cleanup-Cron löscht sie nach
+// EXPIRED_PUSH_RETENTION_DAYS.
 model ParticipantPushSubscription {
-  id        String   @id @default(cuid())
-  endpoint  String   @unique
+  id        String    @id @default(cuid())
+  endpoint  String
   p256dh    String
   auth      String
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
+  expiredAt DateTime?
 
   participantId String
   participant   Participant @relation(fields: [participantId], references: [id])
+
+  @@unique([participantId, endpoint])
+  @@index([endpoint])
 }
 
 // Die Antwort eines Participants zu GENAU EINEM Termin (Zusage/Absage, Warteliste
@@ -552,11 +562,12 @@ model MenuChoice {
 // angemeldet hat. Bei einer neuen Zu-/Absage wird nur der Owner des jeweiligen Events
 // benachrichtigt (auf all seinen Geräten), nie fremde Nutzer.
 model PushSubscription {
-  id        String   @id @default(cuid())
-  endpoint  String   @unique
+  id        String    @id @default(cuid())
+  endpoint  String    @unique
   p256dh    String
   auth      String
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
+  expiredAt DateTime?
 
   userId String
   user   User   @relation(fields: [userId], references: [id])

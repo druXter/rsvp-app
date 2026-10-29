@@ -676,9 +676,10 @@ export default function DatenschutzPage() {
             nach spätestens 24 Stunden gelöscht.
           </p>
           <p className="mt-2">
-            Gespeicherte Push-Abos werden gelöscht, sobald du die Benachrichtigungen deaktivierst, dein Browser das Abo
-            beendet (z.B. beim Löschen der Websitedaten) oder die zugehörigen Daten nach den oben genannten Fristen
-            entfallen. API-Token (Punkt 14) bleiben bis zu ihrem Widerruf gespeichert und werden zusammen mit dem
+            Gespeicherte Push-Abos werden gelöscht, sobald du die Benachrichtigungen deaktivierst oder die zugehörigen
+            Daten nach den oben genannten Fristen entfallen. Meldet der Push-Dienst deines Browsers ein Abo als ungültig
+            (z.B. nach dem Löschen der Websitedaten), schicken wir nichts mehr dorthin und löschen es nach 90 Tagen; bis
+            dahin kann dein Browser es beim nächsten Besuch durch ein neues ersetzen. API-Token (Punkt 14) bleiben bis zu ihrem Widerruf gespeichert und werden zusammen mit dem
             Konto gelöscht.
           </p>
           <p className="mt-2">

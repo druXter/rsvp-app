@@ -34,7 +34,7 @@ export default async function GuestAccountPage({
   const confirmationPrefSaved = params.confirmationPrefSaved === '1'
 
   const hasPushSubscription = (await prisma.participantPushSubscription.count({
-    where: { participant: { guestUserId: guestUser.id } }
+    where: { participant: { guestUserId: guestUser.id }, expiredAt: null }
   })) > 0
 
   const tokenCreated = params.tokenCreated === '1'

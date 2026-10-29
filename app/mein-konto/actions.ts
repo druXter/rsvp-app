@@ -358,7 +358,7 @@ export async function updateConfirmationEmailPreference(formData: FormData) {
 
   if (disable) {
     const hasPushSubscription = await prisma.participantPushSubscription.findFirst({
-      where: { participant: { guestUserId: guestUser.id } }
+      where: { participant: { guestUserId: guestUser.id }, expiredAt: null }
     })
     if (!hasPushSubscription) {
       redirect('/mein-konto/account?error=nopush')

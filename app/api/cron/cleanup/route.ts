@@ -3,6 +3,7 @@ import { safeEqual } from 'suite-kit'
 import { prisma } from '../../../lib/prisma'
 import { NextResponse } from 'next/server'
 import { deleteOrphanedParticipants } from '../../../lib/participants'
+import { EXPIRED_PUSH_RETENTION_DAYS } from '../../../lib/push-subscriptions'
 
 
 const EVENT_RETENTION_MONTHS = 18
@@ -28,6 +29,8 @@ const GUEST_ACCOUNT_INACTIVITY_YEARS = 2
  *    eingeloggt waren, vollständig inkl. aller Reihen-Zuordnungen und Antworten - bewusst
  *    NICHT für Admin-Konten (User), da die eine fortlaufende Vereins-/Referats-Identität
  *    mit eigenen Events/Reihen repräsentieren und nicht automatisiert verschwinden sollen.
+ * 4. Löscht Push-Abos (Gäste und Verwaltung), die der Push-Dienst vor mehr als EXPIRED_PUSH_RETENTION_DAYS als
+ *    ungültig abgelehnt hat und die das Gerät seitdem nicht ersetzt hat (app/lib/push-subscriptions.ts).
  */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -73,10 +76,15 @@ export async function GET(request: Request) {
   await prisma.guestToolConsent.deleteMany({ where: { guestUserId: { in: inactiveGuestUserIds } } })
   await prisma.guestUser.deleteMany({ where: { id: { in: inactiveGuestUserIds } } })
 
+  const expiredPushCutoff = new Date(Date.now() - EXPIRED_PUSH_RETENTION_DAYS * 24 * 60 * 60 * 1000)
+  const deletedGuestPush = await prisma.participantPushSubscription.deleteMany({ where: { expiredAt: { lt: expiredPushCutoff } } })
+  const deletedUserPush = await prisma.pushSubscription.deleteMany({ where: { expiredAt: { lt: expiredPushCutoff } } })
+
   return NextResponse.json({
     success: true,
     deletedEvents: oldEventIds.length,
     deletedOrphanedParticipants,
-    deletedInactiveGuestUsers: inactiveGuestUserIds.length
+    deletedInactiveGuestUsers: inactiveGuestUserIds.length,
+    deletedExpiredPushSubscriptions: deletedGuestPush.count + deletedUserPush.count
   })
 }

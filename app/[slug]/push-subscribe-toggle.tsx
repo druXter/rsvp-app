@@ -3,14 +3,7 @@
 
 import { useEffect, useState } from 'react'
 import { subscribeParticipantToPush, unsubscribeParticipantFromPush } from '../actions'
-
-// Wandelt den VAPID-Public-Key (URL-safe Base64) ins vom Push API erwartete Uint8Array um
-function urlBase64ToUint8Array(base64String: string) {
-  const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
-  const rawData = atob(base64)
-  return Uint8Array.from([...rawData].map(char => char.charCodeAt(0)))
-}
+import { resolvePushState, urlBase64ToUint8Array } from '../lib/push-client'
 
 /**
  * Gast-seitiges Gegenstück zu app/admin/push-subscribe-button.tsx - abonniert dasselbe
@@ -32,14 +25,16 @@ export default function PushSubscribeToggle({ editToken, vapidPublicKey }: { edi
     // damit im Klick-Handler nur noch ein einziger, schneller await bis zum eigentlichen
     // subscribe() nötig ist - siehe app/admin/push-subscribe-button.tsx für den Grund
     // (sonst kann die "User Activation" des Klicks vorher ablaufen).
+    //
+    // „Aktiv“ zeigt der Schalter nur, wenn der SERVER das Abo dieses Geräts für diesen Gast hat - ein abgelaufenes
+    // ersetzt resolvePushState dabei selbst (app/lib/push-client.ts).
     navigator.serviceWorker.register('/sw.js').then(async (registration) => {
-      const existing = await registration.pushManager.getSubscription()
       setSupported(true)
-      setSubscribed(!!existing)
+      if (editToken) setSubscribed(await resolvePushState(registration, vapidPublicKey, { editToken }))
     }).catch((error) => {
       console.error('Service-Worker-Registrierung fehlgeschlagen:', error)
     })
-  }, [vapidPublicKey])
+  }, [vapidPublicKey, editToken])
 
   if (!vapidPublicKey || !supported || !editToken) return null
 
@@ -67,9 +62,10 @@ export default function PushSubscribeToggle({ editToken, vapidPublicKey }: { edi
     try {
       const registration = await navigator.serviceWorker.ready
       const subscription = await registration.pushManager.getSubscription()
+      // Nur die eigene Zeile auf dem Server löschen, das Abo im Browser bleibt: Es gehört dem ganzen Gerät und kann
+      // noch für die Verwaltung oder andere Termine/Reihen gespeichert sein (app/lib/push-subscriptions.ts).
       if (subscription) {
         await unsubscribeParticipantFromPush(editToken, subscription.endpoint)
-        await subscription.unsubscribe()
       }
       setSubscribed(false)
     } finally {

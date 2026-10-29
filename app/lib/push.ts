@@ -4,6 +4,7 @@ import webpush from 'web-push'
 import { Event, EventSeries, Participant } from '@prisma/client'
 import { prisma } from './prisma'
 import { personalEventLink } from './mail'
+import { describePushError, isExpiredPushError, markEndpointExpired } from './push-subscriptions'
 
 
 // Ein Event, das optional (bei Reihen-Terminen) seine EventSeries mitbringt - gleiche
@@ -23,37 +24,38 @@ function ensureVapidConfigured() {
   vapidConfigured = true
 }
 
+type PushPayload = { title: string; body: string; url?: string }
+
+/**
+ * Schickt an die übergebenen Abos und protokolliert jeden Fehler einzeln mit Statuscode, Push-Dienst und Empfänger
+ * (`label`, nur Kennungen). Abos, die der Push-Dienst mit 404/410 ablehnt, werden als abgelaufen markiert
+ * (app/lib/push-subscriptions.ts) - das Gerät ersetzt sie beim nächsten Seitenbesuch selbst.
+ */
+async function deliver(label: string, subscriptions: { endpoint: string; p256dh: string; auth: string }[], payload: PushPayload) {
+  const results = await Promise.allSettled(
+    subscriptions.map(sub =>
+      webpush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, JSON.stringify(payload))
+    )
+  )
+  await Promise.all(results.map(async (result, i) => {
+    if (result.status === 'fulfilled') return
+    const endpoint = subscriptions[i].endpoint
+    if (isExpiredPushError(result.reason)) await markEndpointExpired(endpoint).catch(() => {})
+    console.error(`${label}: ${describePushError(endpoint, result.reason)}`)
+  }))
+}
+
 /**
  * Schickt eine Push-Benachrichtigung an alle Geräte EINES BESTIMMTEN Nutzers (z.B. des
- * Event-Owners) - nie an fremde Nutzer. Abgelaufene/ungültige Abos (HTTP 404/410 vom
- * Push-Dienst) werden dabei automatisch aus der Datenbank entfernt.
+ * Event-Owners) - nie an fremde Nutzer. Abgelaufene Abos (expiredAt) bekommen nichts.
  */
-export async function sendPushToUser(userId: string, payload: { title: string; body: string; url?: string }) {
+export async function sendPushToUser(userId: string, payload: PushPayload) {
   ensureVapidConfigured()
   if (!vapidConfigured) return // Keine VAPID-Keys konfiguriert -> Feature bleibt inaktiv
 
-  const subscriptions = await prisma.pushSubscription.findMany({ where: { userId } })
+  const subscriptions = await prisma.pushSubscription.findMany({ where: { userId, expiredAt: null } })
   if (subscriptions.length === 0) return
-
-  const results = await Promise.allSettled(
-    subscriptions.map(sub =>
-      webpush.sendNotification(
-        { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-        JSON.stringify(payload)
-      ).catch(async (error) => {
-        // 404/410 = Browser hat das Abo beendet (z.B. Cache geleert) - dauerhaft ungültig
-        if (error?.statusCode === 404 || error?.statusCode === 410) {
-          await prisma.pushSubscription.delete({ where: { id: sub.id } }).catch(() => {})
-        }
-        throw error
-      })
-    )
-  )
-
-  const failed = results.filter(r => r.status === 'rejected').length
-  if (failed > 0) {
-    console.error(`Push-Versand: ${failed}/${subscriptions.length} fehlgeschlagen`)
-  }
+  await deliver(`Push an Konto ${userId}`, subscriptions, payload)
 }
 
 /**
@@ -61,34 +63,15 @@ export async function sendPushToUser(userId: string, payload: { title: string; b
  * siehe subscribeParticipantToPush in app/actions.ts) - z.B. für Erinnerungen oder
  * Termin-Änderungen. Bewusst getrennt von sendPushToUser (admin-seitig): Gast-Push hängt
  * an der Participant-Identität, nicht an einem GuestUser-Konto, damit auch anonyme
- * editToken-Gäste ohne Konto Push abonnieren können. Abgelaufene/ungültige Abos werden
- * wie bei sendPushToUser automatisch entfernt.
+ * editToken-Gäste ohne Konto Push abonnieren können. Abgelaufene Abos bekommen nichts.
  */
-export async function sendPushToParticipant(participantId: string, payload: { title: string; body: string; url?: string }) {
+export async function sendPushToParticipant(participantId: string, payload: PushPayload) {
   ensureVapidConfigured()
   if (!vapidConfigured) return // Keine VAPID-Keys konfiguriert -> Feature bleibt inaktiv
 
-  const subscriptions = await prisma.participantPushSubscription.findMany({ where: { participantId } })
+  const subscriptions = await prisma.participantPushSubscription.findMany({ where: { participantId, expiredAt: null } })
   if (subscriptions.length === 0) return
-
-  const results = await Promise.allSettled(
-    subscriptions.map(sub =>
-      webpush.sendNotification(
-        { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-        JSON.stringify(payload)
-      ).catch(async (error) => {
-        if (error?.statusCode === 404 || error?.statusCode === 410) {
-          await prisma.participantPushSubscription.delete({ where: { id: sub.id } }).catch(() => {})
-        }
-        throw error
-      })
-    )
-  )
-
-  const failed = results.filter(r => r.status === 'rejected').length
-  if (failed > 0) {
-    console.error(`Gast-Push-Versand: ${failed}/${subscriptions.length} fehlgeschlagen`)
-  }
+  await deliver(`Gast-Push an Participant ${participantId}`, subscriptions, payload)
 }
 
 /**

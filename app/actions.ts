@@ -176,8 +176,8 @@ export async function subscribeParticipantToPush(editToken: unknown, input: Push
   if (!participant) return
 
   await prisma.participantPushSubscription.upsert({
-    where: { endpoint: subscription.endpoint },
-    update: { p256dh: subscription.p256dh, auth: subscription.auth, participantId: participant.id },
+    where: { participantId_endpoint: { participantId: participant.id, endpoint: subscription.endpoint } },
+    update: { p256dh: subscription.p256dh, auth: subscription.auth, expiredAt: null },
     create: { ...subscription, participantId: participant.id }
   })
 }

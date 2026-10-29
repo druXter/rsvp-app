@@ -70,7 +70,7 @@ Ein schlankes, anpassbares und leistungsstarkes Event-Management-System, gebaut 
   erst, wenn man unter App-Info → „Standardmäßig öffnen“ → „Link hinzufügen“ die Adresse selbst einträgt: Chrome erzeugt
   die App (WebAPK) auf jedem Gerät mit eigenem Paketnamen, eine automatische Bestätigung über
   `/.well-known/assetlinks.json` ist deshalb nicht möglich. Auf dem iPhone öffnen Links immer in Safari.
-* **Web-Push-Benachrichtigungen (PWA):** Sowohl die Verwaltung als auch die Gast-Seiten sind als installierbare PWA konfiguriert. Verwaltungskonten können sich pro Gerät anmelden und werden sofort informiert, sobald ein Gast eine neue Zu- oder Absage abgibt. Gäste können sich direkt auf ihrer Antwort-Seite ("🔕 Push-Benachrichtigungen aktivieren"-Button) anmelden - ganz ohne eigenes Konto - und bekommen dann Erinnerungen sowie kurzfristige Termin-Änderungen (Uhrzeit/Ort/Titel/Beschreibung) auch als Push, nicht nur per Mail.
+* **Web-Push-Benachrichtigungen (PWA):** Sowohl die Verwaltung als auch die Gast-Seiten sind als installierbare PWA konfiguriert. Verwaltungskonten können sich pro Gerät anmelden und werden sofort informiert, sobald ein Gast eine neue Zu- oder Absage abgibt. Gäste können sich direkt auf ihrer Antwort-Seite ("🔕 Push-Benachrichtigungen aktivieren"-Button) anmelden - ganz ohne eigenes Konto - und bekommen dann Erinnerungen sowie kurzfristige Termin-Änderungen (Uhrzeit/Ort/Titel/Beschreibung) auch als Push, nicht nur per Mail. Der Schalter zeigt „aktiv“ nur, wenn der Server das Abo dieses Geräts für diesen Gast bzw. dieses Konto wirklich hat (`/api/push/status`), nicht schon, wenn der Browser eins kennt. Ein Gerät kann für mehrere Gäste (z.B. zwei Reihen) und die Verwaltung zugleich abonniert sein; „ausschalten“ entfernt nur die eigene Zeile auf dem Server, das Abo im Browser bleibt. **Abgelaufene Abos:** Lehnt der Push-Dienst ein Abo mit 404/410 ab, wird es als abgelaufen markiert (`expiredAt`, kein Versand mehr) statt gelöscht. Beim nächsten Seitenbesuch holt der Browser dann selbst ein neues Abo und ersetzt das alte überall (`/api/push/resubscribe`, `app/lib/push-client.ts`); dasselbe macht der Service Worker bei `pushsubscriptionchange`. Der Cleanup-Cron löscht abgelaufene Abos nach 90 Tagen. Jeder Versandfehler steht einzeln im Log mit Push-Dienst, Statuscode und Gast- bzw. Konto-ID (`Gast-Push an Participant …: fcm.googleapis.com 410 (…)`), nie mit dem Endpoint. Logik in `app/lib/push-subscriptions.ts`.
 * **Verwaltung (Dashboard):** 
   * Volle Übersicht über alle Zu- und Absagen sowie Wartelistenplätze.
   * Status-Anzeige ausstehender E-Mail-Verifizierungen.
@@ -219,7 +219,7 @@ Um automatische E-Mail-Erinnerungen für Events zu versenden, muss der folgende 
 
 ## 🗑️ Automatische Datenlöschung (Cronjob / Uptime Kuma)
 
-Zur Umsetzung der Speicherbegrenzung nach DSGVO gibt es einen zweiten, unabhängigen Endpoint, der ebenfalls regelmäßig aufgerufen werden sollte (hier reicht z.B. einmal täglich statt stündlich). Er löscht automatisch Events (inkl. Datensatz) 18 Monate nach dem Veranstaltungsdatum sowie Teilnehmendenkonten ("Mein Konto"), die seit 2 Jahren nicht mehr eingeloggt wurden - siehe `/datenschutz` Punkt 15 für die genauen Regeln. Löscht jemand vorher einen Termin, eine einzelne Antwort oder ein Konto im Dashboard, verschwinden die dadurch verwaisten Gastprofile (Name, Kontaktdaten, Ernährung, Allergien, persönlicher Link, Push-Abos) sofort mit (`app/lib/participants.ts`); Gäste mit einer Antwort zu einem anderen Termin behalten ihr Profil. Der Cron räumt nur noch Altlasten auf:
+Zur Umsetzung der Speicherbegrenzung nach DSGVO gibt es einen zweiten, unabhängigen Endpoint, der ebenfalls regelmäßig aufgerufen werden sollte (hier reicht z.B. einmal täglich statt stündlich). Er löscht automatisch Events (inkl. Datensatz) 18 Monate nach dem Veranstaltungsdatum, Teilnehmendenkonten ("Mein Konto"), die seit 2 Jahren nicht mehr eingeloggt wurden, sowie Push-Abos 90 Tage, nachdem der Push-Dienst sie als ungültig abgelehnt hat - siehe `/datenschutz` Punkt 15 für die genauen Regeln. Löscht jemand vorher einen Termin, eine einzelne Antwort oder ein Konto im Dashboard, verschwinden die dadurch verwaisten Gastprofile (Name, Kontaktdaten, Ernährung, Allergien, persönlicher Link, Push-Abos) sofort mit (`app/lib/participants.ts`); Gäste mit einer Antwort zu einem anderen Termin behalten ihr Profil. Der Cron räumt nur noch Altlasten auf:
 
 `GET https://rsvp.deine-domain.de/api/cron/cleanup?secret=DeinSehrGeheimesPasswort123`
 
@@ -333,6 +333,12 @@ einem Hinweis ab, statt die Links zu verlieren. Wer von einer noch älteren Vers
 Vorgängerversion (Commit `ca1bd37`) und spielt danach das Update ein. Ein Rollback legt die Spalten leer wieder an, die
 App liest sie ohnehin nicht. Lokal ohne Docker: `node migrate-drop-seating-columns.js && npx prisma db push && node
 migrate-token-hashes.js && node migrate-tool-links.js && node migrate-persons.js && node migrate-person-details.js && node migrate-invitation-reminders.js`.
+
+**Update auf erneuerbare Push-Abos (Oktober 2026):** `ParticipantPushSubscription.endpoint` ist nicht mehr allein
+eindeutig, sondern zusammen mit dem Participant. `prisma db push` verlangt dafür einmalig `--accept-data-loss` (es
+warnt nur, weil ein Unique-Index entsteht; Daten gehen keine verloren, da vorher jeder Endpoint ohnehin nur einmal
+vorkam): vor dem Start der neuen Version `docker compose run --rm rsvp-app npx prisma db push --skip-generate
+--accept-data-loss`.
 
 **Update auf Begleitungen (Oktober 2026):** `migrate-persons.js` (`PRAGMA user_version` 3, nach `prisma db push`) stellt
 „Begleitperson (+1) abfragen“ (`formConfig.askPlusOne`) auf „bis zu 1 Begleitung“ (`Event.maxCompanions`) um und
@@ -606,7 +612,7 @@ heute dem Abstimmungstool (Modus "Nur mit Konto"). Getrennt vom Verbund der Verw
 ## 🧪 Tests
 
 ```bash
-npm test            # Unit-Tests (vitest): Mail-Vorlagen, Passwort, Tokens, Drossel-IP und -Regeln, Rechte, PIN, Abstimmungs-Kopplung, Seating- und Zeitplan-Vertrag, verknüpfte Tools, Migrationen, Cron-Secret, Ticketkategorien und Platzregel, IBAN, GiroCode, Zahlstatus, Kontoauszug-Abgleich
+npm test            # Unit-Tests (vitest): Mail-Vorlagen, Passwort, Tokens, Drossel-IP und -Regeln, Rechte, PIN, Abstimmungs-Kopplung, Seating- und Zeitplan-Vertrag, verknüpfte Tools, Migrationen, Cron-Secret, Ticketkategorien und Platzregel, IBAN, GiroCode, Zahlstatus, Kontoauszug-Abgleich, Push-Versandfehler
 npm run test:e2e    # Playwright gegen eine frisch gebaute Instanz auf http://127.0.0.1:3105
 ```
 
@@ -632,7 +638,7 @@ abgelaufene Meldung, Klick-Token; Terminabstimmung: fremder Origin, andere Nachr
 über den Verbund verknüpften Owner, einmaliges Übernehmen) sowie mit Seating und Zeitplan (Link nur für die eigene gültige Zusage, Signatur mit
 dem eigenen Secret, Webhook nur an das verknüpfte Tool, keine Namen an den Zeitplan) und die verknüpften Tools allgemein (Übernahme alter Sitzplatz-Links,
 Webhook nur an gültig verknüpfte Tools, fremde Adressen im Termin-Formular), Tickets und Bezahlung (Kategorie eines anderen Termins, Wechsel in eine volle Kategorie
-oder nach der Zahlung, Bezahlstatus ohne Freigabe, Stornieren nur bei überfälliger Zahlung, Abendkasse, Sitzplatzwahl erst nach Zahlung, Kontoauszug-Import fremder Konten und Termine, Zahlungserinnerung nur einmal je Frist) – jeder Angriffsfall **mit Positivkontrolle**, dass derselbe Aufruf mit Berechtigung
+oder nach der Zahlung, Bezahlstatus ohne Freigabe, Stornieren nur bei überfälliger Zahlung, Abendkasse, Sitzplatzwahl erst nach Zahlung, Kontoauszug-Import fremder Konten und Termine, Zahlungserinnerung nur einmal je Frist), Push-Abos (Stand nur für den eigenen Gast bzw. das eigene Konto, Ersetzen nur mit dem alten Endpoint und nur durch ein Abo eines Push-Dienstes, abgelaufen in beiden Tabellen, Aufräumen nach 90 Tagen) – jeder Angriffsfall **mit Positivkontrolle**, dass derselbe Aufruf mit Berechtigung
 wirkt.
 
 Voraussetzung: Chromium für Playwright (`npx playwright install chromium`, einmalig). `next build` schreibt nach `.next/` –
