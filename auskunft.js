@@ -21,7 +21,7 @@ const TOOL = 'rsvp-app';
 const prisma = new PrismaClient();
 
 /** Technisches, das keine Auskunft braucht und nicht hinausgehört (Tokens, Hashes, Push-Schlüssel). */
-const SECRET_KEYS = /(token|hash|secret)$|^p256dh$|^auth$|^endpoint$/i;
+const SECRET_KEYS = /(token|hash|secret|hmac|nonce|enc)$|^p256dh$|^auth$|^endpoint$/i;
 function clean(value) {
   if (Array.isArray(value)) return value.map(clean);
   if (value instanceof Date) return value.toISOString();
