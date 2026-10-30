@@ -111,6 +111,22 @@ export function reminderMail(input: { name: string; event: { title: string; when
   )
 }
 
+/** Nachricht an Gäste (Idee L29, app/lib/guest-message.ts): freier Text der Verwaltung, Absatz für Absatz. */
+export function guestMessageMail(input: { name: string; event: { title: string; when: string; location: string | null }; subject: string; paragraphs: string[]; personalLink: string }): MailContent {
+  return mail(
+    `${input.event.title}: ${input.subject}`,
+    input.subject,
+    [
+      hello(input.name),
+      ...input.paragraphs.map((text): MailBlock => ({ kind: 'p', text })),
+      eventRows(input.event),
+      { kind: 'button', label: 'Zu deiner Anmeldung', href: input.personalLink },
+      CLOSING
+    ],
+    { preheader: input.paragraphs[0]?.slice(0, 120), footer: `Du bekommst diese Mail, weil du dich zu „${input.event.title}“ angemeldet hast.` }
+  )
+}
+
 export function verificationMail(input: { name: string; eventTitle: string; link: string }): MailContent {
   return mail(
     `Bitte bestätige deine Anmeldung für ${input.eventTitle}`,

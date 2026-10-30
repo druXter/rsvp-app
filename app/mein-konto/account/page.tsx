@@ -137,7 +137,7 @@ export default async function GuestAccountPage({
             auch direkt in dieser App. Du kannst dann auf die separate Bestätigungs-Mail verzichten.
           </p>
           <form action={updateConfirmationEmailPreference} className="space-y-2">
-            <label className={`flex items-start gap-2 text-sm ${hasPushSubscription ? 'text-gray-700 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500'}`}>
+            <label className={`flex items-start gap-2 text-sm ${hasPushSubscription ? 'text-gray-700 dark:text-gray-300' : 'text-gray-500 dark:text-gray-400'}`}>
               <input
                 type="checkbox"
                 name="disableConfirmationEmails"
@@ -148,7 +148,7 @@ export default async function GuestAccountPage({
               <span>Keine Bestätigungs-Mails mehr schicken, wenn ich per Push benachrichtigt werde</span>
             </label>
             {!hasPushSubscription && (
-              <p className="text-xs text-gray-400 dark:text-gray-500">Aktiviere zuerst Push-Benachrichtigungen - für alle Termine unter „Mein Konto“ oder auf einer Termin-Seite.</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Aktiviere zuerst Push-Benachrichtigungen - für alle Termine unter „Mein Konto“ oder auf einer Termin-Seite.</p>
             )}
             <SubmitButton>Speichern</SubmitButton>
           </form>

@@ -153,7 +153,7 @@ export default async function EventGuests({ params, searchParams }: { params: Pr
                       <details className="mt-1 text-xs">
                         <summary className="cursor-pointer text-blue-700 hover:underline dark:text-blue-300">Details</summary>
                         <dl className="mt-2 grid grid-cols-[auto,1fr] gap-x-3 gap-y-1 text-gray-700 dark:text-gray-300">
-                          <dt className="text-gray-500">E-Mail</dt>
+                          <dt className="text-gray-500 dark:text-gray-400">E-Mail</dt>
                           <dd className="flex flex-wrap items-center gap-2">
                             {rsvp.participant.email || '-'}
                             {rsvp.participant.email && requireVerification && !rsvp.participant.isVerified && (
@@ -167,15 +167,15 @@ export default async function EventGuests({ params, searchParams }: { params: Pr
                             )}
                             {rsvp.participant.isVerified && <Badge tone="green">bestätigt</Badge>}
                           </dd>
-                          <dt className="text-gray-500">Handy</dt><dd>{rsvp.participant.phone || '-'}</dd>
+                          <dt className="text-gray-500 dark:text-gray-400">Handy</dt><dd>{rsvp.participant.phone || '-'}</dd>
                           {persons.map((p, i) => (
                             <PersonDetails key={i} label={event.inviteOnly || i > 0 ? (p.name || 'Begleitung') : 'Angaben'} value={[[...personDetails(p), alcoholLabel(p.drinksAlcohol)].filter(Boolean).join(', ') || '-', menuCourses.length > 0 && p.isAttending && p.ageGroup !== 'INFANT' ? describeSelection(menuCourses, p.menu) || 'Menü offen' : null].filter(Boolean).join(' · ')} />
                           ))}
-                          {bring.length > 0 && <><dt className="text-gray-500">Mitbringsel</dt><dd>{bring.join(', ')}</dd></>}
-                          {(rsvp.isAttending ? rsvp.additionalInfo : rsvp.declineReason) && <><dt className="text-gray-500">{rsvp.isAttending ? 'Anmerkungen' : 'Grund'}</dt><dd className="whitespace-pre-line">{rsvp.isAttending ? rsvp.additionalInfo : rsvp.declineReason}</dd></>}
+                          {bring.length > 0 && <><dt className="text-gray-500 dark:text-gray-400">Mitbringsel</dt><dd>{bring.join(', ')}</dd></>}
+                          {(rsvp.isAttending ? rsvp.additionalInfo : rsvp.declineReason) && <><dt className="text-gray-500 dark:text-gray-400">{rsvp.isAttending ? 'Anmerkungen' : 'Grund'}</dt><dd className="whitespace-pre-line">{rsvp.isAttending ? rsvp.additionalInfo : rsvp.declineReason}</dd></>}
                           {customQuestions.map((q, i) => answers[i] ? <QuestionAnswer key={i} question={q} answer={answers[i]} /> : null)}
-                          {rsvp.seatingLabel && <><dt className="text-gray-500">Platz</dt><dd>{rsvp.seatingLabel}</dd></>}
-                          <dt className="text-gray-500">Geantwortet</dt><dd>{rsvp.createdAt.toLocaleDateString('de-DE')}</dd>
+                          {rsvp.seatingLabel && <><dt className="text-gray-500 dark:text-gray-400">Platz</dt><dd>{rsvp.seatingLabel}</dd></>}
+                          <dt className="text-gray-500 dark:text-gray-400">Geantwortet</dt><dd>{rsvp.createdAt.toLocaleDateString('de-DE')}</dd>
                         </dl>
                       </details>
                     </td>
@@ -285,9 +285,9 @@ function CheckinCell({ rsvp, persons, tracked }: { rsvp: { id: string; hasAttend
 }
 
 function PersonDetails({ label, value }: { label: string; value: string }) {
-  return <><dt className="text-gray-500">{label}</dt><dd>{value}</dd></>
+  return <><dt className="text-gray-500 dark:text-gray-400">{label}</dt><dd>{value}</dd></>
 }
 
 function QuestionAnswer({ question, answer }: { question: string; answer: string }) {
-  return <><dt className="text-gray-500">{question}</dt><dd>{answer}</dd></>
+  return <><dt className="text-gray-500 dark:text-gray-400">{question}</dt><dd>{answer}</dd></>
 }

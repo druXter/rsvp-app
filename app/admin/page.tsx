@@ -115,7 +115,7 @@ export default async function AdminDashboard() {
                     <Link href={`/admin/series/${s.id}`} className="font-semibold text-purple-900 hover:underline dark:text-purple-200">{s.title}</Link>
                     <Badge tone="purple">Reihe · {s.events.length} Termine</Badge>
                     {!isAdmin && s.ownerId !== user.id && <Badge tone="teal" title={`freigegeben von ${s.owner.email}`}>freigegeben</Badge>}
-                    {isAdmin && s.owner.email !== user.email && <span className="text-xs text-gray-500">{s.owner.email}</span>}
+                    {isAdmin && s.owner.email !== user.email && <span className="text-xs text-gray-500 dark:text-gray-400">{s.owner.email}</span>}
                     <Link href={`/admin/series/${s.id}`} className="ml-auto text-sm text-purple-800 hover:underline dark:text-purple-300">Alle Termine →</Link>
                   </div>
                   {next.length === 0

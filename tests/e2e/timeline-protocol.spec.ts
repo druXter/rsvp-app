@@ -122,6 +122,15 @@ test('Anfrage des Zeitplans: nur signiert, nur für den verlinkten Termin, nur w
   const decisions = await protocol(await ask(request, fields))
   expect(asked).toEqual([expect.objectContaining({ path: '/api/assembly/decisions', typ: 'assembly-decisions', assemblyId, eventId: event.id })])
   expect(decisions).toMatchObject({ presence: null, decisionsState: 'ok', decisions: [decision] })
+  expect(JSON.stringify(decisions)).not.toContain('verdict')
+
+  // Ergebnis nach der Mehrheitsregel (Idee L33) wird weitergegeben; kein Text oder zu lang: nichts weitergegeben
+  answer = req => ({ status: 200, body: signCouplingToken({ typ: 'assembly-decisions-result', assemblyId: req.assemblyId, eventId: req.eventId, decisions: [{ ...decision, verdict: 'angenommen (einfache Mehrheit: 2 Ja, 1 Nein)' }], exp: now() + 300 }) })
+  expect(await protocol(await ask(request, fields))).toMatchObject({ decisionsState: 'ok', decisions: [{ verdict: 'angenommen (einfache Mehrheit: 2 Ja, 1 Nein)' }] })
+  for (const verdict of [42, 'x'.repeat(301)]) {
+    answer = req => ({ status: 200, body: signCouplingToken({ typ: 'assembly-decisions-result', assemblyId: req.assemblyId, eventId: req.eventId, decisions: [{ ...decision, verdict }], exp: now() + 300 }) })
+    expect(await protocol(await ask(request, fields))).toMatchObject({ decisions: null, decisionsState: 'unreachable' })
+  }
 
   // Abstimmungstool falsch signiert, für eine andere Sitzung oder mit kaputtem Inhalt: "nicht erreichbar", nichts weitergegeben
   for (const bad of [

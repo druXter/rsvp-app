@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { renderMail } from 'suite-kit/web'
 import {
-  accountInviteMail, confirmationMail, emailChangeMail, eventUpdatedMail, feedbackMail, guestVerificationMail, invitationMail, maybeDeclinedMail,
+  accountInviteMail, confirmationMail, emailChangeMail, eventUpdatedMail, feedbackMail, guestMessageMail, guestVerificationMail, invitationMail, maybeDeclinedMail,
   maybeReminderMail, maybeVerificationMail, passwordResetMail,
   paymentBox, paymentCancelledMail, paymentReceivedMail, paymentReminderMail, reminderMail, verificationMail, waitlistMail,
   waitlistPromotedMail, type ConfirmationInput
@@ -41,7 +41,8 @@ const all = [
   maybeVerificationMail({ name: EVIL, eventTitle: EVIL, remindAt: 'am Mo., 02.11.2026, 18:00 Uhr', link: LINK }),
   maybeReminderMail({ name: EVIL, event: { title: EVIL, when: 'Samstag', location: EVIL }, who: EVIL, cutoff: 'Fr., 06.11.2026, 23:59 Uhr', capacity: true, personalLink: LINK }),
   maybeDeclinedMail({ name: EVIL, eventTitle: EVIL, reason: 'expired', who: null, canAnswer: false, personalLink: LINK }),
-  maybeDeclinedMail({ name: EVIL, eventTitle: EVIL, reason: 'disabled', who: EVIL, canAnswer: true, personalLink: LINK })
+  maybeDeclinedMail({ name: EVIL, eventTitle: EVIL, reason: 'disabled', who: EVIL, canAnswer: true, personalLink: LINK }),
+  guestMessageMail({ name: EVIL, event: { title: EVIL, when: 'Samstag', location: EVIL }, subject: EVIL, paragraphs: [EVIL, 'Zweiter\nAbsatz'], personalLink: LINK })
 ]
 
 describe('Mail-Vorlagen', () => {
@@ -55,6 +56,16 @@ describe('Mail-Vorlagen', () => {
       expect(text, content.subject).toContain(LINK)
       expect(text, content.subject).not.toContain('&lt;')
     }
+  })
+
+  it('Nachricht an Gäste (L29): Betreff mit Termin, jeder Absatz einzeln, Termin und Link', () => {
+    const content = guestMessageMail({ name: 'Anna', event: { title: 'Ball', when: 'Samstag, 19 Uhr', location: 'Aula' }, subject: 'Bitte Ausweis mitbringen', paragraphs: ['Am Einlass wird kontrolliert.', 'Bis Samstag!'], personalLink: LINK })
+    expect(content.subject).toBe('Ball: Bitte Ausweis mitbringen')
+    const { text } = renderMail(content.mail)
+    expect(text).toContain('Hallo Anna,')
+    expect(text).toContain('Am Einlass wird kontrolliert.')
+    expect(text).toContain('Bis Samstag!')
+    expect(text).toContain('Aula')
   })
 
   it('Bestätigung einer Zusage: Termin, Begleitung, Menü, Zahlung mit GiroCode, QR-Code, Sitzplatz, Reihe', () => {

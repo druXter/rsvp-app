@@ -1,7 +1,7 @@
 // app/lib/mail.ts
 import { renderMail } from 'suite-kit/web'
 import {
-  accountInviteMail, confirmationMail, emailChangeMail, eventUpdatedMail, feedbackMail, guestVerificationMail, invitationMail, maybeDeclinedMail,
+  accountInviteMail, confirmationMail, emailChangeMail, eventUpdatedMail, feedbackMail, guestMessageMail, guestVerificationMail, invitationMail, maybeDeclinedMail,
   maybeReminderMail, maybeVerificationMail, passwordResetMail,
   paymentCancelledMail, paymentReceivedMail, paymentReminderMail, reminderMail, verificationMail, waitlistMail, waitlistPromotedMail,
   type MailContent, type SeriesHint
@@ -180,6 +180,17 @@ export async function sendReminderEmail(event: EventWithSeries, participant: Par
     message: customMessage,
     personalLink: personalEventLink(event, participant)
   }), 'Erinnerung')
+}
+
+/** Nachricht an Gäste (Idee L29, app/admin/message-actions.ts) - false, wenn der Versand scheitert. */
+export async function sendGuestMessageEmail(event: EventWithSeries, participant: Participant, subject: string, paragraphs: string[]) {
+  return tryDeliver(participant.email!, guestMessageMail({
+    name: participant.name,
+    event: { title: event.title, when: formatEventDate(event), location: event.location },
+    subject,
+    paragraphs,
+    personalLink: personalEventLink(event, participant)
+  }), 'Nachricht an Gäste')
 }
 
 /**

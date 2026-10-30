@@ -1,5 +1,5 @@
 // app/mein-konto/reset-password/page.tsx
-import { SubmitButton, inputClass } from '../../ui/kit'
+import { SubmitButton, inputClass, linkClass } from '../../ui/kit'
 import { prisma } from '../../lib/prisma'
 import Link from 'next/link'
 import { resetGuestPassword } from '../actions'
@@ -29,7 +29,7 @@ export default async function GuestResetPasswordPage({ searchParams }: { searchP
               Dieser Link ist ungültig oder abgelaufen. Fordere gegebenenfalls einen neuen an.
             </div>
             <p className="text-sm text-center text-gray-500 dark:text-gray-400">
-              <Link href="/mein-konto/forgot-password" className="text-blue-600 hover:underline">Neuen Link anfordern</Link>
+              <Link href="/mein-konto/forgot-password" className={linkClass}>Neuen Link anfordern</Link>
             </p>
           </>
         ) : (

@@ -4,6 +4,7 @@ import { allowedSeatingOrigin } from '../lib/seating'
 import { allowedTimelineOrigin } from '../lib/timeline'
 import { allowedShiftsOrigin } from '../lib/shift-helpers'
 import { allowedWichtelnOrigin } from '../lib/wichteln'
+import { linkClass } from '../ui/kit'
 
 // Liest Verantwortlichen- und Infrastruktur-Angaben zur Laufzeit aus der (nicht
 // versionierten) .env, analog zu app/impressum/page.tsx - siehe dort für die
@@ -250,7 +251,7 @@ export default function DatenschutzPage() {
         </div>
 
         <div>
-          <h2 className="font-bold text-lg">5. E-Mails an Gäste (Bestätigung, Erinnerung, Änderungen)</h2>
+          <h2 className="font-bold text-lg">5. E-Mails an Gäste (Bestätigung, Erinnerung, Änderungen, Nachrichten)</h2>
           <p className="mt-2">
             Ist für eine Veranstaltung die E-Mail-Bestätigung aktiviert, verschicken wir dir einen Bestätigungslink,
             bevor deine Anmeldung gültig wird - das schützt dich und uns vor missbräuchlichen Anmeldungen unter
@@ -282,6 +283,15 @@ export default function DatenschutzPage() {
             - zusätzlich als Push-Benachrichtigung (siehe Punkt 6).
           </p>
           <p className="mt-2">
+            <strong>Nachrichten der Veranstaltung:</strong> Die Veranstalter:in kann Gästen eines Termins eine eigene
+            Nachricht schicken (z.&nbsp;B. zu Anfahrt, Einlass oder Dresscode) - an alle mit Zusage, auf der Warteliste
+            oder „vielleicht“ (mit bestätigter Adresse) bzw. an eine Auswahl davon, etwa nach Ticketkategorie,
+            offener Zahlung oder Einlass. Du erhältst sie per E-Mail und - falls aktiviert - als Push-Benachrichtigung.
+            Gespeichert werden dazu Betreff, Text, die gewählte Auswahl, die Zahl der Empfänger:innen und wer sie
+            verschickt hat, aber keine Liste der einzelnen Empfänger:innen; alles wird mit dem Termin gelöscht.
+            Rechtsgrundlage ist wie bei den übrigen Mails zu deiner Anmeldung Art. 6 Abs. 1 lit. b DSGVO.
+          </p>
+          <p className="mt-2">
             <strong>Bestätigungs-Mails abbestellen:</strong>{' '}Hast du ein Teilnehmendenkonto unter &quot;Mein Konto&quot; und
             dort Push-Benachrichtigungen aktiviert, kannst du unter &quot;⚙️ Konto-Einstellungen&quot; festlegen, dass
             wir dir keine Bestätigungs-Mails mehr schicken - du erhältst die Bestätigung dann ausschließlich als
@@ -302,6 +312,7 @@ export default function DatenschutzPage() {
           <ul className="list-disc list-inside mt-2 space-y-1 text-sm">
             <li>
               <strong>Als Gast:</strong> Erinnerungen an bevorstehende Termine, Mitteilungen über Termin-Änderungen,
+              Nachrichten der Veranstaltung (Punkt 5),
               bei „vielleicht“ die Erinnerung zum gewählten Zeitpunkt und die Mitteilung über die automatische Absage
               und - falls du Bestätigungs-Mails abbestellt hast (Punkt 5) - die Bestätigung deiner Zusage. Bei einer
               Veranstaltungsreihe gilt eine einmal aktivierte Benachrichtigung für alle Termine dieser Reihe. Mit einem
@@ -734,7 +745,7 @@ export default function DatenschutzPage() {
         </div>
 
         <div className="pt-6 border-t dark:border-gray-700">
-          <Link href="/" className="text-blue-600 hover:underline">
+          <Link href="/" className={linkClass}>
             &larr; Zurück zur Startseite
           </Link>
         </div>

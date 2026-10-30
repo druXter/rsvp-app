@@ -42,7 +42,7 @@ export function eventTabs({ event, isOwner, invitationCount }: AdminEvent) {
     ...(event._count.ticketCategories > 0 ? [{ href: `${base}/zahlungen`, label: 'Zahlungen' }] : []),
     ...(event.wishlist || event._count.wishes > 0 ? [{ href: `${base}/wuensche`, label: 'Wünsche' }] : []),
     ...(event.trackPresence || event._count.presenceEntries > 0 ? [{ href: `${base}/anwesenheit`, label: 'Anwesenheit' }] : []),
-    ...(isOwner ? [{ href: `${base}/einstellungen`, label: 'Einstellungen' }] : [])
+    ...(isOwner ? [{ href: `${base}/nachrichten`, label: 'Nachrichten' }, { href: `${base}/einstellungen`, label: 'Einstellungen' }] : [])
   ]
 }
 

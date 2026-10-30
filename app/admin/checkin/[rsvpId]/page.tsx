@@ -8,6 +8,7 @@ import { getCurrentUser } from '../../../lib/auth'
 import { hasEventModeratorOrAbove } from '../../../lib/permissions'
 import { AGE_GROUP_LABEL, alcoholLabel, personsOf } from '../../../lib/persons'
 import { checkInAll, isPresent } from '../../../lib/checkin'
+import { linkClass } from '../../../ui/kit'
 
 
 /**
@@ -130,7 +131,7 @@ export default async function CheckinPage({ params, searchParams }: { params: Pr
                   <form action={togglePersonAttendance}>
                     <input type="hidden" name="personId" value={p.id} />
                     <input type="hidden" name="back" value="checkin" />
-                    <button type="submit" className="text-sm text-blue-600 hover:underline dark:text-blue-400">{personAction(p)}</button>
+                    <button type="submit" className={`text-sm dark:text-blue-400 ${linkClass}`}>{personAction(p)}</button>
                   </form>
                 )}
               </li>
@@ -211,7 +212,7 @@ export default async function CheckinPage({ params, searchParams }: { params: Pr
           </form>
         )}
 
-        <Link href="/admin" className="block mt-8 text-sm text-blue-600 hover:underline">
+        <Link href="/admin" className={`block mt-8 text-sm ${linkClass}`}>
           Zum Dashboard
         </Link>
       </div>

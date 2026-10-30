@@ -31,6 +31,7 @@ import { deadlinePassed, formatDeadline } from '../../../lib/rsvp-deadline'
 import EventHeader from '../../../ui/event-header'
 import WishList from '../../../ui/wish-list'
 import { wishesForGuest } from '../../../lib/wishlist-store'
+import { linkClass } from '../../../ui/kit'
 
 
 type PublicRsvp = Prisma.RsvpGetPayload<{
@@ -191,7 +192,7 @@ export default async function SeriesEventPage({
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-gray-900 py-10">
       <div className="max-w-3xl mx-auto px-4 space-y-4">
-        <Link href={`/reihe/${series.slug}${token ? `?token=${token}` : ''}`} className="inline-block text-sm text-blue-600 hover:underline">
+        <Link href={`/reihe/${series.slug}${token ? `?token=${token}` : ''}`} className={`inline-block text-sm ${linkClass}`}>
           ← Alle Termine von {series.title}
         </Link>
 
@@ -268,7 +269,7 @@ export default async function SeriesEventPage({
                       )}
 
                       {guest.isAttending && (guest.bringingItem || guest.bringClaims.length > 0) && (
-                        <div className="text-sm text-blue-600 mt-1">
+                        <div className="text-sm text-blue-700 dark:text-blue-300 mt-1">
                           🍕 Bringt mit: {[...claimedLabels(guest), ...(guest.bringingItem ? [guest.bringingItem] : [])].join(', ')}
                         </div>
                       )}

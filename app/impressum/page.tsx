@@ -1,5 +1,6 @@
 // app/impressum/page.tsx
 import Link from 'next/link'
+import { linkClass } from '../ui/kit'
 
 // Diese Seite liest die echten Angaben zur Laufzeit aus der (nicht versionierten) .env -
 // im Repository bleiben dadurch nur Platzhalter sichtbar. Erzwingt dynamisches Rendering,
@@ -38,7 +39,7 @@ export default function ImpressumPage() {
         </div>
 
         <div className="pt-6 border-t dark:border-gray-700">
-          <Link href="/" className="text-blue-600 hover:underline">
+          <Link href="/" className={linkClass}>
             &larr; Zurück zur Startseite
           </Link>
         </div>

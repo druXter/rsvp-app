@@ -200,7 +200,7 @@ export async function login(page: Page, email: string, password = PASSWORD, ip =
 
 /** Abmelden über das Konto-Menü der Verwaltung (app/admin/admin-shell.tsx). */
 export async function logout(page: Page) {
-  await page.getByLabel('Konto-Menü').click()
+  await page.locator('summary', { hasText: 'Konto-Menü' }).click()
   await page.getByRole('button', { name: 'Abmelden' }).click()
 }
 

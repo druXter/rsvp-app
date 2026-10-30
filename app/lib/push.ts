@@ -109,6 +109,15 @@ export async function sendEventChangedPush(
   })
 }
 
+/** Nachricht an Gäste (Idee L29) - neben der Mail, mit dem Betreff als Text. */
+export async function sendGuestMessagePush(event: EventWithSeries, participant: Participant, subject: string) {
+  await sendPushToParticipant(participant.id, {
+    title: `✉️ ${event.title}`,
+    body: subject,
+    url: personalEventLink(event, participant)
+  })
+}
+
 /** Zahlungserinnerung (app/lib/payment-reminder.ts) - neben der Mail, wie alle Erinnerungen. */
 export async function sendPaymentReminderPush(event: EventWithSeries, participant: Participant, amount: string, dueAt: string | null) {
   await sendPushToParticipant(participant.id, {

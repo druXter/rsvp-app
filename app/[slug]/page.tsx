@@ -260,7 +260,7 @@ export default async function EventPage({
 
                       {/* Mitbringsel anzeigen, falls Zusage */}
                       {guest.isAttending && (guest.bringingItem || guest.bringClaims.length > 0) && (
-                        <div className="text-sm text-blue-600 mt-1">
+                        <div className="text-sm text-blue-700 dark:text-blue-300 mt-1">
                           🍕 Bringt mit: {[...claimedLabels(guest), ...(guest.bringingItem ? [guest.bringingItem] : [])].join(', ')}
                         </div>
                       )}

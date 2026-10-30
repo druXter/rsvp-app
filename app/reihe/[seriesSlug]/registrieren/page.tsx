@@ -1,5 +1,5 @@
 // app/reihe/[seriesSlug]/registrieren/page.tsx
-import { ProofOfWork, SubmitButton, inputClass } from '../../../ui/kit'
+import { ProofOfWork, SubmitButton, inputClass, linkClass } from '../../../ui/kit'
 import { prisma } from '../../../lib/prisma'
 import { notFound } from 'next/navigation'
 import { cookies } from 'next/headers'
@@ -86,7 +86,7 @@ export default async function RegisterGuestUserPage({
         </form>
 
         <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
-          Bereits ein Konto? <Link href={loginHref} className="text-blue-600 hover:underline">Hier einloggen</Link>
+          Bereits ein Konto? <Link href={loginHref} className={linkClass}>Hier einloggen</Link>
         </p>
       </div>
     </main>

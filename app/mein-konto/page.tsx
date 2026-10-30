@@ -165,8 +165,8 @@ export default async function MeinKontoPage() {
         <details className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow group">
           <summary className="cursor-pointer font-bold text-gray-900 dark:text-gray-100 list-none flex items-center justify-between">
             <span>Deine Angaben</span>
-            <span className="text-gray-400 dark:text-gray-500 text-sm font-normal group-open:hidden">Anzeigen ▾</span>
-            <span className="text-gray-400 dark:text-gray-500 text-sm font-normal hidden group-open:inline">Verbergen ▴</span>
+            <span className="text-gray-500 dark:text-gray-400 text-sm font-normal group-open:hidden">Anzeigen ▾</span>
+            <span className="text-gray-500 dark:text-gray-400 text-sm font-normal hidden group-open:inline">Verbergen ▴</span>
           </summary>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 mb-4">Gilt automatisch für alle Termine all deiner Reihen - einmal ändern, überall aktuell.</p>
           <form action={updateGuestProfile} className="space-y-3">

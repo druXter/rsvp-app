@@ -35,7 +35,7 @@ export default async function Home() {
             </Link>
             <Link
               href={guestUser ? '/mein-konto' : '/mein-konto/login'}
-              className="inline-block bg-white dark:bg-gray-800 text-blue-600 font-bold py-3 px-8 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition shadow-lg border border-blue-200 dark:border-blue-800"
+              className="inline-block bg-white dark:bg-gray-800 text-blue-700 dark:text-blue-300 font-bold py-3 px-8 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition shadow-lg border border-blue-200 dark:border-blue-800"
             >
               {guestUser ? `Zu Mein Konto (${guestUser.email})` : 'Mein Konto (Gäste-Login)'}
             </Link>

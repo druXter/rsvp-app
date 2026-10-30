@@ -156,6 +156,8 @@ model Event {
   // jedes Kommen, Gehen und Wiederkommen landet mit Uhrzeit in PresenceEntry (Reiter "Anwesenheit"). Nur mit enableCheckin.
   trackPresence       Boolean  @default(false)
   presenceEntries     PresenceEntry[]
+  // Nachrichten an Gäste (Idee L29, app/lib/guest-message.ts) - Verlauf im Reiter „Nachrichten“.
+  guestMessages       GuestMessage[]
 
   // Wie EventSeries.requireGuestUser, nur für ein Einzel-Event - nur beim Anlegen setzbar
   // (createEvent), danach bewusst unveränderlich (kein Feld in updateEvent). Gehört das Event
@@ -922,4 +924,25 @@ model PresenceEntry {
 
   @@index([eventId, at])
   @@index([rsvpId])
+}
+
+// Nachricht an Gäste (Idee L29, app/lib/guest-message.ts, app/admin/message-actions.ts): freier Text der Verwaltung an
+// eine Auswahl der Antworten eines Termins, per Mail und Push. Gespeichert für den Verlauf - Text, Auswahl (audience,
+// JSON von MessageAudience, audienceText als Beschreibung zum Zeitpunkt des Versands) und Zahlen, keine Liste der
+// Personen. Verschwindet mit dem Termin.
+model GuestMessage {
+  id           String   @id @default(cuid())
+  eventId      String
+  event        Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  subject      String
+  body         String
+  audience     String
+  audienceText String
+  recipients   Int
+  mailSent     Int
+  mailFailed   Int
+  authorEmail  String?
+  createdAt    DateTime @default(now())
+
+  @@index([eventId, createdAt])
 }

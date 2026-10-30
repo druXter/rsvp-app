@@ -1,5 +1,5 @@
 // app/admin/login/page.tsx
-import { SubmitButton } from '../../ui/kit'
+import { SubmitButton, linkClass } from '../../ui/kit'
 import Link from 'next/link'
 import { loginUser } from '../actions'
 import AuthError from '../../ui/auth-error'
@@ -28,7 +28,7 @@ export default async function AdminLoginPage({ searchParams }: { searchParams: P
           <h1 className="text-2xl font-bold text-center">Anmelden mit {idpLabel(preferred)}</h1>
           <HardRedirect to={`/api/suite/login?idp=${encodeURIComponent(preferred.issuer)}&next=${encodeURIComponent(next)}`} />
           <p className="text-sm text-center">
-            <Link href={`/admin/login?local=1&next=${encodeURIComponent(next)}`} className="text-blue-600 hover:underline">
+            <Link href={`/admin/login?local=1&next=${encodeURIComponent(next)}`} className={linkClass}>
               Stattdessen mit E-Mail und Passwort anmelden
             </Link>
           </p>
@@ -102,11 +102,11 @@ export default async function AdminLoginPage({ searchParams }: { searchParams: P
         )}
 
         <p className="text-sm text-center text-gray-500 dark:text-gray-400">
-          <Link href="/admin/forgot-password" className="text-blue-600 hover:underline">Passwort vergessen?</Link>
+          <Link href="/admin/forgot-password" className={linkClass}>Passwort vergessen?</Link>
         </p>
 
-        <p className="text-xs text-center text-gray-400 dark:text-gray-500 border-t dark:border-gray-700 pt-4">
-          Teilnehmendenkonto einer Veranstaltungsreihe? <Link href="/mein-konto/login" className="text-blue-600 hover:underline">Hier einloggen</Link>
+        <p className="text-xs text-center text-gray-500 dark:text-gray-400 border-t dark:border-gray-700 pt-4">
+          Teilnehmendenkonto einer Veranstaltungsreihe? <Link href="/mein-konto/login" className={linkClass}>Hier einloggen</Link>
         </p>
       </div>
     </main>

@@ -390,7 +390,7 @@ export default function RsvpForm({
                   const own = rsvp?.ticketCategoryId === category.id
                   const free = category.capacity !== null ? Math.max(category.capacity - category.taken, 0) : null
                   return (
-                    <label key={category.id} className={`flex flex-wrap items-center gap-2 text-sm ${categoryLocked && !own ? 'text-gray-400 dark:text-gray-500' : 'text-gray-800 dark:text-gray-200 cursor-pointer'}`}>
+                    <label key={category.id} className={`flex flex-wrap items-center gap-2 text-sm ${categoryLocked && !own ? 'text-gray-500 dark:text-gray-400' : 'text-gray-800 dark:text-gray-200 cursor-pointer'}`}>
                       <input type="radio" name="ticketCategoryId" value={category.id} defaultChecked={own} required disabled={categoryLocked && !own} className="w-4 h-4" />
                       <span>{category.label}</span>
                       <span className="font-medium">{category.priceCents > 0 ? formatEuro(category.priceCents) : 'kostenlos'}</span>
@@ -492,7 +492,7 @@ export default function RsvpForm({
                 {bringSlots.map(slot => {
                   const full = slot.claimed >= slot.quantity && !slot.mine
                   return (
-                    <label key={slot.id} className={`flex items-center gap-2 text-sm ${full ? 'text-gray-400 dark:text-gray-500' : 'text-gray-800 dark:text-gray-200 cursor-pointer'}`}>
+                    <label key={slot.id} className={`flex items-center gap-2 text-sm ${full ? 'text-gray-500 dark:text-gray-400' : 'text-gray-800 dark:text-gray-200 cursor-pointer'}`}>
                       <input type="checkbox" name="bringSlot" value={slot.id} defaultChecked={slot.mine} disabled={full} className="w-4 h-4" />
                       <span>{slot.label}</span>
                       <span className="text-xs text-gray-500 dark:text-gray-400">({slot.claimed}/{slot.quantity}{full ? ', vergeben' : ''})</span>

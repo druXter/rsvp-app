@@ -35,6 +35,7 @@ Ein schlankes, anpassbares und leistungsstarkes Event-Management-System, gebaut 
 * **Erinnerungs-Mails (Reminders):** 
   * Manueller Versand aus dem Dashboard an alle Zusagen (inkl. optionaler Zusatzinfos für die Gäste).
   * Vollautomatischer Versand X Tage vor dem Event (gesicherter Endpoint für Uptime Kuma oder Cronjobs).
+* **Nachricht an Gäste (Idee L29):** Reiter „Nachrichten“ eines Termins (nur Owner und Admins, wie die Erinnerung): Betreff und freier Text, Absätze durch Leerzeilen, an Zusagen, Warteliste und/oder „Vielleicht“, wahlweise nur eine Ticketkategorie, nur offene Zahlungen oder nur (nicht) eingecheckte Gäste. Die Seite zählt live mit („12 Antworten · 10 per Mail“) und fragt vor dem Versand nach. Wer etwas bekommt, gilt wie bei Änderungs-Mails: Mail nur an hinterlegte und - bei E-Mail-Bestätigung - bestätigte Adressen, „Vielleicht“ nur mit bestätigter Adresse, Push an alle Abos. Mails gehen in Fünfergruppen nacheinander raus; höchstens 10 Nachrichten pro Termin in 24 Stunden. Der Verlauf (`GuestMessage`: Text, Auswahl, Zahlen, Absender, keine Empfängerliste) steht darunter und verschwindet mit dem Termin. Logik in `app/lib/guest-message.ts`, Versand in `app/admin/message-actions.ts`.
 * **QR-Code Einlasskontrolle (optional, standardmäßig aus):** Pro Event/Termin zuschaltbar für Veranstaltungen mit echtem Einlass. Bestätigte Gäste bekommen einen persönlichen QR-Code (Bestätigungsmail & Erfolgsseite), der beim Scannen automatisch als "anwesend" markiert wird. Eingecheckt wird **pro Person**: Der Scan lässt alle zusagenden Personen der Antwort herein und zeigt sie mit Altersgruppe und Alkohol; einzelne lassen sich danach aus- und wieder eintragen (kommt jemand später). Die Verwaltung zeigt eine Live-Statistik ("Eingecheckt 25/50 Personen") und erlaubt auch manuelles Ein-/Auschecken ohne Scan, für die ganze Antwort oder pro Person. Ändert ein Gast nach dem Einlass seine Antwort, bleibt der Einlass erhalten. Für die meisten privaten Feiern ohne Einlasskontrolle bleibt diese Option einfach deaktiviert.
   * **Kommen und Gehen (optional, eigene Option „Kommen und Gehen protokollieren“, nur mit QR-Einlass):** für Sitzungen und Versammlungen (Idee L7, Vorlage „Sitzung oder Versammlung“). Auschecken heißt dann „geht“ statt „war nicht da“: Die Person bleibt „da gewesen“ (Feedback, Statistik), die Gästeliste zeigt „🚪 Weg seit 20:15“, und ein erneuter Scan oder Klick checkt sie wieder ein. Jedes Kommen, Gehen und Wiederkommen landet mit Uhrzeit im Protokoll (`PresenceEntry`, pro Person). Reiter **„Anwesenheit“**: wer gerade da ist, alle Aufenthalte pro Person („19:02–20:15, 20:40–“), der Verlauf („20:15 Ben geht“), druckbar und als CSV (`/api/export/anwesenheit`), aktualisiert sich alle 15 Sekunden. Die Übersicht zeigt „Jetzt da 12/20“. Fehlscans nimmt „Letzte Änderung zurücknehmen“ auf der Scan-Seite zurück (eine Änderung = alle Einträge mit demselben Zeitpunkt). Logik in `app/lib/checkin.ts`.
 * **Teilnehmendenkonten zu Terminen einladen:** Wer einen Termin verwaltet oder moderiert, lädt beim Anlegen
@@ -419,7 +420,7 @@ kommen dann nur mit einer gültigen Zusage hinein. Rein additiv: Ohne Zeitplan-L
   Freigegebenen: Kommen, Gehen und Wiederkommen mit Name und Uhrzeit (`PresenceEntry`) bzw. die geschlossenen
   Abstimmungen der Sitzung, die rsvp-app dafür beim Abstimmungstool abruft (`POST <Abstimmungstool>/api/assembly/decisions`,
   `assembly-decisions`, Secret `POLL_VERIFICATION_SECRET`; jedes Feld wird geprüft, bei geheimen Abstimmungen gehen nie
-  Namen weiter). Der Zeitplan zeigt das beim Tagesordnungspunkt, der lief, und speichert es nicht. Logik in
+  Namen weiter; das Ergebnis nach der Mehrheitsregel kommt als kurzer Text mit, falls die Abstimmung eine hat). Der Zeitplan zeigt das beim Tagesordnungspunkt, der lief, und speichert es nicht. Logik in
   `app/lib/timeline-protocol.ts`.
 
 **Vertrag** (`app/lib/timeline.ts`, Gegenstück im Zeitplan `app/lib/rsvp/token.ts`): Format wie bei allen verknüpften
@@ -545,7 +546,9 @@ Gilt für Verwaltungskonten (`/admin/login`) **und** Teilnehmendenkonten (`/mein
 * **Header** (`next.config.ts`, Bausteine aus `suite-kit/web`, Muster der Suite aus `suite-kit/docs/KONVENTIONEN.md`): `nosniff`, `Referrer-Policy`,
   HSTS. Einbetten ist grundsätzlich verboten (Clickjacking), **erlaubt nur für Gästeseiten** (`frame-ancestors *`, sie
   laufen als iFrame in einem CMS): Event-Seiten, Reihen und ihre Termine sowie die Registrierung, auf die sie im selben
-  Frame verlinken. Verwaltung und Konto (`/admin`, `/mein-konto`) zusätzlich `noindex` und `no-store`, Seiten mit
+  Frame verlinken. Eingebettet melden sie ihre Höhe per `postMessage` an die einbettende Seite (`EmbedHeight` aus
+  suite-kit in `app/[slug]/layout.tsx` und `app/reihe/[seriesSlug]/layout.tsx`, Idee Q10) - die Startseite passt das
+  iFrame daran an. Verwaltung und Konto (`/admin`, `/mein-konto`) zusätzlich `noindex` und `no-store`, Seiten mit
   Token aus einer Mail (`/verify`, Reset, E-Mail-Bestätigung) `no-referrer`. Der Service Worker kommt nie aus einem Cache.
 * **CSV-Exporte** (Gästeliste, Küche, Anwesenheit) über `csvResponse` aus `suite-kit/web`, dasselbe Format wie in allen
   Tools (Semikolon, CRLF, BOM, Anführungszeichen nur wo nötig): Textzellen, die Excel als Formel lesen würde
@@ -609,12 +612,31 @@ heute dem Abstimmungstool (Modus "Nur mit Konto"). Getrennt vom Verbund der Verw
 * Freigaben verschwinden mit dem Konto (Löschen, Löschfrist). Getestet in `tests/e2e/suite-participant.spec.ts` (die
   Empfänger spielen dort kleine Test-Server); einmal gemeinsam mit dem echten Abstimmungstool durchgespielt.
 
+## 🔎 Auskunft und Löschung zu einer Adresse
+
+Auf dem Server, ohne Endpunkt im Netz (Idee Q8, Regeln in `suite-kit/docs/KONVENTIONEN.md` „Datenschutz“):
+
+```bash
+docker compose exec -T rsvp-app node auskunft.js anna@example.org                   # alles zur Adresse als JSON
+docker compose exec -T rsvp-app node auskunft.js anna@example.org --loeschen        # Probe: was würde gelöscht
+docker compose exec -T rsvp-app node auskunft.js anna@example.org --loeschen --ja   # löschen
+```
+
+Für alle Tools auf einmal: `suite-kit/scripts/auskunft.sh <adresse> [--loeschen [--ja]]` (je Tool eine Datei in
+`~/auskunft/`). Gefunden wird ohne Groß-/Kleinschreibung; Tokens, Hashes und Push-Schlüssel stehen nie in der Ausgabe.
+Verwaltungskonten löscht das Skript nie (daran hängen Inhalte), es nennt sie in den Hinweisen.
+
+Findet Verwaltungskonto, Teilnehmendenkonto, Antworten (auch über das Konto oder eine Einladung an die Adresse) samt Personen, Menü, Mitbringliste, Wünschen und Anwesenheit sowie gesendete Nachrichten an Gäste. Löscht wie „Meine Daten löschen“ bzw. „Konto löschen“, meldet verknüpften Tools aber nichts - die Hinweise nennen die betroffenen Termine mit Seating, Zeitplan, Schichten oder Wichteln.
+
 ## 🧪 Tests
 
 ```bash
 npm test            # Unit-Tests (vitest): Mail-Vorlagen, Passwort, Tokens, Drossel-IP und -Regeln, Rechte, PIN, Abstimmungs-Kopplung, Seating- und Zeitplan-Vertrag, verknüpfte Tools, Migrationen, Cron-Secret, Ticketkategorien und Platzregel, IBAN, GiroCode, Zahlstatus, Kontoauszug-Abgleich, Push-Versandfehler
 npm run test:e2e    # Playwright gegen eine frisch gebaute Instanz auf http://127.0.0.1:3105
 ```
+
+**Barrierefreiheit** (Idee Q11): `tests/e2e/a11y.spec.ts` prüft die wichtigsten Seiten für Gäste und Verwaltung mit
+axe (`@axe-core/playwright`) nach WCAG 2.1 A/AA, hell und dunkel; jeder Befund lässt den Test scheitern. `tests/e2e/auskunft.spec.ts` prüft `auskunft.js`.
 
 **Mails ansehen:** `npx tsx scripts/mail-preview.ts` schreibt alle Mails mit Beispieldaten als HTML und Text nach
 `.e2e/mail-preview/` (ohne Datenbank). Mit `npx tsx --env-file=.env scripts/mail-preview.ts --send <adresse>` geht

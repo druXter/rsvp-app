@@ -39,12 +39,12 @@ export default function EventRow({ event, muted = false }: { event: EventRowData
     >
       <div className="flex w-14 shrink-0 flex-col items-center justify-center rounded-lg bg-gray-50 py-2 text-center dark:bg-gray-900">
         {event.datePending ? (
-          <span className="text-xs font-medium text-gray-500">offen</span>
+          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">offen</span>
         ) : (
           <>
             <span className="text-xs font-medium uppercase text-gray-500 dark:text-gray-400">{MONTH.format(event.date)}</span>
             <span className="text-xl font-semibold leading-tight text-gray-900 dark:text-gray-100">{DAY.format(event.date)}</span>
-            {!thisYear && <span className="text-[10px] text-gray-500">{YEAR.format(event.date)}</span>}
+            {!thisYear && <span className="text-[10px] text-gray-500 dark:text-gray-400">{YEAR.format(event.date)}</span>}
           </>
         )}
       </div>
@@ -70,7 +70,7 @@ export default function EventRow({ event, muted = false }: { event: EventRowData
         </div>
         {event.maxCapacity !== null && (
           <div className="mt-2 max-w-xs">
-            <ProgressBar value={s.seats} max={event.maxCapacity} />
+            <ProgressBar value={s.seats} max={event.maxCapacity} label="Plätze belegt" />
             <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{s.seats} von {event.maxCapacity} Plätzen</p>
           </div>
         )}

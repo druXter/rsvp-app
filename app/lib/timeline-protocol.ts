@@ -47,6 +47,8 @@ export type ProtocolDecision = {
   present: number | null
   quorumMet: boolean | null
   options: { label: string; votes: number; names?: string[] }[]
+  /** Ergebnis nach der Mehrheitsregel des Abstimmungstools (Idee L33), nur wenn die Abstimmung eine hat. */
+  verdict?: string
 }
 
 const isCount = (value: unknown): value is number => typeof value === 'number' && Number.isInteger(value) && value >= 0
@@ -56,11 +58,12 @@ const isText = (value: unknown, max: number): value is string => typeof value ==
 /** Prüft einen Beschluss aus dem Abstimmungstool feldweise - weitergegeben wird nur, was hier steht. */
 function readDecision(raw: unknown): ProtocolDecision | null {
   if (!isRecord(raw)) return null
-  const { title, secret, openedAt, closedAt, voters, present, quorumMet, options } = raw
+  const { title, secret, openedAt, closedAt, voters, present, quorumMet, options, verdict } = raw
   if (!isText(title, 500) || typeof secret !== 'boolean' || !isTime(openedAt) || !isTime(closedAt) || !isCount(voters)) return null
   if (present !== null && !isCount(present)) return null
   if (quorumMet !== null && typeof quorumMet !== 'boolean') return null
   if (!Array.isArray(options) || options.length > MAX_OPTIONS) return null
+  if (verdict !== undefined && !isText(verdict, 300)) return null
   const read = options.map(o => {
     if (!isRecord(o) || !isText(o.label, 500) || !isCount(o.votes)) return null
     if (o.names === undefined || secret) return { label: o.label, votes: o.votes }
@@ -68,7 +71,7 @@ function readDecision(raw: unknown): ProtocolDecision | null {
     return { label: o.label, votes: o.votes, names: o.names as string[] }
   })
   if (read.some(o => o === null)) return null
-  return { title, secret, openedAt, closedAt, voters, present: present as number | null, quorumMet: quorumMet as boolean | null, options: read as ProtocolDecision['options'] }
+  return { title, secret, openedAt, closedAt, voters, present: present as number | null, quorumMet: quorumMet as boolean | null, options: read as ProtocolDecision['options'], ...(verdict !== undefined ? { verdict: verdict as string } : {}) }
 }
 
 export type DecisionsResult = { state: 'ok'; decisions: ProtocolDecision[] } | { state: 'off' } | { state: 'unreachable' }

@@ -1,5 +1,5 @@
 // app/mein-konto/login/page.tsx
-import { SubmitButton, inputClass } from '../../ui/kit'
+import { SubmitButton, inputClass, linkClass } from '../../ui/kit'
 import Link from 'next/link'
 import { loginGuestUser } from '../actions'
 import AuthError from '../../ui/auth-error'
@@ -73,13 +73,13 @@ export default async function GuestLoginPage({ searchParams }: { searchParams: P
         </form>
 
         <p className="text-sm text-center text-gray-500 dark:text-gray-400">
-          <Link href="/mein-konto/forgot-password" className="text-blue-600 hover:underline">Passwort vergessen?</Link>
+          <Link href="/mein-konto/forgot-password" className={linkClass}>Passwort vergessen?</Link>
           {' · '}
-          Noch kein Konto? <Link href={`/mein-konto/registrieren${next ? `?next=${encodeURIComponent(next)}` : ''}`} className="text-blue-600 hover:underline">Konto anlegen</Link>
+          Noch kein Konto? <Link href={`/mein-konto/registrieren${next ? `?next=${encodeURIComponent(next)}` : ''}`} className={linkClass}>Konto anlegen</Link>
         </p>
 
-        <p className="text-xs text-center text-gray-400 dark:text-gray-500 border-t dark:border-gray-700 pt-4">
-          Admin-Zugang für Events/Reihen? <Link href="/admin/login" className="text-blue-600 hover:underline">Hier einloggen</Link>
+        <p className="text-xs text-center text-gray-500 dark:text-gray-400 border-t dark:border-gray-700 pt-4">
+          Admin-Zugang für Events/Reihen? <Link href="/admin/login" className={linkClass}>Hier einloggen</Link>
         </p>
       </div>
     </main>

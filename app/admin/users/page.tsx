@@ -48,7 +48,7 @@ export default async function UsersPage() {
                 return (
                   <tr key={u.id} className="border-b dark:border-gray-700 last:border-0">
                     <td className="p-3 font-medium text-gray-900 dark:text-gray-100">
-                      {u.email}{isSelf && <span className="text-gray-400 dark:text-gray-500 font-normal"> (du)</span>}
+                      {u.email}{isSelf && <span className="text-gray-500 dark:text-gray-400 font-normal"> (du)</span>}
                     </td>
                     <td className="p-3">
                       {isSelf || u.role === 'ADMIN' ? (
@@ -61,7 +61,7 @@ export default async function UsersPage() {
                             <option value="CREATOR">Creator</option>
                             <option value="MODERATOR">Moderator</option>
                           </select>
-                          <button type="submit" className="text-xs text-blue-600 hover:text-blue-800 font-medium transition">
+                          <button type="submit" className="text-xs text-blue-700 hover:text-blue-900 dark:text-blue-300 dark:hover:text-blue-200 font-medium transition">
                             Speichern
                           </button>
                         </form>

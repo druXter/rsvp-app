@@ -1,4 +1,4 @@
-import { SubmitButton } from '../../ui/kit'
+import { SubmitButton, linkClass } from '../../ui/kit'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { parseAuthorizeRequest } from 'suite-kit'
@@ -39,7 +39,7 @@ export default async function FreigabePage({ searchParams }: { searchParams: Pro
             <div role="alert" className="p-3 bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 text-sm rounded">
               {message ?? ERRORS.app}
             </div>
-            <Link href="/mein-konto" className="text-sm text-blue-600 hover:underline">Zu Mein Konto</Link>
+            <Link href="/mein-konto" className={`text-sm ${linkClass}`}>Zu Mein Konto</Link>
           </>
         ) : (
           <>

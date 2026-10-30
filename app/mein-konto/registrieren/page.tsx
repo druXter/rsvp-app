@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation'
 import { registerGuestUser } from '../actions'
 import { getCurrentGuestUser } from '../../lib/guest-auth'
 import AuthError from '../../ui/auth-error'
-import { ProofOfWork, SubmitButton, inputClass } from '../../ui/kit'
+import { ProofOfWork, SubmitButton, inputClass, linkClass } from '../../ui/kit'
 
 /**
  * Allgemeine Registrierung eines Teilnehmendenkontos - ohne Reihe oder Event (registerGuestUser ohne seriesId/eventId).
@@ -58,7 +58,7 @@ export default async function GuestRegisterPage({ searchParams }: { searchParams
         </form>
 
         <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
-          Bereits ein Konto? <Link href={loginHref} className="text-blue-600 hover:underline">Hier einloggen</Link>
+          Bereits ein Konto? <Link href={loginHref} className={linkClass}>Hier einloggen</Link>
         </p>
       </div>
     </main>

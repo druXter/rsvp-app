@@ -1,5 +1,5 @@
 // app/mein-konto/forgot-password/page.tsx
-import { SubmitButton, inputClass } from '../../ui/kit'
+import { SubmitButton, inputClass, linkClass } from '../../ui/kit'
 import Link from 'next/link'
 import { requestGuestPasswordReset } from '../actions'
 
@@ -23,7 +23,7 @@ export default async function GuestForgotPasswordPage({ searchParams }: { search
               Zurücksetzen deines Passworts geschickt. Der Link ist eine Stunde gültig.
             </div>
             <p className="text-sm text-center text-gray-500 dark:text-gray-400">
-              <Link href="/mein-konto/login" className="text-blue-600 hover:underline">Zurück zum Login</Link>
+              <Link href="/mein-konto/login" className={linkClass}>Zurück zum Login</Link>
             </p>
           </>
         ) : (
@@ -50,7 +50,7 @@ export default async function GuestForgotPasswordPage({ searchParams }: { search
             </form>
 
             <p className="text-sm text-center text-gray-500 dark:text-gray-400">
-              <Link href="/mein-konto/login" className="text-blue-600 hover:underline">Zurück zum Login</Link>
+              <Link href="/mein-konto/login" className={linkClass}>Zurück zum Login</Link>
             </p>
           </>
         )}

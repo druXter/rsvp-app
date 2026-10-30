@@ -9,6 +9,7 @@ import InvitationGate from '../../[slug]/invitation-gate'
 import { getCurrentGuestUser } from '../../lib/guest-auth'
 import { invitationCovers } from '../../lib/invitation-store'
 import { formatDeadline } from '../../lib/rsvp-deadline'
+import { linkClass } from '../../ui/kit'
 
 
 export default async function SeriesOverviewPage({
@@ -81,13 +82,13 @@ export default async function SeriesOverviewPage({
             <p className="mt-4 font-semibold text-gray-800 dark:text-gray-200" data-testid="series-invitation">💌 Einladung für {invitation.label} - bitte sagt bei jedem Termin für jede Person zu oder ab.</p>
           ) : guestUser ? (
             <p className="mt-4 text-sm text-gray-600 dark:text-gray-400">
-              Eingeloggt als {guestUser.email} - <Link href="/mein-konto" className="text-blue-600 hover:underline font-medium">Zu deinem Konto</Link>
+              Eingeloggt als {guestUser.email} - <Link href="/mein-konto" className={`font-medium ${linkClass}`}>Zu deinem Konto</Link>
             </p>
           ) : (
             <p className="mt-4 text-sm text-gray-600 dark:text-gray-400">
-              <Link href={`/reihe/${series.slug}/registrieren`} className="text-blue-600 hover:underline font-medium">Konto erstellen</Link>
+              <Link href={`/reihe/${series.slug}/registrieren`} className={`font-medium ${linkClass}`}>Konto erstellen</Link>
               {' '}um dich künftig automatisch einzuloggen, statt dir einen Link zu merken. Bereits ein Konto?{' '}
-              <Link href="/mein-konto/login" className="text-blue-600 hover:underline font-medium">Einloggen</Link>.
+              <Link href="/mein-konto/login" className={`font-medium ${linkClass}`}>Einloggen</Link>.
             </p>
           )}
 
