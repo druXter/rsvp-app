@@ -10,20 +10,25 @@ export const PHOTO_URL_MAX_LENGTH = 2000
  * Prüft den Foto-Link aus dem Termin-Formular: leer = kein Link, sonst nur http(s) - der Link landet als
  * href auf der Gästeseite, `javascript:` & Co. dürfen nie hinein. Wirft mit einer Meldung fürs Formular.
  */
-export function parsePhotoUrl(input: string): string | null {
+export function parsePhotoUrl(input: string, what = 'Foto-Link', example = 'https://fotos.example.de/s/hochzeit'): string | null {
   const value = input.trim()
   if (!value) return null
   let url: URL
   try {
     url = new URL(value)
   } catch {
-    throw new InputError('Ungültiger Foto-Link. Erwartet wird eine vollständige Adresse, z. B. https://fotos.example.de/s/hochzeit.')
+    throw new InputError(`Ungültiger ${what}. Erwartet wird eine vollständige Adresse, z. B. ${example}.`)
   }
   if (url.protocol !== 'https:' && url.protocol !== 'http:') {
-    throw new InputError('Der Foto-Link muss mit https:// (oder http://) beginnen.')
+    throw new InputError(`Der ${what} muss mit https:// (oder http://) beginnen.`)
   }
-  if (value.length > PHOTO_URL_MAX_LENGTH) throw new InputError(`Der Foto-Link ist zu lang (höchstens ${PHOTO_URL_MAX_LENGTH} Zeichen).`)
+  if (value.length > PHOTO_URL_MAX_LENGTH) throw new InputError(`Der ${what} ist zu lang (höchstens ${PHOTO_URL_MAX_LENGTH} Zeichen).`)
   return url.toString()
+}
+
+/** Fundsachen-Link (Idee L36): dieselben Regeln wie der Foto-Link. */
+export function parseLostFoundUrl(input: string): string | null {
+  return parsePhotoUrl(input, 'Fundsachen-Link', 'https://inventur.example.de/fundsachen/…')
 }
 
 /** Ende eines Termins: Beginn plus Dauer in Stunden (wie im Kalendereintrag, app/lib/mail.ts). */
@@ -44,5 +49,18 @@ export function photoLinkVisible(
 ): boolean {
   if (!event.photoUrl || event.datePending) return false
   if (!rsvp?.isAttending || rsvp.isOnWaitlist) return false
+  return now >= eventEndsAt(event)
+}
+
+/**
+ * Sieht diese Person den Fundsachen-Link (Idee L36)? Ab dem Ende des Termins, für alle mit einer Zusage (auch
+ * Warteliste - wer etwas vermisst, war vielleicht doch da); mit offenem Datum nie. Die Liste selbst ist öffentlich.
+ */
+export function lostFoundVisible(
+  event: { lostFoundUrl: string | null; date: Date; duration: number; datePending: boolean },
+  rsvp: { isAttending: boolean } | null,
+  now: Date = new Date()
+): boolean {
+  if (!event.lostFoundUrl || event.datePending || !rsvp?.isAttending) return false
   return now >= eventEndsAt(event)
 }

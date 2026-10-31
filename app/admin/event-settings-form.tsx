@@ -7,6 +7,7 @@ import { courseOptions } from '../lib/menu'
 import { deadlineInputValue } from '../lib/rsvp-deadline'
 import { allowedSeatingOrigin } from '../lib/seating'
 import { allowedTimelineOrigin } from '../lib/timeline'
+import { allowedInfoPageOrigin } from '../lib/infopage'
 import { allowedShiftsOrigin, formatShiftTiers, parseStoredTiers } from '../lib/shift-helpers'
 import { allowedWichtelnOrigin } from '../lib/wichteln'
 import { TOOL_LINKS, storedToolUrl } from '../lib/linked-tools-store'
@@ -95,6 +96,8 @@ export default function EventSettingsForm({ event, userId, open = 'grunddaten', 
   const formattedDate = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
   const seatingUrl = storedToolUrl(event.toolLinks, 'seating')
   const timelineUrl = storedToolUrl(event.toolLinks, 'timeline')
+  const infoPageUrl = storedToolUrl(event.toolLinks, 'infopage')
+  const infoPageOrigin = allowedInfoPageOrigin()
   const shiftsUrl = storedToolUrl(event.toolLinks, 'shifts')
   const shiftsOrigin = allowedShiftsOrigin()
   const wichtelnUrl = storedToolUrl(event.toolLinks, 'wichteln')
@@ -265,7 +268,7 @@ export default function EventSettingsForm({ event, userId, open = 'grunddaten', 
       </SettingsSection>
 
       <SettingsSection id="verknuepfungen" title="Verknüpfungen" open={open === 'verknuepfungen'} marker="lime"
-        summary={summary([seatingUrl && 'Seating', timelineUrl && (event.timelinePresence || event.timelineDecisions ? 'Zeitplan mit Protokoll' : 'Zeitplan'), shiftsUrl && 'Schichten', wichtelnUrl && 'Wichteln', event.pollUrl && 'Abstimmung', event.photoUrl && 'Fotos', event.feedbackUrl && 'Feedback', event.assemblyUrl && 'Sitzung'], 'keine')}>
+        summary={summary([seatingUrl && 'Seating', timelineUrl && (event.timelinePresence || event.timelineDecisions ? 'Zeitplan mit Protokoll' : 'Zeitplan'), shiftsUrl && 'Schichten', wichtelnUrl && 'Wichteln', infoPageUrl && 'Infoseite', event.pollUrl && 'Abstimmung', event.photoUrl && 'Fotos', event.lostFoundUrl && 'Fundsachen', event.feedbackUrl && 'Feedback', event.assemblyUrl && 'Sitzung'], 'keine')}>
         {seatingOrigin && (
           <div>
             <Field id="seatingUrl" label="Sitzplätze (Seating)" hint={<>Link aus den Event-Einstellungen in Seating. ID dieses Termins für Seating: <code className="select-all">{event.id}</code>. Name, E-Mail und Begleitungen der Zusagen gehen dafür an Seating.</>}>
@@ -288,6 +291,11 @@ export default function EventSettingsForm({ event, userId, open = 'grunddaten', 
               hint="Ergebnisse der geschlossenen Abstimmungen aus der verknüpften Sitzung, bei namentlichen Abstimmungen mit Namen - beim Tagesordnungspunkt, in dem abgestimmt wurde." />
             <RuleNote name="timelineDecisions" indent />
           </div>
+        )}
+        {infoPageOrigin && (
+          <Field id="infoPageUrl" label="Infoseite für Gäste (Startseite)" hint={<>Link aus den Einstellungen der Seite in der Startseite (Gäste-Bereich „Wer in rsvp-app zugesagt hat“). ID dieses Termins für die Startseite: <code className="select-all">{event.id}</code>. Gäste mit Zusage sehen dann „Infos für Gäste“ und kommen in den Gäste-Bereich; sagen sie ab, endet der Zugang. An die Startseite gehen nur Kennungen, keine Namen.</>}>
+            <input id="infoPageUrl" type="url" name="infoPageUrl" defaultValue={infoPageUrl} className={inputClass} placeholder={`${infoPageOrigin}/rsvp/…`} />
+          </Field>
         )}
         {shiftsOrigin && (
           <div className="space-y-3">
@@ -325,6 +333,9 @@ export default function EventSettingsForm({ event, userId, open = 'grunddaten', 
         <RuleNote name="datePending" indent />
         <Field id="photoUrl" label="Fotoalbum (Link)" hint="Geteiltes Album mit Upload (z.B. Immich). Gäste mit Zusage sehen den Link ab dem Ende des Termins.">
           <input id="photoUrl" type="url" name="photoUrl" defaultValue={event.photoUrl || ''} className={inputClass} placeholder="https://fotos.example.de/s/…" />
+        </Field>
+        <Field id="lostFoundUrl" label="Fundsachen (Link)" hint="Öffentliche Fundsachen-Liste, z.B. aus der Inventur (Vorlage „Fundsachen“). Gäste mit Zusage sehen den Link ab dem Ende des Termins.">
+          <input id="lostFoundUrl" type="url" name="lostFoundUrl" defaultValue={event.lostFoundUrl || ''} className={inputClass} placeholder="https://inventur.example.de/fundsachen/…" />
         </Field>
         {feedbackOrigin && (
           <Field id="assemblyUrl" label="Sitzung im Abstimmungstool (Link)" hint={<>Für Versammlungen: Gäste mit Zusage sehen „🗳️ Zur Sitzung“ und stimmen dort ab - je nach Sitzung nur, wer gerade eingecheckt ist ({event.enableCheckin ? (event.trackPresence ? 'Kommen und Gehen ist an' : 'tipp: „Kommen und Gehen protokollieren“ einschalten') : 'braucht den QR-Einlass'}). Ans Abstimmungstool gehen Name und ein Pseudonym, keine E-Mail.</>}>

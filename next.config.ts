@@ -51,9 +51,9 @@ const nextConfig: NextConfig = {
       },
       {
         // Verknüpfte Tools (app/lib/linked-tools.ts): Seatings Gästeliste/Platzierungen (Server zu
-        // Server), die Weiterleitungen "Sitzplatz wählen", "Zeitplan", "Feedback geben" bzw. "Zur Sitzung" (editToken in der URL,
+        // Server), die Weiterleitungen "Sitzplatz wählen", "Zeitplan", "Feedback geben", "Zur Sitzung" bzw. "Infos für Gäste" (editToken in der URL,
         // signierter Link im Ziel), die Anwesenheit für Sitzungen und das Protokoll für den Zeitplan-Rückblick - nie cachen, nie per Referer weiterreichen.
-        source: '/api/:area(seating|seating-link|timeline|timeline-link|feedback-link|assembly-link|assembly)/:path*',
+        source: '/api/:area(seating|seating-link|timeline|timeline-link|feedback-link|assembly-link|assembly|info-link)/:path*',
         headers: [...NO_REFERRER, { key: 'Cache-Control', value: 'no-store' }],
       },
       // Service Worker (nie cachen, eigene CSP) und Föderations-Endpunkte (kein Referer) - zuletzt, damit sie gewinnen.

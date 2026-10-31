@@ -4,6 +4,7 @@ import { allowedSeatingOrigin } from '../lib/seating'
 import { allowedTimelineOrigin } from '../lib/timeline'
 import { allowedShiftsOrigin } from '../lib/shift-helpers'
 import { allowedWichtelnOrigin } from '../lib/wichteln'
+import { allowedInfoPageOrigin } from '../lib/infopage'
 import { linkClass } from '../ui/kit'
 
 // Liest Verantwortlichen- und Infrastruktur-Angaben zur Laufzeit aus der (nicht
@@ -28,6 +29,7 @@ export default function DatenschutzPage() {
   const shiftsHost = allowedShiftsOrigin() ?? '[Schichten-Anwendung nicht eingerichtet]'
   // Und die von Wichteln (app/lib/wichteln.ts)
   const wichtelnHost = allowedWichtelnOrigin() ?? '[Wichteln-Anwendung nicht eingerichtet]'
+  const infoPageHost = allowedInfoPageOrigin() ?? '[Startseite nicht eingerichtet]'
 
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12 px-4">
@@ -539,11 +541,30 @@ export default function DatenschutzPage() {
         </div>
 
         <div>
+          <h2 className="font-bold text-lg">11c. Infoseite für Gäste (Startseite)</h2>
+          <p className="mt-2">
+            Veranstalter:innen können einen Termin mit einer Seite in der separaten Anwendung „Startseite“ unter{' '}
+            <code>{infoPageHost}</code> verknüpfen, deren Gäste-Bereich nur Gäste mit Zusage sehen (z.B. Adresse der
+            Location oder Unterkunft). Die Startseite ist ein eigenständiges Angebot mit einer eigenen
+            Datenschutzerklärung.
+          </p>
+          <p className="mt-2">
+            Klickst du bei deiner Zusage auf „Infos für Gäste“, geben wir der Startseite über einen kurz gültigen,
+            signierten Link nur <strong>Kennungen</strong> weiter: die des Termins, der Seite und deiner Zusage - keinen
+            Namen, keine E-Mail-Adresse. Die Startseite merkt sich damit in einem Cookie, dass du Gast bist. Ziehst du
+            deine Zusage zurück oder wird sie gelöscht, melden wir der Startseite nur diese Kennungen mit „zählt nicht
+            mehr“; dein Zugang dort endet. Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO (Durchführung der Anmeldung).
+          </p>
+        </div>
+
+        <div>
           <h2 className="font-bold text-lg">12. Fotoalbum</h2>
           <p className="mt-2">
             Veranstalter:innen können zu einem Termin einen Link zu einem geteilten Fotoalbum hinterlegen (z.B. ein
             Album in Immich mit Upload-Freigabe). Gäste mit Zusage sehen ihn auf ihrer persönlichen Seite ab dem Ende
-            des Termins. Wir speichern nur diesen Link und übermitteln dem Album keine Daten über dich.
+            des Termins. Wir speichern nur diesen Link und übermitteln dem Album keine Daten über dich. Ebenso kann ein
+            Link auf eine öffentliche Fundsachen-Liste hinterlegt sein, den Gäste mit Zusage ab dem Ende sehen - auch
+            dorthin geben wir nichts über dich weiter.
           </p>
           <p className="mt-2">
             Das Album ist ein eigenständiges Angebot der Veranstalter:innen bzw. des jeweiligen Betreibers. Was dort mit

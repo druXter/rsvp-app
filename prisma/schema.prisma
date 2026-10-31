@@ -202,6 +202,9 @@ model Event {
   // Foto-Link (Idee Q3 der Suite): geteiltes Album mit Upload-Link, z. B. in Immich. Nur http(s), geprüft in
   // app/lib/photo-link.ts. Gäste mit Zusage sehen ihn ab dem Ende des Termins (photoLinkVisible).
   photoUrl String?
+  // Fundsachen-Link (Idee L36): öffentliche Fundsachen-Liste (z.B. Inventur /fundsachen/<id>). Gäste mit Antwort sehen ihn
+  // ab dem Ende des Termins (lostFoundVisible in app/lib/photo-link.ts). Nur http(s), geprüft wie der Foto-Link.
+  lostFoundUrl String?
 
   // Feedback-Fragebogen (Idee L8 Teil 2 der Suite, app/lib/feedback-link.ts): Link auf einen Fragebogen im
   // Abstimmungstool (Modus "Gäste aus rsvp-app", Origin = ABSTIMMUNGSTOOL_BASE_URL). Gäste, deren Zusage zählt (mit

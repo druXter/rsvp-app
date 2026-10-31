@@ -12,7 +12,8 @@ import InvitationGate from '../../../[slug]/invitation-gate'
 import { householdForForm, invitationOf } from '../../../lib/invitation-store'
 import PollResultBanner from '../../../ui/poll-result-banner'
 import PhotoLinkBanner from '../../../ui/photo-link-banner'
-import { photoLinkVisible } from '../../../lib/photo-link'
+import { lostFoundVisible, photoLinkVisible } from '../../../lib/photo-link'
+import LostFoundBanner from '../../../ui/lost-found-banner'
 import FeedbackBanner from '../../../ui/feedback-banner'
 import { assemblyLinkVisible } from '../../../lib/assembly'
 import AssemblyBanner from '../../../ui/assembly-banner'
@@ -34,6 +35,8 @@ import { wishesForGuest } from '../../../lib/wishlist-store'
 import { reconfirmForGuest } from '../../../lib/reconfirm'
 import { isConfirmedRsvp } from '../../../lib/linked-tools'
 import ReconfirmBox from '../../../ui/reconfirm-box'
+import InfoPageBox from '../../../ui/info-page-box'
+import { infoPageLinkOf } from '../../../lib/infopage'
 import { linkClass } from '../../../ui/kit'
 
 
@@ -225,8 +228,14 @@ export default async function SeriesEventPage({
         )}
 
         {photoLinkVisible(event, existingRsvp) && <PhotoLinkBanner url={event.photoUrl!} />}
+        {lostFoundVisible(event, existingRsvp) && <LostFoundBanner url={event.lostFoundUrl!} />}
         {assemblyLinkVisible(event, existingRsvp, participant && 'isVerified' in participant ? { isVerified: !!participant.isVerified } : null, series.requireVerification) && <AssemblyBanner eventId={event.id} editToken={token} />}
         {feedbackLinkVisible(event, existingRsvp, participant && 'isVerified' in participant ? { isVerified: !!participant.isVerified } : null, series.requireVerification) && <FeedbackBanner eventId={event.id} editToken={token} />}
+
+        {/* Infos für Gäste (Idee L38): Seite mit Gäste-Bereich in der Startseite, nur für Zusagen, die zählen */}
+        {infoPageLinkOf(event) && existingRsvp && participant && 'id' in participant && isConfirmedRsvp(existingRsvp, participant, series.requireVerification) && (
+          <InfoPageBox eventId={event.id} editToken={token} />
+        )}
 
         {/* Rückbestätigung (Idee L30): „Kommst du noch?“ mit Knöpfen, nur für die eigene feste Zusage */}
         {reconfirm && <ReconfirmBox eventId={event.id} editToken={reconfirm.editToken} {...reconfirm.box} className="" />}

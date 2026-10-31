@@ -33,6 +33,10 @@ export const TEST_SHIFTS_BASE_URL = 'http://127.0.0.1:3110'
 export const TEST_WICHTELN_SECRET = 'e2e-wichteln-secret-0123456789abcdef0123'
 export const WICHTELN_PORT = 3111
 export const TEST_WICHTELN_BASE_URL = `http://127.0.0.1:${WICHTELN_PORT}`
+// Startseite (Idee L38, app/lib/infopage.ts): eigenes Secret; unter dem Origin läuft nichts - die Tests prüfen die
+// Weiterleitung mit dem signierten Link (tests/e2e/infopage.spec.ts), Webhooks dorthin scheitern still.
+export const TEST_STARTSEITE_SECRET = 'e2e-startseite-secret-0123456789abcdef01'
+export const TEST_STARTSEITE_BASE_URL = 'http://127.0.0.1:3112'
 // Origin des Abstimmungstools für die Terminabstimmung (app/lib/poll-date.ts): Dort läuft in den
 // Tests nichts - rsvp-app prüft nur, ob eine pollUrl zu diesem Origin gehört. Ausgehende
 // Zu-/Absage-Meldungen dorthin scheitern sofort (best-effort, siehe app/lib/poll-notify.ts).
@@ -83,6 +87,8 @@ const SERVER_ENV: Record<string, string> = {
   SHIFTS_BASE_URL: TEST_SHIFTS_BASE_URL,
   WICHTELN_SECRET: TEST_WICHTELN_SECRET,
   WICHTELN_BASE_URL: TEST_WICHTELN_BASE_URL,
+  STARTSEITE_SECRET: TEST_STARTSEITE_SECRET,
+  STARTSEITE_BASE_URL: TEST_STARTSEITE_BASE_URL,
   // Anbieter nur für Teilnehmendenkonten: SUITE_TRUSTED_APPS bleibt leer, Verwaltungskonten
   // werden also für niemanden bestätigt; als Empfänger (SUITE_IDPS) ist nichts eingerichtet.
   SUITE_SIGNING_KEY: TEST_SUITE_SIGNING_KEY,

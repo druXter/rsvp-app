@@ -24,7 +24,7 @@ import { applyMaybeScheduleChange, endMaybesOnDisable } from '../lib/maybe-store
 import { readToolLinks, saveToolLinks, storedToolUrl, TOOL_LINKS, type ToolLinkInput } from '../lib/linked-tools-store'
 import { createLinkedEvent, isCreatableTool } from '../lib/linked-create'
 import { inviteAccounts } from '../lib/guest-invites'
-import { parsePhotoUrl } from '../lib/photo-link'
+import { parseLostFoundUrl, parsePhotoUrl } from '../lib/photo-link'
 import { readFeedbackSettings } from '../lib/feedback-link'
 import { readAssemblySettings } from '../lib/assembly'
 import { readProtocolSettings } from '../lib/timeline-protocol'
@@ -771,6 +771,7 @@ async function saveEvent(formData: FormData): Promise<string | undefined> {
   const notifyGuests = formData.get('notifyGuests') === 'on'
   const { pollUrl, pollLabel, datePending } = readPollLink(formData)
   const photoUrl = parsePhotoUrl(formData.get('photoUrl') as string || '')
+  const lostFoundUrl = formData.has('lostFoundUrl') ? parseLostFoundUrl(formData.get('lostFoundUrl') as string || '') : undefined
   const feedback = readFeedbackSettings(formData)
   const assembly = await readAssemblySettings(formData, { id, title, assemblyUrl: existingEvent.assemblyUrl })
   const bringSlots = readBringSlots(formData)
@@ -831,6 +832,7 @@ async function saveEvent(formData: FormData): Promise<string | undefined> {
       pollUrl,
       pollLabel,
       photoUrl,
+      ...(lostFoundUrl !== undefined ? { lostFoundUrl } : {}),
       datePending,
       maxCompanions,
       inviteOnly,
@@ -1507,6 +1509,7 @@ async function saveSeriesTermin(formData: FormData): Promise<string | undefined>
   const notifyGuests = formData.get('notifyGuests') === 'on'
   const { pollUrl, pollLabel, datePending } = readPollLink(formData)
   const photoUrl = parsePhotoUrl(formData.get('photoUrl') as string || '')
+  const lostFoundUrl = formData.has('lostFoundUrl') ? parseLostFoundUrl(formData.get('lostFoundUrl') as string || '') : undefined
   const feedback = readFeedbackSettings(formData)
   const assembly = await readAssemblySettings(formData, { id, title, assemblyUrl: existingEvent.assemblyUrl })
   const bringSlots = readBringSlots(formData)
@@ -1543,7 +1546,7 @@ async function saveSeriesTermin(formData: FormData): Promise<string | undefined>
     where: { id },
     data: {
       title, slug, date, location, description, duration, formConfig, autoReminder, reminderDays, maxCapacity, enableCheckin, trackPresence,
-      pollUrl, pollLabel, datePending, photoUrl, maxCompanions, ...reconfirm, ...feedback, ...assembly, ...readProtocolSettings(formData), ...deadline, ...readWishlistSettings(formData),
+      pollUrl, pollLabel, datePending, photoUrl, ...(lostFoundUrl !== undefined ? { lostFoundUrl } : {}), maxCompanions, ...reconfirm, ...feedback, ...assembly, ...readProtocolSettings(formData), ...deadline, ...readWishlistSettings(formData),
       ...(ticketing.payment ?? {}),
       ...(ticketing.seatingRequiresPayment !== undefined ? { seatingRequiresPayment: ticketing.seatingRequiresPayment } : {}),
       ...(changes.length > 0 ? { icsSequence: { increment: 1 } } : {})

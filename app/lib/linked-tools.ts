@@ -4,8 +4,8 @@ import { createHmac, timingSafeEqual } from 'crypto'
 /**
  * Verknüpfte Tools ("Anbindungen"): andere, eigenständige Anwendungen der Suite, mit denen ein
  * Termin verknüpft werden kann - Seating (Sitzplätze, app/lib/seating.ts), das Zeitplan-Tool
- * (Ablauf des Events, app/lib/timeline.ts), Schichten (Helfer*innen, app/lib/shift-helpers.ts) und Wichteln
- * (Zusagen werden eingeladen, app/lib/wichteln.ts).
+ * (Ablauf des Events, app/lib/timeline.ts), Schichten (Helfer*innen, app/lib/shift-helpers.ts), Wichteln
+ * (Zusagen werden eingeladen, app/lib/wichteln.ts) und die Startseite (Gäste-Bereich einer Infoseite, app/lib/infopage.ts).
  *
  * Jedes Tool steht einmal in TOOL_DEFINITIONS und hat
  * - eine eigene Adresse (<PREFIX>_BASE_URL): nur Links mit genau diesem Origin werden
@@ -110,6 +110,19 @@ const DEFINITIONS = {
     formField: 'wichtelnUrl',
     linkSegment: 'rsvp',
     remoteIdField: 'wichtelnEventId',
+    webhookPath: '/api/rsvp-webhook'
+  },
+  // Startseite (eigenes Repo, dort app/lib/rsvp/token.ts, Idee L38): Seite mit Gäste-Bereich - Zusagen öffnen ihn über
+  // einen frischen Link (app/lib/infopage.ts), eine Absage beendet den Zugang dort. Wie beim Zeitplan nur Kennungen.
+  infopage: {
+    type: 'infopage',
+    label: 'Startseite',
+    linkLabel: 'Infoseite-Link',
+    secretEnv: 'STARTSEITE_SECRET',
+    baseUrlEnv: 'STARTSEITE_BASE_URL',
+    formField: 'infoPageUrl',
+    linkSegment: 'rsvp',
+    remoteIdField: 'pageId',
     webhookPath: '/api/rsvp-webhook'
   }
 } as const satisfies Record<string, ToolDefinition>

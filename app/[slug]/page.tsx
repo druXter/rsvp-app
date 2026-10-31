@@ -10,7 +10,8 @@ import InvitationGate from './invitation-gate'
 import { householdForForm, invitationOf } from '../lib/invitation-store'
 import PollResultBanner from '../ui/poll-result-banner'
 import PhotoLinkBanner from '../ui/photo-link-banner'
-import { photoLinkVisible } from '../lib/photo-link'
+import { lostFoundVisible, photoLinkVisible } from '../lib/photo-link'
+import LostFoundBanner from '../ui/lost-found-banner'
 import FeedbackBanner from '../ui/feedback-banner'
 import { assemblyLinkVisible } from '../lib/assembly'
 import AssemblyBanner from '../ui/assembly-banner'
@@ -32,6 +33,8 @@ import { wishesForGuest } from '../lib/wishlist-store'
 import { reconfirmForGuest } from '../lib/reconfirm'
 import { isConfirmedRsvp } from '../lib/linked-tools'
 import ReconfirmBox from '../ui/reconfirm-box'
+import InfoPageBox from '../ui/info-page-box'
+import { infoPageLinkOf } from '../lib/infopage'
 
 
 type PublicRsvp = Prisma.RsvpGetPayload<{
@@ -214,8 +217,14 @@ export default async function EventPage({
         )}
 
         {photoLinkVisible(event, existingRsvp) && <PhotoLinkBanner url={event.photoUrl!} className="mb-4" />}
+        {lostFoundVisible(event, existingRsvp) && <LostFoundBanner url={event.lostFoundUrl!} className="mb-4" />}
         {assemblyLinkVisible(event, existingRsvp, participant && 'isVerified' in participant ? { isVerified: !!participant.isVerified } : null, event.requireVerification) && <AssemblyBanner eventId={event.id} editToken={token} className="mb-4" />}
         {feedbackLinkVisible(event, existingRsvp, participant && 'isVerified' in participant ? { isVerified: !!participant.isVerified } : null, event.requireVerification) && <FeedbackBanner eventId={event.id} editToken={token} className="mb-4" />}
+
+        {/* Infos für Gäste (Idee L38): Seite mit Gäste-Bereich in der Startseite, nur für Zusagen, die zählen */}
+        {infoPageLinkOf(event) && existingRsvp && participant && 'id' in participant && isConfirmedRsvp(existingRsvp, participant, event.requireVerification) && (
+          <InfoPageBox eventId={event.id} editToken={token} className="mb-4" />
+        )}
 
         {/* Rückbestätigung (Idee L30): „Kommst du noch?“ mit Knöpfen, nur für die eigene feste Zusage */}
         {reconfirm && <ReconfirmBox eventId={event.id} editToken={reconfirm.editToken} {...reconfirm.box} />}

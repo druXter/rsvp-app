@@ -62,3 +62,33 @@ test('auch für Termine einer Reihe', async ({ page }) => {
   await page.goto(`/reihe/${series.slug}/${termin.slug}?token=${participant.editToken}`)
   await expect(photoLink(page)).toHaveAttribute('href', ALBUM)
 })
+
+// Fundsachen-Link (Event.lostFoundUrl, Idee L36): gleiche Regeln wie der Foto-Link, sichtbar ab dem Ende für Zusagen
+// (auch Warteliste), nie mit offenem Datum oder ohne Antwort.
+const FOUND = 'https://inventur.example.test/fundsachen/cmlistefundsachen01'
+
+test('Fundsachen-Link: speichern nur http(s), sichtbar ab dem Ende für Zusagen', async ({ page }) => {
+  const owner = await createAccount('CREATOR')
+  const event = await createEvent(owner)
+  await login(page, owner.email)
+  await page.goto(`/admin/events/${event.id}/einstellungen?abschnitt=verknuepfungen`)
+  const form = () => readForm(page, 'form:has(input[name="lostFoundUrl"])')
+  await submitForm(page, await form(), { lostFoundUrl: 'javascript:alert(1)' })
+  expect((await prisma.event.findUniqueOrThrow({ where: { id: event.id } })).lostFoundUrl).toBeNull()
+  await submitForm(page, await form(), { lostFoundUrl: FOUND })
+  expect((await prisma.event.findUniqueOrThrow({ where: { id: event.id } })).lostFoundUrl).toBe(FOUND)
+
+  const past = await createEvent(owner, { date: hoursAgo(10), duration: 4, lostFoundUrl: FOUND })
+  const waiting = await createRsvp(past, { isAttending: true, isOnWaitlist: true })
+  await page.goto(`/${past.slug}?token=${waiting.participant.editToken}`)
+  await expect(page.getByTestId('lost-found-banner')).toHaveAttribute('href', FOUND)
+  const declined = await createRsvp(past, { isAttending: false })
+  await page.goto(`/${past.slug}?token=${declined.participant.editToken}`)
+  await expect(page.getByLabel('Dein Name')).toBeVisible()
+  await expect(page.getByTestId('lost-found-banner')).toHaveCount(0)
+  const running = await createEvent(owner, { date: hoursAgo(1), duration: 4, lostFoundUrl: FOUND })
+  const early = await createRsvp(running, { isAttending: true })
+  await page.goto(`/${running.slug}?token=${early.participant.editToken}`)
+  await expect(page.getByLabel('Dein Name')).toBeVisible()
+  await expect(page.getByTestId('lost-found-banner')).toHaveCount(0)
+})
