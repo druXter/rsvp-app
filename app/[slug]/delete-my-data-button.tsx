@@ -33,7 +33,7 @@ export default function DeleteMyDataButton({
     >
       <input type="hidden" name="editToken" value={editToken} />
       <input type="hidden" name="eventId" value={eventId} />
-      <button type="submit" className="text-xs text-red-600 hover:text-red-800 hover:underline transition">
+      <button type="submit" className="text-xs text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:underline transition">
         🗑️ Meine Daten vollständig löschen
       </button>
     </form>

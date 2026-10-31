@@ -15,6 +15,8 @@ import { loadAdminEvent } from '../event-access'
 import AccountInvitesPanel from '../../../account-invites-panel'
 import ManualRsvpPanel from '../../../manual-rsvp-panel'
 import { effectiveAllowMaybe, maybeStatusLabel } from '../../../../lib/maybe'
+import { RECONFIRM_STATUS_LABELS, reconfirmStatus, type ReconfirmStatus } from '../../../../lib/reconfirm'
+import { isConfirmedRsvp } from '../../../../lib/linked-tools'
 
 const FILTERS = [
   { key: 'alle', label: 'Alle' },
@@ -22,6 +24,7 @@ const FILTERS = [
   { key: 'warteliste', label: 'Warteliste' },
   { key: 'absagen', label: 'Absagen' },
   { key: 'vielleicht', label: 'Vielleicht' },
+  { key: 'unbestaetigt', label: 'Unbestätigt' },
   { key: 'zahlung-offen', label: 'Zahlung offen' }
 ] as const
 
@@ -68,6 +71,7 @@ export default async function EventGuests({ params, searchParams }: { params: Pr
   const categoryLabel = new Map(categories.map(c => [c.id, c.label]))
   const now = new Date()
 
+  const reconfirmOf = (r: (typeof rsvps)[number]) => reconfirmStatus(event, r, isConfirmedRsvp(r, r.participant, requireVerification), now)
   const matches: Record<(typeof FILTERS)[number]['key'], (r: (typeof rsvps)[number]) => boolean> = {
     alle: () => true,
     zusagen: r => r.isAttending && !r.isOnWaitlist,
@@ -75,10 +79,12 @@ export default async function EventGuests({ params, searchParams }: { params: Pr
     absagen: r => !r.isAttending && !r.isMaybe,
     // Ganz oder für einzelne Personen eines Haushalts noch offen (app/lib/maybe.ts)
     vielleicht: r => r.maybeRemindAt !== null,
-    'zahlung-offen': r => ['open', 'overdue'].includes(paymentState(r, now))
+    'zahlung-offen': r => ['open', 'overdue'].includes(paymentState(r, now)),
+    // Rückbestätigung (app/lib/reconfirm.ts): feste Zusagen, die im Zeitraum noch nicht bestätigt haben
+    unbestaetigt: r => ['open', 'unconfirmed'].includes(reconfirmOf(r) ?? '')
   }
   const withMaybe = effectiveAllowMaybe(event) || rsvps.some(r => r.maybeRemindAt)
-  const shownFilter = (key: string) => (key !== 'zahlung-offen' || withTickets) && (key !== 'vielleicht' || withMaybe)
+  const shownFilter = (key: string) => (key !== 'zahlung-offen' || withTickets) && (key !== 'vielleicht' || withMaybe) && (key !== 'unbestaetigt' || event.reconfirmDays !== null)
   const filter = FILTERS.find(f => f.key === rawFilter && shownFilter(f.key))?.key ?? 'alle'
   const query = (rawQuery ?? '').trim().toLowerCase().slice(0, 100)
   const shown = rsvps.filter(matches[filter]).filter(r => !query || [r.participant.name, r.participant.email ?? '', r.note?.text ?? '', ...r.persons.map(p => p.name ?? '')].some(v => v.toLowerCase().includes(query)))
@@ -187,6 +193,7 @@ export default async function EventGuests({ params, searchParams }: { params: Pr
                             {rsvp.isMaybe ? '' : `${persons.filter(p => p.isMaybe).map(p => p.name).join(', ')} vielleicht · `}{maybeStatusLabel(rsvp, rsvp.participant)}
                           </span>
                         )}
+                        <ReconfirmBadge status={reconfirmOf(rsvp)} askedAt={rsvp.reconfirmAskedAt} />
                         {rsvp.isAttending && rsvp.isOnWaitlist && (
                           <form action={promoteFromWaitlist}>
                             <input type="hidden" name="rsvpId" value={rsvp.id} />
@@ -290,4 +297,19 @@ function PersonDetails({ label, value }: { label: string; value: string }) {
 
 function QuestionAnswer({ question, answer }: { question: string; answer: string }) {
   return <><dt className="text-gray-500 dark:text-gray-400">{question}</dt><dd>{answer}</dd></>
+}
+
+const RECONFIRM_TONES = { confirmed: 'green', open: 'gray', unconfirmed: 'amber', lapsed: 'red' } as const
+
+/** Stand der Rückbestätigung (Idee L30) neben dem Status - „noch nicht gefragt“, wenn weder Mail noch Push den Gast erreichen. */
+function ReconfirmBadge({ status, askedAt }: { status: ReconfirmStatus; askedAt: Date | null }) {
+  if (!status) return null
+  const notAsked = (status === 'open' || status === 'unconfirmed') && !askedAt
+  return (
+    <span data-testid="reconfirm-status">
+      <Badge tone={RECONFIRM_TONES[status]} title={notAsked ? 'Noch nicht gefragt - ohne E-Mail-Adresse und Push erreicht die Frage nur die Gästeseite.' : undefined}>
+        {RECONFIRM_STATUS_LABELS[status]}{notAsked ? ' · nicht gefragt' : ''}
+      </Badge>
+    </span>
+  )
 }

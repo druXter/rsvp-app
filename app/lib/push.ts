@@ -172,3 +172,27 @@ export async function sendMaybeDeclinedPush(event: EventWithSeries, participant:
     url: personalEventLink(event, participant)
   })
 }
+
+/** Rückbestätigung (app/lib/reconfirm-store.ts) - neben der Mail. */
+export async function sendReconfirmRequestPush(event: EventWithSeries, participant: Participant, deadline: string) {
+  await sendPushToParticipant(participant.id, {
+    title: `Kommst du noch? ${event.title}`,
+    body: `Bitte bestätige deine Zusage oder sag ab - bis ${deadline}.`,
+    url: personalEventLink(event, participant)
+  })
+}
+
+/** Rückbestätigung ohne Antwort: Platz freigegeben - neben der Mail. */
+export async function sendReconfirmLapsedPush(event: EventWithSeries, participant: Participant) {
+  await sendPushToParticipant(participant.id, {
+    title: `Platz freigegeben: ${event.title}`,
+    body: 'Deine Zusage war bis zur Frist nicht bestätigt.',
+    url: personalEventLink(event, participant)
+  })
+}
+
+/** Erreicht eine Push-Benachrichtigung diesen Gast überhaupt (VAPID eingerichtet, mindestens ein gültiges Abo)? */
+export async function canPushParticipant(participantId: string): Promise<boolean> {
+  ensureVapidConfigured()
+  return vapidConfigured && (await pushRecipientsForParticipant(participantId)).length > 0
+}

@@ -3,7 +3,7 @@ import { renderMail } from 'suite-kit/web'
 import {
   accountInviteMail, confirmationMail, emailChangeMail, eventUpdatedMail, feedbackMail, guestMessageMail, guestVerificationMail, invitationMail, maybeDeclinedMail,
   maybeReminderMail, maybeVerificationMail, passwordResetMail,
-  paymentCancelledMail, paymentReceivedMail, paymentReminderMail, reminderMail, verificationMail, waitlistMail, waitlistPromotedMail,
+  paymentCancelledMail, paymentReceivedMail, paymentReminderMail, reconfirmLapsedMail, reconfirmRequestMail, reminderMail, verificationMail, waitlistMail, waitlistPromotedMail,
   type MailContent, type SeriesHint
 } from './mail-templates'
 import { formatEventDate } from './event-date'
@@ -18,6 +18,7 @@ import { prisma } from './prisma'
 import { describePerson, personsOf } from './persons'
 import { describeSelection } from './menu'
 import { formatMaybeTime } from './maybe'
+import { formatReconfirmTime } from './reconfirm'
 
 // Den Mail-Transporter mit den Daten aus der .env initialisieren
 const transporter = nodemailer.createTransport({
@@ -227,6 +228,25 @@ export async function sendMaybeDeclinedEmail(participant: Participant, event: Ev
   return tryDeliver(participant.email!, maybeDeclinedMail({
     name: participant.name, eventTitle: event.title, reason, who, canAnswer, personalLink: personalEventLink(event, participant)
   }), 'Vielleicht-Absage')
+}
+
+/** Rückbestätigung (app/lib/reconfirm-store.ts): „Kommst du noch?“ bis zur Frist. */
+export async function sendReconfirmRequestEmail(participant: Participant, event: EventWithSeries, deadline: Date) {
+  return tryDeliver(participant.email!, reconfirmRequestMail({
+    name: participant.name,
+    event: { title: event.title, when: formatEventDate(event), location: event.location },
+    deadline: formatReconfirmTime(deadline),
+    autoDecline: event.reconfirmAutoDecline,
+    waitlist: event.maxCapacity !== null,
+    personalLink: personalEventLink(event, participant)
+  }), 'Rückbestätigung')
+}
+
+/** Rückbestätigung ohne Antwort: Zusage abgesagt, Platz frei (app/lib/reconfirm-store.ts). */
+export async function sendReconfirmLapsedEmail(participant: Participant, event: EventWithSeries, canAnswer: boolean) {
+  return tryDeliver(participant.email!, reconfirmLapsedMail({
+    name: participant.name, eventTitle: event.title, canAnswer, personalLink: personalEventLink(event, participant)
+  }), 'Rückbestätigung (Platz freigegeben)')
 }
 
 /**

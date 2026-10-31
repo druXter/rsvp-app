@@ -30,13 +30,20 @@ test('Seiten für Gäste', async ({ page }) => {
   await createRsvp(event, { name: 'Anna' })
   const series = await createSeries(owner)
   await createTermin(series)
-  await check(page, ['/', `/${event.slug}`, `/${event.slug}/registrieren`, `/reihe/${series.slug}`, '/impressum', '/datenschutz', '/mein-konto/login', '/mein-konto/registrieren', '/admin/login'])
+  // Rückbestätigung (Idee L30): „Kommst du noch?“ über dem Formular
+  const soon = await createEvent(owner, { date: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000), reconfirmDays: 3 })
+  const { participant } = await createRsvp(soon, { name: 'Ben' })
+  await check(page, ['/', `/${event.slug}`, `/${event.slug}/registrieren`, `/reihe/${series.slug}`, `/${soon.slug}?token=${participant.editToken}`, '/impressum', '/datenschutz', '/mein-konto/login', '/mein-konto/registrieren', '/admin/login'])
 })
 
 test('Seiten der Verwaltung', async ({ page }) => {
   const owner = await createAccount()
   const event = await createEvent(owner, { enableCheckin: true })
   await createRsvp(event, { name: 'Anna' })
+  // Auswertung einer Reihe (Idee L31) mit einem vergangenen Termin samt Einlass
+  const series = await createSeries(owner)
+  const past = await createTermin(series, { date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), enableCheckin: true })
+  await createRsvp(past, { name: 'Cleo' })
   await login(page, owner.email)
-  await check(page, ['/admin', `/admin/events/${event.id}`, `/admin/events/${event.id}/gaeste`, `/admin/events/${event.id}/nachrichten`, `/admin/events/${event.id}/einstellungen`, '/admin/create', '/admin/account'])
+  await check(page, ['/admin', `/admin/events/${event.id}`, `/admin/events/${event.id}/gaeste`, `/admin/events/${event.id}/nachrichten`, `/admin/events/${event.id}/einstellungen`, `/admin/series/${series.id}/auswertung`, '/admin/create', '/admin/account'])
 })

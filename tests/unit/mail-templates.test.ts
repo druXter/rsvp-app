@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { renderMail } from 'suite-kit/web'
 import {
   accountInviteMail, confirmationMail, emailChangeMail, eventUpdatedMail, feedbackMail, guestMessageMail, guestVerificationMail, invitationMail, maybeDeclinedMail,
-  maybeReminderMail, maybeVerificationMail, passwordResetMail,
+  maybeReminderMail, maybeVerificationMail, passwordResetMail, reconfirmLapsedMail, reconfirmRequestMail,
   paymentBox, paymentCancelledMail, paymentReceivedMail, paymentReminderMail, reminderMail, verificationMail, waitlistMail,
   waitlistPromotedMail, type ConfirmationInput
 } from '../../app/lib/mail-templates'
@@ -42,7 +42,9 @@ const all = [
   maybeReminderMail({ name: EVIL, event: { title: EVIL, when: 'Samstag', location: EVIL }, who: EVIL, cutoff: 'Fr., 06.11.2026, 23:59 Uhr', capacity: true, personalLink: LINK }),
   maybeDeclinedMail({ name: EVIL, eventTitle: EVIL, reason: 'expired', who: null, canAnswer: false, personalLink: LINK }),
   maybeDeclinedMail({ name: EVIL, eventTitle: EVIL, reason: 'disabled', who: EVIL, canAnswer: true, personalLink: LINK }),
-  guestMessageMail({ name: EVIL, event: { title: EVIL, when: 'Samstag', location: EVIL }, subject: EVIL, paragraphs: [EVIL, 'Zweiter\nAbsatz'], personalLink: LINK })
+  guestMessageMail({ name: EVIL, event: { title: EVIL, when: 'Samstag', location: EVIL }, subject: EVIL, paragraphs: [EVIL, 'Zweiter\nAbsatz'], personalLink: LINK }),
+  reconfirmRequestMail({ name: EVIL, event: { title: EVIL, when: 'Samstag', location: EVIL }, deadline: 'Fr., 06.11.2026, 19:00 Uhr', autoDecline: true, waitlist: true, personalLink: LINK }),
+  reconfirmLapsedMail({ name: EVIL, eventTitle: EVIL, canAnswer: true, personalLink: LINK })
 ]
 
 describe('Mail-Vorlagen', () => {
@@ -81,6 +83,18 @@ describe('Mail-Vorlagen', () => {
     expect(text).toContain('Sitzplatz wählen:\nhttps://rsvp.example.test/api/seating-link/e1?token=abc')
     expect(text).toContain('Im Anhang findest du eine Kalenderdatei (.ics) und deinen Einlass-QR-Code.')
     expect(text).toContain('Zur Reihe (https://rsvp.example.test/reihe/r?token=abc)')
+  })
+
+  it('Rückbestätigung: Frist, Absage nur mit Schalter, Warteliste nur mit Kapazität', () => {
+    const base = { name: 'Anna', event: { title: 'Fest', when: 'Samstag', location: null }, deadline: 'Fr., 06.11.2026, 19:00 Uhr', personalLink: LINK }
+    const auto = renderMail(reconfirmRequestMail({ ...base, autoDecline: true, waitlist: true }).mail).text
+    expect(auto).toContain('Bitte bestätige bis Fr., 06.11.2026, 19:00 Uhr. Ohne Antwort geben wir deinen Platz frei - an die Warteliste.')
+    const mark = renderMail(reconfirmRequestMail({ ...base, autoDecline: false, waitlist: true }).mail).text
+    expect(mark).toContain('Bitte bestätige bis Fr., 06.11.2026, 19:00 Uhr.')
+    expect(mark).not.toContain('Ohne Antwort')
+    const lapsed = renderMail(reconfirmLapsedMail({ name: 'Anna', eventTitle: 'Fest', canAnswer: false, personalLink: LINK }).mail).text
+    expect(lapsed).toContain('keine Bestätigung')
+    expect(lapsed).toContain('direkt an die Veranstaltung')
   })
 
   it('„Vielleicht“: Erinnerung mit Stichtag und Warteliste, Absage je nach Grund und Antwortfrist', () => {

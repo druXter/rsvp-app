@@ -18,7 +18,7 @@ export default function DeleteAccountButton() {
         }
       }}
     >
-      <button type="submit" className="text-sm text-red-600 hover:text-red-800 hover:underline transition">
+      <button type="submit" className="text-sm text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:underline transition">
         🗑️ Konto & alle Daten unwiderruflich löschen
       </button>
     </form>

@@ -8,6 +8,7 @@ import { sendDuePaymentReminders } from '../../../lib/payment-reminder'
 import { sendDueInvitationReminders } from '../../../lib/invitation-reminder'
 import { sendDueFeedbackRequests } from '../../../lib/feedback'
 import { declineExpiredMaybes, sendDueMaybeReminders } from '../../../lib/maybe-store'
+import { declineUnconfirmed, sendDueReconfirmRequests } from '../../../lib/reconfirm-store'
 
 
 /**
@@ -93,6 +94,10 @@ export async function GET(request: Request) {
   // „Vielleicht“ (app/lib/maybe-store.ts): erst nach dem Stichtag zur Absage, dann die fälligen Erinnerungen
   const maybeDeclined = await declineExpiredMaybes(now)
   const maybeReminders = await sendDueMaybeReminders(now)
+  // Rückbestätigung (app/lib/reconfirm-store.ts): erst an der Frist absagen (Nachrücker werden dabei fest), dann alle
+  // festen Zusagen im Zeitraum fragen, die noch nicht gefragt wurden - auch die eben Nachgerückten
+  const reconfirmDeclined = await declineUnconfirmed(now)
+  const reconfirmRequests = await sendDueReconfirmRequests(now)
 
-  return NextResponse.json({ success: true, processedEvents: sentCount, paymentReminders, invitationReminders, feedbackRequests, maybeReminders, maybeDeclined })
+  return NextResponse.json({ success: true, processedEvents: sentCount, paymentReminders, invitationReminders, feedbackRequests, maybeReminders, maybeDeclined, reconfirmRequests, reconfirmDeclined })
 }

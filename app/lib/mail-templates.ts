@@ -388,3 +388,45 @@ export function maybeDeclinedMail(input: { name: string; eventTitle: string; rea
     ]
   )
 }
+
+/**
+ * Rückbestätigung (Idee L30, app/lib/reconfirm.ts): „Kommst du noch?“ an feste Zusagen. Der Link führt nur auf die
+ * Gästeseite - bestätigt bzw. abgesagt wird dort per Knopf (Links lösen beim Aufruf nichts aus).
+ */
+export function reconfirmRequestMail(input: {
+  name: string; event: { title: string; when: string; location: string | null }; deadline: string; autoDecline: boolean; waitlist: boolean; personalLink: string
+}): MailContent {
+  return mail(
+    `Kommst du noch? ${input.event.title}`,
+    'Kommst du noch?',
+    [
+      hello(input.name),
+      { kind: 'p', text: ['du hast zu ', { strong: input.event.title }, ' zugesagt. Damit kein Platz leer bleibt, fragen wir kurz nach: Kommst du noch?'] },
+      eventRows(input.event),
+      { kind: 'box', tone: 'amber', title: 'Bis wann?', blocks: [{ kind: 'p', text: input.autoDecline
+        ? `Bitte bestätige bis ${input.deadline}. Ohne Antwort geben wir deinen Platz frei${input.waitlist ? ' - an die Warteliste' : ''}.`
+        : `Bitte bestätige bis ${input.deadline}.` }] },
+      { kind: 'p', text: 'Wenn du nicht kommen kannst, sag bitte ab - dann bekommt jemand anderes deinen Platz.' },
+      { kind: 'button', label: 'Bestätigen oder absagen', href: input.personalLink },
+      CLOSING
+    ],
+    { footer: `Du bekommst diese Mail, weil du bei „${input.event.title}“ zugesagt hast und die Veranstaltung vorher nachfragt.` }
+  )
+}
+
+/** Rückbestätigung ohne Antwort bis zur Frist: Die Zusage wurde abgesagt (Event.reconfirmAutoDecline). */
+export function reconfirmLapsedMail(input: { name: string; eventTitle: string; canAnswer: boolean; personalLink: string }): MailContent {
+  return mail(
+    `Platz freigegeben: ${input.eventTitle}`,
+    'Dein Platz wurde freigegeben',
+    [
+      hello(input.name),
+      { kind: 'p', text: ['bis zur Frist kam keine Bestätigung deiner Zusage zu ', { strong: input.eventTitle }, '. Deshalb haben wir deinen Platz freigegeben und dich als abgesagt eingetragen.'] },
+      input.canAnswer
+        ? { kind: 'p', text: 'Wenn du doch kommen möchtest, kannst du über deinen persönlichen Link wieder zusagen. Ist der Termin inzwischen voll, kommst du auf die Warteliste.' }
+        : { kind: 'p', text: 'Die Antwortfrist ist abgelaufen. Wenn du doch kommen möchtest, wende dich bitte direkt an die Veranstaltung.' },
+      { kind: 'button', label: 'Zur Event-Seite', href: input.personalLink },
+      CLOSING
+    ]
+  )
+}

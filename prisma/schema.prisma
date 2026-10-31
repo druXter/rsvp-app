@@ -269,6 +269,11 @@ model Event {
   // Antwort „Vielleicht“ (Idee L26, docs/KONZEPT-VIELLEICHT.md, app/lib/maybe.ts). Bei Reihen-Terminen gilt
   // EventSeries.allowMaybe (effectiveAllowMaybe).
   allowMaybe          Boolean  @default(false)
+  // Rückbestätigung (Idee L30, app/lib/reconfirm.ts): so viele Tage vor Beginn fragt der Erinnerungs-Cron jede feste
+  // Zusage „Kommst du noch?“ (null = aus). Frist ist 24 h vor Beginn; reconfirmAutoDecline: wer bis dahin nicht
+  // bestätigt hat, wird abgesagt und der Platz geht an die Warteliste - sonst nur als „unbestätigt“ markiert.
+  reconfirmDays        Int?
+  reconfirmAutoDecline Boolean  @default(false)
 
   // Verknüpfungen mit anderen Tools der Suite (Seating, später Zeitplan) - höchstens eine je
   // Tool-Typ, siehe EventToolLink.
@@ -433,6 +438,11 @@ model Rsvp {
   paymentReminderSentAt DateTime?
   // Feedback-Fragebogen verschickt (Event.feedbackUrl) - vor dem Versand atomar gesetzt, damit niemand ihn doppelt bekommt.
   feedbackSentAt        DateTime?
+  // Rückbestätigung (Event.reconfirmDays, app/lib/reconfirm.ts): gefragt am (vor dem Versand atomar gesetzt),
+  // bestätigt am (Knopf oder eigene Zusage im Zeitraum) und - bei automatischer Absage - verfallen am.
+  reconfirmAskedAt      DateTime?
+  reconfirmedAt         DateTime?
+  reconfirmLapsedAt     DateTime?
 
   // Personen der Antwort (docs/KONZEPT-EINLADUNGEN.md): die anmeldende Person (Position 0) und ihre Begleitungen.
   // Leer bei Terminen ohne Begleitungen - dann ist die Antwort genau eine Person (personsOf in app/lib/persons.ts).

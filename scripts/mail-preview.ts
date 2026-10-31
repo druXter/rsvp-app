@@ -14,7 +14,7 @@ import QRCode from 'qrcode'
 import { renderMail } from 'suite-kit/web'
 import {
   confirmationMail, emailChangeMail, eventUpdatedMail, feedbackMail, guestVerificationMail, invitationMail, maybeDeclinedMail, maybeReminderMail, maybeVerificationMail, passwordResetMail,
-  paymentBox, paymentCancelledMail, paymentReceivedMail, paymentReminderMail, reminderMail, verificationMail, waitlistMail,
+  paymentBox, paymentCancelledMail, paymentReceivedMail, paymentReminderMail, reconfirmLapsedMail, reconfirmRequestMail, reminderMail, verificationMail, waitlistMail,
   waitlistPromotedMail, type MailContent
 } from '../app/lib/mail-templates'
 
@@ -55,7 +55,9 @@ const mails: Record<string, MailContent> = {
   einladung: invitationMail({ label: 'Familie Röser', title: event.title, dates: [`${event.when}, ${event.location}`], names: 'Ramón, Alex, Mia', link: personal, reminder: false }),
   'vielleicht-bestaetigen': maybeVerificationMail({ name: 'Ramón', eventTitle: event.title, remindAt: 'am Mo., 02.11.2026, 18:00 Uhr', link: link('/verify?token=x') }),
   'vielleicht-erinnerung': maybeReminderMail({ name: 'Ramón', event, who: null, cutoff: 'Fr., 07.11.2026, 23:59 Uhr', capacity: true, personalLink: personal }),
-  'vielleicht-abgesagt': maybeDeclinedMail({ name: 'Ramón', eventTitle: event.title, reason: 'expired', who: null, canAnswer: false, personalLink: personal })
+  'vielleicht-abgesagt': maybeDeclinedMail({ name: 'Ramón', eventTitle: event.title, reason: 'expired', who: null, canAnswer: false, personalLink: personal }),
+  rueckbestaetigung: reconfirmRequestMail({ name: 'Ramón', event, deadline: 'Fr., 07.11.2026, 19:00 Uhr', autoDecline: true, waitlist: true, personalLink: personal }),
+  'rueckbestaetigung-verfallen': reconfirmLapsedMail({ name: 'Ramón', eventTitle: event.title, canAnswer: true, personalLink: personal })
 }
 
 const dir = join('.e2e', 'mail-preview')

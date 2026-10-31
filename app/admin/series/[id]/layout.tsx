@@ -7,7 +7,7 @@ import { Badge, ButtonLink, Tabs } from '../../../ui/kit'
 import { loadAdminSeries } from './series-access'
 
 /**
- * Reihen-Seite der Verwaltung (docs/KONZEPT-OBERFLAECHE.md): Kopf der Reihe, Reiter "Termine", im Einladungsmodus
+ * Reihen-Seite der Verwaltung (docs/KONZEPT-OBERFLAECHE.md): Kopf der Reihe, Reiter "Termine", "Auswertung", im Einladungsmodus
  * "Einladungen" und "Einstellungen" (für Moderator*innen nur "Mitglieder"). Jeder Termin hat seine eigene Event-Seite (/admin/events/[id]).
  */
 export default async function SeriesLayout({ params, children }: { params: Promise<{ id: string }>; children: ReactNode }) {
@@ -40,6 +40,7 @@ export default async function SeriesLayout({ params, children }: { params: Promi
       </div>
       <Tabs label="Bereiche der Reihe" items={[
         { href: base, label: 'Termine', exact: true },
+        { href: `${base}/auswertung`, label: 'Auswertung' },
         ...(series.inviteOnly || series._count.invitations > 0 ? [{ href: `${base}/einladungen`, label: 'Einladungen' }] : []),
         { href: `${base}/edit`, label: isOwner ? 'Einstellungen und Mitglieder' : 'Mitglieder' }
       ]} />

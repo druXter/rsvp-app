@@ -31,6 +31,9 @@ import { deadlinePassed, formatDeadline } from '../../../lib/rsvp-deadline'
 import EventHeader from '../../../ui/event-header'
 import WishList from '../../../ui/wish-list'
 import { wishesForGuest } from '../../../lib/wishlist-store'
+import { reconfirmForGuest } from '../../../lib/reconfirm'
+import { isConfirmedRsvp } from '../../../lib/linked-tools'
+import ReconfirmBox from '../../../ui/reconfirm-box'
 import { linkClass } from '../../../ui/kit'
 
 
@@ -165,6 +168,12 @@ export default async function SeriesEventPage({
     askAllergies: series.askAllergies,
   })
 
+  // Rückbestätigung (app/lib/reconfirm.ts): nur mit persönlichem Participant (Link oder Konto) und Antwort zu diesem Termin
+  const reconfirmBox = participant && 'id' in participant && existingRsvp
+    ? reconfirmForGuest(event, existingRsvp, isConfirmedRsvp(existingRsvp, participant, series.requireVerification))
+    : null
+  const reconfirm = reconfirmBox && participant?.editToken ? { box: reconfirmBox, editToken: participant.editToken } : null
+
   const wishes = event.wishlist ? await wishesForGuest(event.id, participant && 'id' in participant ? participant.id : null) : []
 
   // Öffentliche Gästeliste - EXTREM WICHTIG: Nur ungefährliche Felder abfragen!
@@ -218,6 +227,9 @@ export default async function SeriesEventPage({
         {photoLinkVisible(event, existingRsvp) && <PhotoLinkBanner url={event.photoUrl!} />}
         {assemblyLinkVisible(event, existingRsvp, participant && 'isVerified' in participant ? { isVerified: !!participant.isVerified } : null, series.requireVerification) && <AssemblyBanner eventId={event.id} editToken={token} />}
         {feedbackLinkVisible(event, existingRsvp, participant && 'isVerified' in participant ? { isVerified: !!participant.isVerified } : null, series.requireVerification) && <FeedbackBanner eventId={event.id} editToken={token} />}
+
+        {/* Rückbestätigung (Idee L30): „Kommst du noch?“ mit Knöpfen, nur für die eigene feste Zusage */}
+        {reconfirm && <ReconfirmBox eventId={event.id} editToken={reconfirm.editToken} {...reconfirm.box} className="" />}
 
         <RsvpForm
           bringSlots={await bringSlotsForForm(event.id, existingRsvp?.id ?? null)}

@@ -25,6 +25,7 @@ import { invitationOf } from './invitation-store'
 import { deadlinePassed, formatDeadline } from './rsvp-deadline'
 import { syncRsvpCheckin } from './checkin'
 import { checkMaybeReminder, maybeAvailable } from './maybe'
+import { reconfirmRunning } from './reconfirm'
 import { sendMaybeVerificationEmail } from './mail'
 
 
@@ -424,7 +425,11 @@ export async function performRsvpSubmission(
     maybeRemindAt,
     // Gleicher Zeitpunkt wie bisher: eine schon verschickte Erinnerung bleibt verschickt
     maybeRemindedAt: maybeRemindAt && existingRsvp?.maybeRemindAt?.getTime() === maybeRemindAt.getTime() ? existingRsvp.maybeRemindedAt : null,
-    ...(input.wichtelnOptOut !== undefined ? { wichtelnOptOut: input.wichtelnOptOut } : {})
+    ...(input.wichtelnOptOut !== undefined ? { wichtelnOptOut: input.wichtelnOptOut } : {}),
+    // Rückbestätigung (app/lib/reconfirm.ts): Wer seine feste Zusage im Zeitraum selbst speichert, hat damit bestätigt.
+    // Eine Absage oder die Warteliste beendet die Bestätigung, eine neue Zusage die Markierung „verfallen“.
+    reconfirmedAt: isAttending && !isOnWaitlist ? existingRsvp?.reconfirmedAt ?? (reconfirmRunning(event) ? new Date() : null) : null,
+    reconfirmLapsedAt: isAttending ? null : existingRsvp?.reconfirmLapsedAt ?? null
   }
 
   let savedRsvp

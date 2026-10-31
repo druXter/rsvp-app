@@ -18,6 +18,7 @@ import { readHousehold } from './lib/invitations'
 import { parseBerlinDateTime } from './lib/rsvp-deadline'
 import { guestOfEvent, releaseWish, reserveWish } from './lib/wishlist-store'
 import { parseEuro, WishInputError } from './lib/wishlist'
+import { answerReconfirmation, type ReconfirmAnswer } from './lib/reconfirm-store'
 
 
 /**
@@ -245,4 +246,25 @@ export async function updateWishReservation(_prev: WishActionState, formData: Fo
   revalidatePath(event.series ? `/reihe/${event.series.slug}/${event.slug}` : `/${event.slug}`)
   revalidatePath('/admin', 'layout')
   return { ok: formData.get('mode') === 'release' ? 'Reservierung aufgehoben.' : 'Danke! Reserviert.' }
+}
+
+export type ReconfirmState = { status: ReconfirmAnswer } | null
+
+/**
+ * Rückbestätigung (Idee L30, app/lib/reconfirm-store.ts): „Ja, ich komme“ bzw. „Nein, ich kann nicht“ auf der
+ * Gästeseite. Nur per POST (der Mail-Link öffnet nur die Seite). Identität allein über den persönlichen Link
+ * (editToken) mit fester Zusage zu GENAU diesem Termin.
+ */
+export async function answerReconfirm(_prev: ReconfirmState, formData: FormData): Promise<ReconfirmState> {
+  const editToken = String(formData.get('editToken') ?? '')
+  const eventId = String(formData.get('eventId') ?? '')
+  const answer = formData.get('answer')
+  if (!editToken || !eventId || (answer !== 'yes' && answer !== 'no')) return { status: 'invalid' }
+  const status = await answerReconfirmation(editToken, eventId, answer === 'yes')
+  if (status !== 'invalid') {
+    const event = await prisma.event.findUniqueOrThrow({ where: { id: eventId }, select: { slug: true, series: { select: { slug: true } } } })
+    revalidatePath(event.series ? `/reihe/${event.series.slug}/${event.slug}` : `/${event.slug}`)
+    revalidatePath('/admin', 'layout')
+  }
+  return { status }
 }

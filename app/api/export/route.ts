@@ -8,6 +8,8 @@ import { claimedLabels } from '../../lib/bring-list'
 import { PAYMENT_STATE_LABEL, paymentState } from '../../lib/payment-state'
 import { describePerson, personsOf } from '../../lib/persons'
 import { effectiveAllowMaybe, maybeStatusLabel } from '../../lib/maybe'
+import { RECONFIRM_STATUS_LABELS, reconfirmStatus } from '../../lib/reconfirm'
+import { isConfirmedRsvp } from '../../lib/linked-tools'
 
 
 /**
@@ -40,6 +42,9 @@ export async function GET(request: Request) {
   const withTickets = event._count.ticketCategories > 0 || event.rsvps.some(r => r.amountCents)
   // „Vielleicht“ (app/lib/maybe.ts): wer noch offen ist und ob die Erinnerung läuft
   const withMaybe = effectiveAllowMaybe(event) || event.rsvps.some(r => r.maybeRemindAt)
+  // Rückbestätigung (app/lib/reconfirm.ts): bestätigt, offen, unbestätigt oder verfallen
+  const withReconfirm = event.reconfirmDays !== null || event.rsvps.some(r => r.reconfirmLapsedAt)
+  const now = new Date()
   const isoDate = (d: Date | null) => d ? d.toISOString().split('T')[0] : ''
 
   // CSV-Kopfzeile definieren (NEU: Spalte 'Verifizierung' hinzugefügt)
@@ -62,6 +67,7 @@ export async function GET(request: Request) {
       ...(withSeating ? ["Sitzplatz"] : []),
       ...(withShifts ? ["Schichten"] : []),
       ...(withMaybe ? ["Vielleicht"] : []),
+      ...(withReconfirm ? ["Rückbestätigung"] : []),
       ...(withTickets ? ["Kategorie", "Betrag", "Verwendungszweck", "Zahlstatus", "Bezahlt am", "Zahlart", "Erstattet am"] : []),
       ...customQuestions
     ]
@@ -108,6 +114,8 @@ export async function GET(request: Request) {
       ...(withShifts ? [rsvp.shiftHelperId ? String(rsvp.shiftCount ?? 0) : ""] : []),
       // Haushalt: wer noch vielleicht kommt, dazu der Stand der Erinnerung
       ...(withMaybe ? [rsvp.maybeRemindAt ? `${rsvp.isMaybe ? '' : `${persons.filter(p => p.isMaybe).map(p => p.name).join(', ')}: `}${maybeStatusLabel(rsvp, participant)}` : ""] : []),
+
+      ...(withReconfirm ? [(status => status ? RECONFIRM_STATUS_LABELS[status] : "")(reconfirmStatus(event, rsvp, isConfirmedRsvp(rsvp, participant, requireVerification), now))] : []),
 
       ...(withTickets ? [
         rsvp.ticketCategory?.label || "",

@@ -50,6 +50,8 @@ import { InputError } from '../lib/input-error'
 import { verificationAfterAdminEdit } from '../lib/manual-rsvp'
 import { readRsvpNote, saveRsvpNote } from '../lib/rsvp-note'
 import { readShiftTiers, storedTiers, type ShiftTierInput } from '../lib/shift-helpers'
+import { assertReconfirmAllowed, readReconfirmSettings } from '../lib/reconfirm'
+import { resetReconfirmOnDateChange } from '../lib/reconfirm-store'
 
 
 /**
@@ -784,6 +786,8 @@ async function saveEvent(formData: FormData): Promise<string | undefined> {
   const inviteOnly = formData.has('inviteOnlyShown') ? formData.get('inviteOnly') === 'on' : existingEvent.inviteOnly
   await assertInviteOnlyAllowed(inviteOnly, { eventPin, requireVerification, requireGuestUser: existingEvent.requireGuestUser }, ticketing.ticketCategories, { eventId: id })
   assertShiftsAllowed(inviteOnly, toolLinks)
+  const reconfirm = readReconfirmSettings(formData)
+  assertReconfirmAllowed(reconfirm.reconfirmDays === undefined ? existingEvent.reconfirmDays : reconfirm.reconfirmDays, inviteOnly)
 
   const askEmail = formData.get('askEmail') === 'on'
   const allowMaybe = formData.get('allowMaybe') === 'on'
@@ -831,6 +835,7 @@ async function saveEvent(formData: FormData): Promise<string | undefined> {
       maxCompanions,
       inviteOnly,
       allowMaybe,
+      ...reconfirm,
       ...feedback,
       ...assembly,
       ...readProtocolSettings(formData),
@@ -849,6 +854,7 @@ async function saveEvent(formData: FormData): Promise<string | undefined> {
   await applyTicketing(id, ticketing, ticketing.seatingRequiresPayment !== undefined && ticketing.seatingRequiresPayment !== existingEvent.seatingRequiresPayment)
   await saveShiftTiers(id, shiftTiers)
   await applyMaybeSettings([id], existingEvent.allowMaybe && !allowMaybe, maybeScheduleChanged(existingEvent, { date, datePending, rsvpDeadline: deadline.rsvpDeadline }))
+  await resetReconfirmOnDateChange(id, existingEvent.date, date)
 
   if (notifyGuests && changes.length > 0) {
     await notifyAttendeesOfChange(id, changes)
@@ -1360,7 +1366,8 @@ async function saveEventSeries(formData: FormData): Promise<string | undefined> 
       where: { id },
       data: { title, slug, description, askEmail, askPhone, askDiet, askAllergies, requireVerification, isGuestListVisible, eventPin, inviteOnly, allowMaybe, ...(bringTemplate !== undefined ? { bringTemplate } : {}) }
     }),
-    prisma.event.updateMany({ where: { seriesId: id }, data: { inviteOnly } })
+    // Rückbestätigung gibt es im Einladungsmodus nicht (assertReconfirmAllowed) - sie endet mit dem Umschalten
+    prisma.event.updateMany({ where: { seriesId: id }, data: { inviteOnly, ...(inviteOnly ? { reconfirmDays: null, reconfirmAutoDecline: false } : {}) } })
   ])
   if (existingSeries.allowMaybe && !allowMaybe) {
     await applyMaybeSettings((await prisma.event.findMany({ where: { seriesId: id }, select: { id: true } })).map(e => e.id), true, false)
@@ -1511,6 +1518,8 @@ async function saveSeriesTermin(formData: FormData): Promise<string | undefined>
   // Termin einer Reihe im Einladungsmodus: keine Ticketkategorien (die übrigen Zugänge regelt die Reihe)
   await assertInviteOnlyAllowed(existingEvent.inviteOnly, { eventPin: null, requireVerification: false, requireGuestUser: false }, ticketing.ticketCategories, { eventId: id })
   assertShiftsAllowed(existingEvent.inviteOnly, toolLinks)
+  const reconfirm = readReconfirmSettings(formData)
+  assertReconfirmAllowed(reconfirm.reconfirmDays === undefined ? existingEvent.reconfirmDays : reconfirm.reconfirmDays, existingEvent.inviteOnly)
   const menu = readMenu(formData)
   await assertMenuChangeable(id, menu)
   const deadline = readDeadlineSettings(formData)
@@ -1534,7 +1543,7 @@ async function saveSeriesTermin(formData: FormData): Promise<string | undefined>
     where: { id },
     data: {
       title, slug, date, location, description, duration, formConfig, autoReminder, reminderDays, maxCapacity, enableCheckin, trackPresence,
-      pollUrl, pollLabel, datePending, photoUrl, maxCompanions, ...feedback, ...assembly, ...readProtocolSettings(formData), ...deadline, ...readWishlistSettings(formData),
+      pollUrl, pollLabel, datePending, photoUrl, maxCompanions, ...reconfirm, ...feedback, ...assembly, ...readProtocolSettings(formData), ...deadline, ...readWishlistSettings(formData),
       ...(ticketing.payment ?? {}),
       ...(ticketing.seatingRequiresPayment !== undefined ? { seatingRequiresPayment: ticketing.seatingRequiresPayment } : {}),
       ...(changes.length > 0 ? { icsSequence: { increment: 1 } } : {})
@@ -1552,6 +1561,7 @@ async function saveSeriesTermin(formData: FormData): Promise<string | undefined>
   await applyTicketing(id, ticketing, ticketing.seatingRequiresPayment !== undefined && ticketing.seatingRequiresPayment !== existingEvent.seatingRequiresPayment)
   await saveShiftTiers(id, shiftTiers)
   await applyMaybeSettings([id], false, maybeScheduleChanged(existingEvent, { date, datePending, rsvpDeadline: deadline.rsvpDeadline }))
+  await resetReconfirmOnDateChange(id, existingEvent.date, date)
 
   if (notifyGuests && changes.length > 0) {
     await notifyAttendeesOfChange(id, changes)

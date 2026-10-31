@@ -37,7 +37,7 @@ export default async function AccountInvitesPanel({ event, user, invitedCount }:
               </span>
               <form action={removeAccountInvite}>
                 <input type="hidden" name="inviteId" value={i.id} />
-                <button type="submit" className="text-xs font-medium text-red-600 hover:text-red-800" aria-label={`Einladung von ${i.guestUser.name} zurücknehmen`}>Zurücknehmen</button>
+                <button type="submit" className="text-xs font-medium text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300" aria-label={`Einladung von ${i.guestUser.name} zurücknehmen`}>Zurücknehmen</button>
               </form>
             </li>
           ))}

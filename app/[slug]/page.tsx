@@ -29,6 +29,9 @@ import { deadlinePassed, formatDeadline } from '../lib/rsvp-deadline'
 import EventHeader from '../ui/event-header'
 import WishList from '../ui/wish-list'
 import { wishesForGuest } from '../lib/wishlist-store'
+import { reconfirmForGuest } from '../lib/reconfirm'
+import { isConfirmedRsvp } from '../lib/linked-tools'
+import ReconfirmBox from '../ui/reconfirm-box'
 
 
 type PublicRsvp = Prisma.RsvpGetPayload<{
@@ -157,6 +160,12 @@ export default async function EventPage({
     household = { label: invitation.label, rows: await householdForForm(invitation, existingRsvp?.id ?? null), extraPersons: invitation.extraPersons }
   }
 
+  // Rückbestätigung (app/lib/reconfirm.ts): nur mit persönlichem Participant (Link oder Konto) und Antwort zu diesem Termin
+  const reconfirmBox = participant && 'id' in participant && existingRsvp
+    ? reconfirmForGuest(event, existingRsvp, isConfirmedRsvp(existingRsvp, participant, event.requireVerification))
+    : null
+  const reconfirm = reconfirmBox && participant?.editToken ? { box: reconfirmBox, editToken: participant.editToken } : null
+
   const wishes = event.wishlist ? await wishesForGuest(event.id, participant && 'id' in participant ? participant.id : null) : []
 
   // 3. Gästeliste laden (Issue #8) - EXTREM WICHTIG: Nur ungefährliche Felder abfragen!
@@ -207,6 +216,9 @@ export default async function EventPage({
         {photoLinkVisible(event, existingRsvp) && <PhotoLinkBanner url={event.photoUrl!} className="mb-4" />}
         {assemblyLinkVisible(event, existingRsvp, participant && 'isVerified' in participant ? { isVerified: !!participant.isVerified } : null, event.requireVerification) && <AssemblyBanner eventId={event.id} editToken={token} className="mb-4" />}
         {feedbackLinkVisible(event, existingRsvp, participant && 'isVerified' in participant ? { isVerified: !!participant.isVerified } : null, event.requireVerification) && <FeedbackBanner eventId={event.id} editToken={token} className="mb-4" />}
+
+        {/* Rückbestätigung (Idee L30): „Kommst du noch?“ mit Knöpfen, nur für die eigene feste Zusage */}
+        {reconfirm && <ReconfirmBox eventId={event.id} editToken={reconfirm.editToken} {...reconfirm.box} />}
 
         {/* Das eigentliche Formular */}
         <RsvpForm

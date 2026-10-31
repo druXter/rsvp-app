@@ -42,7 +42,7 @@ export default function ShareAccessPanel({
               <span className="text-gray-800 dark:text-gray-100">{share.email}</span>
               <form action={unshareResource}>
                 <input type="hidden" name="accessId" value={share.id} />
-                <button type="submit" className="text-red-600 hover:text-red-800 text-xs font-medium transition">
+                <button type="submit" className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 text-xs font-medium transition">
                   Entfernen
                 </button>
               </form>

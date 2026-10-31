@@ -11,6 +11,7 @@ import { allowedShiftsOrigin, formatShiftTiers, parseStoredTiers } from '../lib/
 import { allowedWichtelnOrigin } from '../lib/wichteln'
 import { TOOL_LINKS, storedToolUrl } from '../lib/linked-tools-store'
 import { allowedFeedbackOrigin, FEEDBACK_DELAY_OPTIONS } from '../lib/feedback-link'
+import { RECONFIRM_DAYS_MAX, RECONFIRM_DAYS_MIN } from '../lib/reconfirm'
 import { SettingsSection, hintClass, inputClass, labelClass, SubmitButton } from '../ui/kit'
 import { MenuFields } from './menu-settings-section'
 import { SeatingPaymentToggle, TicketFields } from './ticket-settings-section'
@@ -55,7 +56,7 @@ const onOff = (on: boolean, text: string) => (on ? text : null)
 // Was sich ausschließt bzw. was was braucht - prüft der Server ebenso (app/admin/actions.ts)
 const RULE_LABELS = {
   inviteOnly: '„Nur mit Einladung“', eventPin: 'einer PIN', requireVerification: 'E-Mail-Bestätigung',
-  ticketCategories: 'Ticketkategorien', maxCompanions: 'Begleitungen', shiftsUrl: 'Helfer*innen aus Schichten'
+  ticketCategories: 'Ticketkategorien', maxCompanions: 'Begleitungen', shiftsUrl: 'Helfer*innen aus Schichten', reconfirm: 'der Rückbestätigung'
 }
 const RULES: FieldRule[] = [
   { excludes: ['inviteOnly', 'eventPin'] },
@@ -63,6 +64,8 @@ const RULES: FieldRule[] = [
   { excludes: ['inviteOnly', 'ticketCategories'] },
   { excludes: ['maxCompanions', 'ticketCategories'] },
   { excludes: ['inviteOnly', 'shiftsUrl'] },
+  { excludes: ['inviteOnly', 'reconfirm'] },
+  { requires: 'reconfirmAutoDecline', needs: 'reconfirm', hint: 'braucht die Rückbestätigung' },
   { requires: 'rsvpReminderDays', needs: 'rsvpDeadline', hint: 'braucht eine Antwortfrist (Grunddaten)' },
   { requires: 'paymentReminderDays', needs: 'paymentDueDays', hint: 'braucht eine Zahlfrist' },
   { requires: 'datePending', needs: 'pollUrl', hint: 'braucht einen Link auf eine Abstimmung' },
@@ -101,7 +104,7 @@ export default function EventSettingsForm({ event, userId, open = 'grunddaten', 
   // Fest gesperrt: Konto-Pflicht wird beim Anlegen festgelegt, Termine einer Einladungs-Reihe haben keine Kategorien
   const fixed: Record<string, string> = {
     ...(event.requireGuestUser ? { inviteOnly: 'nur mit Teilnehmendenkonto (beim Anlegen festgelegt)' } : {}),
-    ...(isTermin && event.inviteOnly ? { ticketCategories: 'die Reihe ist im Einladungsmodus', shiftsUrl: 'die Reihe ist im Einladungsmodus' } : {})
+    ...(isTermin && event.inviteOnly ? { ticketCategories: 'die Reihe ist im Einladungsmodus', shiftsUrl: 'die Reihe ist im Einladungsmodus', reconfirm: 'die Reihe ist im Einladungsmodus' } : {})
   }
 
   return (
@@ -209,11 +212,23 @@ export default function EventSettingsForm({ event, userId, open = 'grunddaten', 
       )}
 
       <SettingsSection id="ablauf" title="Erinnerung und Einlass" open={open === 'ablauf'} marker="teal"
-        summary={summary([onOff(event.autoReminder, `Erinnerung ${event.reminderDays} Tage vorher`), onOff(event.enableCheckin, 'QR-Code-Einlass'), onOff(event.enableCheckin && event.trackPresence, 'Kommen und Gehen')])}>
+        summary={summary([onOff(event.autoReminder, `Erinnerung ${event.reminderDays} Tage vorher`), onOff(event.reconfirmDays !== null, `Rückbestätigung ${event.reconfirmDays} Tage vorher${event.reconfirmAutoDecline ? ' mit Absage' : ''}`), onOff(event.enableCheckin, 'QR-Code-Einlass'), onOff(event.enableCheckin && event.trackPresence, 'Kommen und Gehen')])}>
         <Check name="autoReminder" defaultChecked={event.autoReminder} label="Automatische Erinnerung an alle Zusagen" hint="Per Mail (und Push), braucht die E-Mail-Abfrage und den Cronjob der Erinnerungen." />
         <Field id="reminderDays" label="Tage vor dem Event">
           <input id="reminderDays" type="number" name="reminderDays" min="1" max="30" defaultValue={event.reminderDays} className={`${inputClass} sm:w-32`} />
         </Field>
+        <div className="space-y-2" data-testid="reconfirm-settings">
+          <input type="hidden" name="reconfirmShown" value="1" />
+          <Check name="reconfirm" defaultChecked={event.reconfirmDays !== null} label="Rückbestätigung: „Kommst du noch?“"
+            hint="Für volle Termine mit Warteliste: Vor dem Termin fragen wir jede feste Zusage per Mail (und Push), ob sie noch kommt. Wer absagt, gibt den Platz sofort an die Warteliste. Frist ist 24 Stunden vor Beginn; in der Gästeliste seht ihr, wer bestätigt hat. Nicht im Einladungsmodus." />
+          <RuleNote name="reconfirm" indent />
+          <Field id="reconfirmDays" label="Tage vor dem Event fragen">
+            <input id="reconfirmDays" type="number" name="reconfirmDays" min={RECONFIRM_DAYS_MIN} max={RECONFIRM_DAYS_MAX} defaultValue={event.reconfirmDays ?? 3} className={`${inputClass} sm:w-32`} />
+          </Field>
+          <Check name="reconfirmAutoDecline" defaultChecked={event.reconfirmAutoDecline} label="Ohne Bestätigung bis zur Frist automatisch absagen"
+            hint="Der Platz geht dann an die Warteliste, der Gast bekommt Bescheid. Nur wer mindestens 24 Stunden Zeit zum Antworten hatte; nie bei Tickets mit Preis, Helfer*innen aus Schichten oder schon Eingecheckten. Ohne Haken bleibt es bei der Markierung „unbestätigt“." />
+          <RuleNote name="reconfirmAutoDecline" indent />
+        </div>
         <Check name="enableCheckin" defaultChecked={event.enableCheckin} label="Einlass mit QR-Code" hint="Bestätigte Gäste bekommen einen persönlichen QR-Code (Mail und Erfolgsseite), den ihr am Einlass scannt." />
         <Check name="trackPresence" defaultChecked={event.trackPresence} label="Kommen und Gehen protokollieren"
           hint="Für Sitzungen und Versammlungen: Wer geht, wird ausgecheckt statt ausgetragen, und kann wieder einchecken. Jedes Kommen und Gehen steht mit Uhrzeit im Reiter „Anwesenheit“ (Druck und CSV)." />

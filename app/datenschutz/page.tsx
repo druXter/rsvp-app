@@ -277,6 +277,16 @@ export default function DatenschutzPage() {
             erfahren davon nichts weiter.
           </p>
           <p className="mt-2">
+            <strong>Rückbestätigung („Kommst du noch?“):</strong> Fragt eine Veranstaltung vorher nach, schicken wir
+            dir nach deiner Zusage einige Tage vor dem Termin einmal eine Mail (und - falls aktiviert - eine
+            Push-Benachrichtigung) mit der Bitte, deine Zusage zu bestätigen oder abzusagen; die Knöpfe dafür stehen auf
+            deiner Seite zur Veranstaltung. Wir speichern, wann wir gefragt haben und wann du bestätigt hast. Sagst du
+            ab, rückt jemand von der Warteliste nach. Hat die Veranstaltung es so eingestellt, wird eine bis 24 Stunden
+            vor Beginn nicht bestätigte Zusage abgesagt (nie bei Tickets mit Preis) - darüber bekommst du eine
+            Mitteilung, und wir vermerken den Zeitpunkt. Die Veranstalter:innen sehen in der Gästeliste, wer bestätigt
+            hat. Rechtsgrundlage ist die Durchführung deiner Anmeldung (Art. 6 Abs. 1 lit. b DSGVO).
+          </p>
+          <p className="mt-2">
             <strong>Änderungs-Mitteilungen:</strong> Ändert die Veranstalter:in nach deiner Zusage wesentliche Angaben
             zum Termin (Titel, Datum, Dauer, Ort oder Beschreibung), kann sie alle bereits zugesagten Gäste darüber
             informieren - und alle, die „vielleicht“ angegeben und ihre Adresse bestätigt haben. Du erhältst diese Mitteilung per E-Mail und - falls du Push-Benachrichtigungen aktiviert hast
@@ -313,7 +323,8 @@ export default function DatenschutzPage() {
             <li>
               <strong>Als Gast:</strong> Erinnerungen an bevorstehende Termine, Mitteilungen über Termin-Änderungen,
               Nachrichten der Veranstaltung (Punkt 5),
-              bei „vielleicht“ die Erinnerung zum gewählten Zeitpunkt und die Mitteilung über die automatische Absage
+              bei „vielleicht“ die Erinnerung zum gewählten Zeitpunkt und die Mitteilung über die automatische Absage,
+              die Rückbestätigung („Kommst du noch?“) samt Mitteilung, falls deine Zusage mangels Bestätigung abgesagt wurde,
               und - falls du Bestätigungs-Mails abbestellt hast (Punkt 5) - die Bestätigung deiner Zusage. Bei einer
               Veranstaltungsreihe gilt eine einmal aktivierte Benachrichtigung für alle Termine dieser Reihe. Mit einem
               Teilnehmendenkonto kannst du unter &quot;Mein Konto&quot; auch „Push für alle Termine“ einschalten: Das Abo
@@ -552,6 +563,19 @@ export default function DatenschutzPage() {
             den Einlass abwickeln. Administrator:innen dieser Instanz haben technisch bedingt Zugriff auf
             alle Daten. Ein Zugriff durch andere Veranstalter:innen ohne eine solche Freigabe findet nicht statt.
           </p>
+          <p className="mt-2">
+            <strong>Auswertung einer Veranstaltungsreihe:</strong> Bei einer Reihe sehen Veranstalter:innen und
+            Moderator:innen der Reihe zusätzlich eine Auswertung über die vergangenen Termine: wie viele Zu- und Absagen
+            es pro Termin gab, bei Terminen mit Einlass wie viele erschienen sind, und pro Person, wie oft sie zugesagt
+            hat, erschienen ist, nach einer Zusage gefehlt hat oder ihre Zusage nicht bestätigt hat
+            (Rückbestätigung, Punkt 5) - samt Markierung als Stammgast. Dafür ordnen wir deine Antworten zu
+            verschiedenen Terminen einander zu: über dein Teilnehmendenkonto, sonst über deine bestätigte
+            E-Mail-Adresse, sonst über deinen persönlichen Link der Reihe. Die Auswertung wird bei jedem Aufruf aus den
+            gespeicherten Antworten berechnet und nicht eigens gespeichert; sie enthält nur Namen, keine Kontaktdaten,
+            und ist auch als Liste exportierbar. Sind Antworten nach Punkt 17 gelöscht, zählen sie auch hier nicht mehr.
+            Rechtsgrundlage ist das berechtigte Interesse der Veranstalter:innen, regelmäßige Treffen zu planen
+            (Art. 6 Abs. 1 lit. f DSGVO).
+          </p>
         </div>
 
         <div>
@@ -668,7 +692,8 @@ export default function DatenschutzPage() {
             Zahlungsangaben (Punkt 4) hängen an deiner Antwort und werden mit ihr gelöscht; müssen Veranstalter:innen
             Zahlungen länger nachweisen (z.B. für eine Vereinsbuchhaltung), sichern sie dafür selbst einen Export.
             Der Erinnerungszeitpunkt bei „vielleicht“ wird gelöscht, sobald du zu- oder absagst oder die Antwort am
-            Stichtag zur Absage wird.
+            Stichtag zur Absage wird. Die Zeitpunkte der Rückbestätigung hängen an deiner Antwort und werden mit ihr
+            gelöscht; die Auswertung einer Reihe (Punkt 13) speichert nichts Eigenes.
           </p>
           <p className="mt-2">
             Löschen Veranstalter:innen einen Termin, eine Einladung oder deine Antwort schon vorher, werden deine Angaben
