@@ -27,6 +27,7 @@ import { syncRsvpCheckin } from './checkin'
 import { checkMaybeReminder, maybeAvailable } from './maybe'
 import { reconfirmRunning } from './reconfirm'
 import { sendMaybeVerificationEmail } from './mail'
+import { singleLine } from 'suite-kit/web'
 
 
 /**
@@ -212,7 +213,8 @@ export async function performRsvpSubmission(
     }
   }
   const isAttending = invitation ? householdAttends(householdRows) : input.isAttending
-  const name = invitation ? invitation.label : input.name
+  // Einzeilig (suite-kit singleLine): der Name landet in Mails an Gast und Verwaltung.
+  const name = invitation ? invitation.label : singleLine(input.name ?? '')
 
   // „Vielleicht“ (docs/KONZEPT-VIELLEICHT.md): gespeichert als Absage, damit verknüpfte Tools es nie als Zusage sehen.
   // Ganze Antwort (offene Anmeldung) oder einzelne Personen eines Haushalts; braucht eine bestätigte Adresse und einen

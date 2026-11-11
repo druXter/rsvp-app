@@ -10,7 +10,7 @@ import { revalidatePath } from 'next/cache'
 import { prisma } from '../lib/prisma'
 import { requireUser } from '../lib/auth'
 import { hasEventModeratorOrAbove, hasSeriesModeratorOrAbove, isOwnerOrAdmin } from '../lib/permissions'
-import { formString } from '../lib/form'
+import { formString, formText } from '../lib/form'
 import { INVITATION_LIMITS, parseInvitationLines, parsePersonList } from '../lib/invitations'
 import { createInvitations, deleteInvitation, invitationOccasion, linkOfInvitation, updateInvitation, type InvitationEvents, type InvitationScope } from '../lib/invitation-store'
 import { sendInvitationEmail } from '../lib/mail'
@@ -65,7 +65,7 @@ export async function addInvitations(_prev: InvitationFormState, formData: FormD
   let inputs
   let events
   try {
-    inputs = parseInvitationLines(formString(formData, 'invitations', 100_000))
+    inputs = parseInvitationLines(formText(formData, 'invitations', 100_000))
     events = readInvitationEvents(formData, target)
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'Ungültige Eingabe.' }

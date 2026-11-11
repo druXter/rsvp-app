@@ -15,7 +15,7 @@ import { createGuestSession, createLinkedGuestSession, destroyLinkedGuestSession
 import { generateToken, hashToken } from '../lib/tokens'
 import { generateAdminApiToken, hashApiToken, NEW_ADMIN_API_TOKEN_COOKIE } from '../lib/api-auth'
 import { hashPassword, validatePassword, verifyAgainstDummy, verifyPassword } from '../lib/password'
-import { formPassword, formString } from '../lib/form'
+import { formPassword, formString, formText } from '../lib/form'
 import { clearFailures, clientIp, loginRules, passwordChangeRule, refund, reserve, resetRules } from '../lib/throttle'
 import { isOwnerOrAdmin, hasEventModeratorOrAbove, hasSeriesModeratorOrAbove } from '../lib/permissions'
 import { sendReminderPush } from '../lib/push'
@@ -651,7 +651,7 @@ export async function createEvent(formData: FormData) {
   const date = new Date(formString(formData, 'date', 30))
   if (Number.isNaN(date.getTime())) throw new Error('Bitte Datum und Uhrzeit eintragen.')
   const location = formString(formData, 'location', 300) || null
-  const description = formString(formData, 'description', 10_000) || null
+  const description = formText(formData, 'description', 10_000) || null
   const duration = parseInt(formString(formData, 'duration', 5)) || 4
   const maxCapStr = formString(formData, 'maxCapacity', 10)
   const maxCapacity = maxCapStr ? parseInt(maxCapStr) || null : null
@@ -928,7 +928,7 @@ export async function deleteRsvp(formData: FormData) {
 export async function updateAdminRsvp(formData: FormData) {
   const user = await requireUser()
   const id = formData.get('rsvpId') as string
-  const name = formData.get('name') as string
+  const name = formString(formData, 'name', 200)
   const requestedAttending = formData.get('isAttending') === 'true'
   // „Vielleicht“ setzt der Gast (docs/KONZEPT-VIELLEICHT.md) oder die Verwaltung beim Eintragen von Hand - hier kann
   // sie es nur beibehalten oder durch eine Zu- bzw. Absage ersetzen

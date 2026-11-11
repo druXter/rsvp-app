@@ -18,7 +18,7 @@ import { clearFailures, clientIp, loginRules, passwordChangeRule, refund, regist
 import { generateApiToken, hashApiToken, NEW_API_TOKEN_COOKIE } from '../lib/api-auth'
 import { notifyLinkedToolsBeforeDelete, notifyLinkedToolsOfParticipants } from '../lib/linked-tools-notify'
 import { guestUserHasPush } from '../lib/push-subscriptions'
-import { type PushSubscriptionInput, validPushSubscription } from 'suite-kit/web'
+import { type PushSubscriptionInput, singleLine, validPushSubscription } from 'suite-kit/web'
 
 
 /**
@@ -51,7 +51,7 @@ export async function registerGuestUser(formData: FormData) {
   const eventId = formData.get('eventId') as string || null
   const next = safeNextPath(formData.get('next') as string || null)
   const nextParam = next ? `&next=${encodeURIComponent(next)}` : ''
-  const name = (formData.get('name') as string || '').trim()
+  const name = singleLine(formData.get('name') as string || '')
   const email = (formData.get('email') as string || '').trim().toLowerCase()
   const password = formPassword(formData, 'password')
 
@@ -330,7 +330,7 @@ export async function cancelGuestEmailChange() {
 export async function updateGuestProfile(formData: FormData) {
   const guestUser = await requireGuestUser()
 
-  const name = (formData.get('name') as string || '').trim()
+  const name = singleLine(formData.get('name') as string || '')
   const phone = (formData.get('phone') as string || '').trim() || null
   const dietaryOption = (formData.get('dietaryOption') as string || '') || null
   const allergies = (formData.get('allergies') as string || '').trim() || null
@@ -406,7 +406,7 @@ export async function unsubscribeGuestUserFromPush(endpoint: unknown) {
  */
 export async function createApiToken(formData: FormData) {
   const guestUser = await requireGuestUser()
-  const name = (formData.get('name') as string || '').trim() || 'Unbenanntes Gerät'
+  const name = singleLine(formData.get('name') as string || '') || 'Unbenanntes Gerät'
 
   const token = generateApiToken()
   await prisma.guestApiToken.create({
