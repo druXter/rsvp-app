@@ -11,7 +11,9 @@ vi.mock('../../app/lib/prisma', () => ({
   prisma: { participant: { findUnique: participantFindUnique }, rsvp: { findUnique: rsvpFindUnique } }
 }))
 
-const { hasEventPinAccess, hasSeriesPinAccess, tokenBelongsToEvent } = await import('../../app/lib/pin')
+const { hasEventPinAccess, hasSeriesPinAccess, pinCookieValue, tokenBelongsToEvent } = await import('../../app/lib/pin')
+// Das Cookie trägt einen HMAC aus Art, ID und PIN, nicht die PIN selbst
+const unlocked = (kind: 'event' | 'series', id: string, pin: string) => pinCookieValue(kind, id, pin)
 
 beforeEach(() => {
   cookieJar = {}
@@ -27,19 +29,22 @@ describe('hasEventPinAccess', () => {
   it('Einzel-Event: nur mit dem Cookie genau dieses Events und der richtigen PIN', async () => {
     const event = { id: 'e1', eventPin: '4711' }
     expect(await hasEventPinAccess(event)).toBe(false)
-    cookieJar = { event_pin_e1: '4712' }
+    cookieJar = { event_pin_e1: unlocked('event', 'e1', '4712') }
     expect(await hasEventPinAccess(event)).toBe(false)
-    cookieJar = { event_pin_e2: '4711' }
+    cookieJar = { event_pin_e2: unlocked('event', 'e2', '4711') }
     expect(await hasEventPinAccess(event)).toBe(false)
-    cookieJar = { event_pin_e1: '4711' }
+    cookieJar = { event_pin_e1: unlocked('event', 'e1', '4711') }
     expect(await hasEventPinAccess(event)).toBe(true)
+    // Die PIN selbst im Cookie zählt nicht (docs/AUDIT-2026-11.md, R-09)
+    cookieJar = { event_pin_e1: '4711' }
+    expect(await hasEventPinAccess(event)).toBe(false)
   })
 
   it('Reihen-Termin: die PIN der Reihe zählt, die des Termins ist wirkungslos', async () => {
     const locked = { id: 't1', eventPin: '0000', series: { id: 's1', eventPin: '1357' } }
-    cookieJar = { event_pin_t1: '0000' }
+    cookieJar = { event_pin_t1: unlocked('event', 't1', '0000') }
     expect(await hasEventPinAccess(locked)).toBe(false)
-    cookieJar = { series_pin_s1: '1357' }
+    cookieJar = { series_pin_s1: unlocked('series', 's1', '1357') }
     expect(await hasEventPinAccess(locked)).toBe(true)
 
     const openSeries = { id: 't2', eventPin: '0000', series: { id: 's2', eventPin: null } }

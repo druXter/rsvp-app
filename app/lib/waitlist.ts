@@ -4,6 +4,7 @@
 // über das Formular, Absage/Löschen/Stornieren in der Verwaltung, höhere Kapazität, geänderte Kontingente).
 // Vorher lag die Logik doppelt in performRsvpSubmission und triggerWaitlistPromotion (app/admin/actions.ts).
 // Platzregel und Reihenfolge: hasRoom/nextToPromote in app/lib/tickets.ts.
+import { withEventLock } from './event-lock'
 import type { Participant } from '@prisma/client'
 import { prisma } from './prisma'
 import { sendConfirmationEmail, sendWaitlistPromotedEmail } from './mail'
@@ -69,19 +70,26 @@ export async function fillFreeSeats(eventId: string): Promise<string[]> {
   })
   if (waiting.length === 0) return []
 
-  const { limits, rsvps } = await loadCapacity(eventId)
-  const tried = new Set<string>()
-  const promoted: string[] = []
-  for (;;) {
-    const next = nextToPromote(limits, rsvps, waiting.filter(w => !tried.has(w.id)))
-    if (!next) break
-    tried.add(next.id)
-    // Nur übernehmen, wenn die Zeile noch auf der Warteliste steht (gleichzeitige Absage oder "Zulassen")
-    const updated = await prisma.rsvp.updateMany({ where: { id: next.id, isOnWaitlist: true, isAttending: true }, data: { isOnWaitlist: false } })
-    if (updated.count !== 1) continue
-    const seat = rsvps.find(r => r.id === next.id)
-    if (seat) seat.isOnWaitlist = false
-    promoted.push(next.id)
+  // Plätze vergeben unter der Sperre des Termins (app/lib/event-lock.ts, wie performRsvpSubmission), Mails danach
+  const promotedRows = await withEventLock(eventId, async () => {
+    const { limits, rsvps } = await loadCapacity(eventId)
+    const tried = new Set<string>()
+    const rows: typeof waiting = []
+    for (;;) {
+      const next = nextToPromote(limits, rsvps, waiting.filter(w => !tried.has(w.id)))
+      if (!next) break
+      tried.add(next.id)
+      // Nur übernehmen, wenn die Zeile noch auf der Warteliste steht (gleichzeitige Absage oder "Zulassen")
+      const updated = await prisma.rsvp.updateMany({ where: { id: next.id, isOnWaitlist: true, isAttending: true }, data: { isOnWaitlist: false } })
+      if (updated.count !== 1) continue
+      const seat = rsvps.find(r => r.id === next.id)
+      if (seat) seat.isOnWaitlist = false
+      rows.push(next)
+    }
+    return rows
+  })
+  const promoted = promotedRows.map(r => r.id)
+  for (const next of promotedRows) {
     // Zahlfrist ab jetzt, bevor die Bestätigung (mit Zahlungsdaten) rausgeht
     await syncPaymentDue({ rsvpIds: [next.id] })
     await notifyPromoted(next.participant, next.id, eventId)

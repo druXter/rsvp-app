@@ -54,8 +54,11 @@ Ein schlankes, anpassbares und leistungsstarkes Event-Management-System, gebaut 
   angemeldet ist, bekommt bei jedem Termin das Formular aus dem Profil vorausgefüllt, und die Antwort hängt am Konto -
   auch bei Einzel-Events ohne Konto-Pflicht (früher nur bei Reihen und Konto-Pflicht). Ausnahmen: persönlicher Link
   (`?token=`) und Einzel-Events im Einladungsmodus. Hat das Konto noch keine Antwort, aber gibt es eine ohne Konto mit
-  genau seiner (bestätigten) Adresse, wird diese beim nächsten Antworten übernommen und gilt als bestätigt - statt einer
-  zweiten Antwort derselben Person.
+  genau seiner Adresse, die dort **bestätigt** wurde, wird diese beim nächsten Antworten übernommen - statt einer
+  zweiten Antwort derselben Person. Sie bekommt dabei einen neuen persönlichen Link, ihre Push-Abos entfallen. Eine nie
+  bestätigte Antwort bleibt unberührt (die Adresse kann ein Dritter eingetippt haben, der sonst über seinen Link das
+  Profil des Kontos sähe). Tippt ein angemeldetes Konto eine andere als seine Adresse ein, gilt sie wie bei allen
+  anderen erst nach der Bestätigung.
 * **Sitzplätze über Seating (optional):** Pro Termin mit einem Event im Sitzplatz-Tool Seating verknüpfbar. Zugesagte Gäste bekommen „Sitzplatz wählen“ (Seite, Erfolgsseite, Bestätigungsmail), Änderungen an Zusagen gehen automatisch an Seating, und der zugewiesene Platz erscheint als „Dein Platz: …“, beim Einlass und im CSV-Export - siehe [Verknüpfung mit Seating](#-verknüpfung-mit-seating-sitzplätze).
 * **Schichten (optional):** Pro Termin mit einem Event in Schichten (Dienste und Schichten, eigenes Tool) verknüpfbar. Helfer\*innen mit genug Schichten bekommen automatisch eine Zusage, in der Ticketkategorie ihrer Stufe („ab 1 Schicht: Helfer\*innen, ab 5: Helfer\*innen plus“) - siehe [Verknüpfung mit Schichten](#-verknüpfung-mit-schichten).
 * **Wichteln (optional):** Pro Termin mit einem Wichteln (eigenes Tool) verknüpfbar. Alle mit Zusage werden dort zum Wichteln eingeladen - siehe [Verknüpfung mit Wichteln](#-verknüpfung-mit-wichteln).
@@ -546,8 +549,12 @@ Gilt für Verwaltungskonten (`/admin/login`) **und** Teilnehmendenkonten (`/mein
   könnte jeder fremde Konten lahmlegen. Der Versuch wird VOR der Prüfung atomar reserviert, das Limit gilt also auch bei
   vielen gleichzeitigen Anfragen. Fehlermeldung und Antwortzeit sind für bekannte und unbekannte Adressen gleich (bei
   unbekannter Adresse rechnet eine gleich teure Prüfung gegen einen Wegwerf-Hash). Ebenfalls gedrosselt: Passwort-Reset-
-  Anfragen, die öffentliche Registrierung (löst eine Mail an eine beliebige Adresse aus) und die Passwort-Abfrage bei
-  "Passwort/E-Mail ändern". Gespeichert werden nur SHA-256-Hashes von IP/E-Mail.
+  Anfragen, die öffentliche Registrierung (löst eine Mail an eine beliebige Adresse aus), neue E-Mail-Adressen über
+  einen persönlichen Link (5 pro Link, 20 pro IP und Stunde - jede neue Adresse bekommt eine Mail) und die
+  Passwort-Abfrage bei "Passwort/E-Mail ändern". Gespeichert werden nur SHA-256-Hashes von IP/E-Mail. IPv6-Adressen
+  zählen als ihr /64-Netz (ein Anschluss hat ein ganzes /64, sonst hätte jede Anfrage einen eigenen Zähler).
+  Die Registrierung antwortet wie Login und Reset gleich, ob es die Adresse schon gibt oder nicht; eine vorhandene
+  Adresse bekommt stattdessen eine Mail mit dem Weg über „Passwort vergessen“.
 * **`TRUST_PROXY_HOPS`** muss zur Umgebung passen (siehe `.env.example`): Nur so ist die IP für die Drosselung nicht durch
   einen selbst mitgeschickten `X-Forwarded-For`-Wert fälschbar. Beim Betreiber (Cloudflare → Nginx Proxy Manager)
   gemessen: `1`.
@@ -580,13 +587,29 @@ Gilt für Verwaltungskonten (`/admin/login`) **und** Teilnehmendenkonten (`/mein
 * **Kalenderdatei** (`app/lib/ics.ts`, Mail-Anhang und `/api/ical`): Ende als `DTEND` (der Termin-Dialog von iOS liest
   `DURATION` aus einem Mail-Anhang nicht), Zeilen nach RFC 5545 auf 75 Bytes gefaltet ohne Zeichen zu zerschneiden
   (Umlaute und Emojis in der Beschreibung), `charset=utf-8` am Anhang, stabile UID je Termin mit SEQUENCE.
-* **Event-/Reihen-PIN** wird überall durchgesetzt, wo ein Event über seine ID erreichbar ist (`app/lib/pin.ts`) - Antworten, Kalenderdatei (`/api/ical`), Abstimmungs-Link und Konto-Registrierung für die Reihe, nicht nur die Anzeige der Seite. Der persönliche Link aus der Bestätigungs-Mail funktioniert weiter (gültiger Token dieses Termins). Das Raten der PIN ist gedrosselt (10 Versuche pro IP und Event, 100 pro Event, jeweils 15 Minuten).
+* **Event-/Reihen-PIN** wird überall durchgesetzt, wo ein Event über seine ID erreichbar ist (`app/lib/pin.ts`) - Antworten, Kalenderdatei (`/api/ical`), Abstimmungs-Link und Konto-Registrierung für die Reihe, nicht nur die Anzeige der Seite. Der persönliche Link aus der Bestätigungs-Mail funktioniert weiter (gültiger Token dieses Termins). Das Raten der PIN ist gedrosselt (10 Versuche pro IP und Event je 15 Minuten, 30 pro Event je Stunde - auch eine vierstellige PIN hält damit länger als eine Woche; richtige Eingaben zählen nicht mit). Das Freischalt-Cookie (`event_pin_<id>`/`series_pin_<id>`, 30 Tage, httpOnly, `SameSite=Lax`, in Produktion `Secure`) trägt nicht die PIN, sondern einen HMAC aus PIN und ID mit `PIN_COOKIE_SECRET`; nach einem PIN-Wechsel gilt es nicht mehr. Ohne `PIN_COOKIE_SECRET` gilt ein zufälliger Schlüssel bis zum nächsten Neustart (Gäste geben die PIN dann neu ein).
 * **Push-Abos** (Gäste über den persönlichen Link, Teilnehmendenkonten, Verwaltungskonten) werden nur gespeichert, wenn der Endpoint zu einem
   Push-Dienst der Browser-Hersteller gehört (`validPushSubscription` aus `suite-kit/web`). Der Server schickt später
   Anfragen an den Endpoint - vorher hätte jede*r mit einem persönlichen Link eine beliebige Adresse eintragen können,
   auch im internen Netz (SSRF).
 * **Cron-Endpunkte** (`/api/cron/*`) lehnen ein leeres oder fehlendes `CRON_SECRET` ab - vorher schaltete `?secret=`
   (leer) den Endpunkt bei einem leeren Platzhalter-Secret frei.
+* **Angaben einer Antwort** (`app/lib/rsvp-input.ts`): eine neue E-Mail-Adresse muss genau *eine* sein (ohne `,`, `;`,
+  Leerraum; nodemailer läse eine Liste als mehrere Empfänger), Name höchstens 100, Telefon 50, Essenswunsch 200,
+  Allergien 500, Freitexte 1000 Zeichen - zu lange Angaben werden abgelehnt, nicht gekürzt.
+* **Kapazität** wird pro Termin unter einer Sperre geprüft und vergeben (`app/lib/event-lock.ts`): Gleichzeitige
+  Zusagen bekommen zusammen nie mehr feste Plätze, als es gibt. Die Sperre lebt im Prozess - rsvp-app läuft als ein
+  Node-Prozess auf einer SQLite-Datei.
+* **Gästeseiten** geben an das Antwort-Formular (Client-Komponente) nur eine feste Auswahl an Feldern
+  (`app/lib/guest-form.ts`) - Props von Client-Komponenten stehen vollständig im Quelltext der Seite, eine ganze
+  Datenbankzeile brächte z. B. den Bestätigungs-Token mit.
+* **Abstimmungstool:** Zu-/Absagen gehen nur für eine bewiesene Adresse dorthin (bestätigtes Konto bzw. bestätigte
+  Adresse am Participant) - das Abstimmungstool löscht auf eine Absage hin die Stimmen dieser Adresse. Der
+  Klick-Nachweis trägt die `eventId` und wird nur für Abstimmungen unter `ABSTIMMUNGSTOOL_BASE_URL` ausgestellt; ein
+  Ergebnis wird nur an einem Termin gespeichert, dessen Abstimmungs-Link auf genau diese Abstimmung zeigt.
+  Das Abstimmungstool bindet eine Abstimmung an den ersten Termin, über den abgestimmt oder eine Zu-/Absage gemeldet
+  wird, und verwirft danach Nachweise und Meldungen anderer Termine. Zeigen zwei Termine auf dieselbe Abstimmung, gilt
+  sie nur für den ersten; wer die Abstimmung besitzt, kann die Bindung dort in der Verwaltung lösen.
 
 ## 🔗 Konten-Verbund mit anderen Tools (optional)
 
@@ -688,11 +711,19 @@ nicht gleichzeitig mit `npm run dev` laufen lassen.
 
 ## 🔒 Sicherheitshinweise
 
+**Sicherheitsprüfung November 2026:** [docs/AUDIT-2026-11.md](docs/AUDIT-2026-11.md) - 13 Funde (2 hoch, 5 mittel,
+3 niedrig, 3 Hinweise), je Fund Szenario, Stelle und Lösungsvorschlag. Die Tests dazu stehen in
+`tests/e2e/audit-2026-11.spec.ts` und `tests/unit/audit-2026-11.test.ts` (Kennung R-01 … im Titel). In rsvp-app sind
+alle behoben, die Tests grün und bleiben als Regressionstests; die Gegenseite im Abstimmungstool (Bindung einer Abstimmung
+an einen Termin, R-02/R-04) ist ebenfalls umgesetzt.
+Stand und Häkchenliste: [TODO.md](TODO.md).
+
 **Bot-Schutz:** Neue Antworten ohne Konto und die Registrierung eines Teilnehmendenkontos gehen nur mit gelöster
 Rechenaufgabe (`ProofOfWork` aus `suite-kit/ui` im Formular, Prüfung mit `powError` in `app/actions.ts` bzw.
 `app/mein-konto/actions.ts`, Aufgaben unter `/api/suite/pow`). Der Browser rechnet im Hintergrund, meist bevor das
 Formular ausgefüllt ist; jede Lösung gilt einmal und höchstens 10 Minuten. Kein Drittanbieter, keine Cookies, keine
-neue Variable. Änderungen per Bearbeitungs-Link, Antworten mit Konto und die Client-API (`/api/v1`) brauchen sie nicht.
+neue Variable. Änderungen per Bearbeitungs-Link (nur mit einem Link, den es gibt - ein erfundener `editToken` legt eine
+neue Antwort an und braucht die Lösung), Antworten mit Konto und die Client-API (`/api/v1`) brauchen sie nicht.
 Ohne JavaScript lassen sich die geschützten Formulare nicht abschicken. Ergänzt die Drosselung, ersetzt sie nicht.
 
 Die Datenbankdatei (`*.db`) und deine `.env`-Datei sind vom Tracking ausgeschlossen. Stelle sicher, dass du niemals echte Passwörter oder Nutzerdaten in das Git-Repository hochlädst.

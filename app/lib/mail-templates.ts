@@ -156,6 +156,25 @@ export function guestVerificationMail(input: { name: string; contextTitle: strin
 }
 
 /**
+ * Jemand hat sich mit einer Adresse registriert, zu der es schon ein Teilnehmendenkonto gibt (registerGuestUser). Die
+ * Seite antwortet wie bei einer neuen Registrierung, damit sie nicht verrät, welche Adressen ein Konto haben
+ * (docs/AUDIT-2026-11.md, R-11) - die Person erfährt es hier. Kein Bestätigungs-Link: Hat ein Dritter das Konto unter
+ * dieser Adresse angelegt, kennt er dessen Passwort; über "Passwort vergessen" setzt die Person ein eigenes.
+ */
+export function guestAccountExistsMail(input: { name: string; link: string }): MailContent {
+  return mail(
+    'Du hast schon ein Konto',
+    'Du hast schon ein Konto',
+    [
+      hello(input.name),
+      { kind: 'p', text: 'gerade wollte jemand mit dieser Adresse ein neues Teilnehmendenkonto anlegen. Es gibt dafür schon eines. Falls du dein Passwort nicht mehr weißt (oder das Konto nicht selbst angelegt hast), setz dir hier ein neues - danach kannst du dich anmelden.' },
+      { kind: 'button', label: 'Neues Passwort setzen', href: input.link }
+    ],
+    { footer: 'Falls du dich nicht registrieren wolltest, kannst du diese Mail ignorieren - an deinem Konto hat sich nichts geändert.' }
+  )
+}
+
+/**
  * Einladung eines Teilnehmendenkontos zu einem Termin (GuestUserEvent, app/lib/guest-invites.ts): Der Termin steht
  * jetzt unter "Mein Konto"; der Knopf führt zum Termin, geantwortet wird mit dem Konto.
  */

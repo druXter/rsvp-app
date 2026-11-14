@@ -1,8 +1,8 @@
 // app/reihe/[seriesSlug]/registrieren/page.tsx
+import { hasPinCookie } from '../../../lib/pin'
 import { ProofOfWork, SubmitButton, inputClass, linkClass } from '../../../ui/kit'
 import { prisma } from '../../../lib/prisma'
 import { notFound } from 'next/navigation'
-import { cookies } from 'next/headers'
 import Link from 'next/link'
 import PinForm from '../../../[slug]/pin-form'
 import { registerGuestUser } from '../../../mein-konto/actions'
@@ -32,9 +32,7 @@ export default async function RegisterGuestUserPage({
 
   let isAuthorized = true
   if (series.eventPin) {
-    const cookieStore = await cookies()
-    const pinCookie = cookieStore.get(`series_pin_${series.id}`)
-    if (pinCookie?.value !== series.eventPin) isAuthorized = false
+    if (!(await hasPinCookie('series', series.id, series.eventPin))) isAuthorized = false
   }
 
   if (!isAuthorized) {
@@ -54,12 +52,6 @@ export default async function RegisterGuestUserPage({
             Einmal einloggen, alle Termine dieser Reihe automatisch sehen - ohne dir einen Link merken oder Angaben erneut eintragen zu müssen.
           </p>
         </div>
-
-        {error === 'exists' && (
-          <div className="p-3 bg-red-50 text-red-700 text-sm rounded dark:bg-red-950 dark:text-red-300">
-            Für diese E-Mail-Adresse existiert bereits ein Konto. <Link href={loginHref} className="underline font-medium">Hier einloggen</Link>.
-          </div>
-        )}
 
         <AuthError code={error} />
         <form action={registerGuestUser} className="space-y-4">

@@ -79,18 +79,21 @@ export function extractPollId(pollUrl: string): string | null {
  * zurückgezogen wird, sorgt stattdessen der separate rsvp-webhook (siehe
  * signRsvpWebhookPayload) für die aktive Entfernung.
  *
- * Nachricht `poll-access`: `{ email, pollId, attending }`, Empfänger ist der Origin der Abstimmung.
+ * Nachricht `poll-access`: `{ email, pollId, eventId, attending }`, Empfänger ist das Abstimmungstool. `eventId` sagt,
+ * WOZU zugesagt wurde: Die pollUrl trägt die Verwaltung des Termins frei ein, zugestimmt hat nie die Person, der die
+ * Abstimmung gehört. Das Abstimmungstool nimmt den Nachweis nur für den Termin an, an den die Abstimmung gebunden ist
+ * (docs/AUDIT-2026-11.md, R-04).
  *
- * Gibt null zurück, wenn kein POLL_VERIFICATION_SECRET konfiguriert ist oder sich
- * keine Poll-ID aus der URL extrahieren lässt - der Aufrufer verlinkt dann einfach
- * ohne Token weiter (siehe app/api/poll-link/[eventId]/route.ts), das Feature bleibt
- * dadurch komplett optional.
+ * Gibt null zurück, wenn kein POLL_VERIFICATION_SECRET konfiguriert ist, sich keine Poll-ID aus der URL extrahieren
+ * lässt oder die Abstimmung nicht unter ABSTIMMUNGSTOOL_BASE_URL liegt - der Aufrufer verlinkt dann einfach ohne Token
+ * weiter (siehe app/api/poll-link/[eventId]/route.ts), das Feature bleibt dadurch komplett optional. Der Nachweis trägt
+ * die Adresse des Gasts: Er geht nie an einen anderen Host als das eingerichtete Abstimmungstool.
  */
-export function signPollVerificationToken(email: string, pollUrl: string, attending: boolean, ttlSeconds = 600): string | null {
+export function signPollVerificationToken(email: string, pollUrl: string, eventId: string, attending: boolean, ttlSeconds = 600): string | null {
   const pollId = extractPollId(pollUrl)
-  if (!pollId) return null
-  // Empfänger ist, wohin der Link führt: Der Nachweis gilt nur dort.
-  return signForPollTool('poll-access', { email, pollId, attending }, { audience: new URL(pollUrl).origin, ttlSeconds })
+  const audience = pollToolOrigin()
+  if (!pollId || !audience || new URL(pollUrl).origin !== audience) return null
+  return signForPollTool('poll-access', { email, pollId, eventId, attending }, { audience, ttlSeconds })
 }
 
 /**

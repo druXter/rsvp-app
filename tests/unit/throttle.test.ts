@@ -60,10 +60,10 @@ describe('Regeln', () => {
     expect(registerRules('203.0.113.7', 'a@b.de').map(r => r.limit)).toEqual([10, 3])
   })
 
-  it('PIN: pro IP und Ziel 10 Versuche, pro Ziel insgesamt 100', () => {
+  it('PIN: pro IP und Ziel 10 Versuche je 15 Minuten, pro Ziel insgesamt 30 je Stunde', () => {
     const [perIp, perTarget] = pinRules('203.0.113.7', 'event-1')
-    expect(perIp).toMatchObject({ identifier: '203.0.113.7:event-1', limit: 10 })
-    expect(perTarget).toMatchObject({ identifier: 'event-1', limit: 100 })
+    expect(perIp).toMatchObject({ identifier: '203.0.113.7:event-1', limit: 10, windowMs: 15 * 60 * 1000 })
+    expect(perTarget).toMatchObject({ identifier: 'event-1', limit: 30, windowMs: 60 * 60 * 1000 })
   })
 
   it('aktuelles Passwort bei Konto-Änderungen: 10 Versuche pro Konto', () => {

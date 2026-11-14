@@ -4,7 +4,7 @@
 import { ProofOfWork, SubmitButton, inputClass } from '../ui/kit'
 import { useState } from 'react'
 import Link from 'next/link'
-import type { Participant, Rsvp } from '@prisma/client'
+import type { ParticipantForForm, RsvpForForm } from '../lib/guest-form'
 import { submitRsvp } from '../actions'
 import DeleteMyDataButton from './delete-my-data-button'
 import PushSubscribeToggle from './push-subscribe-toggle'
@@ -50,12 +50,11 @@ export default function RsvpForm({
 }: {
   eventId: string;
   formConfig: string | null;
-  // Partial statt Participant: für den ersten, noch-Rsvp-losen Termin eines eingeloggten
-  // Reihen-Gasts wird hier ein aus dem zentralen GuestUser-Profil zusammengesetztes,
-  // unvollständiges Objekt übergeben (siehe app/reihe/.../page.tsx) statt einer echten
-  // Participant-Zeile.
-  participant?: Partial<Participant> | null;
-  rsvp?: Rsvp | null;
+  // Nur die Felder aus app/lib/guest-form.ts (participantForForm/rsvpForForm) - Props einer Client-Komponente stehen
+  // vollständig im Quelltext der Seite. Für den ersten, noch-Rsvp-losen Termin eines eingeloggten Gasts kommen sie aus
+  // dem zentralen GuestUser-Profil (ohne editToken).
+  participant?: ParticipantForForm | null;
+  rsvp?: RsvpForForm | null;
   isEmbed?: boolean;
   isGuestListVisible?: boolean;
   isSeriesShared?: boolean;

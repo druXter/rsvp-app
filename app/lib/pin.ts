@@ -1,4 +1,5 @@
 // app/lib/pin.ts
+import { createHmac, randomBytes } from 'node:crypto'
 import { safeEqual } from 'suite-kit'
 import { cookies } from 'next/headers'
 import { prisma } from './prisma'
@@ -18,16 +19,56 @@ import { getCurrentGuestUser } from './guest-auth'
 type Series = { id: string; eventPin: string | null; inviteOnly?: boolean }
 type EventWithSeries = { id: string; eventPin: string | null; inviteOnly?: boolean; series?: Series | null }
 
-async function cookieMatches(cookieName: string, pin: string): Promise<boolean> {
-  const value = (await cookies()).get(cookieName)?.value
-  // Konstantzeitvergleich: das Cookie trägt die PIN selbst, ein Vergleich mit === wäre ein Timing-Orakel.
-  return !!value && safeEqual(value, pin)
+type PinKind = 'event' | 'series'
+
+let fallbackSecret: string | null = null
+
+/**
+ * Schlüssel für das Freischalt-Cookie (PIN_COOKIE_SECRET, mindestens 32 Zeichen). Fehlt er, gilt ein zufälliger pro
+ * Prozess: sicher, aber nach jedem Neustart müssen Gäste die PIN neu eingeben.
+ */
+function pinCookieSecret(): string {
+  const configured = process.env.PIN_COOKIE_SECRET
+  if (configured && configured.length >= 32) return configured
+  if (!fallbackSecret) {
+    fallbackSecret = randomBytes(32).toString('hex')
+    if (process.env.NODE_ENV === 'production') console.warn('PIN_COOKIE_SECRET fehlt oder ist kürzer als 32 Zeichen - PIN-Freischaltungen gelten nur bis zum nächsten Neustart.')
+  }
+  return fallbackSecret
+}
+
+/**
+ * Inhalt des Freischalt-Cookies: ein HMAC aus Art, ID und PIN, nicht die PIN selbst. Wer das Cookie sieht (geteiltes
+ * Gerät, Browser-Profil), erfährt die PIN nicht und kann sie nicht weitergeben; nach einem PIN-Wechsel gilt das alte
+ * Cookie nicht mehr (docs/AUDIT-2026-11.md, R-09).
+ */
+export function pinCookieValue(kind: PinKind, id: string, pin: string): string {
+  return createHmac('sha256', pinCookieSecret()).update(`rsvp-pin\u0000${kind}\u0000${id}\u0000${pin}`).digest('base64url')
+}
+
+export const pinCookieName = (kind: PinKind, id: string) => `${kind}_pin_${id}`
+
+/** Setzt das Freischalt-Cookie nach richtiger PIN (verifyEventPin): 30 Tage, httpOnly, in Produktion Secure. */
+export async function setPinCookie(kind: PinKind, id: string, pin: string): Promise<void> {
+  (await cookies()).set(pinCookieName(kind, id), pinCookieValue(kind, id, pin), {
+    maxAge: 60 * 60 * 24 * 30, httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/'
+  })
+}
+
+/**
+ * Hat dieser Browser die PIN von Event bzw. Reihe `id` eingegeben? Die Seiten mit PIN-Formular prüfen damit, alles
+ * andere über hasEventPinAccess/hasSeriesPinAccess.
+ */
+export async function hasPinCookie(kind: PinKind, id: string, pin: string): Promise<boolean> {
+  const value = (await cookies()).get(pinCookieName(kind, id))?.value
+  // Konstantzeitvergleich, sonst wäre der Vergleich ein Timing-Orakel
+  return !!value && safeEqual(value, pinCookieValue(kind, id, pin))
 }
 
 /** Reihen im Einladungsmodus (EventSeries.inviteOnly) wie hasEventPinAccess: nur über den persönlichen Link. */
 export async function hasSeriesPinAccess(series: Series): Promise<boolean> {
   if (series.inviteOnly) return false
-  return !series.eventPin || cookieMatches(`series_pin_${series.id}`, series.eventPin)
+  return !series.eventPin || hasPinCookie('series', series.id, series.eventPin)
 }
 
 /**
@@ -37,7 +78,7 @@ export async function hasSeriesPinAccess(series: Series): Promise<boolean> {
  */
 export async function hasEventPinAccess(event: EventWithSeries): Promise<boolean> {
   if (event.inviteOnly) return false
-  const unlocked = event.series ? await hasSeriesPinAccess(event.series) : !event.eventPin || await cookieMatches(`event_pin_${event.id}`, event.eventPin)
+  const unlocked = event.series ? await hasSeriesPinAccess(event.series) : !event.eventPin || await hasPinCookie('event', event.id, event.eventPin)
   return unlocked || invitedAccountHere(event.id)
 }
 

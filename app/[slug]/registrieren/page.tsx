@@ -1,8 +1,8 @@
 // app/[slug]/registrieren/page.tsx
+import { hasPinCookie } from '../../lib/pin'
 import { ProofOfWork, SubmitButton, inputClass, linkClass } from '../../ui/kit'
 import { prisma } from '../../lib/prisma'
 import { notFound } from 'next/navigation'
-import { cookies } from 'next/headers'
 import Link from 'next/link'
 import PinForm from '../pin-form'
 import { registerGuestUser } from '../../mein-konto/actions'
@@ -33,9 +33,7 @@ export default async function RegisterGuestUserForEventPage({
 
   let isAuthorized = true
   if (event.eventPin) {
-    const cookieStore = await cookies()
-    const pinCookie = cookieStore.get(`event_pin_${event.id}`)
-    if (pinCookie?.value !== event.eventPin) isAuthorized = false
+    if (!(await hasPinCookie('event', event.id, event.eventPin))) isAuthorized = false
   }
 
   if (!isAuthorized) {
@@ -55,12 +53,6 @@ export default async function RegisterGuestUserForEventPage({
             Für dieses Event ist ein Teilnehmendenkonto erforderlich, um teilzunehmen.
           </p>
         </div>
-
-        {error === 'exists' && (
-          <div className="p-3 bg-red-50 text-red-700 text-sm rounded dark:bg-red-950 dark:text-red-300">
-            Für diese E-Mail-Adresse existiert bereits ein Konto. <Link href={loginHref} className="underline font-medium">Hier einloggen</Link>.
-          </div>
-        )}
 
         <AuthError code={error} />
         <form action={registerGuestUser} className="space-y-4">

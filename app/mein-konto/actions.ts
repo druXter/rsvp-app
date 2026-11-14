@@ -1,6 +1,7 @@
 // app/mein-konto/actions.ts
 'use server'
 
+import { RSVP_LIMITS } from '../lib/rsvp-input'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
@@ -8,7 +9,7 @@ import { prisma } from '../lib/prisma'
 import { randomBytes } from 'node:crypto'
 import { parseAuthorizeRequest, powError, sanitizeNextPath } from 'suite-kit'
 import { getParticipantApps, selfOrigin } from '../lib/suite'
-import { sendGuestVerificationEmail, sendGuestPasswordResetEmail, sendGuestEmailChangeConfirmation } from '../lib/mail'
+import { sendGuestVerificationEmail, sendGuestAccountExistsEmail, sendGuestPasswordResetEmail, sendGuestEmailChangeConfirmation } from '../lib/mail'
 import { getCurrentGuestUser, requireGuestUser, createGuestSession, destroyGuestSession, GUEST_SESSION_COOKIE } from '../lib/guest-auth'
 import { generateToken, hashToken } from '../lib/tokens'
 import { hashPassword, validatePassword, verifyAgainstDummy, verifyPassword } from '../lib/password'
@@ -51,7 +52,7 @@ export async function registerGuestUser(formData: FormData) {
   const eventId = formData.get('eventId') as string || null
   const next = safeNextPath(formData.get('next') as string || null)
   const nextParam = next ? `&next=${encodeURIComponent(next)}` : ''
-  const name = singleLine(formData.get('name') as string || '')
+  const name = singleLine(formData.get('name') as string || '').slice(0, RSVP_LIMITS.name)
   const email = (formData.get('email') as string || '').trim().toLowerCase()
   const password = formPassword(formData, 'password')
 
@@ -81,15 +82,25 @@ export async function registerGuestUser(formData: FormData) {
     redirect(`${registerPath}?error=weak${nextParam}`)
   }
 
+  // Gibt es die Adresse schon, antwortet die Seite trotzdem wie bei einer neuen Registrierung - wie Login und
+  // Passwort-Reset verrät sie nicht, welche Adressen ein Konto haben (docs/AUDIT-2026-11.md, R-11). Die Person
+  // bekommt stattdessen eine Mail mit dem Weg über "Passwort vergessen". Das Passwort wird auch dann gehasht, damit
+  // die Antwortzeit gleich bleibt.
+  const passwordHash = await hashPassword(password)
   const existing = await prisma.guestUser.findUnique({ where: { email } })
   if (existing) {
-    redirect(`${registerPath}?error=exists${nextParam}`)
+    try {
+      await sendGuestAccountExistsEmail(existing)
+    } catch (error) {
+      console.error('Fehler beim Senden der Konto-vorhanden-Mail:', error)
+    }
+    redirect(`/mein-konto/login?registered=1${nextParam}`)
   }
 
   // Der Bestätigungs-Token steht nur im Mail-Link, in der Datenbank nur sein Hash (app/lib/tokens.ts).
   const verifyToken = generateToken()
   const guestUser = await prisma.guestUser.create({
-    data: { email, passwordHash: await hashPassword(password), name, verifyToken: hashToken(verifyToken), isVerified: false }
+    data: { email, passwordHash, name, verifyToken: hashToken(verifyToken), isVerified: false }
   })
   if (series) {
     await prisma.guestUserSeries.create({ data: { guestUserId: guestUser.id, seriesId: series.id } })
@@ -330,10 +341,11 @@ export async function cancelGuestEmailChange() {
 export async function updateGuestProfile(formData: FormData) {
   const guestUser = await requireGuestUser()
 
-  const name = singleLine(formData.get('name') as string || '')
-  const phone = (formData.get('phone') as string || '').trim() || null
-  const dietaryOption = (formData.get('dietaryOption') as string || '') || null
-  const allergies = (formData.get('allergies') as string || '').trim() || null
+  // Dieselben Grenzen wie für eine Antwort (app/lib/rsvp-input.ts) - das Profil geht in jede Antwort des Kontos
+  const name = singleLine(formData.get('name') as string || '').slice(0, RSVP_LIMITS.name)
+  const phone = (formData.get('phone') as string || '').trim().slice(0, RSVP_LIMITS.phone) || null
+  const dietaryOption = (formData.get('dietaryOption') as string || '').slice(0, RSVP_LIMITS.dietaryOption) || null
+  const allergies = (formData.get('allergies') as string || '').trim().slice(0, RSVP_LIMITS.allergies) || null
 
   if (!name) return
 

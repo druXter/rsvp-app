@@ -1,8 +1,9 @@
 import { DATE_PENDING_TEXT } from '../lib/event-date'
+import { hasPinCookie } from '../lib/pin'
+import { participantForForm, rsvpForForm } from '../lib/guest-form'
 import { Prisma } from '@prisma/client'
 import { prisma } from '../lib/prisma'
 import { notFound, redirect } from 'next/navigation'
-import { cookies } from 'next/headers'
 import RsvpForm from './rsvp-form'
 import PinForm from './pin-form'
 import GuestRequiredGate from './guest-required-gate'
@@ -80,11 +81,9 @@ export default async function EventPage({
   // 1. Zugangsprüfung (Issue #9)
   let isAuthorized = true;
   if (event.eventPin) {
-    const cookieStore = await cookies()
-    const pinCookie = cookieStore.get(`event_pin_${event.id}`)
 
     // Eingeladene Teilnehmendenkonten (app/lib/guest-invites.ts) brauchen keine PIN
-    if (pinCookie?.value !== event.eventPin && !(await invitedGuestUser(event))) {
+    if (!(await hasPinCookie('event', event.id, event.eventPin)) && !(await invitedGuestUser(event))) {
       isAuthorized = false;
     }
   }
@@ -242,8 +241,8 @@ export default async function EventPage({
           canOpenTimeline={!!timelineLinkOf(event) && !!existingRsvp && isTimelineConfirmed(existingRsvp, { isVerified: !!participant?.isVerified }, event.requireVerification)}
           eventId={event.id}
           formConfig={event.formConfig}
-          participant={participant}
-          rsvp={existingRsvp}
+          participant={participantForForm(participant)}
+          rsvp={rsvpForForm(existingRsvp)}
           isGuestListVisible={event.isGuestListVisible}
           usedUrlToken={!!token}
           vapidPublicKey={process.env.VAPID_PUBLIC_KEY || null}

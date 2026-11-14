@@ -29,14 +29,16 @@ test('Konto ohne Reihe anlegen: von der Login-Seite, unbestätigt, danach leeres
   await expect(page.getByText('Noch keine Termine.')).toBeVisible()
 })
 
-test('Registrierung: vorhandene Adresse, schwaches Passwort, ohne Bot-Schutz abgelehnt; angemeldet weiter zu Mein Konto', async ({ page, browser }) => {
+test('Registrierung: schwaches Passwort und ohne Bot-Schutz abgelehnt, vorhandene Adresse unverändert; angemeldet weiter zu Mein Konto', async ({ page, browser }) => {
   const existing = await createGuestUser()
   await page.goto('/mein-konto/registrieren')
   const form = await readForm(page, 'form:has(input[name="password"])')
   const fields = (email: string, password = 'ein sicheres Passwort') => ({ name: 'X', email, password })
   const error = async (overrides: Record<string, string>) => locationOf(await submitForm(page, form, overrides))?.searchParams.get('error')
 
-  expect(await error(fields(existing.email))).toBe('exists')
+  // Vorhandene Adresse: dieselbe Antwort wie eine neue Registrierung (verrät nichts, R-11), das Konto bleibt, wie es ist
+  expect(await error(fields(existing.email))).toBeNull()
+  expect(await prisma.guestUser.findUniqueOrThrow({ where: { id: existing.id } })).toMatchObject({ name: existing.name, passwordHash: existing.passwordHash })
   expect(await error(fields(uniqueEmail('schwach'), '123'))).toBe('weak')
   const bot = uniqueEmail('bot')
   expect(await error({ ...fields(bot), pow: '' })).toBe('pow')

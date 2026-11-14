@@ -3,6 +3,7 @@ import { readLimitedText } from 'suite-kit/web'
 import { prisma } from '../../lib/prisma'
 import { NextResponse } from 'next/server'
 import { verifyResultWebhookPayload } from '../../lib/poll-verification'
+import { abstimmungstoolOrigin, pointsToPoll } from '../../lib/poll-date'
 
 // Größere Meldungen verschickt das Abstimmungstool nie; alles darüber wird gar nicht erst gelesen.
 const MAX_BODY = 100_000
@@ -22,8 +23,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'invalid signature' }, { status: 401 })
   }
 
+  // Nur an einen Termin, dessen pollUrl auf GENAU diese Abstimmung des eingerichteten Abstimmungstools zeigt - die
+  // eventId der Meldung allein reicht nicht (docs/AUDIT-2026-11.md, Beobachtung zur Ergebnis-Meldung, R-02/R-04).
   const event = await prisma.event.findUnique({ where: { id: result.eventId } })
-  if (!event) {
+  const origin = abstimmungstoolOrigin()
+  if (!event || !origin || !pointsToPoll(event.pollUrl, result.pollId, origin)) {
     return NextResponse.json({ ok: true, note: 'event not found, ignored' })
   }
 

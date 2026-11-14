@@ -216,6 +216,12 @@ async function resetRemindersOnNewDeadline(eventId: string, before: Date | null,
 function readPollLink(formData: FormData): { pollUrl: string | null; pollLabel: string | null; datePending: boolean } {
   const pollUrlInput = (formData.get('pollUrl') as string || '').trim()
   const pollLabelInput = (formData.get('pollLabel') as string || '').trim()
+  // Der Link wird Gästen als Knopf gezeigt und von /api/poll-link als Weiterleitung benutzt - nur http(s)
+  if (pollUrlInput) {
+    let protocol = ''
+    try { protocol = new URL(pollUrlInput).protocol } catch { /* unten abgelehnt */ }
+    if (protocol !== 'https:' && protocol !== 'http:') throw new InputError('Der Abstimmungs-Link muss eine Adresse mit https:// sein.')
+  }
   return {
     pollUrl: pollUrlInput || null,
     pollLabel: pollLabelInput || null,

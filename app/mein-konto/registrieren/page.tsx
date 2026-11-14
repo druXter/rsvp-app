@@ -29,12 +29,6 @@ export default async function GuestRegisterPage({ searchParams }: { searchParams
           </p>
         </div>
 
-        {error === 'exists' && (
-          <div className="p-3 bg-red-50 text-red-700 text-sm rounded dark:bg-red-950 dark:text-red-300">
-            Für diese E-Mail-Adresse existiert bereits ein Konto. <Link href={loginHref} className="underline font-medium">Hier einloggen</Link>.
-          </div>
-        )}
-
         <AuthError code={error} />
         <form action={registerGuestUser} className="space-y-4">
           {next && <input type="hidden" name="next" value={next} />}

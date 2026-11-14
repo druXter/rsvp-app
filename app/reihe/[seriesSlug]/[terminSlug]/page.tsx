@@ -1,9 +1,10 @@
 // app/reihe/[seriesSlug]/[terminSlug]/page.tsx
+import { hasPinCookie } from '../../../lib/pin'
+import { participantForForm, rsvpForForm } from '../../../lib/guest-form'
 import { DATE_PENDING_TEXT } from '../../../lib/event-date'
 import { Prisma } from '@prisma/client'
 import { prisma } from '../../../lib/prisma'
 import { notFound } from 'next/navigation'
-import { cookies } from 'next/headers'
 import Link from 'next/link'
 import RsvpForm from '../../../[slug]/rsvp-form'
 import PinForm from '../../../[slug]/pin-form'
@@ -74,10 +75,8 @@ export default async function SeriesEventPage({
   // Zugangsprüfung über die reihenweite PIN (gilt für alle Termine der Reihe)
   let isAuthorized = true
   if (series.eventPin) {
-    const cookieStore = await cookies()
-    const pinCookie = cookieStore.get(`series_pin_${series.id}`)
     // Zu GENAU diesem Termin eingeladene Teilnehmendenkonten (app/lib/guest-invites.ts) brauchen keine PIN
-    if (pinCookie?.value !== series.eventPin && !(await invitedGuestUser(event))) {
+    if (!(await hasPinCookie('series', series.id, series.eventPin)) && !(await invitedGuestUser(event))) {
       isAuthorized = false
     }
   }
@@ -244,8 +243,8 @@ export default async function SeriesEventPage({
           bringSlots={await bringSlotsForForm(event.id, existingRsvp?.id ?? null)}
           eventId={event.id}
           formConfig={mergedConfig}
-          participant={participant}
-          rsvp={existingRsvp}
+          participant={participantForForm(participant)}
+          rsvp={rsvpForForm(existingRsvp)}
           {...await guestPersons(event, existingRsvp)}
           deadline={event.rsvpDeadline ? { label: formatDeadline(event.rsvpDeadline)!, passed: deadlinePassed(event) } : null}
           household={household}

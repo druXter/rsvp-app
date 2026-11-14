@@ -1,4 +1,5 @@
 // app/lib/participant-verification.ts
+import { withEventLock } from './event-lock'
 import { prisma } from './prisma'
 import { sendWaitlistEmail, sendConfirmationEmail } from './mail'
 import { notifyLinkedToolsOfRsvps } from './linked-tools-notify'
@@ -51,19 +52,17 @@ export async function verifyParticipantByToken(token: string): Promise<{ editTok
 
   const results: VerifiedRsvp[] = []
   for (const rsvp of pendingRsvps) {
-    let finalIsOnWaitlist = rsvp.isOnWaitlist
-
-    // Platzregel wie überall (Gesamtkapazität und Kontingent der Kategorie, Plätze pro Person, app/lib/tickets.ts)
+    // Platzregel wie überall (Gesamtkapazität und Kontingent der Kategorie, Plätze pro Person, app/lib/tickets.ts),
+    // geprüft und vergeben unter der Sperre des Termins (app/lib/event-lock.ts) - wie performRsvpSubmission
     if (rsvp.isOnWaitlist) {
-      const { limits, rsvps } = await loadCapacity(rsvp.eventId)
-      const seats = rsvps.find(r => r.id === rsvp.id)?.seats ?? 1
-      if (hasRoom(limits, rsvps, rsvp.ticketCategoryId, rsvp.id, seats)) finalIsOnWaitlist = false
+      await withEventLock(rsvp.eventId, async () => {
+        const { limits, rsvps } = await loadCapacity(rsvp.eventId)
+        const seats = rsvps.find(r => r.id === rsvp.id)?.seats ?? 1
+        if (hasRoom(limits, rsvps, rsvp.ticketCategoryId, rsvp.id, seats)) {
+          await prisma.rsvp.updateMany({ where: { id: rsvp.id, isOnWaitlist: true }, data: { isOnWaitlist: false } })
+        }
+      })
     }
-
-    await prisma.rsvp.update({
-      where: { id: rsvp.id },
-      data: { isOnWaitlist: finalIsOnWaitlist }
-    })
     // Zahlfrist ab dem festen Platz, bevor die Bestätigung (mit Zahlungsdaten) rausgeht
     await syncPaymentDue({ rsvpIds: [rsvp.id] })
     const updatedRsvp = await prisma.rsvp.findUniqueOrThrow({ where: { id: rsvp.id } })

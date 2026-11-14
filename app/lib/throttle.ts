@@ -53,7 +53,27 @@ export async function clientIp(): Promise<string> {
   const forwarded = (await headers()).get('x-forwarded-for')
   if (!forwarded) return 'unknown'
   const parts = forwarded.split(',').map(p => p.trim()).filter(Boolean)
-  return parts[parts.length - hops] ?? 'unknown'
+  const ip = parts[parts.length - hops]
+  return ip ? visitorOf(ip) : 'unknown'
+}
+
+/**
+ * Kennung eines Besuchers aus seiner Adresse. Bei IPv6 das /64: Ein gewöhnlicher Anschluss bekommt ein ganzes Netz mit
+ * 2^64 Adressen - zählte jede einzeln, hätte jede Anfrage einen eigenen Zähler und keine Regel „pro IP“ bremste
+ * (docs/AUDIT-2026-11.md, R-08). IPv4 (auch als ::ffff:a.b.c.d) bleibt, wie es ist.
+ */
+export function visitorOf(ip: string): string {
+  const address = ip.toLowerCase().replace(/^\[|\]$/g, '').replace(/%.*$/, '')
+  const mapped = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/.exec(address)
+  if (mapped) return mapped[1]
+  if (!address.includes(':')) return address
+  const halves = address.split('::')
+  if (halves.length > 2) return address
+  const head = halves[0] ? halves[0].split(':') : []
+  const tail = halves.length === 2 && halves[1] ? halves[1].split(':') : []
+  const groups = halves.length === 2 ? [...head, ...Array(Math.max(0, 8 - head.length - tail.length)).fill('0'), ...tail] : head
+  if (groups.length !== 8 || !groups.every(g => /^[0-9a-f]{1,4}$/.test(g))) return address
+  return `${groups.slice(0, 4).map(g => Number.parseInt(g, 16).toString(16)).join(':')}::/64`
 }
 
 /**
@@ -136,6 +156,17 @@ export function registerRules(ip: string, email: string): ThrottleRule[] {
   ]
 }
 
+/**
+ * Regeln für eine neue E-Mail-Adresse über einen bestehenden persönlichen Link (performRsvpSubmission): Jede neue
+ * Adresse bekommt eine Mail. Pro Link eng (wer sich vertippt, korrigiert ein-, zweimal), pro IP etwas weiter.
+ */
+export function emailChangeRules(ip: string, participantId: string): ThrottleRule[] {
+  return [
+    { scope: 'rsvp-email:ip', identifier: ip, limit: 20, windowMs: 60 * MINUTE },
+    { scope: 'rsvp-email:participant', identifier: participantId, limit: 5, windowMs: 60 * MINUTE }
+  ]
+}
+
 /** Regel für die Passwort-Abfrage bei "Passwort/E-Mail ändern" (Schutz gegen eine gekaperte Sitzung). */
 export function passwordChangeRule(userId: string): ThrottleRule {
   return { scope: 'pwchange:user', identifier: userId, limit: 10, windowMs: LOGIN_WINDOW_MS }
@@ -143,13 +174,15 @@ export function passwordChangeRule(userId: string): ThrottleRule {
 
 /**
  * Regeln fürs Raten einer Event-/Reihen-PIN. Pro IP UND Ziel begrenzt (jemand, der bei einem Event
- * herumprobiert, blockiert nicht die anderen Events), dazu eine grobe Obergrenze pro Ziel gegen
- * verteiltes Raten von vielen Adressen. PINs sind oft kurz (4 Ziffern = 10.000 Möglichkeiten) und
- * ließen sich ohne Drosselung in Minuten durchprobieren.
+ * herumprobiert, blockiert nicht die anderen Events), dazu eine Obergrenze pro Ziel gegen
+ * verteiltes Raten von vielen Adressen. PINs sind oft kurz (4 Ziffern = 10.000 Möglichkeiten): Die
+ * Grenze pro Ziel liegt so, dass sie auch mit beliebig vielen Adressen länger als eine Woche hält
+ * (30 je Stunde = 5040 je Woche, docs/AUDIT-2026-11.md, R-08). Richtige Eingaben geben ihren Versuch
+ * in beiden Regeln zurück (verifyEventPin), damit Gäste, die die PIN kennen, nie mitzählen.
  */
 export function pinRules(ip: string, targetId: string): ThrottleRule[] {
   return [
     { scope: 'pin:ip', identifier: `${ip}:${targetId}`, limit: 10, windowMs: LOGIN_WINDOW_MS },
-    { scope: 'pin:target', identifier: targetId, limit: 100, windowMs: LOGIN_WINDOW_MS }
+    { scope: 'pin:target', identifier: targetId, limit: 30, windowMs: 60 * MINUTE }
   ]
 }

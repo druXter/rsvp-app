@@ -41,7 +41,7 @@ export async function personalPollLink(event: { id: string; seriesId: string | n
   if (!guestUser?.isVerified) return { url: event.pollUrl, verified: false, attending: false }
 
   const attending = await resolveCurrentAttendance(event, guestUser.id)
-  const token = signPollVerificationToken(guestUser.email, event.pollUrl, attending)
+  const token = signPollVerificationToken(guestUser.email, event.pollUrl, event.id, attending)
   if (token) {
     try {
       const target = new URL(event.pollUrl)

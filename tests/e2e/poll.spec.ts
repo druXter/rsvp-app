@@ -32,8 +32,8 @@ async function deliver(request: APIRequestContext, body: string) {
 
 test('Ergebnis-Meldung: manipulierte, abgelaufene oder fremd signierte Meldungen werden abgelehnt', async ({ request }) => {
   const owner = await createAccount('CREATOR')
-  const event = await createEvent(owner)
-  const other = await createEvent(owner)
+  const event = await createEvent(owner, { pollUrl: `${TEST_ABSTIMMUNGSTOOL_BASE_URL}/p/poll-e2e` })
+  const other = await createEvent(owner, { pollUrl: `${TEST_ABSTIMMUNGSTOOL_BASE_URL}/p/poll-e2e` })
   const valid = signCouplingToken(resultPayload(event.id))
   const [validPayload, validSignature] = valid.split('.')
   const flipped = validSignature.slice(0, -1) + (validSignature.endsWith('A') ? 'B' : 'A')
@@ -76,6 +76,16 @@ test('Ergebnis-Meldung: manipulierte, abgelaufene oder fremd signierte Meldungen
   // Gültig signiert, aber unbekanntes Event: kein Fehler, nichts gespeichert.
   const unknown = await deliver(request, signCouplingToken(resultPayload('gibt-es-nicht')))
   expect(unknown.status()).toBe(200)
+
+  // Gültig signiert, aber das Event zeigt auf eine andere Abstimmung bzw. auf keine des Abstimmungstools: nichts
+  // gespeichert - die eventId der Meldung allein bindet nicht.
+  const otherPoll = await createEvent(owner, { pollUrl: `${TEST_ABSTIMMUNGSTOOL_BASE_URL}/p/andere` })
+  const otherHost = await createEvent(owner, { pollUrl: 'https://abstimmung.example/p/poll-e2e' })
+  const noPoll = await createEvent(owner)
+  for (const target of [otherPoll, otherHost, noPoll]) {
+    expect((await deliver(request, signCouplingToken(resultPayload(target.id)))).status()).toBe(200)
+    expect((await prisma.event.findUniqueOrThrow({ where: { id: target.id } })).pollResult).toBeNull()
+  }
 })
 
 test('Abstimmungs-Link eines PIN-Events: ohne Freischaltung keine Abstimmungs-URL', async ({ page, context }) => {
@@ -97,20 +107,23 @@ test('Abstimmungs-Link eines PIN-Events: ohne Freischaltung keine Abstimmungs-UR
   expect(await target(locked.id)).toBe('https://abstimmung.example/p/geheim')
 })
 
-test('Klick-Token nur für bestätigte Nutzer-Konten, an Abstimmung gebunden, 10 Minuten gültig', async ({ browser }) => {
+test('Klick-Token nur für bestätigte Nutzer-Konten, an Abstimmung und Termin gebunden, nur ans Abstimmungstool, 10 Minuten gültig', async ({ browser }) => {
   const owner = await createAccount('CREATOR')
   const series = await createSeries(owner)
-  const termin = await createTermin(series, { pollUrl: 'https://abstimmung.example/p/poll42?lang=de' })
+  const termin = await createTermin(series, { pollUrl: `${TEST_ABSTIMMUNGSTOOL_BASE_URL}/p/poll42?lang=de` })
+  // Abstimmung auf einem anderen Host: Link ja, Nachweis (mit der Adresse des Gasts) nein
+  const elsewhere = await createTermin(series, { pollUrl: 'https://abstimmung.example/p/poll43' })
   const attending = await createGuestUser()
   const declined = await createGuestUser()
   const unverified = await createGuestUser({ verified: false })
-  await createRsvp(termin, { guestUserId: attending.id, isAttending: true })
+  const { participant } = await createRsvp(termin, { guestUserId: attending.id, isAttending: true })
+  await createRsvp(elsewhere, { participantId: participant.id, isAttending: true })
   await createRsvp(termin, { guestUserId: declined.id, isAttending: false })
 
-  async function follow(guest: typeof attending | null): Promise<URL> {
+  async function follow(guest: typeof attending | null, eventId = termin.id): Promise<URL> {
     const page = await browser.newPage()
     if (guest) await plantGuestSession(page.context(), guest)
-    const response = await page.request.get(`/api/poll-link/${termin.id}`, { headers: await cookieHeader(page.context()), maxRedirects: 0 })
+    const response = await page.request.get(`/api/poll-link/${eventId}`, { headers: await cookieHeader(page.context()), maxRedirects: 0 })
     expect(response.status()).toBe(307)
     await page.close()
     return new URL(response.headers()['location'])
@@ -119,7 +132,7 @@ test('Klick-Token nur für bestätigte Nutzer-Konten, an Abstimmung gebunden, 10
   // Ohne Sitzung oder mit unbestätigtem Konto: bloße Abstimmungs-URL, kein Token.
   for (const guest of [null, unverified]) {
     const url = await follow(guest)
-    expect(url.origin + url.pathname).toBe('https://abstimmung.example/p/poll42')
+    expect(url.origin + url.pathname).toBe(`${TEST_ABSTIMMUNGSTOOL_BASE_URL}/p/poll42`)
     expect(url.searchParams.has('verify')).toBe(false)
   }
 
@@ -131,9 +144,13 @@ test('Klick-Token nur für bestätigte Nutzer-Konten, an Abstimmung gebunden, 10
   expect(signature).toBe(createHmac('sha256', TEST_POLL_SECRET).update(payloadPart).digest('base64url'))
   expect(signature).not.toBe(createHmac('sha256', 'ein-anderes-geheimnis').update(payloadPart).digest('base64url'))
   const payload = decodeCouplingToken(token)
-  expect(payload).toMatchObject({ typ: 'poll-access', aud: 'https://abstimmung.example', email: attending.email, pollId: 'poll42', attending: true })
+  expect(payload).toMatchObject({ typ: 'poll-access', aud: TEST_ABSTIMMUNGSTOOL_BASE_URL, email: attending.email, pollId: 'poll42', eventId: termin.id, attending: true })
   expect(payload.exp).toBeGreaterThan(nowSeconds() + 590)
   expect(payload.exp).toBeLessThanOrEqual(nowSeconds() + 600)
+
+  const foreignHost = await follow(attending, elsewhere.id)
+  expect(foreignHost.origin + foreignHost.pathname).toBe('https://abstimmung.example/p/poll43')
+  expect(foreignHost.searchParams.has('verify')).toBe(false)
 
   // Eine Absage wird mitgeteilt, statt die Person als zugesagt auszugeben.
   expect(decodeCouplingToken((await follow(declined)).searchParams.get('verify')!)).toMatchObject({ email: declined.email, attending: false })
@@ -143,7 +160,7 @@ test('Client-API: persönlicher Abstimmungslink mit API-Token, gleiche Regeln wi
   const owner = await createAccount('CREATOR')
   const series = await createSeries(owner)
   const otherSeries = await createSeries(owner)
-  const termin = await createTermin(series, { pollUrl: 'https://abstimmung.example/p/poll77?lang=de', pollLabel: '🍕 Wohin essen?' })
+  const termin = await createTermin(series, { pollUrl: `${TEST_ABSTIMMUNGSTOOL_BASE_URL}/p/poll77?lang=de`, pollLabel: '🍕 Wohin essen?' })
   const withoutPoll = await createTermin(series)
   const foreign = await createTermin(otherSeries, { pollUrl: 'https://abstimmung.example/p/fremd' })
 
@@ -181,10 +198,10 @@ test('Client-API: persönlicher Abstimmungslink mit API-Token, gleiche Regeln wi
   const body = await ok.json()
   expect(body).toMatchObject({ label: '🍕 Wohin essen?', verified: true, attending: true })
   const url = new URL(body.url)
-  expect(url.origin + url.pathname).toBe('https://abstimmung.example/p/poll77')
+  expect(url.origin + url.pathname).toBe(`${TEST_ABSTIMMUNGSTOOL_BASE_URL}/p/poll77`)
   expect(url.searchParams.get('lang')).toBe('de')
   const payload = decodeCouplingToken(url.searchParams.get('verify')!)
-  expect(payload).toMatchObject({ email: attending.guest.email, pollId: 'poll77', attending: true })
+  expect(payload).toMatchObject({ email: attending.guest.email, pollId: 'poll77', eventId: termin.id, attending: true })
   expect(payload.exp).toBeGreaterThan(nowSeconds() + 590)
   expect(Math.abs(new Date(body.expiresAt).getTime() / 1000 - (payload.exp as number))).toBeLessThan(5)
 
@@ -196,9 +213,9 @@ test('Client-API: persönlicher Abstimmungslink mit API-Token, gleiche Regeln wi
 
 test('Ergebnis-Banner: nicht beschlussfähig und Punkte statt Stimmen', async ({ page, request }) => {
   const owner = await createAccount('CREATOR')
-  const event = await createEvent(owner, { pollUrl: 'https://abstimmung.example/p/banner' })
+  const event = await createEvent(owner, { pollUrl: `${TEST_ABSTIMMUNGSTOOL_BASE_URL}/p/banner` })
   const deliverResult = (overrides: Record<string, unknown>) =>
-    request.post('/api/poll-result-webhook', { data: signCouplingToken(resultPayload(event.id, overrides)), headers: { 'content-type': 'text/plain' } })
+    request.post('/api/poll-result-webhook', { data: signCouplingToken(resultPayload(event.id, { pollId: 'banner', ...overrides })), headers: { 'content-type': 'text/plain' } })
 
   expect((await deliverResult({ winners: [], quorumMet: false })).status()).toBe(200)
   await page.goto(`/${event.slug}`)

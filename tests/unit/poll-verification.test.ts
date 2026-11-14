@@ -51,8 +51,9 @@ describe('feste Prüfnachrichten (gleich im Unit-Test des Abstimmungstools, test
 
   it('Klick-Token ans Abstimmungstool sieht genau so aus', () => {
     vi.useFakeTimers({ now: AT })
-    expect(signPollVerificationToken('anna@example.test', `${VOTE}/poll-1`, true)).toBe(
-      'eyJ0eXAiOiJwb2xsLWFjY2VzcyIsImF1ZCI6Imh0dHBzOi8vdm90ZS5leGFtcGxlLnRlc3QiLCJlbWFpbCI6ImFubmFAZXhhbXBsZS50ZXN0IiwicG9sbElkIjoicG9sbC0xIiwiYXR0ZW5kaW5nIjp0cnVlLCJpYXQiOjE3OTI4MzYwMDAsImV4cCI6MTc5MjgzNjYwMH0.pdxpIG9LATlTKa_74NxLzV3AbjEdU2A2aqcz7SwCJGs'
+    // Seit R-04 (docs/AUDIT-2026-11.md) mit eventId - dieselbe Nachricht im Abstimmungstool, tests/unit/rsvp-verification.test.ts
+    expect(signPollVerificationToken('anna@example.test', `${VOTE}/poll-1`, 'event-1', true)).toBe(
+      'eyJ0eXAiOiJwb2xsLWFjY2VzcyIsImF1ZCI6Imh0dHBzOi8vdm90ZS5leGFtcGxlLnRlc3QiLCJlbWFpbCI6ImFubmFAZXhhbXBsZS50ZXN0IiwicG9sbElkIjoicG9sbC0xIiwiZXZlbnRJZCI6ImV2ZW50LTEiLCJhdHRlbmRpbmciOnRydWUsImlhdCI6MTc5MjgzNjAwMCwiZXhwIjoxNzkyODM2NjAwfQ.LgJ0nMk8odwSX_E0uZPObZIz_qVh6ynWH8HN5-Hayv4'
     )
   })
 })
@@ -119,7 +120,7 @@ describe('verifyResultWebhookPayload (eingehende Ergebnis-Meldung)', () => {
   })
 
   it('eigene ausgehende Tokens lassen sich nicht als Ergebnis zurückspielen', () => {
-    const click = signPollVerificationToken('a@example.test', `${RSVP}/p/poll-1`, true)!
+    const click = signPollVerificationToken('a@example.test', `${VOTE}/p/poll-1`, 'event-1', true)!
     const webhook = signRsvpWebhookPayload('a@example.test', `${VOTE}/p/poll-1`, 'event-1', true)!
     expect(verifyResultWebhookPayload(click)).toBeNull()
     expect(verifyResultWebhookPayload(webhook.body)).toBeNull()
@@ -127,12 +128,12 @@ describe('verifyResultWebhookPayload (eingehende Ergebnis-Meldung)', () => {
 })
 
 describe('ausgehende Tokens', () => {
-  it('Klick-Token: Format, Bindung an Abstimmung und deren Origin, 10 Minuten gültig', () => {
-    const token = signPollVerificationToken('a@example.test', 'https://abstimmung.example/p/poll-1?x=1', false)!
+  it('Klick-Token: Format, Bindung an Abstimmung und Termin, nur ans Abstimmungstool, 10 Minuten gültig', () => {
+    const token = signPollVerificationToken('a@example.test', `${VOTE}/p/poll-1?x=1`, 'event-1', false)!
     const [payloadPart, signature] = token.split('.')
     expect(signature).toBe(createHmac('sha256', SECRET).update(payloadPart).digest('base64url'))
     const payload = decode(token)
-    expect(payload).toMatchObject({ typ: 'poll-access', aud: 'https://abstimmung.example', email: 'a@example.test', pollId: 'poll-1', attending: false })
+    expect(payload).toMatchObject({ typ: 'poll-access', aud: VOTE, email: 'a@example.test', pollId: 'poll-1', eventId: 'event-1', attending: false })
     expect(payload.exp - payload.iat).toBe(600)
     expect(payload.exp - now()).toBeGreaterThan(595)
   })
@@ -145,13 +146,15 @@ describe('ausgehende Tokens', () => {
   })
 
   it('ohne Geheimnis, ohne Abstimmungstool-Adresse oder ohne auslesbare Poll-ID gibt es keinen Token', () => {
-    expect(signPollVerificationToken('a@example.test', 'keine url', true)).toBeNull()
-    expect(signPollVerificationToken('a@example.test', 'https://abstimmung.example/', true)).toBeNull()
+    expect(signPollVerificationToken('a@example.test', 'keine url', 'event-1', true)).toBeNull()
+    expect(signPollVerificationToken('a@example.test', `${VOTE}/`, 'event-1', true)).toBeNull()
+    // Eine Abstimmung auf einem anderen Host bekommt keinen Nachweis - er trüge die Adresse des Gasts dorthin (R-04)
+    expect(signPollVerificationToken('a@example.test', 'https://abstimmung.example/p/poll-1', 'event-1', true)).toBeNull()
     vi.stubEnv('ABSTIMMUNGSTOOL_BASE_URL', '')
     expect(signRsvpWebhookPayload('a@example.test', `${VOTE}/p/poll-1`, 'event-1', true)).toBeNull()
     vi.stubEnv('ABSTIMMUNGSTOOL_BASE_URL', VOTE)
     vi.stubEnv('POLL_VERIFICATION_SECRET', '')
-    expect(signPollVerificationToken('a@example.test', 'https://abstimmung.example/p/poll-1', true)).toBeNull()
+    expect(signPollVerificationToken('a@example.test', `${VOTE}/p/poll-1`, 'event-1', true)).toBeNull()
     expect(signRsvpWebhookPayload('a@example.test', `${VOTE}/p/poll-1`, 'event-1', true)).toBeNull()
   })
 })

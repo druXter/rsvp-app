@@ -13,6 +13,8 @@ export const TEST_CRON_SECRET = 'e2e-cron-secret'
 // Gemeinsames HMAC-Geheimnis mit dem Abstimmungstool (POLL_VERIFICATION_SECRET) - hier ein
 // reiner Testwert, damit die Tests Ergebnis-Meldungen signieren und Klick-Tokens prüfen können.
 export const TEST_POLL_SECRET = 'e2e-poll-verification-secret'
+// Schlüssel des PIN-Freischalt-Cookies (app/lib/pin.ts) - tests/e2e/helpers.ts unlockPin bildet den Wert damit nach
+export const TEST_PIN_COOKIE_SECRET = 'e2e-pin-cookie-secret-mindestens-32-zeichen'
 // Kopplung mit Seating (app/lib/seating.ts): eigenes Secret (mind. 32 Zeichen, nie das
 // Abstimmungs-Secret) und ein Origin, unter dem tests/e2e/seating.spec.ts ein kleines
 // Schein-Seating startet, das die Webhooks mitschreibt.
@@ -69,6 +71,7 @@ const SERVER_ENV: Record<string, string> = {
   // Besucher-IPs zu simulieren.
   TRUST_PROXY_HOPS: '1',
   CRON_SECRET: TEST_CRON_SECRET,
+  PIN_COOKIE_SECRET: TEST_PIN_COOKIE_SECRET,
   // Kein Mailversand: Reset-/Bestätigungs-Mails gehen nirgendwohin (die Tests lesen Tokens
   // aus der Datenbank bzw. legen sie dort selbst an).
   SMTP_HOST: '',

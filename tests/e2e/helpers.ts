@@ -4,7 +4,7 @@ import { expect, type APIResponse, type BrowserContext, type Page } from '@playw
 import { solvePowChallenge } from 'suite-kit/web'
 import { hashPassword } from '../../app/lib/password'
 import {
-  BASE_URL, FOREIGN_TOOL_BASE_URL, SEATING_PORT, TEST_POLL_SECRET, TEST_SEATING_BASE_URL, TEST_SEATING_SECRET,
+  BASE_URL, FOREIGN_TOOL_BASE_URL, SEATING_PORT, TEST_PIN_COOKIE_SECRET, TEST_POLL_SECRET, TEST_SEATING_BASE_URL, TEST_SEATING_SECRET,
   TEST_TIMELINE_BASE_URL, TEST_TIMELINE_SECRET, TIMELINE_PORT
 } from '../../playwright.config'
 
@@ -173,7 +173,10 @@ export async function plantGuestSession(context: BrowserContext, guestUser: Gues
 
 /** Setzt das Freischalt-Cookie einer Event- bzw. Reihen-PIN, wie es verifyEventPin tut. */
 export async function unlockPin(context: BrowserContext, cookieName: string, pin: string) {
-  await context.addCookies([{ name: cookieName, value: pin, domain: HOST, path: '/', httpOnly: true, sameSite: 'Lax' }])
+  // Das Cookie trägt nicht die PIN, sondern einen HMAC daraus (pinCookieValue in app/lib/pin.ts, gleicher Schlüssel)
+  const [, kind, id] = /^(event|series)_pin_(.+)$/.exec(cookieName)!
+  const value = createHmac('sha256', TEST_PIN_COOKIE_SECRET).update(`rsvp-pin\u0000${kind}\u0000${id}\u0000${pin}`).digest('base64url')
+  await context.addCookies([{ name: cookieName, value, domain: HOST, path: '/', httpOnly: true, sameSite: 'Lax' }])
 }
 
 /**

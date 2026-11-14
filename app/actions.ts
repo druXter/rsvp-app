@@ -8,7 +8,6 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { getCurrentGuestUser } from './lib/guest-auth'
 import { performRsvpSubmission, RsvpInputError } from './lib/rsvp-submission'
-import { cookies } from 'next/headers'
 import { clientIp, pinRules, refund, reserve } from './lib/throttle'
 import { notifyLinkedToolsBeforeDelete } from './lib/linked-tools-notify'
 import { verifyParticipantByToken, type VerifiedRsvp } from './lib/participant-verification'
@@ -19,6 +18,7 @@ import { parseBerlinDateTime } from './lib/rsvp-deadline'
 import { guestOfEvent, releaseWish, reserveWish } from './lib/wishlist-store'
 import { parseEuro, WishInputError } from './lib/wishlist'
 import { answerReconfirmation, type ReconfirmAnswer } from './lib/reconfirm-store'
+import { setPinCookie } from './lib/pin'
 
 
 /**
@@ -29,12 +29,15 @@ import { answerReconfirmation, type ReconfirmAnswer } from './lib/reconfirm-stor
  * abgeschickten Formulars, das ein Angreifer selbst befüllen könnte.
  *
  * Neue Antworten ohne Konto verlangen die Lösung des Bot-Schutzes (ProofOfWork im Formular, suite-kit) - sie
- * belegen Plätze und lösen Mails aus. Änderungen per Bearbeitungs-Link und Antworten mit Konto nicht.
+ * belegen Plätze und lösen Mails aus. Änderungen per Bearbeitungs-Link und Antworten mit Konto nicht. Der Link zählt
+ * nur, wenn es ihn gibt: Mit einem erfundenen editToken legt performRsvpSubmission eine NEUE Antwort an, die
+ * Ausnahme hinge sonst an einem beliebigen Formularfeld (docs/AUDIT-2026-11.md, R-05).
  */
 export async function submitRsvp(formData: FormData) {
   const editToken = (formData.get('editToken') as string) || null
   const guestUser = editToken ? null : await getCurrentGuestUser()
-  if (!editToken && !guestUser) {
+  const knownLink = !!editToken && !!(await prisma.participant.findUnique({ where: { editToken }, select: { id: true } }))
+  if (!knownLink && !guestUser) {
     const bot = powError(formData)
     if (bot) return { error: bot }
   }
@@ -91,8 +94,6 @@ export async function verifyEventPin(formData: FormData) {
   const pin = formData.get('pin') as string
   const slug = formData.get('slug') as string
 
-  const cookieStore = await cookies()
-
   // Drosselung VOR dem Vergleich (atomar reserviert, siehe app/lib/throttle.ts): PINs sind oft kurz und
   // ließen sich sonst in Minuten durchprobieren. Wer die PIN kennt, wird dadurch nicht behindert.
   const rules = pinRules(await clientIp(), (seriesId || eventId || 'unbekannt'))
@@ -105,7 +106,8 @@ export async function verifyEventPin(formData: FormData) {
     const series = await prisma.eventSeries.findUnique({ where: { id: seriesId } })
     if (series && matches(series.eventPin)) {
       await refund(rules[0])
-      cookieStore.set(`series_pin_${seriesId}`, pin, { maxAge: 60 * 60 * 24 * 30, httpOnly: true })
+      await refund(rules[1])
+      await setPinCookie('series', seriesId, pin)
       revalidatePath(`/reihe/${slug}`)
       return { success: true }
     }
@@ -115,8 +117,9 @@ export async function verifyEventPin(formData: FormData) {
   const event = await prisma.event.findUnique({ where: { id: eventId! } })
   if (event && matches(event.eventPin)) {
     await refund(rules[0])
-    // Cookie für 30 Tage setzen.
-    cookieStore.set(`event_pin_${eventId}`, pin, { maxAge: 60 * 60 * 24 * 30, httpOnly: true })
+    await refund(rules[1])
+    // Cookie für 30 Tage (abgeleiteter Wert, nicht die PIN selbst - app/lib/pin.ts)
+    await setPinCookie('event', eventId!, pin)
 
     // Seite neu laden, damit die Freischaltung greift
     revalidatePath(`/${slug}`)

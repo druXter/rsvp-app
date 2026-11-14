@@ -80,7 +80,7 @@ async function releaseSeat(rsvpId: string, data: { reconfirmLapsedAt: Date | nul
   await prisma.bringClaim.deleteMany({ where: { rsvpId } })
   notifyLinkedToolsOfRsvps([rsvpId])
   try {
-    await notifyPollOfAttendanceChange(rsvp.event, rsvp.participant.email, false)
+    await notifyPollOfAttendanceChange(rsvp.event, rsvp.participant, false)
   } catch (error) {
     console.error('Fehler bei der Abstimmungs-Benachrichtigung:', error)
   }

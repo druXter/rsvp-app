@@ -1,8 +1,8 @@
 // app/reihe/[seriesSlug]/page.tsx
+import { hasPinCookie } from '../../lib/pin'
 import { formatEventDate, isArchived } from '../../lib/event-date'
 import { prisma } from '../../lib/prisma'
 import { notFound } from 'next/navigation'
-import { cookies } from 'next/headers'
 import Link from 'next/link'
 import PinForm from '../../[slug]/pin-form'
 import InvitationGate from '../../[slug]/invitation-gate'
@@ -32,9 +32,7 @@ export default async function SeriesOverviewPage({
   // Zugangsprüfung über die reihenweite PIN
   let isAuthorized = true
   if (series.eventPin) {
-    const cookieStore = await cookies()
-    const pinCookie = cookieStore.get(`series_pin_${series.id}`)
-    if (pinCookie?.value !== series.eventPin) {
+    if (!(await hasPinCookie('series', series.id, series.eventPin))) {
       isAuthorized = false
     }
   }

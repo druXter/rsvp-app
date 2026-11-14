@@ -5,6 +5,7 @@
 //   node auskunft.js <adresse>                  alles zu dieser Adresse als JSON auf stdout
 //   node auskunft.js <adresse> --loeschen       zeigt, was gelöscht würde - ändert nichts
 //   node auskunft.js <adresse> --loeschen --ja  löscht
+//   ... --mit-unbestaetigten                      löscht auch Antworten, deren Adresse nie bestätigt wurde
 //
 // Docker: docker compose exec -T rsvp-app node auskunft.js anna@example.org
 // Für alle Tools auf einmal: suite-kit/scripts/auskunft.sh
@@ -15,6 +16,11 @@
 // (app/actions.ts, app/mein-konto/actions.ts): Antworten, Push-Abos und Identität; ein Teilnehmendenkonto samt
 // Sitzungen, Tokens und Freigaben. Anders als dort meldet das Skript verknüpften Tools nichts - es nennt sie in den
 // Hinweisen. Verwaltungskonten löscht es nie (an ihnen hängen Events), nur einen Hinweis.
+//
+// Unbestätigte Treffer: Eine Antwort ohne Konto und ohne Einladung, deren Adresse nie bestätigt wurde, kann ein
+// Dritter angelegt haben (Tippfehler oder Absicht) - dann gehören Name, Telefon und Allergien darin nicht der
+// anfragenden Person. Das Skript nennt solche Antworten in den Hinweisen und löscht sie nur mit --mit-unbestaetigten
+// (docs/AUDIT-2026-11.md, R-12).
 const { PrismaClient } = require('@prisma/client');
 
 const TOOL = 'rsvp-app';
@@ -81,7 +87,11 @@ async function collect(email) {
   });
   const messages = (await prisma.guestMessage.findMany({ select: { id: true, authorEmail: true, subject: true, createdAt: true } }))
     .filter(m => same(m.authorEmail, email));
-  return { users, guestUsers, participants, messages };
+  // Über ein Konto oder eine Einladung gefunden zählt als belegt (das Konto hat die Adresse bestätigt, die Einladung
+  // hat die Verwaltung adressiert); sonst nur eine selbst bestätigte Adresse.
+  const backed = new Set([...invitationParticipants])
+  const unconfirmed = participants.filter(p => !p.isVerified && !p.guestUserId && !backed.has(p.id));
+  return { users, guestUsers, participants, unconfirmed, messages };
 }
 
 const TOOL_LABEL = { seating: 'Seating', timeline: 'Zeitplan', shifts: 'Schichten', wichteln: 'Wichteln' };
@@ -110,6 +120,12 @@ async function main() {
   const hints = [];
   if (found.users.length) hints.push('Verwaltungskonto vorhanden: wird nicht automatisch gelöscht (daran hängen Events). Löschen über „Konten“ einer Admin-Person bzw. set-role.js; Events vorher übergeben oder löschen.');
   hints.push(...linkedHints(found.participants));
+  const withUnconfirmed = flags.includes('--mit-unbestaetigten');
+  if (found.unconfirmed.length) {
+    hints.push(`Unbestätigte Adresse: ${found.unconfirmed.length} Antwort(en) unter dieser Adresse wurden nie bestätigt (${found.unconfirmed.map(p => `„${p.name}“`).join(', ')}): ` +
+      'Die Adresse kann ein Dritter eingetippt haben - vor der Herausgabe prüfen, ob die Angaben der anfragenden Person gehören. ' +
+      (withUnconfirmed ? 'Sie werden mitgelöscht (--mit-unbestaetigten).' : 'Beim Löschen bleiben sie stehen, außer mit --mit-unbestaetigten.'));
+  }
 
   if (!erase) {
     console.log(JSON.stringify({
@@ -125,11 +141,14 @@ async function main() {
     return;
   }
 
-  const participantIds = found.participants.map(p => p.id);
+  const skipped = new Set(withUnconfirmed ? [] : found.unconfirmed.map(p => p.id));
+  const toDelete = found.participants.filter(p => !skipped.has(p.id));
+  const participantIds = toDelete.map(p => p.id);
   const guestUserIds = found.guestUsers.map(g => g.id);
   const plan = {
     identitaeten: participantIds.length,
-    antworten: found.participants.reduce((n, p) => n + p.rsvps.length, 0),
+    antworten: toDelete.reduce((n, p) => n + p.rsvps.length, 0),
+    unbestaetigtBehalten: skipped.size,
     teilnehmendenkonten: guestUserIds.length,
     nachrichtenAbsender: found.messages.length
   };

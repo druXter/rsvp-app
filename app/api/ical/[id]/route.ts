@@ -3,6 +3,7 @@ import { prisma } from '../../../lib/prisma'
 import { NextResponse } from 'next/server'
 import { buildEventIcs, ICS_CONTENT_TYPE } from '../../../lib/ics'
 import { hasEventPinAccess, tokenBelongsToEvent } from '../../../lib/pin'
+import { personalEventLink } from '../../../lib/mail'
 
 
 /**
@@ -32,7 +33,8 @@ export async function GET(
   // Titel, Ort, Beschreibung und Datum eines PIN-geschützten Events gehören zu dem, was die PIN schützt.
   // Die Event-ID steht als verstecktes Feld sogar im PIN-Formular. Erlaubt ist die Datei mit PIN-Cookie
   // ODER mit dem gültigen persönlichen Token dieses Termins (Link aus der Bestätigungs-Mail).
-  if (!(await hasEventPinAccess(event)) && !(await tokenBelongsToEvent(token, event))) {
+  const ownToken = await tokenBelongsToEvent(token, event)
+  if (!(await hasEventPinAccess(event)) && !ownToken) {
     return new NextResponse('Für dieses Event ist ein Zugangscode erforderlich.', { status: 403 })
   }
 
@@ -40,8 +42,10 @@ export async function GET(
   // ansonsten fallen wir auf die Request-URL zurück (für lokale Entwicklung)
   const baseUrl = process.env.BASE_URL || new URL(request.url).origin
 
-  // Persönlichen Bearbeitungslink generieren und an die Event-Beschreibung anhängen
-  const personalLink = token ? `\n\nAntwort nachträglich bearbeiten: ${baseUrl}/${event.slug}?token=${token}` : ''
+  // Persönlichen Bearbeitungslink an die Beschreibung anhängen - nur einen echten Link zu diesem Termin. Sonst
+  // lieferte /api/ical/<id>?token=<Text> eine echte Kalenderdatei von unserer Adresse mit fremdem Text darin
+  // (docs/AUDIT-2026-11.md, R-10).
+  const personalLink = ownToken ? `\n\nAntwort nachträglich bearbeiten: ${personalEventLink(event, { editToken: token! })}` : ''
   const fullDescription = (event.description || '') + personalLink
 
   const value = buildEventIcs(event, fullDescription, baseUrl)

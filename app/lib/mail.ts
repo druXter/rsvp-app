@@ -1,7 +1,7 @@
 // app/lib/mail.ts
 import { renderMail } from 'suite-kit/web'
 import {
-  accountInviteMail, confirmationMail, emailChangeMail, eventUpdatedMail, feedbackMail, guestMessageMail, guestVerificationMail, invitationMail, maybeDeclinedMail,
+  accountInviteMail, confirmationMail, emailChangeMail, eventUpdatedMail, feedbackMail, guestMessageMail, guestVerificationMail, guestAccountExistsMail, invitationMail, maybeDeclinedMail,
   maybeReminderMail, maybeVerificationMail, passwordResetMail,
   paymentCancelledMail, paymentReceivedMail, paymentReminderMail, reconfirmLapsedMail, reconfirmRequestMail, reminderMail, verificationMail, waitlistMail, waitlistPromotedMail,
   type MailContent, type SeriesHint
@@ -42,7 +42,7 @@ const baseUrl = () => process.env.BASE_URL || 'http://localhost:3000'
  * Exportiert, damit auch Gast-Push-Benachrichtigungen (siehe app/lib/push.ts,
  * sendPushToParticipant) auf denselben Link verweisen können wie die zugehörige E-Mail.
  */
-export function personalEventLink(event: EventWithSeries, participant: Participant) {
+export function personalEventLink(event: EventWithSeries, participant: Pick<Participant, 'editToken'>) {
   if (event.series) {
     return `${baseUrl()}/reihe/${event.series.slug}/${event.slug}?token=${participant.editToken}`
   }
@@ -258,6 +258,11 @@ export async function sendReconfirmLapsedEmail(participant: Participant, event: 
 export async function sendGuestVerificationEmail(guestUser: GuestUser, contextTitle: string | null, next: string | null | undefined, token: string) {
   const link = `${baseUrl()}/mein-konto/verify?token=${token}${next ? `&next=${encodeURIComponent(next)}` : ''}`
   return tryDeliver(guestUser.email, guestVerificationMail({ name: guestUser.name, contextTitle, link }), 'Konto-Bestätigung')
+}
+
+/** Registrierung mit einer Adresse, die schon ein Konto hat (registerGuestUser, R-11). */
+export async function sendGuestAccountExistsEmail(guestUser: GuestUser) {
+  return tryDeliver(guestUser.email, guestAccountExistsMail({ name: guestUser.name, link: `${baseUrl()}/mein-konto/forgot-password` }), 'Konto-vorhanden-Mail')
 }
 
 /** Einladung eines Teilnehmendenkontos zu einem Termin (app/lib/guest-invites.ts). */
