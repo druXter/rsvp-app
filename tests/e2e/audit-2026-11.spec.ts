@@ -1,10 +1,11 @@
 import { execFileSync } from 'node:child_process'
 import { createServer, type Server } from 'node:http'
 import { expect, test, type Page, type Request as BrowserRequest } from '@playwright/test'
-import { TEST_ABSTIMMUNGSTOOL_BASE_URL } from '../../playwright.config'
+import { TEST_ABSTIMMUNGSTOOL_BASE_URL, TEST_CRON_SECRET } from '../../playwright.config'
+import { hashToken } from '../../app/lib/tokens'
 import {
   BASE_URL, cookieHeader, createAccount, createApiToken, createEvent, createGuestUser, createRsvp, createSeries, createTermin, decodeCouplingToken,
-  locationOf, plantGuestSession, powSolution, prisma, readForm, submitForm, unique, uniqueEmail, uniqueIp
+  locationOf, login, plantGuestSession, powSolution, prisma, readForm, submitForm, unique, uniqueEmail, uniqueIp
 } from './helpers'
 
 // Sicherheitsprüfung November 2026 (docs/AUDIT-2026-11.md): je Fund ein Test mit der Kennung im Titel. Jeder beginnt
@@ -362,4 +363,131 @@ test('R-13 Freitext der Antwort: überlange Angaben werden nicht gespeichert', a
   // Name, Telefon und Allergien) - gespeichert wird, was in die Anfrage passt (API 100 kB, Formular 2 MB).
   await request.post(`/api/v1/termine/${termin.id}/antwort`, { headers, data: { isAttending: true, additionalInfo: 'x'.repeat(90_000) } })
   expect((await info())!.length).toBeLessThanOrEqual(5_000)
+})
+
+// Nachtrag (TODO.md, aus „Beobachtungen ohne Fund“): umgesetzt nach der Behebung, gleiche Form - Gegenprobe, dann der Fall.
+
+test('Nachtrag: ein persönlicher Link eines anderen Termins zählt wie keiner', async ({ page }) => {
+  const owner = await createAccount('CREATOR')
+  const seriesA = await createSeries(owner)
+  const { participant: foreign } = await createRsvp(await createTermin(seriesA), { name: 'Anna aus A' })
+  const seriesB = await createSeries(owner)
+  const terminB = await createTermin(seriesB)
+  const pathB = `/reihe/${seriesB.slug}/${terminB.slug}`
+  const named = (name: string) => prisma.participant.count({ where: { name } })
+
+  // Die Seite von B zeigt mit dem Link aus A nicht dessen Angaben, sondern ein leeres Formular
+  await page.goto(`${pathB}?token=${foreign.editToken}`)
+  await expect(page.getByLabel('Dein Name')).toHaveValue('')
+
+  // Gegenprobe: eine neue Antwort ohne Link
+  const captured = await captureAnswer(page, pathB, { name: 'Neu in B' })
+  await expect(page.getByText('Danke für deine Anmeldung!')).toBeVisible()
+  const own = await prisma.participant.findFirstOrThrow({ where: { name: 'Neu in B' } })
+  const withToken = (name: string, token: string, pow: string, eventId = terminB.id) =>
+    addField(captured, setField(setField(setField(captured.body, 'name', name), 'pow', pow), 'eventId', eventId), 'editToken', token)
+
+  // Mit dem Link aus A: eine eigene, neue Antwort in B - der Participant aus A bleibt, wo er ist
+  await replay(page, captured, withToken('Mit fremdem Link', foreign.editToken, await powSolution(page)))
+  expect(await named('Mit fremdem Link')).toBe(1)
+  expect(await prisma.participant.findUniqueOrThrow({ where: { id: foreign.id } })).toMatchObject({ name: 'Anna aus A', seriesId: seriesA.id })
+  expect(await prisma.rsvp.count({ where: { eventId: terminB.id, participantId: foreign.id } })).toBe(0)
+  // ... und er erspart den Bot-Schutz nicht
+  await replay(page, captured, withToken('Fremd ohne Loesung', foreign.editToken, ''))
+  expect(await named('Fremd ohne Loesung')).toBe(0)
+
+  // Positivkontrolle: der eigene Link von B gilt auf einem weiteren Termin von B, ohne Lösung, für denselben Participant
+  const terminB2 = await createTermin(seriesB)
+  await page.goto(`/reihe/${seriesB.slug}/${terminB2.slug}?token=${own.editToken}`)
+  await expect(page.getByLabel('Dein Name')).toHaveValue('Neu in B')
+  await replay(page, captured, withToken('Neu in B', own.editToken, '', terminB2.id))
+  expect(await prisma.rsvp.count({ where: { eventId: terminB2.id, participantId: own.id } })).toBe(1)
+})
+
+test('Nachtrag: unbestätigte Teilnehmendenkonten verfallen nach 7 Tagen', async ({ page, request }) => {
+  const eightDaysAgo = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000)
+  const withLink = async (options: { verified?: boolean; createdAt?: Date } = {}) => {
+    const plain = unique() + unique()
+    const guest = await createGuestUser({ verified: options.verified ?? false })
+    await prisma.guestUser.update({ where: { id: guest.id }, data: { verifyToken: hashToken(plain), ...(options.createdAt ? { createdAt: options.createdAt } : {}) } })
+    return { guest, path: `/mein-konto/verify?token=${plain}` }
+  }
+  const fresh = await withLink()
+  const expired = await withLink({ createdAt: eightDaysAgo })
+  const verifiedOld = await withLink({ verified: true, createdAt: eightDaysAgo })
+  const answered = await withLink({ createdAt: eightDaysAgo })
+  await createRsvp(await createEvent(await createAccount()), { guestUserId: answered.guest.id })
+
+  // Gegenprobe: ein frischer Link zeigt den Knopf; ein abgelaufener nicht mehr
+  await page.goto(fresh.path)
+  await expect(page.getByRole('button', { name: /bestätigen/i })).toBeVisible()
+  await page.goto(expired.path)
+  await expect(page.getByRole('heading', { name: /^Ungültiger Link/ })).toBeVisible()
+
+  // Eine neue Registrierung mit einer abgelaufenen Adresse ersetzt das alte Konto, statt „gibt es schon“ zu schicken
+  const replaced = await withLink({ createdAt: eightDaysAgo })
+  await page.goto('/mein-konto/registrieren')
+  const form = await readForm(page, 'form:has(input[name="password"])')
+  expect(locationOf(await submitForm(page, form, { name: 'Neu', email: replaced.guest.email, password: 'ein sicheres Passwort' }))?.pathname).toBe('/mein-konto/login')
+  const now = await prisma.guestUser.findUniqueOrThrow({ where: { email: replaced.guest.email } })
+  expect(now.id).not.toBe(replaced.guest.id)
+  expect(now).toMatchObject({ name: 'Neu', isVerified: false })
+
+  // Der Cron löscht nur unbestätigte Konten über 7 Tage ohne Antworten
+  expect((await request.get(`/api/cron/cleanup?secret=${TEST_CRON_SECRET}`)).status()).toBe(200)
+  const exists = async (id: string) => (await prisma.guestUser.count({ where: { id } })) === 1
+  expect(await exists(expired.guest.id)).toBe(false)
+  expect(await exists(fresh.guest.id)).toBe(true)
+  expect(await exists(verifiedOld.guest.id)).toBe(true)
+  expect(await exists(answered.guest.id)).toBe(true)
+})
+
+test('Nachtrag: ein angelegtes Verwaltungskonto bestätigt seine Adresse, bevor rsvp-app im Verbund für es bürgt', async ({ browser, page, request }) => {
+  const admin = await createAccount('ADMIN')
+  const adminPage = await browser.newPage()
+  await login(adminPage, admin.email)
+  await adminPage.goto('/admin/create-user')
+  const create = await readForm(adminPage, 'form:has(input[name="password"])')
+  const password = 'ein sicheres Passwort für neue Konten'
+  const create1 = async () => {
+    const email = uniqueEmail('neu')
+    await submitForm(adminPage, create, { email, password, role: 'CREATOR' })
+    return prisma.user.findUniqueOrThrow({ where: { email } })
+  }
+
+  // Gegenprobe: bestehende Konten gelten als bestätigt; ein neu angelegtes nicht, mit Bestätigungslink
+  expect(admin.emailVerified).toBe(true)
+  const fresh = await create1()
+  expect(fresh.emailVerified).toBe(false)
+  expect(fresh.emailVerifyToken).not.toBeNull()
+  const plain = unique() + unique()
+  await prisma.user.update({ where: { id: fresh.id }, data: { emailVerifyToken: hashToken(plain) } })
+
+  // Hinweis in den Konto-Einstellungen; Anmelden geht trotzdem
+  await login(page, fresh.email, password)
+  await page.goto('/admin/account')
+  await expect(page.getByTestId('email-unverified')).toBeVisible()
+
+  // Aufruf des Links (Mail-Scanner) bestätigt nichts, erst der Klick
+  const path = `/admin/verify-email?token=${plain}`
+  expect((await request.get(path)).status()).toBe(200)
+  expect((await prisma.user.findUniqueOrThrow({ where: { id: fresh.id } })).emailVerified).toBe(false)
+  await page.goto(path)
+  await page.getByRole('button', { name: 'Adresse jetzt bestätigen' }).click()
+  await expect(page.getByRole('heading', { name: 'Adresse bestätigt' })).toBeVisible()
+  expect(await prisma.user.findUniqueOrThrow({ where: { id: fresh.id } })).toMatchObject({ emailVerified: true, emailVerifyToken: null })
+  await page.goto(path)
+  await expect(page.getByRole('heading', { name: /^Ungültiger Link/ })).toBeVisible()
+  await page.goto('/admin/account')
+  await expect(page.getByTestId('email-unverified')).toHaveCount(0)
+
+  // Ein Passwort-Reset per Mail-Link beweist die Adresse ebenfalls
+  const other = await create1()
+  const reset = unique() + unique()
+  await prisma.user.update({ where: { id: other.id }, data: { resetToken: hashToken(reset), resetTokenExpiresAt: new Date(Date.now() + 60 * 60 * 1000) } })
+  const resetPage = await browser.newPage()
+  await resetPage.goto(`/admin/reset-password?token=${reset}`)
+  const resetForm = await readForm(resetPage, 'form:has(input[name="password"])')
+  await submitForm(resetPage, resetForm, { password: 'ein ganz neues sicheres Passwort' })
+  expect(await prisma.user.findUniqueOrThrow({ where: { id: other.id } })).toMatchObject({ emailVerified: true, emailVerifyToken: null })
 })

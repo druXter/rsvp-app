@@ -5,6 +5,7 @@
 // (scripts/mail-preview.ts) und die Unit-Tests rufen dieselben Funktionen mit Beispieldaten auf. Kein eigenes HTML -
 // die Bausteine escapen jeden Text selbst.
 import type { Mail, MailBlock, MailText } from 'suite-kit/web'
+import { UNVERIFIED_GUEST_ACCOUNT_DAYS } from './guest-retention'
 
 export type MailContent = { subject: string; mail: Mail }
 
@@ -151,7 +152,7 @@ export function guestVerificationMail(input: { name: string; contextTitle: strin
         : { kind: 'p', text: 'du hast dir ein Teilnehmendenkonto angelegt. Nach der Bestätigung kannst du dich anmelden und siehst unter „Mein Konto“ deine Termine, ohne dir Links merken oder Angaben erneut eintragen zu müssen.' },
       { kind: 'button', label: 'Konto bestätigen', href: input.link }
     ],
-    { footer: 'Falls du kein Konto angelegt hast, kannst du diese Mail ignorieren.' }
+    { footer: `Der Link gilt ${UNVERIFIED_GUEST_ACCOUNT_DAYS} Tage. Falls du kein Konto angelegt hast, bestätige nicht - ignoriere diese Mail, das Konto wird dann nach ${UNVERIFIED_GUEST_ACCOUNT_DAYS} Tagen gelöscht.` }
   )
 }
 
@@ -206,6 +207,25 @@ export function passwordResetMail(input: { name: string | null; email: string; l
 }
 
 /** Bestätigung einer neuen Adresse (geht an die NEUE Adresse). */
+/**
+ * Ein Verwaltungskonto wurde für diese Adresse angelegt (createUser) - Bitte um Bestätigung. Bis dahin bestätigt
+ * rsvp-app das Konto keinem anderen Tool der Suite gegenüber. Kein Passwort in der Mail: Das gibt, wer das Konto
+ * angelegt hat, selbst weiter.
+ */
+export function accountEmailVerifyMail(input: { link: string; loginLink: string }): MailContent {
+  return mail(
+    'Bitte bestätige die Adresse deines Verwaltungskontos',
+    'Adresse bestätigen',
+    [
+      { kind: 'p', text: 'Hallo,' },
+      { kind: 'p', text: 'für diese Adresse wurde ein Verwaltungskonto angelegt. Das Passwort bekommst du von der Person, die es angelegt hat. Bitte bestätige, dass dies deine Adresse ist - erst dann meldet dich das Konto auch bei anderen Tools der Suite an.' },
+      { kind: 'button', label: 'Adresse bestätigen', href: input.link },
+      { kind: 'p', text: ['Anmelden: ', { link: input.loginLink, href: input.loginLink }] }
+    ],
+    { footer: 'Falls du damit nichts zu tun hast, bestätige nicht und ignoriere diese Mail.' }
+  )
+}
+
 export function emailChangeMail(input: { name: string | null; currentEmail: string; link: string }): MailContent {
   return mail(
     'Neue E-Mail-Adresse bestätigen',

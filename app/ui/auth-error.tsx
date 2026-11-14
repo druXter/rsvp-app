@@ -9,6 +9,7 @@ const MESSAGES: Record<string, string> = {
   email: 'Bitte gib eine gültige E-Mail-Adresse ein.',
   invalidemail: 'Bitte gib eine gültige E-Mail-Adresse ein.',
   nopassword: 'Für dieses Konto ist kein Passwort hinterlegt - die Anmeldung läuft über ein anderes Tool.',
+  unverified: 'Deine E-Mail-Adresse ist noch nicht bestätigt - erst danach meldet dich dieses Konto bei anderen Tools an. Den Link findest du in der Mail zu deinem Konto, oder lass ihn dir unten neu schicken.',
   nochain: 'Dieses Konto wird über ein anderes Tool angemeldet und kann hier keine Anmeldung für weitere Tools bestätigen.',
   lastlogin: 'Das ist deine einzige Anmeldemöglichkeit. Lege erst ein Passwort fest, bevor du sie entfernst.',
   sso: 'Die Anmeldung über das andere Tool ist fehlgeschlagen. Bitte versuche es erneut.',

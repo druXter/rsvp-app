@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { loginRedirectIdp, shouldAutoRedirect } from '../../app/lib/suite'
+import { loginRedirectIdp, shouldAutoRedirect, vouchRefusal } from '../../app/lib/suite'
 
 describe('shouldAutoRedirect (Login-Seite direkt zum bevorzugten Anbieter)', () => {
   it('leitet beim schlichten Aufruf weiter, auch mit next', () => {
@@ -39,5 +39,14 @@ describe('loginRedirectIdp (SUITE_LOGIN_REDIRECT)', () => {
     expect(fresh()).toBeNull()
     expect(warn).toHaveBeenCalledOnce()
     warn.mockRestore()
+  })
+})
+
+describe('vouchRefusal (für wen rsvp-app als Anbieter bürgt)', () => {
+  it('nur Konten mit Passwort und bestätigter Adresse', () => {
+    expect(vouchRefusal({ passwordHash: 'h', emailVerified: true })).toBeNull()
+    expect(vouchRefusal({ passwordHash: null, emailVerified: true })).toBe('nochain')
+    // Von createUser angelegt, Adresse von jemand anderem eingetragen und nie bestätigt
+    expect(vouchRefusal({ passwordHash: 'h', emailVerified: false })).toBe('unverified')
   })
 })

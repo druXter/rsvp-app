@@ -1,6 +1,8 @@
 // app/mein-konto/actions.ts
 'use server'
 
+import { unverifiedGuestCutoff } from '../lib/guest-retention'
+import { deleteGuestUsers } from '../lib/guest-retention-store'
 import { RSVP_LIMITS } from '../lib/rsvp-input'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
@@ -87,7 +89,13 @@ export async function registerGuestUser(formData: FormData) {
   // bekommt stattdessen eine Mail mit dem Weg über "Passwort vergessen". Das Passwort wird auch dann gehasht, damit
   // die Antwortzeit gleich bleibt.
   const passwordHash = await hashPassword(password)
-  const existing = await prisma.guestUser.findUnique({ where: { email } })
+  let existing = await prisma.guestUser.findUnique({ where: { email }, include: { _count: { select: { participants: true } } } })
+  // Eine abgelaufene, nie bestätigte Registrierung (app/lib/guest-retention.ts) blockiert die Adresse nicht bis zum
+  // nächsten Cron-Lauf: Sie wird ersetzt, als gäbe es sie nicht.
+  if (existing && !existing.isVerified && existing.createdAt < unverifiedGuestCutoff() && existing._count.participants === 0) {
+    await deleteGuestUsers([existing.id])
+    existing = null
+  }
   if (existing) {
     try {
       await sendGuestAccountExistsEmail(existing)
@@ -488,8 +496,9 @@ export async function confirmGuestAccount(formData: FormData) {
   const nextParam = typeof next === 'string' && next ? `&next=${encodeURIComponent(next)}` : ''
   if (typeof token !== 'string' || !token) redirect('/mein-konto/verify?error=invalid')
 
+  // Abgelaufene Registrierungen (app/lib/guest-retention.ts) bestätigt der Link nicht mehr, auch bevor der Cron sie löscht
   const claimed = await prisma.guestUser.updateMany({
-    where: { verifyToken: hashToken(token) },
+    where: { verifyToken: hashToken(token), createdAt: { gte: unverifiedGuestCutoff() } },
     data: { isVerified: true, verifiedAt: new Date(), verifyToken: null }
   })
   if (claimed.count !== 1) redirect('/mein-konto/verify?error=invalid')

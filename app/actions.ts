@@ -19,6 +19,7 @@ import { guestOfEvent, releaseWish, reserveWish } from './lib/wishlist-store'
 import { parseEuro, WishInputError } from './lib/wishlist'
 import { answerReconfirmation, type ReconfirmAnswer } from './lib/reconfirm-store'
 import { setPinCookie } from './lib/pin'
+import { participantForLink } from './lib/edit-link'
 
 
 /**
@@ -30,13 +31,18 @@ import { setPinCookie } from './lib/pin'
  *
  * Neue Antworten ohne Konto verlangen die Lösung des Bot-Schutzes (ProofOfWork im Formular, suite-kit) - sie
  * belegen Plätze und lösen Mails aus. Änderungen per Bearbeitungs-Link und Antworten mit Konto nicht. Der Link zählt
- * nur, wenn es ihn gibt: Mit einem erfundenen editToken legt performRsvpSubmission eine NEUE Antwort an, die
- * Ausnahme hinge sonst an einem beliebigen Formularfeld (docs/AUDIT-2026-11.md, R-05).
+ * nur, wenn es ihn für DIESEN Termin gibt: Mit einem erfundenen oder fremden editToken legt performRsvpSubmission eine
+ * NEUE Antwort an, die Ausnahme hinge sonst an einem beliebigen Formularfeld (docs/AUDIT-2026-11.md, R-05).
  */
 export async function submitRsvp(formData: FormData) {
-  const editToken = (formData.get('editToken') as string) || null
+  const eventId = formData.get('eventId') as string
+  const sentToken = (formData.get('editToken') as string) || null
+  // Ein Link zählt nur für seinen Termin (app/lib/edit-link.ts); ein fremder wie keiner - dann antwortet ein
+  // angemeldetes Konto mit sich selbst, alle anderen lösen den Bot-Schutz wie bei einer neuen Antwort.
+  const event = sentToken && eventId ? await prisma.event.findUnique({ where: { id: eventId }, select: { id: true, seriesId: true, inviteOnly: true } }) : null
+  const knownLink = !!event && !!(await participantForLink(sentToken, event))
+  const editToken = knownLink ? sentToken : null
   const guestUser = editToken ? null : await getCurrentGuestUser()
-  const knownLink = !!editToken && !!(await prisma.participant.findUnique({ where: { editToken }, select: { id: true } }))
   if (!knownLink && !guestUser) {
     const bot = powError(formData)
     if (bot) return { error: bot }
@@ -45,7 +51,7 @@ export async function submitRsvp(formData: FormData) {
   try {
     return await performRsvpSubmission(
       {
-        eventId: formData.get('eventId') as string,
+        eventId,
         editToken,
         name: formData.get('name') as string,
         isAttending: formData.get('isAttending') === 'true',

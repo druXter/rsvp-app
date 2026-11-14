@@ -1,7 +1,7 @@
 // app/lib/mail.ts
 import { renderMail } from 'suite-kit/web'
 import {
-  accountInviteMail, confirmationMail, emailChangeMail, eventUpdatedMail, feedbackMail, guestMessageMail, guestVerificationMail, guestAccountExistsMail, invitationMail, maybeDeclinedMail,
+  accountInviteMail, confirmationMail, accountEmailVerifyMail, emailChangeMail, eventUpdatedMail, feedbackMail, guestMessageMail, guestVerificationMail, guestAccountExistsMail, invitationMail, maybeDeclinedMail,
   maybeReminderMail, maybeVerificationMail, passwordResetMail,
   paymentCancelledMail, paymentReceivedMail, paymentReminderMail, reconfirmLapsedMail, reconfirmRequestMail, reminderMail, verificationMail, waitlistMail, waitlistPromotedMail,
   type MailContent, type SeriesHint
@@ -296,6 +296,13 @@ export async function sendPasswordResetEmail(user: User, token: string) {
  * Geht an die NEUE Adresse - erst der Klick macht die Änderung wirksam. Auch für Konten mit Admin-Rolle sicher: Der
  * Vorgang wurde bereits mit aktiver Sitzung UND aktuellem Passwort ausgelöst.
  */
+/** Bitte um Bestätigung der Adresse eines neu angelegten Verwaltungskontos (createUser, erneut von /admin/account). */
+export async function sendAccountEmailVerification(user: Pick<User, 'email'>, token: string) {
+  return tryDeliver(user.email, accountEmailVerifyMail({
+    link: `${baseUrl()}/admin/verify-email?token=${token}`, loginLink: `${baseUrl()}/admin/login`
+  }), 'Bestätigung der Adresse eines Verwaltungskontos')
+}
+
 export async function sendEmailChangeConfirmation(user: User, token: string) {
   return tryDeliver(user.pendingEmail!, emailChangeMail({
     name: null, currentEmail: user.email, link: `${baseUrl()}/admin/confirm-email?token=${token}`

@@ -2,7 +2,7 @@
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '../../lib/auth'
 import { ROLE_LABELS } from '../../lib/permissions'
-import { changePassword, requestEmailChange, cancelEmailChange, unlinkIdentity, linkGuestAccount, unlinkGuestAccount, createAdminApiToken, revokeAdminApiToken } from '../actions'
+import { changePassword, requestEmailChange, cancelEmailChange, resendAccountEmailVerification, unlinkIdentity, linkGuestAccount, unlinkGuestAccount, createAdminApiToken, revokeAdminApiToken } from '../actions'
 import { cookies } from 'next/headers'
 import { NEW_ADMIN_API_TOKEN_COOKIE } from '../../lib/api-auth'
 import { getCurrentGuestUser } from '../../lib/guest-auth'
@@ -29,7 +29,7 @@ const GUEST_LINK_ERRORS: Record<string, string> = {
 export default async function AccountPage({
   searchParams
 }: {
-  searchParams: Promise<{ error?: string; passwordChanged?: string; emailChangeRequested?: string; linked?: string; unlinked?: string; guestLinked?: string; guestUnlinked?: string; tokenCreated?: string; tokenRevoked?: string }>
+  searchParams: Promise<{ error?: string; passwordChanged?: string; emailChangeRequested?: string; linked?: string; unlinked?: string; guestLinked?: string; guestUnlinked?: string; tokenCreated?: string; tokenRevoked?: string; verifySent?: string }>
 }) {
   const user = await getCurrentUser()
   if (!user) redirect('/admin/login')
@@ -84,6 +84,19 @@ export default async function AccountPage({
         )}
         {unlinked && (
           <div className="p-3 bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 text-sm rounded">Verknüpfung entfernt.</div>
+        )}
+
+        {!user.emailVerified && (
+          <div className="bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 p-4 rounded-lg space-y-2" data-testid="email-unverified">
+            <p className="text-sm text-yellow-800 dark:text-yellow-300">
+              {params.verifySent === '1'
+                ? <>Bestätigungslink an <strong>{user.email}</strong> gesendet.</>
+                : <>Deine Adresse <strong>{user.email}</strong> ist noch nicht bestätigt. Bis dahin meldet dich dieses Konto nicht bei anderen Tools der Suite an; hier funktioniert alles.</>}
+            </p>
+            <form action={resendAccountEmailVerification}>
+              <button type="submit" className="text-xs text-yellow-700 dark:text-yellow-400 hover:text-yellow-900 dark:hover:text-yellow-200 underline">Bestätigungslink erneut senden</button>
+            </form>
+          </div>
         )}
 
         {user.pendingEmail && (

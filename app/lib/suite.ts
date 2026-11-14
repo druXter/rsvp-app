@@ -113,3 +113,14 @@ export function shouldAutoRedirect(params: Record<string, string | string[] | un
   if (Object.entries(params).some(([key, value]) => key !== 'next' && value !== undefined)) return false
   return !target.startsWith('/api/suite/')
 }
+
+/**
+ * Ob rsvp-app als Anbieter für ein Verwaltungskonto bürgen darf (/api/suite/authorize), sonst der Fehlercode für
+ * /admin/account: `nochain` für rein föderierte Konten (keine Vertrauensketten), `unverified` für eine Adresse, die
+ * jemand anderes eingetragen und niemand bestätigt hat (createUser, User.emailVerified).
+ */
+export function vouchRefusal(user: { passwordHash: string | null; emailVerified: boolean }): 'nochain' | 'unverified' | null {
+  if (!user.passwordHash) return 'nochain'
+  if (!user.emailVerified) return 'unverified'
+  return null
+}

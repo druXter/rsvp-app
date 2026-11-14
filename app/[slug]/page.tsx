@@ -3,6 +3,7 @@ import { hasPinCookie } from '../lib/pin'
 import { participantForForm, rsvpForForm } from '../lib/guest-form'
 import { Prisma } from '@prisma/client'
 import { prisma } from '../lib/prisma'
+import { participantForLink } from '../lib/edit-link'
 import { notFound, redirect } from 'next/navigation'
 import RsvpForm from './rsvp-form'
 import PinForm from './pin-form'
@@ -98,17 +99,17 @@ export default async function EventPage({
   }
 
   // 2. Token aus der URL auslesen und bestehenden Participant + dessen Antwort zu diesem Termin laden
-  const token = typeof currentSearchParams?.token === 'string' ? currentSearchParams.token : undefined
+  // Ein Link eines anderen Termins zählt wie keiner (app/lib/edit-link.ts) - dann gilt die Gast-Session bzw. das leere Formular
+  const linked = await participantForLink(typeof currentSearchParams?.token === 'string' ? currentSearchParams.token : null, event)
+  const token = linked ? linked.editToken : undefined
   let participant = null
   let existingRsvp = null
 
-  if (token) {
-    participant = await prisma.participant.findUnique({ where: { editToken: token } })
-    if (participant) {
-      existingRsvp = await prisma.rsvp.findUnique({
-        where: { eventId_participantId: { eventId: event.id, participantId: participant.id } }
-      })
-    }
+  if (linked) {
+    participant = linked
+    existingRsvp = await prisma.rsvp.findUnique({
+      where: { eventId_participantId: { eventId: event.id, participantId: linked.id } }
+    })
   } else if (!event.inviteOnly) {
     // Wer angemeldet ist, antwortet immer mit seinem Konto (performRsvpSubmission) - im Einladungsmodus zählt nur der
     // persönliche Link. "Nur registrierte Teilnehmer": ohne editToken MUSS eine eingeloggte Gast-Session vorliegen,

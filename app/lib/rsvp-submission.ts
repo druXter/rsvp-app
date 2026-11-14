@@ -31,6 +31,7 @@ import { singleLine } from 'suite-kit/web'
 import { isSingleEmail, RSVP_LIMITS, tooLongField } from './rsvp-input'
 import { clientIp, emailChangeRules, reserve } from './throttle'
 import { withEventLock } from './event-lock'
+import { participantForLink } from './edit-link'
 
 
 /**
@@ -118,7 +119,7 @@ export async function performRsvpSubmission(
   guestUserCandidate: GuestUser | null
 ) {
   const {
-    eventId, editToken,
+    eventId, editToken: sentEditToken,
     phone = null, dietaryOption = null, allergies = null, emailInput: rawEmailInput = null,
     drinksAlcohol = null, additionalInfo = null, declineReason = null,
     bringingItem = null
@@ -130,6 +131,11 @@ export async function performRsvpSubmission(
     include: { series: true, toolLinks: TOOL_LINKS, ticketCategories: true, menuCourses: { orderBy: { position: 'asc' } } }
   })
   if (!event) throw new Error('Event nicht gefunden')
+
+  // Ein persönlicher Link zählt nur für seinen eigenen Termin bzw. seine Reihe (app/lib/edit-link.ts) - ein fremder
+  // wie keiner: Es entsteht eine eigene Antwort, statt den Participant eines anderen Termins umzuhängen.
+  const linkedParticipant = await participantForLink(sentEditToken, event)
+  const editToken = linkedParticipant ? sentEditToken : null
 
   // Die PIN wurde früher nur beim Rendern der Seite geprüft - jeder, der die Event-ID kannte, konnte
   // die Server Action direkt aufrufen und die PIN umgehen (siehe app/lib/pin.ts).
@@ -172,7 +178,7 @@ export async function performRsvpSubmission(
   }
 
   const existingParticipant = editToken
-    ? await prisma.participant.findUnique({ where: { editToken } })
+    ? linkedParticipant
     : guestUser
       // Reihe: reihenweite Identität des Kontos; Einzel-Event: die mit einer Antwort auf GENAU dieses Event. Eine
       // frühere Antwort ohne Konto mit der Adresse des Kontos wird dabei übernommen (app/lib/account-participant.ts).

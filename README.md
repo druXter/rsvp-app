@@ -600,6 +600,13 @@ Gilt für Verwaltungskonten (`/admin/login`) **und** Teilnehmendenkonten (`/mein
 * **Kapazität** wird pro Termin unter einer Sperre geprüft und vergeben (`app/lib/event-lock.ts`): Gleichzeitige
   Zusagen bekommen zusammen nie mehr feste Plätze, als es gibt. Die Sperre lebt im Prozess - rsvp-app läuft als ein
   Node-Prozess auf einer SQLite-Datei.
+* **Persönlicher Link** (`?token=`, `editToken`) zählt nur für seinen eigenen Termin bzw. seine Reihe
+  (`app/lib/edit-link.ts`); bei einem Einladungstermin nur, wenn die Einladung ihn abdeckt. Ein Link eines anderen
+  Termins wirkt wie keiner: Die Seite zeigt das leere Formular (bzw. das angemeldete Konto), eine Antwort wird eine
+  eigene neue (mit Bot-Schutz) - früher hing sie am fremden Participant und schrieb dessen Reihe um.
+* **Unbestätigte Teilnehmendenkonten** werden 7 Tage nach der Registrierung gelöscht (Cron `/api/cron/cleanup`), so
+  lange gilt ihr Bestätigungslink. Eine neue Registrierung mit derselben Adresse ersetzt ein abgelaufenes sofort. Ein
+  Konto unter fremder Adresse blockiert die Adresse damit nicht mehr dauerhaft.
 * **Gästeseiten** geben an das Antwort-Formular (Client-Komponente) nur eine feste Auswahl an Feldern
   (`app/lib/guest-form.ts`) - Props von Client-Komponenten stehen vollständig im Quelltext der Seite, eine ganze
   Datenbankzeile brächte z. B. den Bestätigungs-Token mit.
@@ -634,6 +641,12 @@ Anbieter und Empfänger, und jedes bleibt mit eigenen Konten vollständig allein
   die zuvor bewusst verknüpft wurden. Rollen gibt der Empfänger, nie der Anbieter (`mapAdminRole`, Standard: aus).
 * Konten ohne Passwort (nur über ein anderes Tool angemeldet) können sich nicht per Passwort anmelden und bestätigen selbst
   keine Anmeldung für weitere Tools (keine Ketten).
+* Ein über "+ Konto anlegen" erstelltes Konto bestätigt rsvp-app anderen Tools erst, wenn seine Adresse bestätigt ist
+  (Link per Mail an die neue Adresse, `/admin/verify-email`; ein Passwort-Reset per Mail oder eine bestätigte
+  E-Mail-Änderung zählt auch). Die Adresse trägt dort jemand anderes ein - ungeprüft ließe sich so in einem anderen
+  Tool ein Konto unter fremder Adresse belegen. Anmelden geht sofort; bis dahin zeigen "⚙️ Konto-Einstellungen" einen
+  Hinweis mit "Bestätigungslink erneut senden", die Nutzerverwaltung "Adresse unbestätigt". Bestehende Konten und per
+  `create-user.js` angelegte gelten als bestätigt.
 
 ### Teilnehmendenkonten im Verbund (rsvp-app als Anbieter)
 

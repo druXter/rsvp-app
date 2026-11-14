@@ -15,7 +15,7 @@ const PRIVATE = [
 ]
 // Einteilige Seiten des Tools und alles Mehrteilige außer den Gästeseiten: nicht einbettbar.
 const NOT_EMBEDDABLE = ['/', '/verify?token=abc', '/impressum', '/datenschutz', '/manifest.webmanifest', '/api/cron/cleanup', '/api/v1/me', '/irgendein-event/sonstwas']
-const TOKEN_PAGES = ['/verify?token=abc', '/admin/reset-password?token=abc', '/mein-konto/reset-password?token=abc', '/mein-konto/verify?token=abc', '/admin/confirm-email?token=abc', '/mein-konto/confirm-email?token=abc']
+const TOKEN_PAGES = ['/verify?token=abc', '/admin/reset-password?token=abc', '/mein-konto/reset-password?token=abc', '/mein-konto/verify?token=abc', '/admin/confirm-email?token=abc', '/admin/verify-email?token=abc', '/mein-konto/confirm-email?token=abc']
 const SUITE = ['/api/suite/authorize', '/api/suite/login', '/api/suite/callback']
 
 async function headersOf(request: APIRequestContext, path: string) {

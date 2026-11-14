@@ -9,7 +9,7 @@ import { Prisma, Role, type Event, type EventSeries, type Participant, type Rsvp
 import { prisma } from '../lib/prisma'
 import { randomUUID } from 'crypto'
 import { sanitizeNextPath } from 'suite-kit'
-import { sendReminderEmail, sendWaitlistPromotedEmail, sendConfirmationEmail, sendVerificationEmail, sendPasswordResetEmail, sendEmailChangeConfirmation, sendPaymentReceivedEmail, sendPaymentCancelledEmail } from '../lib/mail'
+import { sendReminderEmail, sendWaitlistPromotedEmail, sendConfirmationEmail, sendVerificationEmail, sendPasswordResetEmail, sendEmailChangeConfirmation, sendAccountEmailVerification, sendPaymentReceivedEmail, sendPaymentCancelledEmail } from '../lib/mail'
 import { getCurrentUser, requireUser, createSession, destroySession, SESSION_COOKIE } from '../lib/auth'
 import { createGuestSession, createLinkedGuestSession, destroyLinkedGuestSession } from '../lib/guest-auth'
 import { generateToken, hashToken } from '../lib/tokens'
@@ -423,7 +423,8 @@ export async function resetPassword(formData: FormData) {
 
   await prisma.user.update({
     where: { id: user.id },
-    data: { passwordHash: await hashPassword(password), resetToken: null, resetTokenExpiresAt: null }
+    // Der Link kam an die Adresse des Kontos - wie bei Teilnehmendenkonten zählt das als Bestätigung (User.emailVerified)
+    data: { passwordHash: await hashPassword(password), resetToken: null, resetTokenExpiresAt: null, emailVerified: true, emailVerifyToken: null }
   })
   await prisma.session.deleteMany({ where: { userId: user.id } })
 
@@ -636,10 +637,52 @@ export async function createUser(formData: FormData) {
     redirect('/admin/create-user?error=exists')
   }
 
-  await prisma.user.create({ data: { email, passwordHash: await hashPassword(password), role } })
+  // Die Adresse hat hier jemand anderes eingetragen: Bis die Person sie bestätigt, bürgt rsvp-app im Verbund nicht
+  // für das Konto (User.emailVerified, /api/suite/authorize) - sonst ließe sich in einem anderen Tool ein Konto unter
+  // fremder Adresse belegen (docs/AUDIT-2026-11.md, „Föderation als Anbieter“). Anmelden geht sofort.
+  const verifyToken = generateToken()
+  const created = await prisma.user.create({
+    data: { email, passwordHash: await hashPassword(password), role, emailVerified: false, emailVerifyToken: hashToken(verifyToken) }
+  })
+  try {
+    await sendAccountEmailVerification(created, verifyToken)
+  } catch (error) {
+    console.error('Fehler beim Senden der Konto-Bestätigung:', error)
+  }
 
   revalidatePath('/admin', 'layout')
   redirect('/admin')
+}
+
+/**
+ * „Adresse bestätigen“ auf /admin/verify-email (Link aus der Mail von createUser). Erst der Klick bestätigt, nicht
+ * der Aufruf des Links (Mail-Scanner, siehe „Mail links never act on GET“); der Token wird atomar verbraucht. Ohne
+ * Sitzung, wie die anderen Bestätigungslinks.
+ */
+export async function confirmAccountEmail(formData: FormData) {
+  const token = formData.get('token')
+  if (typeof token !== 'string' || !token) redirect('/admin/verify-email?error=invalid')
+  const claimed = await prisma.user.updateMany({
+    where: { emailVerifyToken: hashToken(token), emailVerified: false },
+    data: { emailVerified: true, emailVerifyToken: null }
+  })
+  if (claimed.count !== 1) redirect('/admin/verify-email?error=invalid')
+  redirect('/admin/verify-email?done=1')
+}
+
+/** Bestätigungs-Mail für die eigene, noch unbestätigte Adresse erneut senden (/admin/account), gedrosselt wie ein Reset. */
+export async function resendAccountEmailVerification() {
+  const user = await requireUser()
+  if (user.emailVerified) redirect('/admin/account')
+  if (!(await reserve(resetRules(await clientIp(), user.email, 'account-verify')))) redirect('/admin/account?error=throttled')
+  const verifyToken = generateToken()
+  await prisma.user.update({ where: { id: user.id }, data: { emailVerifyToken: hashToken(verifyToken) } })
+  try {
+    await sendAccountEmailVerification(user, verifyToken)
+  } catch (error) {
+    console.error('Fehler beim Senden der Konto-Bestätigung:', error)
+  }
+  redirect('/admin/account?verifySent=1')
 }
 
 /**
@@ -1855,7 +1898,8 @@ export async function confirmEmailChange(formData: FormData) {
   try {
     claimed = await prisma.user.updateMany({
       where: { id: user.id, emailChangeToken: hashToken(token) },
-      data: { email: user.pendingEmail, pendingEmail: null, emailChangeToken: null, emailChangeTokenExpiresAt: null }
+      // Die neue Adresse ist damit bewiesen - auch für ein noch unbestätigtes Konto (User.emailVerified)
+      data: { email: user.pendingEmail, pendingEmail: null, emailChangeToken: null, emailChangeTokenExpiresAt: null, emailVerified: true, emailVerifyToken: null }
     })
   } catch {
     // Die Wunsch-Adresse wurde inzwischen von einem anderen Konto belegt (Unique-Constraint)

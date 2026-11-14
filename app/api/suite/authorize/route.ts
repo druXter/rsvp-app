@@ -4,7 +4,7 @@ import { buildAuthorizeResponseUrl, issueLoginAssertion, issueParticipantAsserti
 import { getCurrentUser } from '../../../lib/auth'
 import { getCurrentGuestUser } from '../../../lib/guest-auth'
 import { prisma } from '../../../lib/prisma'
-import { getParticipantApps, getSigners, getTrustedApps, selfOrigin } from '../../../lib/suite'
+import { getParticipantApps, getSigners, getTrustedApps, selfOrigin, vouchRefusal } from '../../../lib/suite'
 import { redirectResponse } from '../../../lib/suite-flow'
 
 export const dynamic = 'force-dynamic'
@@ -20,6 +20,8 @@ export const dynamic = 'force-dynamic'
  * - Ohne `kind`: nur Verwaltungskonten (User) MIT lokalem Passwort werden bestätigt, nie rein
  *   föderierte: Sonst könnten Vertrauensketten entstehen (A vertraut B, B vertraut C, ...) und ein
  *   Tool würde Identitäten weiterreichen, für die es selbst nicht zuständig ist.
+ * - Nur Konten mit bestätigter Adresse (User.emailVerified): createUser trägt eine fremde Adresse ein - ungeprüft
+ *   ließe sich damit in einem anderen Tool ein Konto unter dieser Adresse belegen.
  * - `kind=participant`: Teilnehmendenkonten (GuestUser), siehe participant() unten.
  */
 export async function GET(request: NextRequest) {
@@ -36,7 +38,8 @@ export async function GET(request: NextRequest) {
     const here = request.nextUrl.pathname + request.nextUrl.search
     return redirectResponse(`/admin/login?next=${encodeURIComponent(here)}`, origin)
   }
-  if (!user.passwordHash) return redirectResponse('/admin/account?error=nochain', origin)
+  const refusal = vouchRefusal(user)
+  if (refusal) return redirectResponse(`/admin/account?error=${refusal}`, origin)
 
   const assertion = issueLoginAssertion(signer, {
     issuer: origin,

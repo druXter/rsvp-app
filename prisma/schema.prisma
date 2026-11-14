@@ -32,6 +32,14 @@ model User {
   role         Role     @default(CREATOR)
   createdAt    DateTime @default(now())
 
+  // Adresse bestätigt? Nur createUser legt Konten mit false an - dort wählt jemand anderes die Adresse und das
+  // Passwort. Bestehende Konten, create-user.js (Serverzugang) und föderierte Konten (Adresse vom anderen Tool,
+  // ohne Passwort, für die bürgt rsvp-app ohnehin nicht) gelten als bestätigt. /api/suite/authorize bürgt erst
+  // danach für das Konto (docs/AUDIT-2026-11.md, „Föderation als Anbieter“). Bestätigt über den Link aus der
+  // Mail (emailVerifyToken, nur der SHA-256-Hash), einen Passwort-Reset oder eine bestätigte E-Mail-Änderung.
+  emailVerified    Boolean @default(true)
+  emailVerifyToken String? @unique
+
   // Self-Service-Passwort-Reset (siehe #13) - ausdrücklich NIE für ADMIN-Konten vergeben,
   // dort bleibt ein Reset nur über direkten Server-Zugriff (set-role.js/create-user.js)
   // möglich, damit ein kompromittiertes Admin-Postfach nicht automatisch vollen Zugriff gibt.

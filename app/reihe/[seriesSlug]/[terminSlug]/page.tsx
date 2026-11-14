@@ -4,6 +4,7 @@ import { participantForForm, rsvpForForm } from '../../../lib/guest-form'
 import { DATE_PENDING_TEXT } from '../../../lib/event-date'
 import { Prisma } from '@prisma/client'
 import { prisma } from '../../../lib/prisma'
+import { participantForLink } from '../../../lib/edit-link'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import RsvpForm from '../../../[slug]/rsvp-form'
@@ -90,17 +91,17 @@ export default async function SeriesEventPage({
   }
 
   // Participant + dessen Antwort zu GENAU DIESEM Termin laden
-  const token = typeof currentSearchParams?.token === 'string' ? currentSearchParams.token : undefined
+  // Ein Link eines anderen Termins zählt wie keiner (app/lib/edit-link.ts) - dann gilt die Gast-Session bzw. das leere Formular
+  const linked = await participantForLink(typeof currentSearchParams?.token === 'string' ? currentSearchParams.token : null, event)
+  const token = linked ? linked.editToken : undefined
   let participant = null
   let existingRsvp = null
 
-  if (token) {
-    participant = await prisma.participant.findUnique({ where: { editToken: token } })
-    if (participant) {
-      existingRsvp = await prisma.rsvp.findUnique({
-        where: { eventId_participantId: { eventId: event.id, participantId: participant.id } }
-      })
-    }
+  if (linked) {
+    participant = linked
+    existingRsvp = await prisma.rsvp.findUnique({
+      where: { eventId_participantId: { eventId: event.id, participantId: linked.id } }
+    })
   } else {
     // Ohne Token: eingeloggten Gast (Nutzer-Konto, siehe #12) über die Session auflösen -
     // so kann ein eingeloggter Nutzer ohne Link direkt aus "Mein Konto" antworten.

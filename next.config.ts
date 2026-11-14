@@ -46,7 +46,7 @@ const nextConfig: NextConfig = {
       { source: '/:area(admin|mein-konto)/:path*', headers: PRIVATE_PAGE },
       {
         // Seiten mit Einmal-Token in der URL (Mail-Links): den Token nie per Referer weitergeben.
-        source: '/:page(verify|admin/reset-password|admin/confirm-email|mein-konto/reset-password|mein-konto/verify|mein-konto/confirm-email)',
+        source: '/:page(verify|admin/reset-password|admin/confirm-email|admin/verify-email|mein-konto/reset-password|mein-konto/verify|mein-konto/confirm-email)',
         headers: [...NOT_STORED, ...NO_REFERRER],
       },
       {

@@ -74,7 +74,9 @@ export default function DatenschutzPage() {
             Für Veranstalter:innen (Verwaltungskonto: E-Mail, Passwort-Hash) und für Gäste, die sich freiwillig ein Teilnehmendenkonto unter
             &quot;Mein Konto&quot; anlegen (E-Mail, Passwort-Hash, Name, optional Handynummer/Essenswunsch/Allergien),
             speichern wir Login-Daten. Passwörter werden ausschließlich als Hash (bcrypt) gespeichert, niemals im
-            Klartext. Die Anmeldung erfolgt über ein zufällig erzeugtes Sitzungs-Token in einem Cookie (siehe Punkt 15)
+            Klartext. Legt jemand anderes ein Verwaltungskonto für dich an, bekommst du eine Mail mit einem
+            Bestätigungslink; bis du ihn klickst, ist die Adresse als unbestätigt vermerkt und wir bestätigen dein Konto
+            keinem anderen Tool gegenüber (Punkt 3). Die Anmeldung erfolgt über ein zufällig erzeugtes Sitzungs-Token in einem Cookie (siehe Punkt 15)
             - niemals über deinen Namen oder deine E-Mail-Adresse direkt im Cookie. Bei einem Teilnehmendenkonto speichern
             wir außerdem den Zeitpunkt deines letzten Logins, um das Konto nach längerer Inaktivität automatisch
             löschen zu können (siehe Punkt 16).
@@ -723,6 +725,8 @@ export default function DatenschutzPage() {
             du noch zu einem anderen Termin derselben Reihe geantwortet hast.
           </p>
           <p className="mt-2">
+            Ein Teilnehmendenkonto, dessen E-Mail-Adresse nicht innerhalb von <strong>7 Tagen</strong> nach der
+            Registrierung bestätigt wurde, wird danach automatisch gelöscht; so lange gilt auch der Bestätigungslink.
             Ein Teilnehmendenkonto unter &quot;Mein Konto&quot; wird automatisch vollständig gelöscht, wenn du dich{' '}
             <strong>2 Jahre</strong> lang nicht mehr eingeloggt hast - inklusive aller Reihen-Zuordnungen, Antworten und
             Freigaben für andere Tools. Ist es mit einem Verwaltungskonto verknüpft, zählt jede Anmeldung in der

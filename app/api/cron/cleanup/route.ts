@@ -4,10 +4,11 @@ import { prisma } from '../../../lib/prisma'
 import { NextResponse } from 'next/server'
 import { deleteOrphanedParticipants } from '../../../lib/participants'
 import { EXPIRED_PUSH_RETENTION_DAYS } from '../../../lib/push-subscriptions'
+import { GUEST_ACCOUNT_INACTIVITY_YEARS, unverifiedGuestCutoff } from '../../../lib/guest-retention'
+import { deleteGuestUsers } from '../../../lib/guest-retention-store'
 
 
 const EVENT_RETENTION_MONTHS = 18
-const GUEST_ACCOUNT_INACTIVITY_YEARS = 2
 
 /**
  * Automatischer Cron-Endpoint für Uptime Kuma (Speicherbegrenzung, Art. 5 Abs. 1 lit. e
@@ -29,6 +30,7 @@ const GUEST_ACCOUNT_INACTIVITY_YEARS = 2
  *    eingeloggt waren, vollständig inkl. aller Reihen-Zuordnungen und Antworten - bewusst
  *    NICHT für Admin-Konten (User), da die eine fortlaufende Vereins-/Referats-Identität
  *    mit eigenen Events/Reihen repräsentieren und nicht automatisiert verschwinden sollen.
+ * 3b. Löscht unbestätigte Nutzer-Konten UNVERIFIED_GUEST_ACCOUNT_DAYS nach der Registrierung (app/lib/guest-retention.ts).
  * 4. Löscht Push-Abos (Gäste und Verwaltung), die der Push-Dienst vor mehr als EXPIRED_PUSH_RETENTION_DAYS als
  *    ungültig abgelehnt hat und die das Gerät seitdem nicht ersetzt hat (app/lib/push-subscriptions.ts).
  */
@@ -67,14 +69,15 @@ export async function GET(request: Request) {
   })
   const inactiveGuestUserIds = inactiveGuestUsers.map(g => g.id)
 
-  await prisma.rsvp.deleteMany({ where: { participant: { guestUserId: { in: inactiveGuestUserIds } } } })
-  await prisma.participantPushSubscription.deleteMany({ where: { participant: { guestUserId: { in: inactiveGuestUserIds } } } })
-  await prisma.participant.deleteMany({ where: { guestUserId: { in: inactiveGuestUserIds } } })
-  await prisma.guestUserSeries.deleteMany({ where: { guestUserId: { in: inactiveGuestUserIds } } })
-  await prisma.guestSession.deleteMany({ where: { guestUserId: { in: inactiveGuestUserIds } } })
-  await prisma.guestApiToken.deleteMany({ where: { guestUserId: { in: inactiveGuestUserIds } } })
-  await prisma.guestToolConsent.deleteMany({ where: { guestUserId: { in: inactiveGuestUserIds } } })
-  await prisma.guestUser.deleteMany({ where: { id: { in: inactiveGuestUserIds } } })
+  await deleteGuestUsers(inactiveGuestUserIds)
+
+  // Unbestätigte Konten nach UNVERIFIED_GUEST_ACCOUNT_DAYS - nur ohne Antworten (ohne Login gibt es keine; eine
+  // Antwort, die doch daranhängt, wird nicht stillschweigend mitgelöscht, sie fällt unter die Fristen oben).
+  const unverifiedGuestUserIds = (await prisma.guestUser.findMany({
+    where: { isVerified: false, createdAt: { lt: unverifiedGuestCutoff() }, participants: { none: {} } },
+    select: { id: true }
+  })).map(g => g.id)
+  const deletedUnverifiedGuestUsers = await deleteGuestUsers(unverifiedGuestUserIds)
 
   const expiredPushCutoff = new Date(Date.now() - EXPIRED_PUSH_RETENTION_DAYS * 24 * 60 * 60 * 1000)
   const deletedGuestPush = await prisma.participantPushSubscription.deleteMany({ where: { expiredAt: { lt: expiredPushCutoff } } })
@@ -86,6 +89,7 @@ export async function GET(request: Request) {
     deletedEvents: oldEventIds.length,
     deletedOrphanedParticipants,
     deletedInactiveGuestUsers: inactiveGuestUserIds.length,
+    deletedUnverifiedGuestUsers,
     deletedExpiredPushSubscriptions: deletedGuestPush.count + deletedUserPush.count + deletedAccountPush.count
   })
 }

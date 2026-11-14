@@ -48,7 +48,7 @@ export default async function UsersPage() {
                 return (
                   <tr key={u.id} className="border-b dark:border-gray-700 last:border-0">
                     <td className="p-3 font-medium text-gray-900 dark:text-gray-100">
-                      {u.email}{isSelf && <span className="text-gray-500 dark:text-gray-400 font-normal"> (du)</span>}
+                      {u.email}{isSelf && <span className="text-gray-500 dark:text-gray-400 font-normal"> (du)</span>}{!u.emailVerified && <span className="ml-2 text-xs font-normal text-yellow-700 dark:text-yellow-400">Adresse unbestätigt</span>}
                     </td>
                     <td className="p-3">
                       {isSelf || u.role === 'ADMIN' ? (

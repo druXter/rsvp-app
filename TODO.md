@@ -41,8 +41,11 @@ nicht mehr, Gäste geben die PIN einmal neu ein.
 - [x] **R-13** (Hinweis) Obergrenzen für Name und Freitexte der Antwort.
   → behoben.
 
-Aus „Beobachtungen ohne Fund“ zu entscheiden:
+Aus „Beobachtungen ohne Fund“ (umgesetzt 14.11.2026, Tests „Nachtrag: …“ in `tests/e2e/audit-2026-11.spec.ts`):
 
-- [ ] Adresse neuer Verwaltungskonten bestätigen lassen, bevor rsvp-app sie im Verbund bestätigt.
-- [ ] Unbestätigte Teilnehmendenkonten nach einigen Tagen löschen.
-- [ ] Fremde `editToken` (anderer Termin) beim Antworten wie keinen behandeln.
+- [x] Adresse neuer Verwaltungskonten bestätigen lassen, bevor rsvp-app sie im Verbund bestätigt.
+  → `User.emailVerified`, Mail aus `createUser`, `/admin/verify-email`, `vouchRefusal` in `/api/suite/authorize`.
+- [x] Unbestätigte Teilnehmendenkonten nach einigen Tagen löschen.
+  → nach 7 Tagen (Cron, Link ungültig, neue Registrierung ersetzt sie), `app/lib/guest-retention.ts`.
+- [x] Fremde `editToken` (anderer Termin) beim Antworten wie keinen behandeln.
+  → `participantForLink` (`app/lib/edit-link.ts`) auf beiden Gästeseiten, in `submitRsvp` und `performRsvpSubmission`.

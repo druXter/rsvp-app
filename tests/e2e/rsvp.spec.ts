@@ -182,10 +182,13 @@ test.describe('Konto-Zwang und persönliche Links (editToken)', () => {
     await plain.goto(`/${gated.slug}`)
     await expect(plain.getByLabel('Dein Name')).toHaveCount(0)
 
-    // Gültiger Token eines ANDEREN, offenen Events: Die Seite übernimmt ihn ins Formular ...
+    // Gültiger Token eines ANDEREN, offenen Events: zählt wie keiner (app/lib/edit-link.ts) - die Seite zeigt das
+    // Login-Gate, und per Entwicklerwerkzeug ins Formular des offenen Events geschrieben lehnt der Server ab ...
     const borrowed = await browser.newPage()
     await borrowed.goto(`/${gated.slug}?token=${fromOpenEvent.editToken}`)
-    expect((await submitRsvpForm(borrowed)).status()).toBe(500)
+    await expect(borrowed.getByLabel('Dein Name')).toHaveCount(0)
+    await borrowed.goto(`/${open.slug}`)
+    expect((await submitRsvpForm(borrowed, { eventId: gated.id, editToken: fromOpenEvent.editToken })).status()).toBe(500)
 
     // ... erfundener Token, per Entwicklerwerkzeug ins Formular des offenen Events geschrieben.
     const invented = await browser.newPage()
