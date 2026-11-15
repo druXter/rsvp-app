@@ -932,8 +932,9 @@ function maybeScheduleChanged(before: { date: Date; datePending: boolean; rsvpDe
 export async function createLinkedToolEvent(formData: FormData) {
   const user = await requireUser()
   const id = formData.get('eventId') as string
-  const type = formData.get('tool')
-  if (!id || !isCreatableTool(type)) return
+  // „<tool>“ (anlegen) oder „<tool>:<id im Tool>“ (vorhandenes Event bestätigen, siehe createLinkedEvent)
+  const [type, confirmed = null] = String(formData.get('tool') ?? '').split(':', 2)
+  if (!id || !isCreatableTool(type) || (confirmed !== null && !/^[a-z0-9]{10,40}$/.test(confirmed))) return
   const event = await prisma.event.findUnique({ where: { id }, include: { toolLinks: TOOL_LINKS } })
   if (!event || !isOwnerOrAdmin(user, event.ownerId)) return
 
@@ -941,7 +942,7 @@ export async function createLinkedToolEvent(formData: FormData) {
   if (storedToolUrl(event.toolLinks, type)) back('anlegen=schon')
   if (type === 'shifts' && event.inviteOnly) back('anlegen=einladung')
 
-  const result = await createLinkedEvent(type, event, user.id)
+  const result = await createLinkedEvent(type, event, user.id, confirmed)
   revalidatePath('/admin', 'layout')
   if (!result) back('anlegen=fehler')
   else if (result.status === 'created' || result.status === 'linked') back(`angelegt=${result.status}`)

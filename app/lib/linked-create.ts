@@ -55,17 +55,26 @@ export async function linkedCreateStatus(type: CreatableTool, eventId: string, u
   return send(tool, { kind: LINKED_CREATE_STATUS, request: await requestFor(tool, eventId, userId) })
 }
 
+/** Ergebnis von createLinkedEvent: wie die Antwort des Tools, dazu „vorhandenes Event noch nicht bestätigt“. */
+export type LinkedCreateOutcome = LinkedCreateResult | { status: 'unconfirmed' }
+
 /**
  * Legt das Event beim Tool an (oder übernimmt ein dort schon verknüpftes) und trägt den Link hier ein. null = Tool
  * nicht eingerichtet, nicht erreichbar oder Antwort unbrauchbar.
+ *
+ * Ein schon vorhandenes Event (`linked`) wird nur übernommen, wenn die Verwaltung genau dieses bestätigt hat
+ * (`confirmedRemoteId`, der Knopf „Verknüpfen“ neben Titel und Link des Events). Sonst `unconfirmed` und nichts
+ * gespeichert: Ab dem Speichern gehen Angaben dieses Termins an das Event im Tool - nennt das Tool ein falsches (Audit
+ * Wichteln W-02: ein fremdes Konto hatte die Kennung des Termins selbst eingetragen), bekäme es sonst die Gästeliste.
  */
 export async function createLinkedEvent(
-  type: CreatableTool, event: { id: string; title: string; date: Date }, userId: string
-): Promise<LinkedCreateResult | null> {
+  type: CreatableTool, event: { id: string; title: string; date: Date }, userId: string, confirmedRemoteId: string | null = null
+): Promise<LinkedCreateOutcome | null> {
   const tool = configuredTool(type)
   if (!tool) return null
   const result = await send(tool, { kind: LINKED_CREATE, request: await requestFor(tool, event.id, userId), title: event.title, startsAt: event.date })
   if (result?.status !== 'created' && result?.status !== 'linked') return result
+  if (result.status === 'linked' && result.eventId !== confirmedRemoteId) return { status: 'unconfirmed' }
   const link = parseToolUrl(tool.definition, result.linkUrl, tool.origin)
   if (!link || link.remoteEventId !== result.eventId) return null
   await saveToolLinks(event.id, [{ type, link }])

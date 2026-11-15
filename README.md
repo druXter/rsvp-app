@@ -333,7 +333,10 @@ siehe unten), das **Zeitplan-Tool** (Ablauf des Events), **Schichten** (Helfer\*
   sich hier über das Tool anmeldet, die Konto-ID dort); ohne Verknüpfung steht statt des Knopfs ein Anmelde-Link. Der
   Klick (`createLinkedToolEvent`, nur Owner und Admins) schickt Titel und Datum (`event-create`), das Tool legt einen
   Entwurf an und antwortet mit dem Link, den rsvp-app nur übernimmt, wenn er auf die Adresse des Tools zeigt. Gibt es
-  dort schon ein Event zu diesem Termin, wird es verknüpft. Seating bleibt bei der Verknüpfung von Hand (braucht
+  dort schon ein Event zu diesem Termin, zeigt „Verknüpfungen“ dessen Titel und Link, und erst „Verknüpfen“ übernimmt
+  genau dieses Event (der Knopf trägt seine ID). Meldet das Tool beim Anlegen unerwartet ein vorhandenes Event, wird
+  nichts gespeichert - sonst bekäme ein Event, das ein anderes Konto selbst mit dem Termin verknüpft hat, die
+  Gästeliste (Audit Wichteln W-02). Seating bleibt bei der Verknüpfung von Hand (braucht
   Raumplan, Modus und Ende).
 * **Weiterleitungs-Routen** („Sitzplatz wählen“, „Zeitplan“) prüfen über `app/lib/linked-tools-access.ts`, wer
   weitergeleitet werden darf (editToken genau dieses Termins oder verifizierte Gast-Session, PIN, Zusage zählt), und

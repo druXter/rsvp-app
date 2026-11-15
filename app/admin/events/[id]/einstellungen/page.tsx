@@ -55,6 +55,7 @@ const FAILED: Record<string, (label: string) => string> = {
   'no-account': label => `Für das Anlegen in ${label} brauchst du dort ein Konto, das mit deinem Konto hier verbunden ist - siehe Hinweis unter „Verknüpfungen“.`,
   'no-permission': label => `Dein Konto in ${label} darf keine Events anlegen.`,
   taken: label => `${label} hat schon ein Event zu diesem Termin, das du dort nicht verwaltest.`,
+  unconfirmed: label => `${label} hat schon ein Event zu diesem Termin. Sieh es dir unter „Verknüpfungen“ an und verknüpfe es nur, wenn es deins ist - nichts gespeichert.`,
   fehler: label => `Anlegen in ${label} hat nicht geklappt, ${label} ist gerade nicht erreichbar. Bitte später noch einmal.`
 }
 

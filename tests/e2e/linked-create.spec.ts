@@ -30,7 +30,7 @@ function fakeTool(name: string, baseUrl: string, secret: string) {
   })
 }
 
-const created = (origin: string, id: string, status = 'created') => ({ status, eventId: id, linkUrl: `${origin}/rsvp/${id}`, adminUrl: `${origin}/admin/events/${id}` })
+const created = (origin: string, id: string, status = 'created', title?: string) => ({ status, eventId: id, linkUrl: `${origin}/rsvp/${id}`, adminUrl: `${origin}/admin/events/${id}`, title })
 const TIMELINE = new URL(TEST_TIMELINE_BASE_URL).origin
 const SHIFTS = new URL(TEST_SHIFTS_BASE_URL).origin
 
@@ -139,4 +139,40 @@ test('nur Owner und Admins: fremdes Konto und Moderator*in lösen nichts aus', a
   // Positivkontrolle: der Owner selbst
   await submitForm(page, form, { tool: 'timeline' })
   expect(await prisma.eventToolLink.count({ where: { eventId: event.id, type: 'timeline' } })).toBe(1)
+})
+
+test('Vorhandenes Event im Tool (linked) wird nur nach Bestätigung genau dieses Events verknüpft (Audit Wichteln W-02)', async ({ page }) => {
+  const owner = await createAccount('CREATOR')
+  const event = await createEvent(owner)
+  await login(page, owner.email)
+
+  // Gegenprobe: Neu angelegt (created) wird ohne Rückfrage verknüpft.
+  replies.timeline = m => (m.kind === LINKED_CREATE ? created(TIMELINE, 'cmneuangelegt12') : { status: 'ready' })
+  await openLinks(page, event.id)
+  await page.getByRole('button', { name: 'Im Zeitplan anlegen' }).click()
+  await expect(page.getByText('In Zeitplan angelegt und verknüpft')).toBeVisible()
+
+  // Das Tool meldet beim Anlegen ein schon vorhandenes Event (z.B. eins, das sich ein anderes Konto selbst mit dem
+  // Termin verknüpft hat): nichts gespeichert, Hinweis.
+  replies.shifts = m => (m.kind === LINKED_CREATE ? created(SHIFTS, 'cmfremdes123456', 'linked', 'Mallorys Feier') : { status: 'ready' })
+  await openLinks(page, event.id)
+  const form = await readForm(page, '#linked-create-form')
+  await page.getByRole('button', { name: 'In Schichten anlegen' }).click()
+  await expect(page.getByText('Schichten hat schon ein Event zu diesem Termin. Sieh es dir')).toBeVisible()
+  expect(await prisma.eventToolLink.count({ where: { eventId: event.id, type: 'shifts' } })).toBe(0)
+
+  // Die Seite zeigt Titel und Link des Events; eine Bestätigung für ein ANDERES Event speichert nichts.
+  replies.shifts = () => created(SHIFTS, 'cmfremdes123456', 'linked', 'Mallorys Feier')
+  await openLinks(page, event.id)
+  const existing = page.getByTestId('linked-existing-shifts')
+  await expect(existing.getByRole('link', { name: '„Mallorys Feier“' })).toHaveAttribute('href', `${SHIFTS}/admin/events/cmfremdes123456`)
+  await submitForm(page, form, { tool: 'shifts:cmanderesevent1' })
+  await submitForm(page, form, { tool: 'shifts' })
+  expect(await prisma.eventToolLink.count({ where: { eventId: event.id, type: 'shifts' } })).toBe(0)
+
+  // Bestätigt die Verwaltung genau dieses Event, wird es verknüpft.
+  await openLinks(page, event.id)
+  await existing.getByRole('button', { name: 'Verknüpfen' }).click()
+  await expect(page.getByText('Mit dem Event in Schichten verknüpft')).toBeVisible()
+  expect((await prisma.eventToolLink.findFirstOrThrow({ where: { eventId: event.id, type: 'shifts' } })).remoteEventId).toBe('cmfremdes123456')
 })

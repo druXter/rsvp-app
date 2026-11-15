@@ -32,8 +32,8 @@ export async function LinkedCreateButton({ type, eventId, userId }: { type: Crea
   const result = await linkedCreateStatus(type, eventId, userId)
   if (!result) return <p className={hintClass}>{toolLabel} ist gerade nicht erreichbar - anlegen geht später, verknüpfen von Hand jederzeit.</p>
 
-  const button = (text: string) => (
-    <button type="submit" form={LINKED_CREATE_FORM} name="tool" value={type} className={buttonClass('secondary', 'sm')}>{text}</button>
+  const button = (text: string, value: string = type) => (
+    <button type="submit" form={LINKED_CREATE_FORM} name="tool" value={value} className={buttonClass('secondary', 'sm')}>{text}</button>
   )
   switch (result.status) {
     case 'ready':
@@ -44,10 +44,16 @@ export async function LinkedCreateButton({ type, eventId, userId }: { type: Crea
         </div>
       )
     case 'linked':
+      // Ein schon vorhandenes Event: Titel und Link zeigen, der Knopf bestätigt genau dieses (createLinkedEvent
+      // speichert ohne passende Bestätigung nichts) - Audit Wichteln W-02.
       return (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          {button('Verknüpfen')}
-          <span className={`${hintClass} mt-0`}>{toolLabel} hat schon ein Event zu diesem Termin.</span>
+        <div className="space-y-1" data-testid={`linked-existing-${type}`}>
+          <p className={`${hintClass} mt-0`}>
+            {toolLabel} hat schon ein Event zu diesem Termin:{' '}
+            <a href={result.adminUrl} target="_blank" rel="noopener noreferrer" className="underline">{result.title ? `„${result.title}“` : 'Event ansehen'}</a>.
+            Verknüpfe es nur, wenn es deins ist - danach gehen Angaben dieses Termins dorthin.
+          </p>
+          {button('Verknüpfen', `${type}:${result.eventId}`)}
         </div>
       )
     case 'no-account':
