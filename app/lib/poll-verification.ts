@@ -152,8 +152,19 @@ export function verifyResultWebhookPayload(token: string | undefined | null): { 
 export type PollDateOwner = { toolUserId: string; rsvpUserId: string | null }
 
 export type PollDateMessage =
-  | { typ: 'poll-date-status'; pollId: string; owner: PollDateOwner }
-  | { typ: 'poll-date-set'; pollId: string; pollTitle: string; startsAt: Date; owner: PollDateOwner; create: boolean; skipEmailHashes: string[] }
+  | { typ: 'poll-date-status'; pollId: string; owner: PollDateOwner; eventIds: string[] }
+  | { typ: 'poll-date-set'; pollId: string; pollTitle: string; startsAt: Date; owner: PollDateOwner; create: boolean; skipEmailHashes: string[]; eventIds: string[] }
+
+/**
+ * Events, die die Besitzerin der Abstimmung als ihre bestätigt hat (`eventIds`): der gebundene Termin und die beim
+ * Festlegen angekreuzten. Fehlt das Feld (ältere Abstimmungstool-Versionen), gilt keins - dann nur die eigenen Events
+ * der Besitzerin (app/lib/poll-date.ts). null bei einem ungültigen Feld.
+ */
+function readEventIds(value: unknown): string[] | null {
+  if (value === undefined) return []
+  if (!Array.isArray(value) || value.length > 20 || !value.every(id => typeof id === 'string' && /^[A-Za-z0-9_-]{1,100}$/.test(id))) return null
+  return [...new Set(value as string[])]
+}
 
 function readOwner(value: unknown): PollDateOwner | null {
   if (!value || typeof value !== 'object') return null
@@ -172,9 +183,10 @@ export function verifyPollDateMessage(token: string | undefined | null): PollDat
   if (!payload) return null
   const pollId = payload.pollId
   const owner = readOwner(payload.owner)
-  if (typeof pollId !== 'string' || !/^[A-Za-z0-9_-]{1,100}$/.test(pollId) || !owner) return null
+  const eventIds = readEventIds(payload.eventIds)
+  if (typeof pollId !== 'string' || !/^[A-Za-z0-9_-]{1,100}$/.test(pollId) || !owner || !eventIds) return null
 
-  if (payload.typ === 'poll-date-status') return { typ: 'poll-date-status', pollId, owner }
+  if (payload.typ === 'poll-date-status') return { typ: 'poll-date-status', pollId, owner, eventIds }
 
   if (payload.typ === 'poll-date-set') {
     const { pollTitle, startsAt, create, skipEmailHashes } = payload
@@ -184,7 +196,7 @@ export function verifyPollDateMessage(token: string | undefined | null): PollDat
     if (Number.isNaN(date.getTime())) return null
     if (typeof create !== 'boolean') return null
     if (!Array.isArray(skipEmailHashes) || skipEmailHashes.length > 10_000 || !skipEmailHashes.every(h => typeof h === 'string' && /^[0-9a-f]{64}$/.test(h))) return null
-    return { typ: 'poll-date-set', pollId, pollTitle: pollTitle.trim(), startsAt: date, owner, create, skipEmailHashes }
+    return { typ: 'poll-date-set', pollId, pollTitle: pollTitle.trim(), startsAt: date, owner, create, skipEmailHashes, eventIds }
   }
   return null
 }

@@ -321,7 +321,7 @@ export default function EventSettingsForm({ event, userId, open = 'grunddaten', 
           </div>
         )}
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field id="pollUrl" label="Abstimmung (Link)">
+          <Field id="pollUrl" label="Abstimmung (Link)" hint="Abstimmungen „nur über rsvp-app“ gelten erst für diesen Termin, wenn ihre Verwaltung ihn im Abstimmungstool bestätigt hat - außer sie gehören deinem dort verknüpften Konto.">
             <input id="pollUrl" type="url" name="pollUrl" defaultValue={event.pollUrl || ''} className={inputClass} placeholder="https://abstimmung.example.de/xyz" />
           </Field>
           <Field id="pollLabel" label="Beschriftung des Knopfs">

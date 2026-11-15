@@ -27,6 +27,7 @@ import { inviteAccounts } from '../lib/guest-invites'
 import { parseLostFoundUrl, parsePhotoUrl } from '../lib/photo-link'
 import { readFeedbackSettings } from '../lib/feedback-link'
 import { readAssemblySettings } from '../lib/assembly'
+import { announcePollLink } from '../lib/poll-notify'
 import { readProtocolSettings } from '../lib/timeline-protocol'
 import { applyBringTemplate, formatBringSlots, readBringSlots, readBringTemplate, saveBringSlots } from '../lib/bring-list'
 import { notifyLinkedToolsBeforeDelete, notifyLinkedToolsOfParticipants, notifyLinkedToolsOfRsvps } from '../lib/linked-tools-notify'
@@ -899,6 +900,8 @@ async function saveEvent(formData: FormData): Promise<string | undefined> {
   })
   // Geänderter oder entfernter Link leert, was das bisherige Tool-Event gemeldet hat (z.B. Plätze)
   await saveToolLinks(id, toolLinks)
+  // Neuer Abstimmungs-Link: dem Abstimmungstool melden - dort bestätigt die Besitzerin der Abstimmung den Termin
+  if (pollUrl && pollUrl !== existingEvent.pollUrl) await announcePollLink(pollUrl, { id, title, ownerId: existingEvent.ownerId })
   await saveBringSlots(id, bringSlots)
   await saveMenu(id, menu)
   await resetRemindersOnNewDeadline(id, existingEvent.rsvpDeadline, deadline.rsvpDeadline)
@@ -1603,6 +1606,8 @@ async function saveSeriesTermin(formData: FormData): Promise<string | undefined>
   })
   // Geänderter oder entfernter Link leert, was das bisherige Tool-Event gemeldet hat (z.B. Plätze)
   await saveToolLinks(id, toolLinks)
+  // Neuer Abstimmungs-Link: dem Abstimmungstool melden - dort bestätigt die Besitzerin der Abstimmung den Termin
+  if (pollUrl && pollUrl !== existingEvent.pollUrl) await announcePollLink(pollUrl, { id, title, ownerId: existingEvent.ownerId })
   await saveBringSlots(id, bringSlots)
   // "Als Vorlage der Reihe speichern": nur die Vorlage für neue Termine, andere Termine bleiben unberührt
   if (bringSlots !== null && formData.get('bringSaveAsTemplate') === 'on' && existingEvent.seriesId) {

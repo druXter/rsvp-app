@@ -177,9 +177,9 @@ describe('verifyPollDateMessage (Terminabstimmung)', () => {
 
   it('liest Status- und Termin-Meldung', () => {
     expect(verifyPollDateMessage(sign({ typ: 'poll-date-status', aud: RSVP, pollId: 'poll-1', owner, iat: now(), exp: now() + 300 })))
-      .toEqual({ typ: 'poll-date-status', pollId: 'poll-1', owner })
-    const message = verifyPollDateMessage(sign(set()))
-    expect(message).toMatchObject({ typ: 'poll-date-set', pollTitle: 'Sommerfest', create: true, skipEmailHashes: ['a'.repeat(64)] })
+      .toEqual({ typ: 'poll-date-status', pollId: 'poll-1', owner, eventIds: [] })
+    const message = verifyPollDateMessage(sign(set({ eventIds: ['ev-1', 'ev-1', 'ev_2'] })))
+    expect(message).toMatchObject({ typ: 'poll-date-set', pollTitle: 'Sommerfest', create: true, skipEmailHashes: ['a'.repeat(64)], eventIds: ['ev-1', 'ev_2'] })
     expect(message?.typ === 'poll-date-set' && message.startsAt.toISOString()).toBe('2026-10-07T17:00:00.000Z')
   })
 
@@ -199,7 +199,8 @@ describe('verifyPollDateMessage (Terminabstimmung)', () => {
   it('lehnt kaputte Felder ab', () => {
     for (const overrides of [
       { startsAt: 'morgen' }, { pollTitle: '' }, { create: 'ja' }, { skipEmailHashes: ['kein-hash'] },
-      { owner: { rsvpUserId: null } }, { owner: { toolUserId: 'x', rsvpUserId: 5 } }, { pollId: '../admin' }
+      { owner: { rsvpUserId: null } }, { owner: { toolUserId: 'x', rsvpUserId: 5 } }, { pollId: '../admin' },
+      { eventIds: 'ev-1' }, { eventIds: ['../x'] }, { eventIds: Array.from({ length: 21 }, (_, i) => `ev${i}`) }
     ]) {
       expect(verifyPollDateMessage(sign(set(overrides))), JSON.stringify(overrides)).toBeNull()
     }

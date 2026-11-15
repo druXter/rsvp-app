@@ -397,6 +397,12 @@ export default function DatenschutzPage() {
             ohne jede Übermittlung personenbezogener Daten zur Abstimmung.
           </p>
           <p className="mt-2">
+            Beim Speichern des Abstimmungs-Links melden wir der Abstimmungs-Anwendung Kennung und Titel des Termins sowie
+            die Konto-Kennung der Person, der der Termin gehört (und ihre Konto-Kennung dort, wenn die Konten verknüpft
+            sind) - damit deren Verwaltung bestätigen kann, dass der Termin zu ihrer Abstimmung gehört. Angaben zu Gästen
+            sind darin nicht enthalten.
+          </p>
+          <p className="mt-2">
             <strong>Terminabstimmung:</strong> Wird das Datum eines Termins per Abstimmung festgelegt, meldet die
             Abstimmungs-Anwendung uns nur den Termin (sowie ggf. Titel und die Konto-Kennung der Person, der die
             Abstimmung gehört, damit wir für sie ein Event anlegen können). Damit du nicht doppelt benachrichtigt wirst,
