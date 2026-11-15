@@ -1,4 +1,5 @@
 // app/lib/shift-helpers.ts
+import { isSingleEmail } from 'suite-kit/web'
 import { configuredTool, resolveToolOrigin, toolDefinition, toolLinkOf, verifyEnvelope, type ConfiguredTool, type StoredToolLink, type ToolLink } from './linked-tools'
 import { InputError } from './input-error'
 
@@ -19,7 +20,6 @@ const SHIFTS = toolDefinition('shifts')
 export const MAX_HELPERS = 5000
 const MAX_NAME = 200
 const MAX_SHIFTS = 1000
-const EMAIL = /^[^\s@;,]+@[^\s@;,]+\.[^\s@;,]+$/
 const HELPER_ID = /^[A-Za-z0-9_-]{8,64}$/
 
 export function allowedShiftsOrigin(): string | null {
@@ -42,7 +42,7 @@ function readHelper(value: unknown): ShiftHelper | null {
   const { helperId, name, email, shifts } = value as Record<string, unknown>
   if (typeof helperId !== 'string' || !HELPER_ID.test(helperId)) return null
   if (typeof name !== 'string' || !name.trim() || name.length > MAX_NAME) return null
-  if (typeof email !== 'string' || email.length > 254 || !EMAIL.test(email)) return null
+  if (typeof email !== 'string' || !isSingleEmail(email)) return null
   if (!Number.isInteger(shifts) || (shifts as number) < 0 || (shifts as number) > MAX_SHIFTS) return null
   return { helperId, name: name.trim(), email: email.toLowerCase(), shifts: shifts as number }
 }

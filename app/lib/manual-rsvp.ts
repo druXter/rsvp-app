@@ -2,10 +2,10 @@
 //
 // Gäste von Hand eintragen (Reiter „Gäste“): Die Verwaltung trägt eine Antwort ein, die sie auf anderem Weg bekommen
 // hat (Telefon, persönlich). Reine Eingabeprüfung, gespeichert wird in app/admin/manual-rsvp-actions.ts.
+import { isSingleEmail } from 'suite-kit/web'
 import { InputError } from './input-error'
 import { formString } from './form'
 
-const EMAIL = /^[^\s@;,]+@[^\s@;,]+\.[^\s@;,]+$/
 
 export type ManualStatus = 'yes' | 'maybe' | 'no'
 
@@ -42,7 +42,7 @@ export function readManualRsvp(formData: FormData): ManualRsvpInput {
   const status = formData.get('status')
   if (status !== 'yes' && status !== 'maybe' && status !== 'no') throw new InputError('Bitte Zusage, Vielleicht oder Absage wählen.')
   const email = formString(formData, 'email', 255).toLowerCase() || null
-  if (email && !EMAIL.test(email)) throw new InputError(`„${email}“ ist keine gültige E-Mail-Adresse.`)
+  if (email && !isSingleEmail(email)) throw new InputError(`„${email}“ ist keine gültige E-Mail-Adresse.`)
   return {
     name,
     status,

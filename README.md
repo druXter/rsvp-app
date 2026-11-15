@@ -559,7 +559,9 @@ Gilt für Verwaltungskonten (`/admin/login`) **und** Teilnehmendenkonten (`/mein
   Anfragen, die öffentliche Registrierung (löst eine Mail an eine beliebige Adresse aus), neue E-Mail-Adressen über
   einen persönlichen Link (5 pro Link, 20 pro IP und Stunde - jede neue Adresse bekommt eine Mail) und die
   Passwort-Abfrage bei "Passwort/E-Mail ändern". Gespeichert werden nur SHA-256-Hashes von IP/E-Mail. IPv6-Adressen
-  zählen als ihr /64-Netz (ein Anschluss hat ein ganzes /64, sonst hätte jede Anfrage einen eigenen Zähler).
+  zählen als ihr /64-Netz (ein Anschluss hat ein ganzes /64, sonst hätte jede Anfrage einen eigenen Zähler; `visitorOf`
+  aus `suite-kit/web`). E-Mail-Adressen werden überall nur als genau eine nackte Adresse angenommen (`isSingleEmail`
+  aus `suite-kit/web`) - Schreibweisen wie `(x)a@b.de` oder `x<a@b.de>` zählten sonst als neue Adresse.
   Die Registrierung antwortet wie Login und Reset gleich, ob es die Adresse schon gibt oder nicht; eine vorhandene
   Adresse bekommt stattdessen eine Mail mit dem Weg über „Passwort vergessen“.
 * **`TRUST_PROXY_HOPS`** muss zur Umgebung passen (siehe `.env.example`): Nur so ist die IP für die Drosselung nicht durch

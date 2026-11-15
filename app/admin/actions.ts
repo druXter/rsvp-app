@@ -3,7 +3,7 @@
 
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { type PushSubscriptionInput, validPushSubscription } from 'suite-kit/web'
+import { type PushSubscriptionInput, validPushSubscription, isSingleEmail } from 'suite-kit/web'
 import { revalidatePath } from 'next/cache'
 import { Prisma, Role, type Event, type EventSeries, type Participant, type Rsvp } from '@prisma/client'
 import { prisma } from '../lib/prisma'
@@ -485,7 +485,7 @@ export async function requestEmailChange(formData: FormData) {
 
   const newEmail = formString(formData, 'newEmail', 254).toLowerCase()
   if (newEmail === user.email) return
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) redirect('/admin/account?error=invalidemail')
+  if (!isSingleEmail(newEmail)) redirect('/admin/account?error=invalidemail')
 
   const existing = await prisma.user.findUnique({ where: { email: newEmail } })
   if (existing) {
@@ -630,7 +630,7 @@ export async function createUser(formData: FormData) {
     ? requestedRole
     : 'MODERATOR'
 
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) redirect('/admin/create-user?error=email')
+  if (!isSingleEmail(email)) redirect('/admin/create-user?error=email')
   if (validatePassword(password, email)) redirect('/admin/create-user?error=weak')
 
   const existing = await prisma.user.findUnique({ where: { email } })

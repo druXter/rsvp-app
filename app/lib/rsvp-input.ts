@@ -9,13 +9,10 @@
  */
 export const RSVP_LIMITS = { name: 100, email: 254, phone: 50, dietaryOption: 200, allergies: 500, text: 1000 } as const
 
-// Genau EINE Adresse: ohne Leerraum, Komma, Semikolon und spitze Klammern - nodemailer liest "a@x, b@y; c@z" sonst als
-// drei Empfänger (docs/AUDIT-2026-11.md, R-07). Dasselbe Muster wie bei den Einladungen (app/lib/invitations.ts).
-const SINGLE_EMAIL = /^[^\s@;,<>"]+@[^\s@;,<>"]+\.[^\s@;,<>"]+$/
-
-export function isSingleEmail(value: string): boolean {
-  return value.length <= RSVP_LIMITS.email && SINGLE_EMAIL.test(value)
-}
+// Genau EINE nackte Adresse (docs/AUDIT-2026-11.md, R-07): isSingleEmail aus suite-kit/web (seit v0.15.0) - ohne
+// Leerraum, Steuerzeichen und <>()"[]\,;:, höchstens 254 Zeichen. nodemailer liest "a@x, b@y" sonst als zwei
+// Empfänger und stellt "(x)a@x" oder "x<a@x>" an a@x zu. Überall, wo eine E-Mail-Adresse angenommen wird.
+export { isSingleEmail } from 'suite-kit/web'
 
 /** Die erste zu lange Angabe als Meldung für den Gast, sonst null. */
 export function tooLongField(fields: [label: string, value: string | null | undefined, max: number][]): string | null {

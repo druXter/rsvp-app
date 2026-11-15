@@ -21,7 +21,7 @@ import { clearFailures, clientIp, loginRules, passwordChangeRule, refund, regist
 import { generateApiToken, hashApiToken, NEW_API_TOKEN_COOKIE } from '../lib/api-auth'
 import { notifyLinkedToolsBeforeDelete, notifyLinkedToolsOfParticipants } from '../lib/linked-tools-notify'
 import { guestUserHasPush } from '../lib/push-subscriptions'
-import { type PushSubscriptionInput, singleLine, validPushSubscription } from 'suite-kit/web'
+import { type PushSubscriptionInput, singleLine, validPushSubscription, isSingleEmail } from 'suite-kit/web'
 
 
 /**
@@ -303,7 +303,7 @@ export async function requestGuestEmailChange(formData: FormData) {
   await clearFailures([rule])
 
   if (newEmail === guestUser.email) return
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) redirect('/mein-konto/account?error=invalidemail')
+  if (!isSingleEmail(newEmail)) redirect('/mein-konto/account?error=invalidemail')
 
   const existing = await prisma.guestUser.findUnique({ where: { email: newEmail } })
   if (existing) {

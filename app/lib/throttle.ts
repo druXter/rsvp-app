@@ -1,6 +1,7 @@
 // app/lib/throttle.ts
 import { createHash } from 'node:crypto'
 import { headers } from 'next/headers'
+import { visitorOf } from 'suite-kit/web'
 import { prisma } from './prisma'
 
 /**
@@ -54,26 +55,8 @@ export async function clientIp(): Promise<string> {
   if (!forwarded) return 'unknown'
   const parts = forwarded.split(',').map(p => p.trim()).filter(Boolean)
   const ip = parts[parts.length - hops]
+  // IPv6 als /64 (docs/AUDIT-2026-11.md, R-08) - visitorOf aus suite-kit/web
   return ip ? visitorOf(ip) : 'unknown'
-}
-
-/**
- * Kennung eines Besuchers aus seiner Adresse. Bei IPv6 das /64: Ein gewöhnlicher Anschluss bekommt ein ganzes Netz mit
- * 2^64 Adressen - zählte jede einzeln, hätte jede Anfrage einen eigenen Zähler und keine Regel „pro IP“ bremste
- * (docs/AUDIT-2026-11.md, R-08). IPv4 (auch als ::ffff:a.b.c.d) bleibt, wie es ist.
- */
-export function visitorOf(ip: string): string {
-  const address = ip.toLowerCase().replace(/^\[|\]$/g, '').replace(/%.*$/, '')
-  const mapped = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/.exec(address)
-  if (mapped) return mapped[1]
-  if (!address.includes(':')) return address
-  const halves = address.split('::')
-  if (halves.length > 2) return address
-  const head = halves[0] ? halves[0].split(':') : []
-  const tail = halves.length === 2 && halves[1] ? halves[1].split(':') : []
-  const groups = halves.length === 2 ? [...head, ...Array(Math.max(0, 8 - head.length - tail.length)).fill('0'), ...tail] : head
-  if (groups.length !== 8 || !groups.every(g => /^[0-9a-f]{1,4}$/.test(g))) return address
-  return `${groups.slice(0, 4).map(g => Number.parseInt(g, 16).toString(16)).join(':')}::/64`
 }
 
 /**

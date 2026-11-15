@@ -46,3 +46,17 @@ describe('R-08 Drosselung', () => {
     expect(perWeek).toBeLessThan(10_000)
   })
 })
+
+describe('R-07 E-Mail der Antwort (Nachtrag 15.11.2026)', () => {
+  it('R-07c E-Mail der Antwort: Schreibweisen, die nodemailer an dieselbe Adresse zustellt, werden abgelehnt', async () => {
+    const { isSingleEmail } = await import('../../app/lib/rsvp-input')
+    // Gegenprobe: gewöhnliche Adressen gehen durch.
+    expect(isSingleEmail('vera@example.org')).toBe(true)
+    expect(isSingleEmail("o'brien+feier@example.org")).toBe(true)
+    // Nachtrag aus der Prüfung von Wichteln (W-08 b): Kommentare und Gruppen ließ das alte Muster durch - für die
+    // Drosselung „je Adresse“ wäre jede eine neue Adresse.
+    for (const variant of ['(x)vera@example.org', 'a:vera@example.org', 'vera@[127.0.0.1]', 've\\ra@example.org']) {
+      expect(isSingleEmail(variant), variant).toBe(false)
+    }
+  })
+})

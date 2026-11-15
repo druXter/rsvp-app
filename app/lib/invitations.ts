@@ -3,6 +3,7 @@
 // Einladungen pro Haushalt (Idee L2 der Suite, docs/KONZEPT-EINLADUNGEN.md, Abschnitt 3): Die Verwaltung lädt
 // Haushalte mit vorgegebenen Personen ein, jeder Haushalt antwortet über seinen persönlichen Link pro Person.
 // Reine Funktionen ohne Datenbank, auch im Browser nutzbar; Speichern in app/lib/invitation-store.ts.
+import { isSingleEmail } from 'suite-kit/web'
 import { alcoholFor, asAgeGroup, cleanSelection, readYesNo, type AgeGroup } from './persons'
 import { readMenuSelection, type MenuSelection } from './menu'
 
@@ -13,7 +14,6 @@ export type InvitationInput = { label: string; email: string | null; persons: In
 
 const AGE_SUFFIX: Record<string, AgeGroup> = { kind: 'CHILD', kinder: 'CHILD', kleinkind: 'INFANT', baby: 'INFANT' }
 const AGE_SUFFIX_TEXT: Record<AgeGroup, string> = { ADULT: '', CHILD: ' (Kind)', INFANT: ' (Kleinkind)' }
-const EMAIL = /^[^\s@;,]+@[^\s@;,]+\.[^\s@;,]+$/
 
 function clean(value: string): string {
   return value.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim()
@@ -71,7 +71,7 @@ export function parseInvitationLines(text: string): InvitationInput[] {
         if (extra > INVITATION_LIMITS.extraPersons) throw new Error(`Einladungen: „${label}“ - höchstens +${INVITATION_LIMITS.extraPersons} Zusatzpersonen.`)
         extraPersons = extra
       } else if (field.includes('@')) {
-        if (!EMAIL.test(field) || field.length > 254) throw new Error(`Einladungen: „${field}“ bei „${label}“ ist keine gültige E-Mail-Adresse.`)
+        if (!isSingleEmail(field)) throw new Error(`Einladungen: „${field}“ bei „${label}“ ist keine gültige E-Mail-Adresse.`)
         if (email) throw new Error(`Einladungen: „${label}“ hat zwei E-Mail-Adressen.`)
         email = field.toLowerCase()
       } else {

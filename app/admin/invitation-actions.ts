@@ -5,6 +5,7 @@
 // Reihen (seriesId, ein Link pro Haushalt für alle bzw. ausgewählte Termine). Anlegen, Ändern und Löschen dürfen
 // alle mit Zugriff auf die Gästeliste (Owner, Admin, Moderator*innen), Mails verschicken nur Owner und Admins (wie
 // Erinnerungen).
+import { isSingleEmail } from 'suite-kit/web'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { prisma } from '../lib/prisma'
@@ -90,7 +91,7 @@ export async function saveInvitation(_prev: InvitationFormState, formData: FormD
   try {
     if (!label) throw new Error('Bitte eine Bezeichnung eintragen.')
     if (label.length > INVITATION_LIMITS.label) throw new Error('Die Bezeichnung ist zu lang.')
-    if (email && !/^[^\s@;,]+@[^\s@;,]+\.[^\s@;,]+$/.test(email)) throw new Error(`„${email}“ ist keine gültige E-Mail-Adresse.`)
+    if (email && !isSingleEmail(email)) throw new Error(`„${email}“ ist keine gültige E-Mail-Adresse.`)
     if (!Number.isInteger(extra) || extra < 0 || extra > INVITATION_LIMITS.extraPersons) throw new Error(`Zusatzpersonen: 0 bis ${INVITATION_LIMITS.extraPersons}.`)
     const persons = parsePersonList(formString(formData, 'persons', 5000))
     if (persons.length === 0) throw new Error('Bitte mindestens eine Person eintragen.')
