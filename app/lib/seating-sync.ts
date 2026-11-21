@@ -1,6 +1,6 @@
 // app/lib/seating-sync.ts
 import { prisma } from './prisma'
-import { guestOf, isSeatingConfirmed, seatingLinkOf, type SeatingEnvelope, type SeatingGuest, type SeatingLink, type SeatingPlacement } from './seating'
+import { guestOf, isSeatingConfirmed, seatingLinkOf, type SeatingEnvelope, type SeatingGuest, type SeatingGuestStatus, type SeatingLink, type SeatingPlacement } from './seating'
 import { TOOL_LINKS } from './linked-tools-store'
 
 /**
@@ -32,13 +32,28 @@ export async function confirmedGuests(event: LinkedEvent): Promise<SeatingGuest[
       isOnWaitlist: false,
       ...(requireVerification ? { participant: { isVerified: true } } : {})
     },
-    include: { participant: { select: { name: true, email: true, isVerified: true } }, persons: { select: { position: true, name: true, ageGroup: true, isAttending: true } } },
+    include: { participant: { select: { name: true, email: true, isVerified: true, guestUser: { select: { email: true, isVerified: true } } } }, persons: { select: { position: true, name: true, ageGroup: true, isAttending: true } } },
     orderBy: { createdAt: 'asc' },
     take: 5000
   })
   return rsvps
     .filter(r => isSeatingConfirmed(r, r.participant, requireVerification, event.seatingRequiresPayment))
     .map(r => guestOf(r, r.participant))
+}
+
+/**
+ * Stand einer einzelnen Zusage für Seating (Rückfrage vor dem Buchen, Seating-Audit S-04): zählt sie dort (dieselbe
+ * Regel wie Gästeliste und Link) und für wie viele Personen mit Platz. Eine Zusage eines anderen Termins oder eine
+ * unbekannte id gilt als „zählt nicht“ - ob es sie gibt, erfährt Seating nicht.
+ */
+export async function guestStatus(event: LinkedEvent, rsvpId: string): Promise<SeatingGuestStatus> {
+  const requireVerification = event.series ? event.series.requireVerification : event.requireVerification
+  const rsvp = await prisma.rsvp.findFirst({
+    where: { id: rsvpId, eventId: event.id },
+    include: { participant: { select: { name: true, email: true, isVerified: true } }, persons: { select: { position: true, name: true, ageGroup: true, isAttending: true } } }
+  })
+  if (!rsvp || !isSeatingConfirmed(rsvp, rsvp.participant, requireVerification, event.seatingRequiresPayment)) return { rsvpId, attending: false, partySize: 0 }
+  return { rsvpId, attending: true, partySize: 1 + guestOf(rsvp, rsvp.participant).companions.length }
 }
 
 /**

@@ -7,7 +7,8 @@
  *   base64url(JSON-Payload) "." base64url(HMAC-SHA256(payloadPart, SEATING_SECRET))
  *
  * Jede Nachricht trägt:
- * - typ: die Art (seat-link, rsvp-change, guest-list-request, guest-list, placements). Beide
+ * - typ: die Art (seat-link, rsvp-change, guest-list-request, guest-list, placements, guest-status-request,
+ *   guest-status). Beide
  *   Richtungen teilen sich ein Secret - ohne typ ließe sich eine Nachricht als eine andere ausgeben.
  * - aud: der Origin des Empfängers (Seating: Origin der seatingUrl, rsvp-app: Origin von BASE_URL).
  * - iat/exp: Unix-Sekunden, angenommen wird höchstens eine Stunde Gültigkeit.
@@ -19,6 +20,7 @@
  * jedem Problem null zurück statt zu werfen - "nicht gültig" ist ein normaler Zustand.
  */
 
+import { provenAddress } from './proven-email'
 import {
   REMOTE_ID, configuredTool, createSignedMessage, isConfirmedRsvp, isRecord, parseToolUrl, resolveToolOrigin, resolveToolSecret, toolDefinition, toolLinkOf, verifyEnvelope, type ConfiguredTool, type StoredToolLink, type ToolLink
 } from './linked-tools'
@@ -38,7 +40,7 @@ const MAX_ENTRIES = 5000
 
 const SEATING = toolDefinition('seating')
 
-export type SeatingMessageType = 'seat-link' | 'rsvp-change' | 'guest-list-request' | 'guest-list' | 'placements'
+export type SeatingMessageType = 'seat-link' | 'rsvp-change' | 'guest-list-request' | 'guest-list' | 'placements' | 'guest-status-request' | 'guest-status'
 
 export type SeatingEnvelope = {
   typ: SeatingMessageType
@@ -48,6 +50,9 @@ export type SeatingEnvelope = {
   seatingEventId: string
   rsvpEventId: string
 }
+
+/** Wer geantwortet hat - mit dem Konto, falls verknüpft (für die bewiesene Adresse, proven-email.ts). */
+export type SeatingParticipant = { name: string; email: string | null; isVerified: boolean; guestUser?: { email: string; isVerified: boolean } | null }
 
 /** Eine Person mit Zusage, wie Seating sie erwartet (Link zur Platzwahl, Änderung, Gästeliste). */
 export type SeatingGuest = { rsvpId: string; name: string; email: string | null; companions: (string | null)[] }
@@ -118,9 +123,11 @@ export function cleanName(value: string): string {
  */
 export function guestOf(
   rsvp: { id: string; persons?: readonly { position: number; name: string | null; ageGroup: string; isAttending: boolean }[] | null },
-  participant: { name: string; email: string | null }
+  participant: SeatingParticipant
 ): SeatingGuest {
-  const email = participant.email?.trim() || null
+  // Nur eine bewiesene Adresse (Seating-Audit S-09 b): Seating schickt an sie sofort „Buchung bestätigt“ mit dem
+  // Verwaltungslink - eine eingetippte fremde Adresse bekäme sonst Post von unserem Absender und die Buchung dazu.
+  const email = provenAddress(participant, participant.guestUser)?.trim() || null
   const seated = [...(rsvp.persons ?? [])]
     .sort((a, b) => a.position - b.position)
     .filter(p => p.isAttending && p.ageGroup !== 'INFANT')
@@ -151,8 +158,17 @@ export function isSeatingConfirmed(
 
 // --- Prüfen und Ausstellen -------------------------------------------------------------------
 
+/**
+ * Rückfrage vor dem Buchen (Seating-Audit S-04): Gilt diese Zusage noch, und für wie viele Personen mit Platz?
+ * Seating fragt mit guest-status-request (rsvpId), wir antworten mit guest-status. partySize zählt wie guestOf
+ * (zusagende Personen ohne Kleinkinder, mindestens 1) - 0, wenn die Zusage nicht (mehr) zählt.
+ */
+export type SeatingGuestStatus = { rsvpId: string; attending: boolean; partySize: number }
+
 type Content<T extends SeatingMessageType> =
   T extends 'placements' ? { placements: SeatingPlacement[] }
+  : T extends 'guest-status-request' ? { rsvpId: string }
+  : T extends 'guest-status' ? SeatingGuestStatus
   : T extends 'guest-list' ? { guests: SeatingGuest[] }
   : T extends 'seat-link' ? SeatingGuest
   : T extends 'rsvp-change' ? SeatingGuest & { attending: boolean }
@@ -233,7 +249,7 @@ function readGuest(value: Record<string, unknown>): SeatingGuest | null {
 
 /**
  * Prüft Signatur, Art, Empfänger, Gültigkeit und Inhalt einer Nachricht - oder null. Eingehend
- * kommen hier nur guest-list-request und placements an; die übrigen Arten prüft diese Funktion
+ * kommen hier nur guest-list-request, guest-status-request und placements an; die übrigen Arten prüft diese Funktion
  * mit, damit die Tests die ausgehenden Nachrichten gegen denselben Maßstab halten können.
  */
 export function verifyMessage<T extends SeatingMessageType>(
@@ -268,6 +284,15 @@ export function verifyMessage<T extends SeatingMessageType>(
       content = guest && typeof raw.attending === 'boolean' ? { ...guest, attending: raw.attending } : null
       break
     }
+    case 'guest-status-request':
+      content = typeof raw.rsvpId === 'string' && SEATING_ID.test(raw.rsvpId) ? { rsvpId: raw.rsvpId } : null
+      break
+    case 'guest-status': {
+      const valid = typeof raw.rsvpId === 'string' && SEATING_ID.test(raw.rsvpId) && typeof raw.attending === 'boolean'
+        && Number.isInteger(raw.partySize) && (raw.partySize as number) >= 0 && (raw.partySize as number) <= 50
+      content = valid ? { rsvpId: raw.rsvpId, attending: raw.attending, partySize: raw.partySize } : null
+      break
+    }
     default:
       content = null
   }
@@ -293,7 +318,7 @@ export function seatingRsvpChange(input: {
   secret: string
   rsvpEventId: string
   rsvp: { id: string; isAttending: boolean; isOnWaitlist: boolean; persons: { position: number; name: string | null; ageGroup: string; isAttending: boolean }[]; amountCents: number | null; paidAt: Date | null }
-  participant: { name: string; email: string | null; isVerified: boolean }
+  participant: SeatingParticipant
   requireVerification: boolean
   seatingRequiresPayment: boolean
   deleted: boolean

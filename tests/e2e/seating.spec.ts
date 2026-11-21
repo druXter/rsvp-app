@@ -238,6 +238,59 @@ test.describe('Gästeliste (/api/seating/guest-list)', () => {
   })
 })
 
+test.describe('Rückfrage vor dem Buchen (/api/seating/guest-status)', () => {
+  // Seating-Audit S-04: Seating fragt vor jeder Buchung über eine Zusage, ob sie noch zählt und für wie viele.
+  const ask = (event: Event, seatingEventId: string, rsvpId: string, overrides: Record<string, unknown> = {}) =>
+    sign({ ...envelope('guest-status-request', event, seatingEventId, overrides), rsvpId })
+
+  test('nur signiert und nur für genau so verknüpfte Events, mit Positivkontrolle', async ({ request }) => {
+    const owner = await createAccount('CREATOR')
+    const { event, seatingEventId } = await linkedEvent(owner)
+    const { rsvp } = await createRsvp(event)
+    const unlinked = await createEvent(owner)
+    for (const [name, body] of Object.entries({
+      'falsches Secret': sign({ ...envelope('guest-status-request', event, seatingEventId), rsvpId: rsvp.id }, 'ein-anderes-secret-0123456789abcdef0123'),
+      'falsche Art': sign({ ...envelope('guest-list-request', event, seatingEventId), rsvpId: rsvp.id }),
+      'falscher Empfänger': ask(event, seatingEventId, rsvp.id, { aud: TEST_SEATING_BASE_URL }),
+      'abgelaufen': ask(event, seatingEventId, rsvp.id, { exp: nowSeconds() - 5 }),
+      'ohne Zusage': sign(envelope('guest-status-request', event, seatingEventId))
+    })) {
+      expect((await post(request, '/api/seating/guest-status', body)).status(), name).toBe(401)
+    }
+    expect((await post(request, '/api/seating/guest-status', ask(unlinked, seatingEventId, rsvp.id))).status()).toBe(404)
+    expect((await post(request, '/api/seating/guest-status', ask(event, seatingId(), rsvp.id))).status()).toBe(404)
+    // Positivkontrolle
+    const response = await post(request, '/api/seating/guest-status', ask(event, seatingEventId, rsvp.id))
+    expect(response.status()).toBe(200)
+    expect(verifySigned(await response.text())).toMatchObject({ typ: 'guest-status', aud: TEST_SEATING_BASE_URL, seatingEventId, rsvpEventId: event.id, rsvpId: rsvp.id })
+  })
+
+  test('meldet, ob die Zusage zählt und für wie viele - ohne Namen', async ({ request }) => {
+    const owner = await createAccount('CREATOR')
+    const { event, seatingEventId } = await linkedEvent(owner)
+    const status = async (rsvpId: string) => verifySigned(await (await post(request, '/api/seating/guest-status', ask(event, seatingEventId, rsvpId))).text())
+
+    const family = await createRsvp(event, { name: 'Erika Geheim' })
+    await prisma.rsvpPerson.createMany({ data: [
+      { rsvpId: family.rsvp.id, position: 0, name: 'Erika Geheim', isAttending: true },
+      { rsvpId: family.rsvp.id, position: 1, name: 'Max', isAttending: true },
+      { rsvpId: family.rsvp.id, position: 2, name: 'Baby', ageGroup: 'INFANT', isAttending: true }
+    ] })
+    const answer = await status(family.rsvp.id)
+    expect(answer).toMatchObject({ rsvpId: family.rsvp.id, attending: true, partySize: 2 })
+    expect(JSON.stringify(answer)).not.toContain('Erika')
+
+    // Abgesagt, auf der Warteliste, eine Zusage eines anderen Termins oder unbekannt: zählt nicht.
+    await prisma.rsvp.update({ where: { id: family.rsvp.id }, data: { isAttending: false } })
+    expect(await status(family.rsvp.id)).toMatchObject({ attending: false, partySize: 0 })
+    const waiting = await createRsvp(event, { isOnWaitlist: true })
+    expect(await status(waiting.rsvp.id)).toMatchObject({ attending: false })
+    const other = await createRsvp(await createEvent(owner))
+    expect(await status(other.rsvp.id)).toMatchObject({ attending: false, partySize: 0 })
+    expect(await status('cmunbekannt' + unique())).toMatchObject({ attending: false })
+  })
+})
+
 test.describe('Platzierungen (/api/seating/placements)', () => {
   type Place = { key: string; table: string | null; seat: string | null }
   const placements = (event: Event, seatingEventId: string, list: { rsvpId: string; label: string; persons?: Place[] }[], overrides: Record<string, unknown> = {}) =>

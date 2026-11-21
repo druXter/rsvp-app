@@ -30,7 +30,7 @@ export type RsvpState = {
   persons: { position: number; name: string | null; ageGroup: string; isAttending: boolean }[]
   amountCents: number | null
   paidAt: Date | null
-  participant: { name: string; email: string | null; isVerified: boolean }
+  participant: { name: string; email: string | null; isVerified: boolean; guestUser: { email: string; isVerified: boolean } | null }
   event: {
     id: string
     requireVerification: boolean
@@ -43,7 +43,7 @@ export type RsvpState = {
 const RSVP_STATE = {
   id: true, isAttending: true, isOnWaitlist: true, amountCents: true, paidAt: true,
   persons: { select: { position: true, name: true, ageGroup: true, isAttending: true } },
-  participant: { select: { name: true, email: true, isVerified: true } },
+  participant: { select: { name: true, email: true, isVerified: true, guestUser: { select: { email: true, isVerified: true } } } },
   event: { select: { id: true, requireVerification: true, seatingRequiresPayment: true, series: { select: { requireVerification: true } }, toolLinks: TOOL_LINKS } }
 } as const
 

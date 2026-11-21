@@ -1,6 +1,7 @@
 // app/lib/poll-notify.ts
 import { extractPollId, pollToolOrigin, signForPollTool, signRsvpWebhookPayload } from './poll-verification'
 import { prisma } from './prisma'
+import { provenAddress } from './proven-email'
 
 /**
  * Die Adresse, für die rsvp-app gegenüber dem Abstimmungstool einstehen kann: die eines bestätigten Kontos, mit dem
@@ -9,11 +10,10 @@ import { prisma } from './prisma'
  * eine Absage hin die Stimmen dieser Adresse (docs/AUDIT-2026-11.md, R-02).
  */
 export async function provenEmail(participant: { email: string | null; isVerified: boolean; guestUserId: string | null }): Promise<string | null> {
-  if (participant.guestUserId) {
-    const account = await prisma.guestUser.findUnique({ where: { id: participant.guestUserId }, select: { email: true, isVerified: true } })
-    if (account?.isVerified) return account.email
-  }
-  return participant.isVerified ? participant.email : null
+  const account = participant.guestUserId
+    ? await prisma.guestUser.findUnique({ where: { id: participant.guestUserId }, select: { email: true, isVerified: true } })
+    : null
+  return provenAddress(participant, account)
 }
 
 function abstimmungstoolBaseUrl(): string | null {

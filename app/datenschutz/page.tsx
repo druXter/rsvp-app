@@ -454,13 +454,15 @@ export default function DatenschutzPage() {
             Für eine <strong>bestätigte Zusage</strong> (nicht auf der Warteliste, falls der Termin eine
             E-Mail-Bestätigung verlangt, bestätigt, und falls die Veranstalter:innen die Sitzplatzwahl erst nach der
             Zahlung freigeben, bezahlt) übermitteln wir an Seating: eine Kennung deiner Antwort, deinen{' '}
-            <strong>Namen</strong>, deine <strong>E-Mail-Adresse</strong> (nur, falls du eine angegeben hast) und den{' '}
+            <strong>Namen</strong>, deine <strong>E-Mail-Adresse</strong> (nur, falls du sie bestätigt hast – selbst oder über
+            dein Konto) und den{' '}
             die <strong>Namen deiner Begleitungen</strong> (ohne Kleinkinder, die keinen eigenen Platz brauchen) - und zwar
           </p>
           <ul className="list-disc ml-6 mt-2 space-y-1">
             <li>wenn du auf &quot;Sitzplatz wählen&quot; klickst, in einem kryptographisch signierten, nur 15 Minuten gültigen Link;</li>
             <li>wenn sich deine Antwort ändert (Zusage, Absage, Warteliste, Nachrücken, Änderung von Name oder Begleitungen, Löschung), als direkte Meldung von Server zu Server, damit eine dort gebuchte Platzwahl angepasst oder storniert wird - bei einer Absage oder Löschung nur mit dem Hinweis, dass die Zusage nicht mehr gilt;</li>
-            <li>wenn Seating für die Sitzordnung die aktuelle Liste der Zusagen dieses Termins abruft.</li>
+            <li>wenn Seating für die Sitzordnung die aktuelle Liste der Zusagen dieses Termins abruft;</li>
+            <li>wenn du dort einen Platz buchst: Seating fragt vorher nach, ob deine Zusage noch gilt – die Antwort enthält nur das und die Zahl der Personen, keine Namen.</li>
           </ul>
           <p className="mt-2">
             Handynummer, Essenswunsch, Allergien, deine weiteren Antworten, dein Passwort und deine Sitzung werden dabei

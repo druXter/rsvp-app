@@ -123,17 +123,28 @@ describe('Inhalte an Seating', () => {
     ({ position, name, ageGroup: extra.ageGroup ?? 'ADULT', isAttending: extra.isAttending ?? true })
 
   it('guestOf: Name bereinigt und nie leer, Begleitung als Name oder null, zu lange Adresse fällt weg', () => {
-    expect(guestOf({ id: 'r1', persons: [person(0, ' Erika  Muster '), person(1, ' Max ')] }, { name: 'Erika', email: 'erika@example.test' }))
+    expect(guestOf({ id: 'r1', persons: [person(0, ' Erika  Muster '), person(1, ' Max ')] }, { name: 'Erika', email: 'erika@example.test', isVerified: true }))
       .toEqual({ rsvpId: 'r1', name: 'Erika Muster', email: 'erika@example.test', companions: ['Max'] })
-    expect(guestOf({ id: 'r1', persons: [person(0, '  '), person(1, null)] }, { name: '   ', email: null }))
+    expect(guestOf({ id: 'r1', persons: [person(0, '  '), person(1, null)] }, { name: '   ', email: null, isVerified: false }))
       .toEqual({ rsvpId: 'r1', name: 'Gast', email: null, companions: [null] })
-    expect(guestOf({ id: 'r1' }, { name: 'x'.repeat(300), email: `${'a'.repeat(250)}@x.de` }))
+    expect(guestOf({ id: 'r1' }, { name: 'x'.repeat(300), email: `${'a'.repeat(250)}@x.de`, isVerified: true }))
       .toMatchObject({ name: 'x'.repeat(100), email: null, companions: [] })
+  })
+
+  it('guestOf: nur eine bewiesene Adresse (Seating-Audit S-09 b)', () => {
+    const answer = { id: 'r1' }
+    // Gegenprobe: selbst bestätigt bzw. über ein bestätigtes Konto - die Adresse geht mit.
+    expect(guestOf(answer, { name: 'Erika', email: 'erika@example.test', isVerified: true }).email).toBe('erika@example.test')
+    expect(guestOf(answer, { name: 'Erika', email: 'tippfehler@example.test', isVerified: false, guestUser: { email: 'konto@example.test', isVerified: true } }).email)
+      .toBe('konto@example.test')
+    // Nur eingetippt: keine Adresse - Seating bucht dann ohne Mail.
+    expect(guestOf(answer, { name: 'Erika', email: 'fremd@example.test', isVerified: false }).email).toBeNull()
+    expect(guestOf(answer, { name: 'Erika', email: 'fremd@example.test', isVerified: false, guestUser: { email: 'konto@example.test', isVerified: false } }).email).toBeNull()
   })
 
   it('guestOf: nur zusagende Personen ohne Kleinkinder, in Reihenfolge, die erste zusagende ist der Name', () => {
     const persons = [person(2, 'Clara', { ageGroup: 'CHILD' }), person(3, 'Dora', { ageGroup: 'INFANT' }), person(0, 'Anna', { isAttending: false }), person(1, 'Ben')]
-    expect(guestOf({ id: 'r1', persons }, { name: 'Familie Muster', email: null }))
+    expect(guestOf({ id: 'r1', persons }, { name: 'Familie Muster', email: null, isVerified: false }))
       .toEqual({ rsvpId: 'r1', name: 'Ben', email: null, companions: ['Clara'] })
   })
 

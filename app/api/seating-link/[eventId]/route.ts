@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server'
 import { createMessage, guestOf, isSeatingConfirmed } from '../../../lib/seating'
 import { resolveToolLinkAccess } from '../../../lib/linked-tools-access'
+import { prisma } from '../../../lib/prisma'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,11 +32,15 @@ export async function GET(request: Request, { params }: { params: Promise<{ even
   if (!access.ok) return redirectTo(access.redirect)
 
   const { event, tool, link, rsvp, participant } = access
+  // Konto für die bewiesene Adresse (guestOf, proven-email.ts)
+  const guestUser = participant.guestUserId
+    ? await prisma.guestUser.findUnique({ where: { id: participant.guestUserId }, select: { email: true, isVerified: true } })
+    : null
   const message = createMessage('seat-link', {
     aud: link.origin,
     seatingEventId: link.remoteEventId,
     rsvpEventId: event.id,
-    ...guestOf(rsvp, participant)
+    ...guestOf(rsvp, { ...participant, guestUser })
   }, tool.secret, { ttlSeconds: SEAT_LINK_TTL_SECONDS })
 
   const target = new URL(link.url)

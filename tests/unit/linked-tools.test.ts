@@ -147,7 +147,7 @@ describe('Webhook nur an verknüpfte Tools', () => {
   }))
   const rsvp = (toolLinks: RsvpState['event']['toolLinks']): RsvpState => ({
     id: 'cmrsvpanswer0000001', isAttending: true, isOnWaitlist: false, persons: [], amountCents: null, paidAt: null,
-    participant: { name: 'Erika', email: null, isVerified: true },
+    participant: { name: 'Erika', email: null, isVerified: true, guestUser: null },
     event: { id: rsvpEventId, requireVerification: false, seatingRequiresPayment: false, series: null, toolLinks }
   })
 
