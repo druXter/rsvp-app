@@ -12,24 +12,13 @@ const eslintConfig = defineConfig([
   // spread here - core-web-vitals already registers the jsx-a11y plugin itself, and flat
   // config errors ("Cannot redefine plugin") if it's registered a second time.
   { rules: jsxA11y.flatConfigs.recommended.rules },
-  // Die Bootstrap-Skripte im Repo-Root sind bewusst klassische CommonJS-Node-Skripte
-  // (per `node create-user.js` etc. ausgeführt, siehe CLAUDE.md) statt Teil der
-  // TypeScript/Next.js-App - require() ist hier die korrekte, keine zu ersetzende Syntax.
-  {
-    files: ["create-user.js", "seed.js", "set-role.js", "migrate-token-hashes.js", "migrate-tool-links.js", "migrate-drop-seating-columns.js", "migrate-persons.js", "migrate-person-details.js", "migrate-invitation-reminders.js"],
-    rules: {
-      "@typescript-eslint/no-require-imports": "off",
-    },
-  },
+  // Eigenständige Node-Skripte im Hauptordner (create-user.js, auskunft.js, seed.js, set-role.js, migrate-*.js, …):
+  // CommonJS, laufen per `node <skript>` ohne Build (siehe CLAUDE.md) - require() ist dort richtig. "*.js" trifft nur
+  // den Hauptordner und deckt jedes neue Skript dort ohne eigenen Eintrag ab; gelintet werden sie trotzdem (Regel in
+  // suite-kit docs/KONVENTIONEN.md).
+  { files: ["*.js"], rules: { "@typescript-eslint/no-require-imports": "off" } },
   // Override default ignores of eslint-config-next.
   globalIgnores([
-    // Eigenständige Node-Skripte (CommonJS, laufen ohne Build) - kein App-Code.
-    "migrate-token-hashes.js",
-    "migrate-tool-links.js",
-    "migrate-drop-seating-columns.js",
-    "migrate-persons.js",
-    "migrate-person-details.js",
-    "migrate-invitation-reminders.js",
     // Default ignores of eslint-config-next:
     ".next/**",
     "out/**",
