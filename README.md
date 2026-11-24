@@ -554,6 +554,10 @@ Das Verknüpfen zählt gegen die Drosselung des Gast-Logins.
 
 Gilt für Verwaltungskonten (`/admin/login`) **und** Teilnehmendenkonten (`/mein-konto`):
 
+* **Gemeinsame Regeln der Suite:** `clientIp` (`app/lib/throttle.ts`) ist nur noch ein Aufruf von `clientIpFrom` aus
+  `suite-kit/web` (seit v0.17.0, IPv6 als /64); E-Mail-Adressen prüfen alle Formulare mit `isSingleEmail` von dort.
+  `tests/unit/suite-rules.test.ts` lässt die Regelsammlung `suite-kit/rules` gegen `clientIp` laufen: Kommt aus dem
+  Audit eines anderen Tools eine Regel dazu, wird sie hier nach dem Update von suite-kit von selbst rot.
 * **Passwort-Regel:** mind. 10 Zeichen (höchstens 72 Byte, die bcrypt-Grenze), keine Zeichenklassen-Pflicht, aber
   Abgleich gegen naheliegende Fälle (E-Mail selbst, Klassiker). Wird serverseitig durchgesetzt (`app/lib/password.ts`),
   das HTML-`minLength` ist nur Komfort. Hashing bleibt bcrypt; neue Hashes bekommen Kosten 12, ältere werden beim
@@ -703,7 +707,7 @@ Findet Verwaltungskonto, Teilnehmendenkonto, Antworten (auch über das Konto ode
 ## 🧪 Tests
 
 ```bash
-npm test            # Unit-Tests (vitest): Mail-Vorlagen, Passwort, Tokens, Drossel-IP und -Regeln, Rechte, PIN, Abstimmungs-Kopplung, Seating- und Zeitplan-Vertrag, verknüpfte Tools, Migrationen, Cron-Secret, Ticketkategorien und Platzregel, IBAN, GiroCode, Zahlstatus, Kontoauszug-Abgleich, Push-Versandfehler
+npm test            # Unit-Tests (vitest): gemeinsame Regeln der Suite (suite-kit/rules), Mail-Vorlagen, Passwort, Tokens, Drossel-IP und -Regeln, Rechte, PIN, Abstimmungs-Kopplung, Seating- und Zeitplan-Vertrag, verknüpfte Tools, Migrationen, Cron-Secret, Ticketkategorien und Platzregel, IBAN, GiroCode, Zahlstatus, Kontoauszug-Abgleich, Push-Versandfehler
 npm run test:e2e    # Playwright gegen eine frisch gebaute Instanz auf http://127.0.0.1:3105
 ```
 
